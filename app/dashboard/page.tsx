@@ -102,4 +102,17 @@ export default function Dashboard() {
               Live
             </span>
           </div>
-          <div className="p-6 text-center text-neutral-500 text-sm"></div>
+          <div className="p-6 text-center text-neutral-500 text-sm">No appointments yet. Once clients start booking they'll appear here in real time.</div>
+        </div>
+
+        <div className="flex gap-3 flex-wrap">
+          {actions.map((action, i) => (
+            <button key={i} className="px-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-sm text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
+              {action}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
