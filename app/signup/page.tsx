@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function Signup() {
@@ -11,7 +10,7 @@ export default function Signup() {
   const [role, setRole] = useState<'owner' | 'barber'>('owner')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [confirmed, setConfirmed] = useState(false)
   const supabase = createClient()
 
   async function handleSignup(e: React.FormEvent) {
@@ -31,7 +30,28 @@ export default function Signup() {
       })
     }
 
-    router.push('/dashboard')
+    setConfirmed(true)
+    setLoading(false)
+  }
+
+  if (confirmed) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <h1 className="text-3xl font-serif text-amber-500 mb-4">ChairOS</h1>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8">
+            <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h2 className="text-xl font-serif text-white mb-2">Check your email</h2>
+            <p className="text-neutral-400 text-sm mb-6">We sent a confirmation link to <span className="text-white">{email}</span>. Click it to activate your account then sign in.</p>
+            <a href="/login" className="block w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg transition-colors text-sm text-center">
+              Go to Sign In
+            </a>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
