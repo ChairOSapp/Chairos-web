@@ -21,13 +21,11 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Step 1 — Shop info
   const [shopName, setShopName] = useState('')
   const [shopAddress, setShopAddress] = useState('')
   const [shopCity, setShopCity] = useState('')
   const [shopPhone, setShopPhone] = useState('')
 
-  // Step 2 — Services
   const [services, setServices] = useState<any[]>([])
   const [selectedCatalog, setSelectedCatalog] = useState<Set<number>>(new Set())
   const [svcMode, setSvcMode] = useState<'catalog'|'custom'>('catalog')
@@ -36,7 +34,6 @@ export default function Onboarding() {
   const [customDuration, setCustomDuration] = useState('30')
   const [customDesc, setCustomDesc] = useState('')
 
-  // Step 3 — Barbers
   const [barbers, setBarbers] = useState<any[]>([])
   const [barberName, setBarberName] = useState('')
   const [barberAlias, setBarberAlias] = useState('')
@@ -55,18 +52,18 @@ export default function Onboarding() {
     const next = new Set(selectedCatalog)
     if (next.has(i)) {
       next.delete(i)
-      setServices(services.filter(s => s._idx !== i))
+      setServices(prev => prev.filter(s => s._idx !== i))
     } else {
       next.add(i)
       const s = CATALOG[i]
-      setServices([...services, { ...s, _idx: i }])
+      setServices(prev => [...prev, { ...s, _idx: i }])
     }
     setSelectedCatalog(next)
   }
 
   function addCustomService() {
     if (!customName || !customPrice) return
-    setServices([...services, {
+    setServices(prev => [...prev, {
       name: customName,
       price: parseFloat(customPrice),
       duration_minutes: parseInt(customDuration),
@@ -82,14 +79,14 @@ export default function Onboarding() {
       next.delete(s._idx)
       setSelectedCatalog(next)
     }
-    setServices(services.filter((_, idx) => idx !== i))
+    setServices(prev => prev.filter((_, idx) => idx !== i))
   }
 
   function addBarber() {
-    if (!barberName) return
-    setBarbers([...barbers, {
-      name: barberName,
-      alias: barberAlias,
+    if (!barberName.trim()) return
+    const newBarber = {
+      name: barberName.trim(),
+      alias: barberAlias.trim(),
       compensation_type: compType,
       commission_rate: compType === 'commission' ? parseFloat(commissionRate) / 100 : null,
       tip_split_rate: parseFloat(tipSplit) / 100,
@@ -98,12 +95,14 @@ export default function Onboarding() {
       late_fee_rate: compType === 'booth_rent' ? parseFloat(lateFeeRate) / 100 : null,
       late_fee_interval: compType === 'booth_rent' ? lateFeeInterval : null,
       color: BARBER_COLORS[barbers.length % BARBER_COLORS.length]
-    }])
-    setBarberName(''); setBarberAlias('')
+    }
+    setBarbers(prev => [...prev, newBarber])
+    setBarberName('')
+    setBarberAlias('')
   }
 
   function removeBarber(i: number) {
-    setBarbers(barbers.filter((_, idx) => idx !== i))
+    setBarbers(prev => prev.filter((_, idx) => idx !== i))
   }
 
   async function handleLaunch() {
@@ -113,7 +112,6 @@ export default function Onboarding() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not logged in')
 
-      // Create shop
       const { data: shop, error: shopErr } = await supabase
         .from('shops')
         .insert({ name: shopName, address: shopAddress, city: shopCity, phone: shopPhone, owner_id: user.id })
@@ -121,7 +119,6 @@ export default function Onboarding() {
         .single()
       if (shopErr) throw shopErr
 
-      // Create services
       if (services.length > 0) {
         const { error: svcErr } = await supabase.from('services').insert(
           services.map(s => ({ shop_id: shop.id, name: s.name, price: s.price, duration_minutes: s.duration_minutes, description: s.description }))
@@ -129,7 +126,6 @@ export default function Onboarding() {
         if (svcErr) throw svcErr
       }
 
-      // Create barbers
       if (barbers.length > 0) {
         const { error: bErr } = await supabase.from('shop_barbers').insert(
           barbers.map(b => ({
@@ -149,6 +145,7 @@ export default function Onboarding() {
         )
         if (bErr) throw bErr
       }
+
       router.push('/dashboard')
     } catch (err: any) {
       setError(err.message)
@@ -160,14 +157,11 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen bg-neutral-950 flex flex-col items-center py-10 px-4">
-
-      {/* HEADER */}
       <div className="text-center mb-8">
         <h1 className="font-serif text-3xl text-amber-500 mb-1">ChairOS</h1>
         <p className="text-neutral-400 text-sm">Let's set up your shop</p>
       </div>
 
-      {/* PROGRESS */}
       <div className="w-full max-w-lg mb-8">
         <div className="flex items-center">
           {stepLabel.map((label, i) => (
@@ -190,10 +184,8 @@ export default function Onboarding() {
       </div>
 
       <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-xl p-8">
-
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
 
-        {/* STEP 1 */}
         {step === 1 && (
           <div className="space-y-4">
             <div>
@@ -201,10 +193,10 @@ export default function Onboarding() {
               <p className="text-neutral-500 text-sm">This is how clients will find you.</p>
             </div>
             {[
-              { label: 'Shop Name', value: shopName, set: setShopName, placeholder: 'e.g. Precision House', required: true },
-              { label: 'Phone', value: shopPhone, set: setShopPhone, placeholder: '(555) 000-0000', required: false },
-              { label: 'Street Address', value: shopAddress, set: setShopAddress, placeholder: '123 Main St', required: false },
-              { label: 'City', value: shopCity, set: setShopCity, placeholder: 'Jacksonville, FL', required: false },
+              { label: 'Shop Name', value: shopName, set: setShopName, placeholder: 'e.g. Precision House' },
+              { label: 'Phone', value: shopPhone, set: setShopPhone, placeholder: '(555) 000-0000' },
+              { label: 'Street Address', value: shopAddress, set: setShopAddress, placeholder: '123 Main St' },
+              { label: 'City', value: shopCity, set: setShopCity, placeholder: 'Jacksonville, FL' },
             ].map(f => (
               <div key={f.label}>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">{f.label}</label>
@@ -219,15 +211,12 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* STEP 2 */}
         {step === 2 && (
           <div>
             <div className="mb-5">
               <h2 className="font-serif text-xl text-white mb-1">Your services</h2>
               <p className="text-neutral-500 text-sm">Pick from the catalog or add custom services.</p>
             </div>
-
-            {/* Mode tabs */}
             <div className="flex gap-1 bg-neutral-800 rounded-lg p-1 mb-5 w-fit">
               {(['catalog','custom'] as const).map(m => (
                 <button key={m} onClick={() => setSvcMode(m)}
@@ -236,8 +225,6 @@ export default function Onboarding() {
                 </button>
               ))}
             </div>
-
-            {/* Catalog */}
             {svcMode === 'catalog' && (
               <div className="grid grid-cols-2 gap-2 mb-4 max-h-64 overflow-y-auto pr-1">
                 {CATALOG.map((s, i) => (
@@ -251,8 +238,6 @@ export default function Onboarding() {
                 ))}
               </div>
             )}
-
-            {/* Custom */}
             {svcMode === 'custom' && (
               <div className="bg-neutral-800 rounded-lg p-4 mb-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -285,8 +270,6 @@ export default function Onboarding() {
                 </button>
               </div>
             )}
-
-            {/* Added services */}
             {services.length > 0 && (
               <div className="border-t border-neutral-800 pt-4 mb-4">
                 <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">
@@ -305,7 +288,6 @@ export default function Onboarding() {
                 </div>
               </div>
             )}
-
             <div className="flex gap-3 mt-4">
               <button onClick={() => setStep(1)} className="px-6 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-400 hover:text-white transition-colors">
                 Back
@@ -317,15 +299,12 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* STEP 3 */}
         {step === 3 && (
           <div>
             <div className="mb-5">
               <h2 className="font-serif text-xl text-white mb-1">Your barbers</h2>
               <p className="text-neutral-500 text-sm">Set up each barber and their compensation.</p>
             </div>
-
-            {/* Added barbers */}
             {barbers.length > 0 && (
               <div className="space-y-2 mb-5">
                 {barbers.map((b, i) => (
@@ -349,8 +328,6 @@ export default function Onboarding() {
                 ))}
               </div>
             )}
-
-            {/* Add barber form */}
             <div className="bg-neutral-800 rounded-lg p-4 space-y-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400">Add a Barber</div>
               <div className="grid grid-cols-2 gap-3">
@@ -365,8 +342,6 @@ export default function Onboarding() {
                     className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
                 </div>
               </div>
-
-              {/* Compensation type */}
               <div>
                 <label className="block text-xs text-neutral-500 mb-1.5">Compensation Type</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -378,8 +353,6 @@ export default function Onboarding() {
                   ))}
                 </div>
               </div>
-
-              {/* Commission fields */}
               {compType === 'commission' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -402,8 +375,6 @@ export default function Onboarding() {
                   </div>
                 </div>
               )}
-
-              {/* Booth rent fields */}
               {compType === 'booth_rent' && (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
@@ -443,13 +414,11 @@ export default function Onboarding() {
                   </div>
                 </div>
               )}
-
               <button onClick={addBarber} disabled={!barberName}
                 className="w-full border border-dashed border-neutral-600 rounded-lg py-2 text-neutral-400 hover:border-amber-500 hover:text-amber-500 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 + Add Barber
               </button>
             </div>
-
             <div className="flex gap-3 mt-6">
               <button onClick={() => setStep(2)} className="px-6 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-400 hover:text-white transition-colors">
                 Back
