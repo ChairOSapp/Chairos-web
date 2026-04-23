@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -19,6 +19,7 @@ const BARBER_COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c0606
 export default function Onboarding() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [error, setError] = useState('')
 
   const [shopName, setShopName] = useState('')
@@ -47,6 +48,21 @@ export default function Onboarding() {
 
   const router = useRouter()
   const supabase = createClient()
+
+  useEffect(() => {
+    async function checkShop() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+      const { data: shop } = await supabase
+        .from('shops')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single()
+      if (shop) { router.push('/dashboard'); return }
+      setChecking(false)
+    }
+    checkShop()
+  }, [])
 
   function toggleCatalog(i: number) {
     const next = new Set(selectedCatalog)
@@ -154,6 +170,12 @@ export default function Onboarding() {
   }
 
   const stepLabel = ['Shop Info', 'Services', 'Barbers']
+
+  if (checking) return (
+    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="text-amber-500 text-sm">Loading...</div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-neutral-950 flex flex-col items-center py-10 px-4">
