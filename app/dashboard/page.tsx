@@ -25,11 +25,13 @@ export default function Dashboard() {
       setProfile(profile)
 
       if (profile?.role === 'owner') {
-        const { data: shop } = await supabase
+        const { data: shops } = await supabase
           .from('shops')
           .select('*')
           .eq('owner_id', user.id)
-          .single()
+          .order('created_at', { ascending: true })
+          .limit(1)
+        const shop = shops?.[0] || null
 
         if (!shop) { router.push('/onboarding'); return }
         setShop(shop)
@@ -74,7 +76,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-neutral-950">
 
-      {/* TOPBAR */}
       <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-10">
         <span className="font-serif text-amber-500 text-lg">ChairOS</span>
         <div className="flex items-center gap-4">
@@ -93,7 +94,6 @@ export default function Dashboard() {
 
       <div className="p-6 max-w-6xl mx-auto">
 
-        {/* GREETING */}
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-white mb-1">
             {greeting}, {profile?.full_name?.split(' ')[0]}
@@ -101,7 +101,6 @@ export default function Dashboard() {
           <p className="text-neutral-500 text-sm">{dateStr}</p>
         </div>
 
-        {/* KPI CARDS */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
             { label: "Today's Revenue", value: '$0', sub: 'No bookings yet' },
@@ -118,8 +117,6 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-          {/* APPOINTMENTS */}
           <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
               <div>
@@ -133,7 +130,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* SHOP INFO */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-800">
               <div className="font-serif text-white">Shop Info</div>
@@ -158,8 +154,6 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-          {/* BARBERS */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
               <div className="font-serif text-white">Your Barbers</div>
@@ -192,7 +186,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* SERVICES */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
               <div className="font-serif text-white">Services</div>
@@ -216,7 +209,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* QUICK ACTIONS */}
         <div className="flex gap-3 flex-wrap">
           {[
             { label: '+ New Appointment', href: '/dashboard/appointments/new' },
