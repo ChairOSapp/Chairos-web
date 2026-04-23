@@ -24,6 +24,11 @@ export default function Dashboard() {
         .single()
       setProfile(profile)
 
+      if (profile?.role === 'barber') {
+        router.push('/dashboard/barber')
+        return
+      }
+
       if (profile?.role === 'owner') {
         const { data: shops } = await supabase
           .from('shops')
