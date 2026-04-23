@@ -130,23 +130,25 @@ export default function Onboarding() {
       }
 
       // Create barbers
-      for (const b of barbers) {
-        const { error: bErr } = await supabase.from('shop_barbers').insert({
-          shop_id: shop.id,
-          barber_id: user.id,
-          alias: b.alias || b.name,
-          color: b.color,
-          compensation_type: b.compensation_type,
-          commission_rate: b.commission_rate,
-          tip_split_rate: b.tip_split_rate,
-          booth_rent_amount: b.booth_rent_amount,
-          booth_rent_due_day: b.booth_rent_due_day,
-          late_fee_rate: b.late_fee_rate,
-          late_fee_interval: b.late_fee_interval
-        })
+      if (barbers.length > 0) {
+        const { error: bErr } = await supabase.from('shop_barbers').insert(
+          barbers.map(b => ({
+            shop_id: shop.id,
+            barber_id: null,
+            barber_name: b.name,
+            alias: b.alias || b.name,
+            color: b.color,
+            compensation_type: b.compensation_type,
+            commission_rate: b.commission_rate,
+            tip_split_rate: b.tip_split_rate,
+            booth_rent_amount: b.booth_rent_amount,
+            booth_rent_due_day: b.booth_rent_due_day,
+            late_fee_rate: b.late_fee_rate,
+            late_fee_interval: b.late_fee_interval
+          }))
+        )
         if (bErr) throw bErr
       }
-
       router.push('/dashboard')
     } catch (err: any) {
       setError(err.message)
