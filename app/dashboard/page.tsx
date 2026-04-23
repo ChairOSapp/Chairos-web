@@ -68,6 +68,8 @@ export default function Dashboard() {
   const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
   const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   return (
     <div className="min-h-screen bg-neutral-950">
@@ -94,7 +96,7 @@ export default function Dashboard() {
         {/* GREETING */}
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-white mb-1">
-            Good morning, {profile?.full_name?.split(' ')[0]}
+            {greeting}, {profile?.full_name?.split(' ')[0]}
           </h1>
           <p className="text-neutral-500 text-sm">{dateStr}</p>
         </div>
@@ -139,7 +141,7 @@ export default function Dashboard() {
             <div className="p-5 space-y-4">
               <div>
                 <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Shop Code</div>
-                <div className="font-mono text-lg font-bold text-amber-500 tracking-widest">{shop?.shop_code}</div>
+                <div className="font-mono text-lg font-bold text-amber-500 tracking-widest">{shop?.shop_code || '—'}</div>
                 <div className="text-xs text-neutral-600 mt-1">Share with barbers to join</div>
               </div>
               <div>
