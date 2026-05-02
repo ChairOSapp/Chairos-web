@@ -181,12 +181,6 @@ export default function Dashboard() {
     return 'text-neutral-500'
   }
 
-  const getBarberName = (barberId: string | null) => {
-    if (!barberId) return 'Unassigned'
-    const b = barbers.find(b => b.barber_id === barberId)
-    return b?.barber_name || b?.alias || 'Unknown'
-  }
-
   const displayAppts = apptTab === 'today' ? appointments : upcomingAppointments
 
   const ApptTable = ({ appts }: { appts: any[] }) => (
@@ -251,9 +245,15 @@ export default function Dashboard() {
                     <input
                       type="number"
                       placeholder="0"
+                      min="0"
+                      step="0.01"
                       value={tipInput[a.id] || ''}
-                      onChange={e => setTipInput(prev => ({ ...prev, [a.id]: e.target.value }))}
-                      className="w-10 bg-neutral-800 border border-neutral-700 rounded px-1 py-1 text-xs text-white outline-none focus:border-green-500"
+                      onChange={e => {
+                        const val = parseFloat(e.target.value)
+                        if (val < 0) return
+                        setTipInput(prev => ({ ...prev, [a.id]: e.target.value }))
+                      }}
+                      className="w-10 bg-neutral-800 border border-neutral-700 rounded px-1 py-1 text-xs text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <button
                       onClick={() => addTip(a.id, a.barber_id)}
