@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -11,83 +11,106 @@ export default function Dashboard() {
   const [appointments, setAppointments] = useState<any[]>([])
   const [tips, setTips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [shopId, setShopId] = useState<string | null>(null)
   const [tipInput, setTipInput] = useState<{[key: string]: string}>({})
   const router = useRouter()
   const supabase = createClient()
 
-  async function loadData() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    setProfile(profile)
-
-    if (profile?.role === 'barber') {
-      router.push('/dashboard/barber')
-      return
-    }
-
-    if (profile?.role === 'owner') {
-      const { data: shops } = await supabase
-        .from('shops')
-        .select('*')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: true })
-        .limit(1)
-      const shop = shops?.[0] || null
-      if (!shop) { router.push('/onboarding'); return }
-      setShop(shop)
-
-      const { data: barbers } = await supabase
-        .from('shop_barbers')
-        .select('*')
-        .eq('shop_id', shop.id)
-        .eq('active', true)
-      setBarbers(barbers || [])
-
-      const { data: services } = await supabase
-        .from('services')
-        .select('*')
-        .eq('shop_id', shop.id)
-        .eq('active', true)
-      setServices(services || [])
-
-      const today = new Date().toISOString().split('T')[0]
-
-      const { data: appointments } = await supabase
-        .from('appointments')
-        .select('*, services(*)')
-        .eq('shop_id', shop.id)
-        .eq('date', today)
-        .order('time', { ascending: true })
-      setAppointments(appointments || [])
-
-      const { data: tips } = await supabase
-        .from('tips')
-        .select('*')
-        .eq('shop_id', shop.id)
-        .gte('created_at', today)
-      setTips(tips || [])
-    }
-
-    setLoading(false)
+  const getToday = () => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
   }
 
+  const loadAppointmentsAndTips = useCallback(async (sid: string) => {
+    const today = getToday()
+    const { data: appointments } = await supabase
+      .from('appointments')
+      .select('*, services(*)')
+      .eq('shop_id', sid)
+      .eq('date', today)
+      .order('time', { ascending: true })
+    setAppointments(appointments || [])
+
+    const { data: tips } = await supabase
+      .from('tips')
+      .select('*')
+      .eq('shop_id', sid)
+      .gte('created_at', today)
+    setTips(tips || [])
+  }, [])
+
   useEffect(() => {
-    loadData()
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      setProfile(profile)
+
+      if (profile?.role === 'barber') {
+        router.push('/dashboard/barber')
+        return
+      }
+
+      if (profile?.role === 'owner') {
+        const { data: shops } = await supabase
+          .from('shops')
+          .select('*')
+          .eq('owner_id', user.id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+        const shop = shops?.[0] || null
+        if (!shop) { router.push('/onboarding'); return }
+        setShop(shop)
+        setShopId(shop.id)
+
+        const { data: barbers } = await supabase
+          .from('shop_barbers')
+          .select('*')
+          .eq('shop_id', shop.id)
+          .eq('active', true)
+        setBarbers(barbers || [])
+
+        const { data: services } = await supabase
+          .from('services')
+          .select('*')
+          .eq('shop_id', shop.id)
+          .eq('active', true)
+        setServices(services || [])
+
+        await loadAppointmentsAndTips(shop.id)
+      }
+
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  useEffect(() => {
+    if (!shopId) return
 
     const channel = supabase
-      .channel('dashboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tips' }, () => loadData())
+      .channel(`dashboard-${shopId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'appointments',
+        filter: `shop_id=eq.${shopId}`
+      }, () => loadAppointmentsAndTips(shopId))
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tips',
+        filter: `shop_id=eq.${shopId}`
+      }, () => loadAppointmentsAndTips(shopId))
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [shopId])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -214,7 +237,6 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
           <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
               <div>
