@@ -15,76 +15,75 @@ export default function Dashboard() {
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+  async function loadData() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/login'); return }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      setProfile(profile)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+    setProfile(profile)
 
-      if (profile?.role === 'barber') {
-        router.push('/dashboard/barber')
-        return
-      }
-
-      if (profile?.role === 'owner') {
-        const { data: shops } = await supabase
-          .from('shops')
-          .select('*')
-          .eq('owner_id', user.id)
-          .order('created_at', { ascending: true })
-          .limit(1)
-        const shop = shops?.[0] || null
-        if (!shop) { router.push('/onboarding'); return }
-        setShop(shop)
-
-        const { data: barbers } = await supabase
-          .from('shop_barbers')
-          .select('*')
-          .eq('shop_id', shop.id)
-          .eq('active', true)
-        setBarbers(barbers || [])
-
-        const { data: services } = await supabase
-          .from('services')
-          .select('*')
-          .eq('shop_id', shop.id)
-          .eq('active', true)
-        setServices(services || [])
-
-        // Today's appointments
-        const today = new Date().toISOString().split('T')[0]
-        const { data: appointments } = await supabase
-          .from('appointments')
-          .select('*, services(*), shop_barbers!appointments_barber_id_fkey(*)')
-          .eq('shop_id', shop.id)
-          .eq('date', today)
-          .order('time', { ascending: true })
-        setAppointments(appointments || [])
-
-        // Today's tips
-        const { data: tips } = await supabase
-          .from('tips')
-          .select('*')
-          .eq('shop_id', shop.id)
-          .gte('created_at', today)
-        setTips(tips || [])
-      }
-
-      setLoading(false)
+    if (profile?.role === 'barber') {
+      router.push('/dashboard/barber')
+      return
     }
-    load()
 
-    // Real-time subscription for appointments and tips
+    if (profile?.role === 'owner') {
+      const { data: shops } = await supabase
+        .from('shops')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+      const shop = shops?.[0] || null
+      if (!shop) { router.push('/onboarding'); return }
+      setShop(shop)
+
+      const { data: barbers } = await supabase
+        .from('shop_barbers')
+        .select('*')
+        .eq('shop_id', shop.id)
+        .eq('active', true)
+      setBarbers(barbers || [])
+
+      const { data: services } = await supabase
+        .from('services')
+        .select('*')
+        .eq('shop_id', shop.id)
+        .eq('active', true)
+      setServices(services || [])
+
+      const today = new Date().toISOString().split('T')[0]
+
+      const { data: appointments } = await supabase
+        .from('appointments')
+        .select('*, services(*)')
+        .eq('shop_id', shop.id)
+        .eq('date', today)
+        .order('time', { ascending: true })
+      setAppointments(appointments || [])
+
+      const { data: tips } = await supabase
+        .from('tips')
+        .select('*')
+        .eq('shop_id', shop.id)
+        .gte('created_at', today)
+      setTips(tips || [])
+    }
+
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadData()
+
     const channel = supabase
       .channel('dashboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tips' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tips' }, () => loadData())
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -101,11 +100,9 @@ export default function Dashboard() {
 
   async function addTip(appointmentId: string, barberId: string | null) {
     const amount = parseFloat(tipInput[appointmentId] || '0')
-    if (!amount || amount <= 0) return
-    if (!barberId) return
+    if (!amount || amount <= 0 || !barberId || !shop) return
 
-    const appt = appointments.find(a => a.id === appointmentId)
-    const barber = barbers.find(b => b.barber_id === barberId || b.id === barberId)
+    const barber = barbers.find(b => b.barber_id === barberId)
     const tipSplitRate = barber?.tip_split_rate || 1.0
     const barberTipAmount = amount * tipSplitRate
 
@@ -121,6 +118,7 @@ export default function Dashboard() {
   }
 
   async function cashOutTips(barberId: string) {
+    if (!shop) return
     await supabase.from('tips')
       .update({ cashed_out: true, cashed_out_at: new Date().toISOString() })
       .eq('barber_id', barberId)
@@ -140,7 +138,6 @@ export default function Dashboard() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  // Revenue calculations
   const todayRevenue = appointments
     .filter(a => a.status === 'done')
     .reduce((sum, a) => sum + (parseFloat(a.price) || 0), 0)
@@ -148,15 +145,13 @@ export default function Dashboard() {
   const pendingCount = appointments.filter(a => a.status === 'pending').length
   const doneCount = appointments.filter(a => a.status === 'done').length
   const noShowCount = appointments.filter(a => a.status === 'noshow').length
-  const noShowRate = appointments.length > 0
-    ? Math.round((noShowCount / appointments.length) * 100)
-    : null
+  const noShowRate = appointments.length > 0 ? Math.round((noShowCount / appointments.length) * 100) : null
 
-  // Tips per barber
   const tipsByBarber = barbers.map(b => ({
     ...b,
     tips: tips.filter(t => t.barber_id === b.barber_id),
-    pendingTips: tips.filter(t => t.barber_id === b.barber_id && !t.cashed_out)
+    pendingTips: tips
+      .filter(t => t.barber_id === b.barber_id && !t.cashed_out)
       .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
   }))
 
@@ -195,7 +190,6 @@ export default function Dashboard() {
           <p className="text-neutral-500 text-sm">{dateStr}</p>
         </div>
 
-        {/* KPI CARDS */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
             <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Today's Revenue</div>
@@ -221,7 +215,6 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
-          {/* APPOINTMENTS */}
           <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
               <div>
@@ -235,11 +228,12 @@ export default function Dashboard() {
 
             {appointments.length === 0 ? (
               <div className="p-6 text-center text-neutral-500 text-sm">
-                No appointments today. Share <span className="text-amber-500 font-mono">chairos.cc/book/{shop?.shop_code}</span> to start taking bookings.
+                No appointments today. Share{' '}
+                <span className="text-amber-500 font-mono">chairos.cc/book/{shop?.shop_code}</span>
+                {' '}to start taking bookings.
               </div>
             ) : (
               <div className="divide-y divide-neutral-800">
-                {/* Header */}
                 <div className="grid grid-cols-12 gap-2 px-5 py-2 bg-neutral-800/50">
                   <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Time</div>
                   <div className="col-span-3 text-xs font-semibold tracking-widest uppercase text-neutral-500">Client</div>
@@ -301,7 +295,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* SHOP INFO */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-800">
               <div className="font-serif text-white">Shop Info</div>
@@ -334,7 +327,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* TIPS TRACKER */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
             <div>
@@ -364,7 +356,7 @@ export default function Dashboard() {
                     <div className="text-xs text-neutral-500">pending cashout</div>
                   </div>
                   <button
-                    onClick={() => cashOutTips(b.barber_id)}
+                    onClick={() => b.barber_id && cashOutTips(b.barber_id)}
                     disabled={b.pendingTips === 0}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                       b.pendingTips > 0
@@ -379,7 +371,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* BARBERS + SERVICES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
@@ -436,7 +427,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* QUICK ACTIONS */}
         <div className="flex gap-3 flex-wrap">
           {[
             { label: '+ New Appointment', href: '/dashboard/appointments/new' },
