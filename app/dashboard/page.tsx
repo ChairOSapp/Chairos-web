@@ -8,7 +8,10 @@ export default function Dashboard() {
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [tips, setTips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [tipInput, setTipInput] = useState<{[key: string]: string}>({})
   const router = useRouter()
   const supabase = createClient()
 
@@ -37,7 +40,6 @@ export default function Dashboard() {
           .order('created_at', { ascending: true })
           .limit(1)
         const shop = shops?.[0] || null
-
         if (!shop) { router.push('/onboarding'); return }
         setShop(shop)
 
@@ -54,16 +56,76 @@ export default function Dashboard() {
           .eq('shop_id', shop.id)
           .eq('active', true)
         setServices(services || [])
+
+        // Today's appointments
+        const today = new Date().toISOString().split('T')[0]
+        const { data: appointments } = await supabase
+          .from('appointments')
+          .select('*, services(*), shop_barbers!appointments_barber_id_fkey(*)')
+          .eq('shop_id', shop.id)
+          .eq('date', today)
+          .order('time', { ascending: true })
+        setAppointments(appointments || [])
+
+        // Today's tips
+        const { data: tips } = await supabase
+          .from('tips')
+          .select('*')
+          .eq('shop_id', shop.id)
+          .gte('created_at', today)
+        setTips(tips || [])
       }
 
       setLoading(false)
     }
     load()
+
+    // Real-time subscription for appointments and tips
+    const channel = supabase
+      .channel('dashboard')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tips' }, () => load())
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  async function updateAppointmentStatus(id: string, status: string) {
+    await supabase.from('appointments').update({ status }).eq('id', id)
+  }
+
+  async function addTip(appointmentId: string, barberId: string | null) {
+    const amount = parseFloat(tipInput[appointmentId] || '0')
+    if (!amount || amount <= 0) return
+    if (!barberId) return
+
+    const appt = appointments.find(a => a.id === appointmentId)
+    const barber = barbers.find(b => b.barber_id === barberId || b.id === barberId)
+    const tipSplitRate = barber?.tip_split_rate || 1.0
+    const barberTipAmount = amount * tipSplitRate
+
+    await supabase.from('tips').insert({
+      appointment_id: appointmentId,
+      barber_id: barberId,
+      shop_id: shop.id,
+      amount: barberTipAmount,
+      cashed_out: false
+    })
+
+    setTipInput(prev => ({ ...prev, [appointmentId]: '' }))
+  }
+
+  async function cashOutTips(barberId: string) {
+    await supabase.from('tips')
+      .update({ cashed_out: true, cashed_out_at: new Date().toISOString() })
+      .eq('barber_id', barberId)
+      .eq('shop_id', shop.id)
+      .eq('cashed_out', false)
   }
 
   if (loading) return (
@@ -77,6 +139,33 @@ export default function Dashboard() {
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+
+  // Revenue calculations
+  const todayRevenue = appointments
+    .filter(a => a.status === 'done')
+    .reduce((sum, a) => sum + (parseFloat(a.price) || 0), 0)
+  const totalTips = tips.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+  const pendingCount = appointments.filter(a => a.status === 'pending').length
+  const doneCount = appointments.filter(a => a.status === 'done').length
+  const noShowCount = appointments.filter(a => a.status === 'noshow').length
+  const noShowRate = appointments.length > 0
+    ? Math.round((noShowCount / appointments.length) * 100)
+    : null
+
+  // Tips per barber
+  const tipsByBarber = barbers.map(b => ({
+    ...b,
+    tips: tips.filter(t => t.barber_id === b.barber_id),
+    pendingTips: tips.filter(t => t.barber_id === b.barber_id && !t.cashed_out)
+      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+  }))
+
+  const statusColor = (status: string) => {
+    if (status === 'done') return 'text-green-500'
+    if (status === 'confirmed') return 'text-blue-400'
+    if (status === 'noshow') return 'text-red-400'
+    return 'text-neutral-500'
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950">
@@ -106,43 +195,130 @@ export default function Dashboard() {
           <p className="text-neutral-500 text-sm">{dateStr}</p>
         </div>
 
+        {/* KPI CARDS */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "Today's Revenue", value: '$0', sub: 'No bookings yet' },
-            { label: 'Appointments', value: '0', sub: 'None today' },
-            { label: 'No-Show Rate', value: '—', sub: 'No data yet' },
-            { label: 'Monthly Revenue', value: '$0', sub: 'Just getting started' },
-          ].map((k, i) => (
-            <div key={i} className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">{k.label}</div>
-              <div className="font-serif text-3xl text-white mb-1">{k.value}</div>
-              <div className="text-xs text-neutral-500">{k.sub}</div>
-            </div>
-          ))}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Today's Revenue</div>
+            <div className="font-serif text-3xl text-white mb-1">${todayRevenue.toFixed(2)}</div>
+            <div className="text-xs text-neutral-500">{doneCount} completed</div>
+          </div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Appointments</div>
+            <div className="font-serif text-3xl text-white mb-1">{appointments.length}</div>
+            <div className="text-xs text-neutral-500">{pendingCount} pending</div>
+          </div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">No-Show Rate</div>
+            <div className="font-serif text-3xl text-white mb-1">{noShowRate !== null ? `${noShowRate}%` : '—'}</div>
+            <div className="text-xs text-neutral-500">{noShowCount} no-shows</div>
+          </div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Tips Today</div>
+            <div className="font-serif text-3xl text-green-400 mb-1">${totalTips.toFixed(2)}</div>
+            <div className="text-xs text-neutral-500">Across all barbers</div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+          {/* APPOINTMENTS */}
           <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
               <div>
                 <div className="font-serif text-white">Today's Appointments</div>
-                <div className="text-xs text-neutral-500 mt-0.5">Live booking feed</div>
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                </div>
               </div>
               <span className="text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 px-3 py-1 rounded-full">Live</span>
             </div>
-            <div className="p-6 text-center text-neutral-500 text-sm">
-              No appointments yet. Share your shop link to start taking bookings.
-            </div>
+
+            {appointments.length === 0 ? (
+              <div className="p-6 text-center text-neutral-500 text-sm">
+                No appointments today. Share <span className="text-amber-500 font-mono">chairos.cc/book/{shop?.shop_code}</span> to start taking bookings.
+              </div>
+            ) : (
+              <div className="divide-y divide-neutral-800">
+                {/* Header */}
+                <div className="grid grid-cols-12 gap-2 px-5 py-2 bg-neutral-800/50">
+                  <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Time</div>
+                  <div className="col-span-3 text-xs font-semibold tracking-widest uppercase text-neutral-500">Client</div>
+                  <div className="col-span-3 text-xs font-semibold tracking-widest uppercase text-neutral-500">Service</div>
+                  <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Status</div>
+                  <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Tip</div>
+                </div>
+                {appointments.map((a) => (
+                  <div key={a.id} className="px-5 py-3">
+                    <div className="grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-2 font-mono text-xs text-neutral-400">
+                        {a.time?.slice(0,5)}
+                      </div>
+                      <div className="col-span-3">
+                        <div className="text-sm font-medium text-white truncate">{a.client_name}</div>
+                        <div className="text-xs text-neutral-500 truncate">{a.client_phone}</div>
+                      </div>
+                      <div className="col-span-3">
+                        <div className="text-sm text-white truncate">{a.services?.name}</div>
+                        <div className="text-xs text-neutral-500">${a.price}</div>
+                      </div>
+                      <div className="col-span-2">
+                        <select
+                          value={a.status}
+                          onChange={e => updateAppointmentStatus(a.id, e.target.value)}
+                          className={`bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-amber-500 ${statusColor(a.status)}`}>
+                          <option value="pending">Pending</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="done">Done</option>
+                          <option value="noshow">No Show</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        {a.status === 'done' ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-neutral-500 text-xs">$</span>
+                            <input
+                              type="number"
+                              placeholder="0"
+                              value={tipInput[a.id] || ''}
+                              onChange={e => setTipInput(prev => ({ ...prev, [a.id]: e.target.value }))}
+                              className="w-12 bg-neutral-800 border border-neutral-700 rounded px-1 py-1 text-xs text-white outline-none focus:border-green-500"
+                            />
+                            <button
+                              onClick={() => addTip(a.id, a.barber_id)}
+                              className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded px-1.5 py-1 text-xs transition-colors">
+                              +
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-neutral-600">Mark done first</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* SHOP INFO */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-800">
               <div className="font-serif text-white">Shop Info</div>
             </div>
             <div className="p-5 space-y-4">
               <div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Booking Link</div>
+                <div className="font-mono text-xs text-amber-500 break-all">chairos.cc/book/{shop?.shop_code}</div>
+                <button
+                  onClick={() => navigator.clipboard.writeText(`https://chairos.cc/book/${shop?.shop_code}`)}
+                  className="mt-2 text-xs text-neutral-500 hover:text-amber-500 transition-colors">
+                  Copy link
+                </button>
+              </div>
+              <div>
                 <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Shop Code</div>
-                <div className="font-mono text-lg font-bold text-amber-500 tracking-widest">{shop?.shop_code || '—'}</div>
+                <div className="font-mono text-lg font-bold text-amber-500 tracking-widest">{shop?.shop_code}</div>
                 <div className="text-xs text-neutral-600 mt-1">Share with barbers to join</div>
               </div>
               <div>
@@ -158,6 +334,52 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* TIPS TRACKER */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
+            <div>
+              <div className="font-serif text-white">Daily Tips</div>
+              <div className="text-xs text-neutral-500 mt-0.5">Cashout tracker — barbers see this in real time</div>
+            </div>
+            <div className="font-serif text-lg text-green-400">${totalTips.toFixed(2)}</div>
+          </div>
+          {barbers.length === 0 ? (
+            <div className="p-5 text-center text-neutral-500 text-sm">No barbers added yet.</div>
+          ) : (
+            <div className="divide-y divide-neutral-800">
+              {tipsByBarber.map((b, i) => (
+                <div key={b.id} className="px-5 py-4 flex items-center gap-4">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
+                    style={{ background: (b.color || COLORS[i % COLORS.length]) + '22', border: `2px solid ${b.color || COLORS[i % COLORS.length]}`, color: b.color || COLORS[i % COLORS.length] }}>
+                    {(b.barber_name || b.alias || '?')[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-white">{b.barber_name || b.alias}</div>
+                    <div className="text-xs text-neutral-500">
+                      {b.tips.length} tip{b.tips.length !== 1 ? 's' : ''} today
+                    </div>
+                  </div>
+                  <div className="text-right mr-4">
+                    <div className="font-mono text-lg text-green-400">${b.pendingTips.toFixed(2)}</div>
+                    <div className="text-xs text-neutral-500">pending cashout</div>
+                  </div>
+                  <button
+                    onClick={() => cashOutTips(b.barber_id)}
+                    disabled={b.pendingTips === 0}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      b.pendingTips > 0
+                        ? 'bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30'
+                        : 'bg-neutral-800 text-neutral-600 border border-neutral-700 cursor-not-allowed'
+                    }`}>
+                    {b.pendingTips > 0 ? 'Cash Out' : 'Paid Out'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* BARBERS + SERVICES */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
@@ -214,6 +436,7 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* QUICK ACTIONS */}
         <div className="flex gap-3 flex-wrap">
           {[
             { label: '+ New Appointment', href: '/dashboard/appointments/new' },
