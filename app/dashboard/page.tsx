@@ -356,9 +356,15 @@ export default function Dashboard() {
             <div className="p-5 space-y-4">
               <div>
                 <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Booking Link</div>
-                <div className="font-mono text-xs text-amber-500 break-all">chairos.cc/book/{shop?.shop_code}</div>
+                <div className="font-mono text-xs text-amber-500 break-all">
+                  {shop?.slug ? `chairos.cc/shop/${shop.slug}` : `chairos.cc/book/${shop?.shop_code}`}
+                </div>
                 <button
-                  onClick={() => navigator.clipboard.writeText(`https://chairos.cc/book/${shop?.shop_code}`)}
+                  onClick={() => navigator.clipboard.writeText(
+                    shop?.slug
+                      ? `https://chairos.cc/shop/${shop.slug}`
+                      : `https://chairos.cc/book/${shop?.shop_code}`
+                  )}
                   className="mt-2 text-xs text-neutral-500 hover:text-amber-500 transition-colors">
                   Copy link
                 </button>
@@ -485,6 +491,7 @@ export default function Dashboard() {
             { label: 'Manage Services', href: '/dashboard/services' },
             { label: 'Manage Barbers', href: '/dashboard/barbers' },
             { label: 'Invite Barber', href: '/dashboard/invite' },
+            { label: 'Shop Settings', href: '/dashboard/settings' },
           ].map((action, i) => (
             <button key={i} onClick={() => router.push(action.href)}
               className="px-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-sm text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
