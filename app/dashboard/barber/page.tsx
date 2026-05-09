@@ -9,6 +9,7 @@ export default function BarberDashboard() {
   const [shop, setShop] = useState<any>(null)
   const [appointments, setAppointments] = useState<any[]>([])
   const [tips, setTips] = useState<any[]>([])
+  const [clientLocks, setClientLocks] = useState<any[]>([])
   const [boothRent, setBoothRent] = useState<any>(null)
   const [showEarnings, setShowEarnings] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -39,6 +40,12 @@ export default function BarberDashboard() {
       .eq('barber_id', uid)
       .gte('created_at', today)
     setTips(tips || [])
+
+    const { data: locks } = await supabase
+      .from('client_locks')
+      .select('*, clients(*)')
+      .eq('barber_id', uid)
+    setClientLocks(locks || [])
   }, [])
 
   useEffect(() => {
@@ -86,23 +93,21 @@ export default function BarberDashboard() {
 
   useEffect(() => {
     if (!barberId || !shopId) return
-
     const channel = supabase
       .channel(`barber-${barberId}`)
       .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'appointments',
+        event: '*', schema: 'public', table: 'appointments',
         filter: `barber_id=eq.${barberId}`
       }, () => loadLiveData(barberId, shopId))
       .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'tips',
+        event: '*', schema: 'public', table: 'tips',
+        filter: `barber_id=eq.${barberId}`
+      }, () => loadLiveData(barberId, shopId))
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'client_locks',
         filter: `barber_id=eq.${barberId}`
       }, () => loadLiveData(barberId, shopId))
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [barberId, shopId])
 
@@ -131,12 +136,17 @@ export default function BarberDashboard() {
     ? todayRevenue * (shopBarber?.commission_rate || 0.7)
     : todayRevenue
   const totalTips = tips.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
-  const pendingTips = tips
-    .filter(t => !t.cashed_out)
-    .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
-  const cashedTips = tips
-    .filter(t => t.cashed_out)
-    .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+  const pendingTips = tips.filter(t => !t.cashed_out).reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+  const cashedTips = tips.filter(t => t.cashed_out).reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+
+  // Client Lock metrics
+  const lockedClients = clientLocks.filter(l => l.locked)
+  const atRiskClients = lockedClients.filter(l => {
+    if (!l.last_booking_date) return false
+    const daysSince = Math.floor((Date.now() - new Date(l.last_booking_date).getTime()) / (1000 * 60 * 60 * 24))
+    return l.loyalty_protected ? daysSince > 300 : daysSince > 60
+  })
+  const loyaltyClients = lockedClients.filter(l => l.loyalty_protected)
 
   const statusColor = (s: string) => {
     if (s === 'done') return 'text-green-500'
@@ -172,6 +182,7 @@ export default function BarberDashboard() {
           <p className="text-neutral-500 text-sm">{today}</p>
         </div>
 
+        {/* IDENTITY CARD */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center font-serif text-xl font-bold flex-shrink-0"
             style={{ background: color + '22', border: `2px solid ${color}`, color }}>
@@ -191,6 +202,7 @@ export default function BarberDashboard() {
           </div>
         </div>
 
+        {/* BOOTH RENT ALERT */}
         {boothRent && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
             <div className="flex items-center justify-between">
@@ -218,6 +230,61 @@ export default function BarberDashboard() {
           </div>
         )}
 
+        {/* CLIENT LOCK */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
+            <div>
+              <div className="font-serif text-white flex items-center gap-2">
+                My Client Lock
+                <span className="text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                  Live
+                </span>
+              </div>
+              <div className="text-xs text-neutral-500 mt-0.5">Your client retention at a glance</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-neutral-800">
+            <div className="p-4 text-center">
+              <div className="font-serif text-2xl text-green-400 mb-1">{lockedClients.length}</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Locked</div>
+              <div className="text-xs text-neutral-600 mt-0.5">Your clients</div>
+            </div>
+            <div className="p-4 text-center">
+              <div className={`font-serif text-2xl mb-1 ${atRiskClients.length > 0 ? 'text-amber-500' : 'text-neutral-600'}`}>
+                {atRiskClients.length}
+              </div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">At Risk</div>
+              <div className="text-xs text-neutral-600 mt-0.5">Need rebooking</div>
+            </div>
+            <div className="p-4 text-center">
+              <div className={`font-serif text-2xl mb-1 ${loyaltyClients.length > 0 ? 'text-amber-500' : 'text-neutral-600'}`}>
+                {loyaltyClients.length}
+              </div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Loyalty</div>
+              <div className="text-xs text-neutral-600 mt-0.5">12+ months</div>
+            </div>
+          </div>
+          {atRiskClients.length > 0 && (
+            <div className="border-t border-neutral-800 px-5 py-3 bg-amber-500/5">
+              <div className="text-xs font-semibold text-amber-500 mb-2">At Risk — Reach Out</div>
+              <div className="space-y-1.5">
+                {atRiskClients.slice(0, 3).map((l, i) => (
+                  <div key={i} className="flex justify-between items-center">
+                    <span className="text-xs text-white">{l.clients?.full_name || l.clients?.phone || 'Client'}</span>
+                    <span className="text-xs text-neutral-500">
+                      Last visit {new Date(l.last_booking_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                ))}
+                {atRiskClients.length > 3 && (
+                  <div className="text-xs text-neutral-600">+{atRiskClients.length - 3} more</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* SCHEDULE */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
             <div>
@@ -260,6 +327,7 @@ export default function BarberDashboard() {
           )}
         </div>
 
+        {/* EARNINGS TOGGLE */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
           <button
             onClick={() => setShowEarnings(!showEarnings)}
