@@ -24,7 +24,6 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
 
-  // Booking state
   const [selectedBarber, setSelectedBarber] = useState<any>(null)
   const [selectedService, setSelectedService] = useState<any>(null)
   const [selectedDate, setSelectedDate] = useState('')
@@ -71,7 +70,6 @@ export default function BookingPage() {
     setSubmitting(true)
     setError('')
 
-    // Convert time to 24hr for database
     const [time, period] = selectedTime.split(' ')
     const [hours, minutes] = time.split(':')
     let h = parseInt(hours)
@@ -98,18 +96,20 @@ export default function BookingPage() {
     setSubmitting(false)
   }
 
-  // Min date = today
   const today = new Date().toISOString().split('T')[0]
   const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
+  const brand = shop?.brand_color || '#b8861f'
+  const brandLight = brand + '18'
+  const brandMid = brand + '33'
 
   if (loading) return (
-    <div className="min-h-screen bg-[#111] flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
     </div>
   )
 
   if (notFound) return (
-    <div className="min-h-screen bg-[#111] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
       <div className="text-center">
         <h1 className="font-serif text-3xl text-amber-500 mb-4">ChairOS</h1>
         <p className="text-neutral-400">Shop not found. Check your link and try again.</p>
@@ -118,12 +118,23 @@ export default function BookingPage() {
   )
 
   if (success) return (
-    <div className="min-h-screen bg-[#111] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center">
-        <h1 className="font-serif text-3xl text-amber-500 mb-6">{shop.name}</h1>
-        <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-8">
-          <div className="w-14 h-14 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        {shop.logo_url ? (
+          <img src={shop.logo_url} alt={shop.name} className="w-16 h-16 rounded-xl object-cover mx-auto mb-4" />
+        ) : (
+          <div className="w-16 h-16 rounded-xl flex items-center justify-center font-serif text-2xl mx-auto mb-4"
+            style={{ background: brandMid, color: brand }}>
+            {shop.name[0]}
+          </div>
+        )}
+        <h1 className="font-serif text-2xl text-white mb-6">{shop.name}</h1>
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8">
+          <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: brand + '20', border: `2px solid ${brand}40` }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
           </div>
           <h2 className="font-serif text-xl text-white mb-2">You're booked.</h2>
           <p className="text-neutral-400 text-sm mb-6">
@@ -131,21 +142,22 @@ export default function BookingPage() {
             {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at {selectedTime}.
           </p>
           <div className="bg-neutral-800 rounded-lg p-4 mb-6 text-left space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-400">Service</span>
-              <span className="text-white">{selectedService.name}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-400">Price</span>
-              <span className="text-amber-500 font-mono">${selectedService.price}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-400">Duration</span>
-              <span className="text-white">{selectedService.duration_minutes} mins</span>
-            </div>
+            {[
+              { label: 'Service', value: selectedService.name },
+              { label: 'Price', value: `$${selectedService.price}`, colored: true },
+              { label: 'Duration', value: `${selectedService.duration_minutes} mins` },
+              { label: 'Barber', value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
+            ].map((row, i) => (
+              <div key={i} className="flex justify-between text-sm">
+                <span className="text-neutral-400">{row.label}</span>
+                <span style={row.colored ? { color: brand } : {}} className={row.colored ? 'font-mono font-semibold' : 'text-white'}>
+                  {row.value}
+                </span>
+              </div>
+            ))}
           </div>
           <p className="text-neutral-600 text-xs">
-            You'll receive a confirmation text at {clientPhone}. Powered by ChairOS.
+            Confirmation sent to {clientPhone}. Powered by ChairOS.
           </p>
         </div>
       </div>
@@ -153,32 +165,60 @@ export default function BookingPage() {
   )
 
   return (
-    <div className="min-h-screen bg-[#111]">
+    <div className="min-h-screen bg-neutral-950">
+
+      {/* HERO BANNER */}
+      {shop.hero_url && (
+        <div className="w-full h-48 md:h-64 overflow-hidden relative">
+          <img src={shop.hero_url} alt={shop.name} className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60" />
+        </div>
+      )}
 
       {/* SHOP HEADER */}
-      <div className="bg-[#0a0a0a] border-b border-neutral-800 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="font-serif text-xl text-amber-500">{shop.name}</h1>
-            <p className="text-neutral-500 text-xs mt-0.5">{shop.address}{shop.city ? ` · ${shop.city}` : ''}</p>
-          </div>
-          <div className="text-right">
-            <div className="text-xs text-neutral-500">Shop Code</div>
-            <div className="font-mono text-sm text-neutral-400">{shop.shop_code}</div>
+      <div style={{ background: shop.hero_url ? 'transparent' : '#0a0a0a' }}
+        className={`px-6 py-5 border-b border-neutral-800 ${shop.hero_url ? '-mt-20 relative z-10' : ''}`}>
+        <div className="max-w-2xl mx-auto flex items-center gap-4">
+          {shop.logo_url ? (
+            <img src={shop.logo_url} alt={shop.name}
+              className="w-14 h-14 rounded-xl object-cover flex-shrink-0 shadow-lg border border-white/10" />
+          ) : (
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center font-serif text-xl font-bold flex-shrink-0 shadow-lg"
+              style={{ background: brandMid, color: brand, border: `2px solid ${brand}40` }}>
+              {shop.name[0]}
+            </div>
+          )}
+          <div className="flex-1">
+            <h1 className="font-serif text-xl text-white">{shop.name}</h1>
+            {shop.tagline && <p className="text-xs mt-0.5" style={{ color: brand }}>{shop.tagline}</p>}
+            {(shop.address || shop.city) && (
+              <p className="text-neutral-500 text-xs mt-0.5">
+                {[shop.address, shop.city].filter(Boolean).join(' · ')}
+              </p>
+            )}
           </div>
         </div>
+        {shop.bio && (
+          <div className="max-w-2xl mx-auto mt-3">
+            <p className="text-neutral-400 text-xs leading-relaxed">{shop.bio}</p>
+          </div>
+        )}
       </div>
 
       {/* PROGRESS */}
-      <div className="bg-[#0a0a0a] border-b border-neutral-800 px-6 py-3">
+      <div className="bg-neutral-900 border-b border-neutral-800 px-6 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           {['Barber', 'Service', 'Date & Time', 'Your Info'].map((label, i) => (
             <div key={i} className="flex items-center gap-2 flex-1 last:flex-none">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all
-                ${step > i+1 ? 'bg-green-500 text-white' : step === i+1 ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-neutral-600'}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all`}
+                style={{
+                  background: step > i+1 ? '#22c55e' : step === i+1 ? brand : '#262626',
+                  color: step > i+1 || step === i+1 ? '#000' : '#6b7280'
+                }}>
                 {step > i+1 ? '✓' : i+1}
               </div>
-              <span className={`text-xs hidden sm:block ${step === i+1 ? 'text-amber-500' : step > i+1 ? 'text-green-500' : 'text-neutral-600'}`}>
+              <span className={`text-xs hidden sm:block transition-colors`}
+                style={{ color: step === i+1 ? brand : step > i+1 ? '#22c55e' : '#4b5563' }}>
                 {label}
               </span>
               {i < 3 && <div className={`flex-1 h-px ${step > i+1 ? 'bg-green-500' : 'bg-neutral-800'}`} />}
@@ -199,9 +239,12 @@ export default function BookingPage() {
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div
                 onClick={() => { setSelectedBarber(null); setStep(2) }}
-                className="bg-[#1a1a1a] border-2 border-neutral-800 hover:border-amber-500 rounded-xl p-4 cursor-pointer transition-all text-center">
-                <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center mx-auto mb-3">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                className="bg-neutral-900 border-2 border-neutral-800 rounded-xl p-4 cursor-pointer transition-all text-center hover:border-neutral-600"
+                style={{ '--hover-border': brand } as any}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '#262626')}>
+                <div className="w-14 h-14 rounded-full bg-neutral-800 flex items-center justify-center mx-auto mb-3">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
                     <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                   </svg>
@@ -209,16 +252,29 @@ export default function BookingPage() {
                 <div className="text-sm font-semibold text-white">Any Barber</div>
                 <div className="text-xs text-neutral-500 mt-1">First available</div>
               </div>
+
               {barbers.map((b, i) => (
                 <div key={b.id}
                   onClick={() => { setSelectedBarber(b); setStep(2) }}
-                  className="bg-[#1a1a1a] border-2 border-neutral-800 hover:border-amber-500 rounded-xl p-4 cursor-pointer transition-all text-center">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 font-serif text-lg font-bold"
-                    style={{ background: (b.color || COLORS[i % COLORS.length]) + '22', border: `2px solid ${b.color || COLORS[i % COLORS.length]}`, color: b.color || COLORS[i % COLORS.length] }}>
-                    {(b.barber_name || b.alias || '?')[0].toUpperCase()}
-                  </div>
+                  className="bg-neutral-900 border-2 border-neutral-800 rounded-xl p-4 cursor-pointer transition-all text-center"
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#262626')}>
+                  {b.photo_url ? (
+                    <img src={b.photo_url} alt={b.barber_name || b.alias}
+                      className="w-14 h-14 rounded-full object-cover mx-auto mb-3 border-2"
+                      style={{ borderColor: b.color || COLORS[i % COLORS.length] }} />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 font-serif text-xl font-bold"
+                      style={{
+                        background: (b.color || COLORS[i % COLORS.length]) + '22',
+                        border: `2px solid ${b.color || COLORS[i % COLORS.length]}`,
+                        color: b.color || COLORS[i % COLORS.length]
+                      }}>
+                      {(b.barber_name || b.alias || '?')[0].toUpperCase()}
+                    </div>
+                  )}
                   <div className="text-sm font-semibold text-white">{b.barber_name || b.alias}</div>
-                  {b.alias && b.barber_name && <div className="text-xs text-neutral-500 mt-1">{b.alias}</div>}
+                  {b.bio && <div className="text-xs text-neutral-500 mt-1 line-clamp-2">{b.bio}</div>}
                 </div>
               ))}
             </div>
@@ -234,13 +290,15 @@ export default function BookingPage() {
               {services.map((s) => (
                 <div key={s.id}
                   onClick={() => { setSelectedService(s); setStep(3) }}
-                  className={`bg-[#1a1a1a] border-2 rounded-xl p-4 cursor-pointer transition-all flex items-center justify-between
-                    ${selectedService?.id === s.id ? 'border-amber-500' : 'border-neutral-800 hover:border-neutral-600'}`}>
+                  className="bg-neutral-900 border-2 rounded-xl p-4 cursor-pointer transition-all flex items-center justify-between"
+                  style={{ borderColor: selectedService?.id === s.id ? brand : '#262626' }}
+                  onMouseEnter={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#404040' }}
+                  onMouseLeave={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#262626' }}>
                   <div>
                     <div className="text-sm font-semibold text-white">{s.name}</div>
                     <div className="text-xs text-neutral-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
                   </div>
-                  <div className="font-serif text-lg text-amber-500 ml-4 flex-shrink-0">${s.price}</div>
+                  <div className="font-serif text-lg ml-4 flex-shrink-0 font-semibold" style={{ color: brand }}>${s.price}</div>
                 </div>
               ))}
             </div>
@@ -258,7 +316,10 @@ export default function BookingPage() {
                 <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Date</label>
                 <input type="date" value={selectedDate} min={today}
                   onChange={e => setSelectedDate(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none transition-colors"
+                  style={{ '--tw-ring-color': brand } as any}
+                  onFocus={e => e.target.style.borderColor = brand}
+                  onBlur={e => e.target.style.borderColor = '#404040'} />
               </div>
               {selectedDate && (
                 <div>
@@ -266,8 +327,12 @@ export default function BookingPage() {
                   <div className="grid grid-cols-4 gap-2">
                     {TIMES.map(t => (
                       <button key={t} onClick={() => setSelectedTime(t)}
-                        className={`py-2 rounded-lg text-xs font-medium transition-all border
-                          ${selectedTime === t ? 'bg-amber-500 border-amber-500 text-black' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500'}`}>
+                        className="py-2 rounded-lg text-xs font-medium transition-all border"
+                        style={{
+                          background: selectedTime === t ? brand : '#171717',
+                          borderColor: selectedTime === t ? brand : '#404040',
+                          color: selectedTime === t ? '#000' : '#9ca3af'
+                        }}>
                         {t}
                       </button>
                     ))}
@@ -277,8 +342,10 @@ export default function BookingPage() {
             </div>
             <div className="flex gap-3">
               <button onClick={() => setStep(2)} className="text-sm text-neutral-500 hover:text-white transition-colors">← Back</button>
-              <button onClick={() => { if (!selectedDate || !selectedTime) { setError('Please select a date and time'); return }; setError(''); setStep(4) }}
-                className="ml-auto bg-amber-500 hover:bg-amber-400 text-black font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
+              <button
+                onClick={() => { if (!selectedDate || !selectedTime) { setError('Please select a date and time'); return }; setError(''); setStep(4) }}
+                className="ml-auto font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors text-black"
+                style={{ background: brand }}>
                 Continue →
               </button>
             </div>
@@ -291,63 +358,52 @@ export default function BookingPage() {
             <h2 className="font-serif text-xl text-white mb-1">Your info</h2>
             <p className="text-neutral-500 text-sm mb-6">No account needed. Just your name and number.</p>
 
-            {/* BOOKING SUMMARY */}
-            <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-4 mb-6 space-y-2">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6 space-y-2">
               <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Booking Summary</div>
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-400">Barber</span>
-                <span className="text-white">{selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available'}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-400">Service</span>
-                <span className="text-white">{selectedService?.name}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-400">Date</span>
-                <span className="text-white">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-400">Time</span>
-                <span className="text-white">{selectedTime}</span>
-              </div>
-              <div className="flex justify-between text-sm border-t border-neutral-700 pt-2 mt-2">
+              {[
+                { label: 'Barber', value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
+                { label: 'Service', value: selectedService?.name },
+                { label: 'Date', value: new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) },
+                { label: 'Time', value: selectedTime },
+              ].map((row, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className="text-neutral-400">{row.label}</span>
+                  <span className="text-white">{row.value}</span>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm border-t border-neutral-800 pt-2 mt-2">
                 <span className="text-neutral-400">Total</span>
-                <span className="text-amber-500 font-mono font-semibold">${selectedService?.price}</span>
+                <span className="font-mono font-semibold" style={{ color: brand }}>${selectedService?.price}</span>
               </div>
             </div>
 
             <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Full Name *</label>
-                <input type="text" value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Your name"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Phone Number *</label>
-                <input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="(555) 000-0000"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Email (optional)</label>
-                <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="For confirmation email"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Notes (optional)</label>
-                <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any requests or info for your barber"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
-              </div>
+              {[
+                { label: 'Full Name *', value: clientName, set: setClientName, type: 'text', placeholder: 'Your name' },
+                { label: 'Phone Number *', value: clientPhone, set: setClientPhone, type: 'tel', placeholder: '(555) 000-0000' },
+                { label: 'Email (optional)', value: clientEmail, set: setClientEmail, type: 'email', placeholder: 'For confirmation email' },
+                { label: 'Notes (optional)', value: notes, set: setNotes, type: 'text', placeholder: 'Any requests for your barber' },
+              ].map(f => (
+                <div key={f.label}>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">{f.label}</label>
+                  <input type={f.type} value={f.value} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none transition-colors"
+                    onFocus={e => e.target.style.borderColor = brand}
+                    onBlur={e => e.target.style.borderColor = '#404040'} />
+                </div>
+              ))}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
               <button onClick={() => setStep(3)} className="text-sm text-neutral-500 hover:text-white transition-colors">← Back</button>
               <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone}
-                className="ml-auto bg-amber-500 hover:bg-amber-400 text-black font-semibold px-8 py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
+                style={{ background: brand }}>
                 {submitting ? 'Booking...' : 'Confirm Booking'}
               </button>
             </div>
 
-            <p className="text-neutral-600 text-xs text-center mt-4">Powered by ChairOS</p>
+            <p className="text-neutral-700 text-xs text-center mt-6">Powered by ChairOS</p>
           </div>
         )}
       </div>
