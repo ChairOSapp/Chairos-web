@@ -16,8 +16,16 @@ export default function Dashboard() {
   const [shopId, setShopId] = useState<string | null>(null)
   const [tipInput, setTipInput] = useState<{[key: string]: string}>({})
   const [apptTab, setApptTab] = useState<'today'|'upcoming'>('today')
+  const [toast, setToast] = useState<{msg: string, type: 'success'|'error'} | null>(null)
+  const [addingTip, setAddingTip] = useState<string | null>(null)
+  const [cashingOut, setCashingOut] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
+
+  const showToast = (msg: string, type: 'success'|'error' = 'success') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3000)
+  }
 
   const getToday = () => {
     const now = new Date()
@@ -107,33 +115,43 @@ export default function Dashboard() {
   }
 
   async function updateAppointmentStatus(id: string, status: string) {
-    await supabase.from('appointments').update({ status }).eq('id', id)
+    const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
+    if (error) showToast(error.message, 'error')
   }
 
   async function updateAppointmentBarber(id: string, barberId: string) {
-    await supabase.from('appointments').update({ barber_id: barberId || null }).eq('id', id)
+    const { error } = await supabase.from('appointments').update({ barber_id: barberId || null }).eq('id', id)
+    if (error) showToast(error.message, 'error')
   }
 
   async function addTip(appointmentId: string, barberId: string | null) {
     const amount = parseFloat(tipInput[appointmentId] || '0')
-    if (!amount || amount <= 0 || !barberId || !shop) return
+    if (!amount || amount <= 0 || !shop) return
+    if (!barberId) { showToast('Assign a barber before adding a tip', 'error'); return }
+    setAddingTip(appointmentId)
     const barber = barbers.find(b => b.barber_id === barberId)
     const tipSplitRate = barber?.tip_split_rate || 1.0
-    await supabase.from('tips').insert({
+    const { error } = await supabase.from('tips').insert({
       appointment_id: appointmentId,
       barber_id: barberId,
       shop_id: shop.id,
       amount: amount * tipSplitRate,
       cashed_out: false
     })
-    setTipInput(prev => ({ ...prev, [appointmentId]: '' }))
+    if (error) showToast(error.message, 'error')
+    else { setTipInput(prev => ({ ...prev, [appointmentId]: '' })); showToast(`$${amount.toFixed(2)} tip added`) }
+    setAddingTip(null)
   }
 
   async function cashOutTips(barberId: string) {
     if (!shop) return
-    await supabase.from('tips')
+    setCashingOut(barberId)
+    const { error } = await supabase.from('tips')
       .update({ cashed_out: true, cashed_out_at: new Date().toISOString() })
       .eq('barber_id', barberId).eq('shop_id', shop.id).eq('cashed_out', false)
+    if (error) showToast(error.message, 'error')
+    else showToast('Tips cashed out')
+    setCashingOut(null)
   }
 
   if (loading) return (
@@ -248,8 +266,9 @@ export default function Dashboard() {
                       className="w-10 bg-neutral-800 border border-neutral-700 rounded px-1 py-1 text-xs text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <button onClick={() => addTip(a.id, a.barber_id)}
-                      className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded px-1.5 py-1 text-xs transition-colors">
-                      +
+                      disabled={addingTip === a.id}
+                      className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded px-1.5 py-1 text-xs transition-colors disabled:opacity-50">
+                      {addingTip === a.id ? '…' : '+'}
                     </button>
                   </div>
                 ) : (
@@ -270,6 +289,13 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-neutral-950">
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg ${
+          toast.type === 'error' ? 'bg-red-900 border border-red-700 text-red-200' : 'bg-neutral-800 border border-green-700 text-green-300'
+        }`}>
+          {toast.msg}
+        </div>
+      )}
 
       <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-10">
         <span className="font-serif text-amber-500 text-lg">ChairOS</span>
@@ -465,13 +491,13 @@ export default function Dashboard() {
                     <div className="text-xs text-neutral-500">pending cashout</div>
                   </div>
                   <button onClick={() => b.barber_id && cashOutTips(b.barber_id)}
-                    disabled={b.pendingTips === 0}
+                    disabled={b.pendingTips === 0 || cashingOut === b.barber_id}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                      b.pendingTips > 0
+                      b.pendingTips > 0 && cashingOut !== b.barber_id
                         ? 'bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30'
                         : 'bg-neutral-800 text-neutral-600 border border-neutral-700 cursor-not-allowed'
                     }`}>
-                    {b.pendingTips > 0 ? 'Cash Out' : 'Paid Out'}
+                    {cashingOut === b.barber_id ? 'Cashing…' : b.pendingTips > 0 ? 'Cash Out' : 'Paid Out'}
                   </button>
                 </div>
               ))}

@@ -21,6 +21,7 @@ export default function ManageServices() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [mode, setMode] = useState<'catalog'|'custom'>('catalog')
 
@@ -70,7 +71,7 @@ export default function ManageServices() {
   async function addFromCatalog(s: any) {
     const already = services.find(sv => sv.name === s.name)
     if (already) return
-    await supabase.from('services').insert({
+    const { error } = await supabase.from('services').insert({
       shop_id: shop.id,
       name: s.name,
       price: s.price,
@@ -78,6 +79,9 @@ export default function ManageServices() {
       description: s.description,
       active: true
     })
+    if (error) { setError(error.message); return }
+    setSuccess(`${s.name} added.`)
+    setTimeout(() => setSuccess(''), 3000)
     await loadData()
   }
 
@@ -92,17 +96,24 @@ export default function ManageServices() {
       description: svcDesc.trim()
     }
 
+    let saveError = null
     if (editingId) {
-      await supabase.from('services').update(payload).eq('id', editingId)
+      const { error } = await supabase.from('services').update(payload).eq('id', editingId)
+      saveError = error
     } else {
-      await supabase.from('services').insert({ ...payload, shop_id: shop.id, active: true })
+      const { error } = await supabase.from('services').insert({ ...payload, shop_id: shop.id, active: true })
+      saveError = error
     }
 
+    if (saveError) { setError(saveError.message); setSaving(false); return }
+    setSuccess(editingId ? 'Service updated.' : 'Service added.')
+    setTimeout(() => setSuccess(''), 3000)
     resetForm(); setShowForm(false); await loadData(); setSaving(false)
   }
 
   async function toggleActive(id: string, current: boolean) {
-    await supabase.from('services').update({ active: !current }).eq('id', id)
+    const { error } = await supabase.from('services').update({ active: !current }).eq('id', id)
+    if (error) { setError(error.message); return }
     await loadData()
   }
 
@@ -133,6 +144,9 @@ export default function ManageServices() {
             + Add Service
           </button>
         </div>
+
+        {error && !showForm && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
+        {success && <p className="text-green-400 text-sm bg-green-950 border border-green-900 rounded-lg p-3 mb-6">{success}</p>}
 
         {showForm && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">

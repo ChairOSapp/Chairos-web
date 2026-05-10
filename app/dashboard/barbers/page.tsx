@@ -13,6 +13,7 @@ export default function ManageBarbers() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const [barberName, setBarberName] = useState('')
@@ -85,23 +86,31 @@ export default function ManageBarbers() {
       late_fee_interval: compType === 'booth_rent' ? lateFeeInterval : null,
     }
 
+    let saveError = null
     if (editingId) {
-      await supabase.from('shop_barbers').update(payload).eq('id', editingId)
+      const { error } = await supabase.from('shop_barbers').update(payload).eq('id', editingId)
+      saveError = error
     } else {
-      await supabase.from('shop_barbers').insert({
+      const { error } = await supabase.from('shop_barbers').insert({
         ...payload,
         shop_id: shop.id,
         barber_id: null,
         active: true,
         color: COLORS[barbers.length % COLORS.length]
       })
+      saveError = error
     }
 
+    if (saveError) { setError(saveError.message); setSaving(false); return }
+    setSuccess(editingId ? 'Barber updated.' : 'Barber added.')
+    setTimeout(() => setSuccess(''), 3000)
     resetForm(); setShowForm(false); await loadData(); setSaving(false)
   }
 
   async function toggleActive(id: string, current: boolean) {
-    await supabase.from('shop_barbers').update({ active: !current }).eq('id', id)
+    if (current && !confirm('Deactivate this barber? They will no longer appear in bookings.')) return
+    const { error } = await supabase.from('shop_barbers').update({ active: !current }).eq('id', id)
+    if (error) { setError(error.message); return }
     await loadData()
   }
 
@@ -130,6 +139,9 @@ export default function ManageBarbers() {
             + Add Barber
           </button>
         </div>
+
+        {error && !showForm && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
+        {success && <p className="text-green-400 text-sm bg-green-950 border border-green-900 rounded-lg p-3 mb-6">{success}</p>}
 
         {showForm && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">

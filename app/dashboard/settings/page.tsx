@@ -55,7 +55,11 @@ export default function ShopSettings() {
     setLoading(false)
   }
 
-  async function uploadFile(file: File, bucket: string, path: string): Promise<string | null> {
+  async function uploadFile(file: File, bucket: string, path: string, maxBytes: number): Promise<string | null> {
+    if (file.size > maxBytes) {
+      setError(`File too large. Maximum size is ${Math.round(maxBytes / 1024 / 1024)}MB`)
+      return null
+    }
     const { error } = await supabase.storage
       .from(bucket)
       .upload(path, file, { upsert: true })
@@ -69,7 +73,7 @@ export default function ShopSettings() {
     if (!file) return
     setUploadingLogo(true)
     setError('')
-    const url = await uploadFile(file, 'shop-assets', `${shop.id}/logo-${Date.now()}`)
+    const url = await uploadFile(file, 'shop-assets', `${shop.id}/logo`, 2 * 1024 * 1024)
     if (url) {
       setLogoUrl(url)
       await supabase.from('shops').update({ logo_url: url }).eq('id', shop.id)
@@ -82,7 +86,7 @@ export default function ShopSettings() {
     if (!file) return
     setUploadingHero(true)
     setError('')
-    const url = await uploadFile(file, 'shop-assets', `${shop.id}/hero-${Date.now()}`)
+    const url = await uploadFile(file, 'shop-assets', `${shop.id}/hero`, 5 * 1024 * 1024)
     if (url) {
       setHeroUrl(url)
       await supabase.from('shops').update({ hero_url: url }).eq('id', shop.id)

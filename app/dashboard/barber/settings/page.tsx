@@ -55,26 +55,21 @@ export default function BarberSettings() {
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 2 * 1024 * 1024) { setError('Photo must be under 2MB'); return }
     setUploadingPhoto(true)
     setError('')
 
+    const path = `barbers/${shopBarber.id}/photo`
     const { error: uploadErr } = await supabase.storage
       .from('shop-assets')
-      .upload(`barbers/${shopBarber.id}/photo-${Date.now()}`, file, { upsert: true })
+      .upload(path, file, { upsert: true })
 
     if (uploadErr) { setError(uploadErr.message); setUploadingPhoto(false); return }
 
-    const { data } = supabase.storage
-      .from('shop-assets')
-      .getPublicUrl(`barbers/${shopBarber.id}/photo-${Date.now()}`)
-
-    // Re-upload to get correct URL
-    const path = `barbers/${shopBarber.id}/photo`
-    await supabase.storage.from('shop-assets').upload(path, file, { upsert: true })
-    const { data: urlData } = supabase.storage.from('shop-assets').getPublicUrl(path)
-
-    setPhotoUrl(urlData.publicUrl)
-    await supabase.from('shop_barbers').update({ photo_url: urlData.publicUrl }).eq('id', shopBarber.id)
+    const { data } = supabase.storage.from('shop-assets').getPublicUrl(path)
+    const { error: updateErr } = await supabase.from('shop_barbers').update({ photo_url: data.publicUrl }).eq('id', shopBarber.id)
+    if (updateErr) { setError(updateErr.message); setUploadingPhoto(false); return }
+    setPhotoUrl(data.publicUrl)
     setUploadingPhoto(false)
   }
 
