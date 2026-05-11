@@ -35,6 +35,8 @@ export default function JoinPage() {
         setBarber(invite.shop_barbers)
         setMode('invite')
       } else {
+        const code = params.get('code')
+        if (code) setShopCode(code.toUpperCase())
         setMode('code')
       }
     }
@@ -80,7 +82,7 @@ export default function JoinPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      router.push(`/signup?redirect=/join`)
+      router.push(`/login?redirect=${encodeURIComponent('/join?code=' + shopCode.toUpperCase().trim())}`)
       return
     }
 
@@ -101,7 +103,13 @@ export default function JoinPage() {
       .eq('barber_id', user.id)
       .single()
 
-    if (existingLink) { setError("You're already linked to this shop."); setLoading(false); return }
+    if (existingLink) {
+      await supabase.from('shop_barbers').update({ active: true }).eq('id', existingLink.id)
+      await supabase.from('profiles').update({ role: 'barber' }).eq('id', user.id)
+      setLoading(false)
+      router.push('/dashboard/barber')
+      return
+    }
 
     // Find first unlinked barber slot
     const { data: unlinkedBarbers } = await supabase

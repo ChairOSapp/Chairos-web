@@ -18,7 +18,9 @@ export default function Login() {
     setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setError(error.message); setLoading(false); return }
-    router.push('/dashboard')
+    const params = new URLSearchParams(window.location.search)
+    const redirect = params.get('redirect')
+    router.push(redirect || '/dashboard')
   }
 
   return (
