@@ -4,10 +4,10 @@ import { createClient } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 
 const TIMES = [
-  '9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM',
-  '12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM',
-  '3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM','5:30 PM',
-  '6:00 PM','6:30 PM'
+  '8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM',
+  '11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM',
+  '2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM',
+  '5:00 PM','5:30 PM','6:00 PM','6:30 PM','7:00 PM','7:30 PM','8:00 PM'
 ]
 
 export default function BookingPage() {
@@ -33,6 +33,7 @@ export default function BookingPage() {
   const [clientEmail, setClientEmail] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
+  const [returningClient, setReturningClient] = useState<any>(null)
 
   useEffect(() => {
     async function load() {
@@ -56,6 +57,23 @@ export default function BookingPage() {
     }
     load()
   }, [shopCode])
+
+  async function checkReturningClient(phone: string) {
+    if (phone.replace(/\D/g, '').length < 10) return
+    const { data: client } = await supabase
+      .from('clients')
+      .select('*, client_locks(*, shop_barbers(*))')
+      .eq('phone', phone.replace(/\D/g, ''))
+      .single()
+    if (!client) return
+    setReturningClient(client)
+
+    const lock = client.client_locks?.find((l: any) => l.locked && l.shop_barbers?.shop_id === shop.id)
+    if (lock?.shop_barbers) {
+      const matchedBarber = barbers.find(b => b.id === lock.shop_barber_id)
+      if (matchedBarber) setSelectedBarber(matchedBarber)
+    }
+  }
 
   async function handleBook() {
     if (!clientName || !clientPhone) { setError('Name and phone are required'); return }
@@ -381,10 +399,21 @@ export default function BookingPage() {
               ].map(f => (
                 <div key={f.label}>
                   <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">{f.label}</label>
-                  <input type={f.type} value={f.value} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
+                  <input type={f.type} value={f.value} onChange={e => { f.set(e.target.value); if (f.label === 'Phone Number *') checkReturningClient(e.target.value) }} placeholder={f.placeholder}
                     className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none transition-colors"
                     onFocus={e => e.target.style.borderColor = brand}
                     onBlur={e => e.target.style.borderColor = '#404040'} />
+                  {f.label === 'Phone Number *' && returningClient && (
+                    <div className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 flex items-center gap-3 mt-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold text-green-400">Welcome back, {returningClient.full_name?.split(' ')[0]}!</div>
+                        <div className="text-xs text-neutral-500 mt-0.5">
+                          {returningClient.total_visits} visit{returningClient.total_visits !== 1 ? 's' : ''} — your barber has been pre-selected
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import OwnerNav from '@/components/OwnerNav'
 
 const CATALOG = [
   { name: 'Precision Haircut', price: 55, duration_minutes: 30, description: 'Clean lines, sharp edges' },
@@ -123,14 +124,12 @@ export default function ManageServices() {
     </div>
   )
 
+  const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
   const existingNames = services.map(s => s.name)
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-10">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
-        <button onClick={() => router.push('/dashboard')} className="text-xs text-neutral-500 hover:text-white transition-colors">← Dashboard</button>
-      </header>
+      <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} />
 
       <div className="p-6 max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-8">

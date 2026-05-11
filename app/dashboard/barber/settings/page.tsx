@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import BarberNav from '@/components/BarberNav'
 
 export default function BarberSettings() {
   const [profile, setProfile] = useState<any>(null)
@@ -108,13 +109,13 @@ export default function BarberSettings() {
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-10">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
-        <button onClick={() => router.push('/dashboard/barber')}
-          className="text-xs text-neutral-500 hover:text-white transition-colors">
-          ← My Dashboard
-        </button>
-      </header>
+      <BarberNav
+        shopName={shop?.name || ''}
+        barberName={shopBarber?.barber_name || shopBarber?.alias || ''}
+        color={shopBarber?.color || '#b8861f'}
+        initial={initial}
+        photoUrl={shopBarber?.photo_url || undefined}
+      />
 
       <div className="p-6 max-w-2xl mx-auto">
         <div className="mb-8">

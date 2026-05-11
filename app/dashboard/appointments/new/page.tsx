@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import OwnerNav from '@/components/OwnerNav'
 
 const TIMES = [
   '8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM',
@@ -128,6 +129,8 @@ export default function NewAppointment() {
     </div>
   )
 
+  const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
+
   if (success) return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center">
@@ -159,10 +162,7 @@ export default function NewAppointment() {
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-10">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
-        <button onClick={() => router.push('/dashboard')} className="text-xs text-neutral-500 hover:text-white transition-colors">← Dashboard</button>
-      </header>
+      <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} />
 
       <div className="p-6 max-w-2xl mx-auto">
         <div className="mb-8">

@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import BarberNav from '@/components/BarberNav'
 
 export default function BarberDashboard() {
   const [profile, setProfile] = useState<any>(null)
@@ -111,11 +112,6 @@ export default function BarberDashboard() {
     return () => { supabase.removeChannel(channel) }
   }, [barberId, shopId])
 
-  async function handleSignOut() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
   if (loading) return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
       <div className="text-amber-500 text-sm">Loading...</div>
@@ -158,22 +154,13 @@ export default function BarberDashboard() {
   return (
     <div className="min-h-screen bg-neutral-950">
 
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-10">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <div className="text-sm text-white font-medium">{profile?.full_name}</div>
-            <div className="text-xs text-neutral-500">{shop?.name}</div>
-          </div>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif text-sm font-bold"
-            style={{ background: color + '22', border: `2px solid ${color}`, color }}>
-            {initial}
-          </div>
-          <button onClick={handleSignOut} className="text-xs text-neutral-500 hover:text-white transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
+      <BarberNav
+        shopName={shop?.name || ''}
+        barberName={shopBarber?.barber_name || shopBarber?.alias || ''}
+        color={shopBarber?.color || '#b8861f'}
+        initial={initial}
+        photoUrl={shopBarber?.photo_url || undefined}
+      />
 
       <div className="p-6 max-w-2xl mx-auto">
 
@@ -184,9 +171,16 @@ export default function BarberDashboard() {
 
         {/* IDENTITY CARD */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center font-serif text-xl font-bold flex-shrink-0"
-            style={{ background: color + '22', border: `2px solid ${color}`, color }}>
-            {initial}
+          <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0"
+            style={{ border: `2px solid ${color}` }}>
+            {shopBarber?.photo_url ? (
+              <img src={shopBarber.photo_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center font-serif text-xl font-bold"
+                style={{ background: color + '22', color }}>
+                {initial}
+              </div>
+            )}
           </div>
           <div className="flex-1">
             <div className="font-serif text-lg text-white">{shopBarber?.barber_name || shopBarber?.alias}</div>

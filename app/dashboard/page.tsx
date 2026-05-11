@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import OwnerNav from '@/components/OwnerNav'
 
 export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null)
@@ -108,11 +109,6 @@ export default function Dashboard() {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [shopId])
-
-  async function handleSignOut() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
 
   async function updateAppointmentStatus(id: string, status: string) {
     const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
@@ -297,23 +293,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-10">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <div className="text-sm text-white font-medium">{profile?.full_name}</div>
-            <div className="text-xs text-neutral-500">{shop?.name}</div>
-          </div>
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center font-serif text-amber-500 text-sm">
-            {initials}
-          </div>
-          <button onClick={handleSignOut} className="text-xs text-neutral-500 hover:text-white transition-colors">
-            Sign out
-          </button>
-        </div>
-      </header>
+      <OwnerNav shopName={shop?.name} ownerName={profile?.full_name} initials={initials} />
 
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-6 max-w-6xl mx-auto pb-20 md:pb-0">
 
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-white mb-1">{greeting}, {profile?.full_name?.split(' ')[0]}</h1>
@@ -578,6 +560,25 @@ export default function Dashboard() {
           ))}
         </div>
 
+      </div>
+
+      {/* MOBILE BOTTOM NAV */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 px-2 py-2 flex justify-around z-50">
+        {[
+          { label: 'Home', href: '/dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+          { label: 'Book', href: '/dashboard/appointments/new', icon: 'M12 4v16m8-8H4' },
+          { label: 'Barbers', href: '/dashboard/barbers', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+          { label: 'Services', href: '/dashboard/services', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+          { label: 'Settings', href: '/dashboard/settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
+        ].map((item, i) => (
+          <button key={i} onClick={() => router.push(item.href)}
+            className="flex flex-col items-center gap-1 px-3 py-1 text-neutral-500 hover:text-amber-500 transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d={item.icon} />
+            </svg>
+            <span className="text-xs">{item.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   )
