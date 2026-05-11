@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
@@ -29,7 +29,10 @@ export default function ManageBarbers() {
   const [rentDueDay, setRentDueDay] = useState('monday')
   const [lateFeeRate, setLateFeeRate] = useState('5')
   const [lateFeeInterval, setLateFeeInterval] = useState<'daily'|'weekly'>('daily')
+  const [barberPhotoUrl, setBarberPhotoUrl] = useState('')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
+  const photoRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -57,6 +60,7 @@ export default function ManageBarbers() {
     setBarberName(''); setBarberAlias(''); setBarberEmail(''); setCompType('commission')
     setCommissionRate('70'); setTipSplit('100'); setBoothRent('')
     setRentDueDay('monday'); setLateFeeRate('5'); setLateFeeInterval('daily')
+    setBarberPhotoUrl(''); setUploadingPhoto(false)
     setEditingId(null); setError('')
   }
 
@@ -72,7 +76,23 @@ export default function ManageBarbers() {
     setRentDueDay(b.booth_rent_due_day || 'monday')
     setLateFeeRate(b.late_fee_rate ? String(Math.round(b.late_fee_rate * 100)) : '5')
     setLateFeeInterval(b.late_fee_interval || 'daily')
+    setBarberPhotoUrl(b.photo_url || '')
     setShowForm(true)
+  }
+
+  async function handleBarberPhotoUpload(e: React.ChangeEvent<HTMLInputElement>, barberId: string) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { setError('Photo must be under 2MB'); return }
+    setUploadingPhoto(true)
+    setError('')
+    const path = `barbers/${barberId}/photo`
+    const { error: uploadErr } = await supabase.storage.from('shop-assets').upload(path, file, { upsert: true })
+    if (uploadErr) { setError(uploadErr.message); setUploadingPhoto(false); return }
+    const { data } = supabase.storage.from('shop-assets').getPublicUrl(path)
+    await supabase.from('shop_barbers').update({ photo_url: data.publicUrl }).eq('id', barberId)
+    setBarberPhotoUrl(data.publicUrl)
+    setUploadingPhoto(false)
   }
 
   async function handleSave() {
@@ -346,6 +366,41 @@ export default function ManageBarbers() {
                 </div>
               </div>
             )}
+
+            <div className="mb-4">
+              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Barber Photo</label>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 border-2 border-neutral-700">
+                  {barberPhotoUrl ? (
+                    <img src={barberPhotoUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-neutral-800 flex items-center justify-center font-serif text-lg text-neutral-500">
+                      {barberName[0]?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => photoRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-semibold text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors disabled:opacity-50">
+                    {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                  </button>
+                  <input
+                    ref={photoRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={e => {
+                      const targetId = editingId || null
+                      if (targetId) handleBarberPhotoUpload(e, targetId)
+                    }}
+                    className="hidden"
+                  />
+                  <p className="text-xs text-neutral-600 mt-1">Shows on booking page</p>
+                </div>
+              </div>
+            </div>
 
             <div className="flex gap-3">
               <button onClick={() => { resetForm(); setShowForm(false) }}
