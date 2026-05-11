@@ -416,7 +416,6 @@ export default function BarberDashboard() {
         </div>
 
       </div>
-      <div style={{position:'fixed',bottom:0,left:0,right:0,background:'red',height:'50px',zIndex:9999}}>TEST</div>
       <BarberMobileNav />
     </div>
   )
