@@ -35,7 +35,7 @@ export default function ClientsPage() {
 
     const { data: locks } = await supabase
       .from('client_locks')
-      .select('*, clients(*), shop_barbers!client_locks_barber_id_fkey(*)')
+      .select('*, clients(*)')
       .eq('shop_id', shop.id)
     setClientLocks(locks || [])
 
