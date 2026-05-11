@@ -366,23 +366,25 @@ export default function ManageBarbers() {
           ) : (
             <div className="divide-y divide-neutral-800">
               {barbers.map((b, i) => (
-                <div key={b.id} className={`px-5 py-4 flex items-center gap-4 ${!b.active ? 'opacity-50' : ''}`}>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
-                    style={{ background: (b.color || COLORS[i % COLORS.length]) + '22', border: `2px solid ${b.color || COLORS[i % COLORS.length]}`, color: b.color || COLORS[i % COLORS.length] }}>
-                    {(b.barber_name || b.alias || '?')[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white">{b.barber_name || b.alias}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">
-                      {b.compensation_type === 'commission'
-                        ? `${Math.round((b.commission_rate || 0.7) * 100)}% commission · Tips ${Math.round((b.tip_split_rate || 1) * 100)}%`
-                        : `Booth rent $${b.booth_rent_amount}/wk · Due ${b.booth_rent_due_day}`}
+                <div key={b.id} className={`px-5 py-4 ${!b.active ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
+                      style={{ background: (b.color || COLORS[i % COLORS.length]) + '22', border: `2px solid ${b.color || COLORS[i % COLORS.length]}`, color: b.color || COLORS[i % COLORS.length] }}>
+                      {(b.barber_name || b.alias || '?')[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-white">{b.barber_name || b.alias}</div>
+                      <div className="text-xs text-neutral-500 mt-0.5">
+                        {b.compensation_type === 'commission'
+                          ? `${Math.round((b.commission_rate || 0.7) * 100)}% commission · Tips ${Math.round((b.tip_split_rate || 1) * 100)}%`
+                          : `Booth rent $${b.booth_rent_amount}/wk · Due ${b.booth_rent_due_day}`}
+                      </div>
+                    </div>
+                    <div className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${b.barber_id ? 'bg-green-500/10 text-green-500' : 'bg-neutral-800 text-neutral-500'}`}>
+                      {b.barber_id ? 'Linked' : 'Pending'}
                     </div>
                   </div>
-                  <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${b.barber_id ? 'bg-green-500/10 text-green-500' : 'bg-neutral-800 text-neutral-500'}`}>
-                    {b.barber_id ? 'Linked' : 'Pending'}
-                  </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap ml-13">
                     {!b.barber_id && b.active && (
                       <button onClick={() => sendInviteToExisting(b)}
                         className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-500 hover:bg-amber-500 hover:text-black transition-colors font-semibold">

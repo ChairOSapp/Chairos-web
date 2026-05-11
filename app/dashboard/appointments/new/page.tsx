@@ -197,7 +197,7 @@ export default function NewAppointment() {
 
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
             <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-4">Appointment Details</div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Barber</label>
                 <select value={selectedBarber} onChange={e => setSelectedBarber(e.target.value)}
@@ -253,12 +253,12 @@ export default function NewAppointment() {
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500" />
             </div>
 
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4 flex items-center gap-3 p-3 bg-neutral-800 rounded-lg">
               <button
                 type="button"
                 onClick={() => setSendSMS(!sendSMS)}
-                className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${sendSMS ? 'bg-green-500' : 'bg-neutral-700'}`}>
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${sendSMS ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${sendSMS ? 'bg-green-500' : 'bg-neutral-600'}`}>
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${sendSMS ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
               <div>
                 <div className="text-xs font-semibold text-white">Send confirmation text</div>
