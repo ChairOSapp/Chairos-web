@@ -123,21 +123,35 @@ export default function Dashboard() {
 
   async function addTip(appointmentId: string, barberId: string | null) {
     const amount = parseFloat(tipInput[appointmentId] || '0')
-    if (!amount || amount <= 0 || !shop) return
-    if (!barberId) { showToast('Assign a barber before adding a tip', 'error'); return }
-    setAddingTip(appointmentId)
-    const barber = barbers.find(b => b.barber_id === barberId)
-    const tipSplitRate = barber?.tip_split_rate || 1.0
-    const { error } = await supabase.from('tips').insert({
-      appointment_id: appointmentId,
-      barber_id: barberId,
-      shop_id: shop.id,
-      amount: amount * tipSplitRate,
-      cashed_out: false
-    })
-    if (error) showToast(error.message, 'error')
-    else { setTipInput(prev => ({ ...prev, [appointmentId]: '' })); showToast(`$${amount.toFixed(2)} tip added`) }
-    setAddingTip(null)
+    if (!amount || amount <= 0 || !barberId || !shop) return
+
+    // Check for existing tip on this appointment
+    const { data: existing } = await supabase
+      .from('tips')
+      .select('id')
+      .eq('appointment_id', appointmentId)
+      .eq('barber_id', barberId)
+      .single()
+
+    if (existing) {
+      // Update existing tip instead of inserting
+      const barber = barbers.find(b => b.barber_id === barberId)
+      const tipSplitRate = barber?.tip_split_rate || 1.0
+      await supabase.from('tips')
+        .update({ amount: amount * tipSplitRate })
+        .eq('id', existing.id)
+    } else {
+      const barber = barbers.find(b => b.barber_id === barberId)
+      const tipSplitRate = barber?.tip_split_rate || 1.0
+      await supabase.from('tips').insert({
+        appointment_id: appointmentId,
+        barber_id: barberId,
+        shop_id: shop.id,
+        amount: amount * tipSplitRate,
+        cashed_out: false
+      })
+    }
+    setTipInput(prev => ({ ...prev, [appointmentId]: '' }))
   }
 
   async function cashOutTips(barberId: string) {

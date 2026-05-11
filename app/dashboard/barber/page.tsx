@@ -18,6 +18,15 @@ export default function BarberDashboard() {
   const [loading, setLoading] = useState(true)
   const [barberId, setBarberId] = useState<string | null>(null)
   const [shopId, setShopId] = useState<string | null>(null)
+  const [showBooking, setShowBooking] = useState(false)
+  const [bookingName, setBookingName] = useState('')
+  const [bookingPhone, setBookingPhone] = useState('')
+  const [bookingService, setBookingService] = useState('')
+  const [bookingTime, setBookingTime] = useState('')
+  const [bookingPrice, setBookingPrice] = useState('')
+  const [services, setServices] = useState<any[]>([])
+  const [bookingSubmitting, setBookingSubmitting] = useState(false)
+  const [bookingSuccess, setBookingSuccess] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
@@ -77,6 +86,12 @@ export default function BarberDashboard() {
       setBarberId(user.id)
       setShopId(shopBarber.shop_id)
 
+      const { data: services } = await supabase
+        .from('services').select('*')
+        .eq('shop_id', shopBarber.shop_id).eq('active', true)
+        .order('price', { ascending: true })
+      setServices(services || [])
+
       await loadLiveData(user.id, shopBarber.shop_id)
 
       if (shopBarber.compensation_type === 'booth_rent') {
@@ -121,6 +136,39 @@ export default function BarberDashboard() {
     await supabase.from('shop_barbers')
       .update({ active: newStatus })
       .eq('id', shopBarber.id)
+  }
+
+  async function handleWalkIn() {
+    if (!bookingName || !bookingPhone || !bookingService || !bookingTime) return
+    setBookingSubmitting(true)
+
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+    const [t, period] = bookingTime.split(' ')
+    const [hours, minutes] = t.split(':')
+    let h = parseInt(hours)
+    if (period === 'PM' && h !== 12) h += 12
+    if (period === 'AM' && h === 12) h = 0
+    const time24 = `${h.toString().padStart(2,'0')}:${minutes}:00`
+    const svc = services.find(s => s.id === bookingService)
+
+    await supabase.from('appointments').insert({
+      shop_id: shopId,
+      barber_id: barberId,
+      service_id: bookingService,
+      client_name: bookingName,
+      client_phone: bookingPhone,
+      date: today,
+      time: time24,
+      price: parseFloat(bookingPrice) || svc?.price || 0,
+      status: 'confirmed',
+    })
+
+    setBookingName(''); setBookingPhone(''); setBookingService(''); setBookingTime(''); setBookingPrice('')
+    setShowBooking(false)
+    setBookingSuccess('Walk-in booked!')
+    setTimeout(() => setBookingSuccess(''), 3000)
+    setBookingSubmitting(false)
   }
 
   if (loading) return (
@@ -286,6 +334,75 @@ export default function BarberDashboard() {
                   <div className="text-xs text-neutral-600">+{atRiskClients.length - 3} more</div>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* WALK-IN BOOKING */}
+        {bookingSuccess && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-5 py-3 mb-6 text-sm text-green-400 font-semibold">
+            {bookingSuccess}
+          </div>
+        )}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
+          <button onClick={() => setShowBooking(!showBooking)}
+            className="w-full px-5 py-4 flex items-center justify-between hover:bg-neutral-800 transition-colors">
+            <div className="flex items-center gap-3">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 4v16m8-8H4"/>
+              </svg>
+              <div className="text-sm font-semibold text-white">Book a Walk-In</div>
+            </div>
+            <svg className={`transition-transform ${showBooking ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          {showBooking && (
+            <div className="border-t border-neutral-800 p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Client Name *</label>
+                  <input value={bookingName} onChange={e => setBookingName(e.target.value)} placeholder="Name"
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Phone *</label>
+                  <input type="tel" value={bookingPhone} onChange={e => setBookingPhone(e.target.value)} placeholder="Phone"
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Service *</label>
+                <select value={bookingService} onChange={e => { setBookingService(e.target.value); const s = services.find(sv => sv.id === e.target.value); if(s) setBookingPrice(String(s.price)) }}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500">
+                  <option value="">Select service...</option>
+                  {services.map(s => <option key={s.id} value={s.id}>{s.name} — ${s.price}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Time *</label>
+                  <select value={bookingTime} onChange={e => setBookingTime(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500">
+                    <option value="">Select time...</option>
+                    {['8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM','5:30 PM','6:00 PM','6:30 PM','7:00 PM'].map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Price</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-neutral-400 text-sm">$</span>
+                    <input type="number" value={bookingPrice} onChange={e => setBookingPrice(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-7 pr-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                  </div>
+                </div>
+              </div>
+              <button onClick={handleWalkIn} disabled={bookingSubmitting || !bookingName || !bookingPhone || !bookingService || !bookingTime}
+                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                {bookingSubmitting ? 'Booking...' : 'Book Walk-In'}
+              </button>
             </div>
           )}
         </div>
