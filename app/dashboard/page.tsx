@@ -269,12 +269,16 @@ export default function Dashboard() {
                 <div className="flex items-center gap-1">
                   <span className="text-neutral-500 text-xs">$</span>
                   <input
-                    type="number" placeholder="0" min="0" step="0.01"
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
                     value={tipInput[a.id] || ''}
                     onChange={e => {
-                      const val = parseFloat(e.target.value)
-                      if (val < 0) return
-                      setTipInput(prev => ({ ...prev, [a.id]: e.target.value }))
+                      const val = e.target.value
+                      if (parseFloat(val) < 0) return
+                      setTipInput(prev => ({ ...prev, [a.id]: val }))
                     }}
                     className="w-14 bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />

@@ -27,6 +27,9 @@ export default function BarberDashboard() {
   const [services, setServices] = useState<any[]>([])
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingSuccess, setBookingSuccess] = useState('')
+  const [statusUpdating, setStatusUpdating] = useState<{[key: string]: boolean}>({})
+  const [barberTipInput, setBarberTipInput] = useState<{[key: string]: string}>({})
+  const [addingTip, setAddingTip] = useState<{[key: string]: boolean}>({})
   const router = useRouter()
   const supabase = createClient()
 
@@ -138,6 +141,40 @@ export default function BarberDashboard() {
       .eq('id', shopBarber.id)
   }
 
+  async function updateStatus(appointmentId: string, status: string) {
+    setStatusUpdating(prev => ({ ...prev, [appointmentId]: true }))
+    await supabase.from('appointments').update({ status }).eq('id', appointmentId)
+    setStatusUpdating(prev => ({ ...prev, [appointmentId]: false }))
+  }
+
+  async function addBarberTip(appointmentId: string) {
+    const amount = parseFloat(barberTipInput[appointmentId] || '0')
+    if (!amount || amount <= 0 || !barberId || !shopId) return
+    setAddingTip(prev => ({ ...prev, [appointmentId]: true }))
+
+    const { data: existing } = await supabase
+      .from('tips')
+      .select('id')
+      .eq('appointment_id', appointmentId)
+      .eq('barber_id', barberId)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase.from('tips').update({ amount }).eq('id', existing.id)
+    } else {
+      await supabase.from('tips').insert({
+        appointment_id: appointmentId,
+        barber_id: barberId,
+        shop_id: shopId,
+        amount,
+        cashed_out: false
+      })
+    }
+
+    setBarberTipInput(prev => ({ ...prev, [appointmentId]: '' }))
+    setAddingTip(prev => ({ ...prev, [appointmentId]: false }))
+  }
+
   async function handleWalkIn() {
     if (!bookingName || !bookingPhone || !bookingService || !bookingTime) return
     setBookingSubmitting(true)
@@ -169,6 +206,7 @@ export default function BarberDashboard() {
     setBookingSuccess('Walk-in booked!')
     setTimeout(() => setBookingSuccess(''), 3000)
     setBookingSubmitting(false)
+    if (barberId && shopId) await loadLiveData(barberId, shopId)
   }
 
   if (loading) return (
@@ -425,23 +463,56 @@ export default function BarberDashboard() {
           ) : (
             <div className="divide-y divide-neutral-800">
               {appointments.map((a) => (
-                <div key={a.id} className={`px-5 py-4 flex items-center gap-4 ${a.status === 'confirmed' ? 'bg-blue-500/5' : ''}`}>
-                  <div className="font-mono text-sm text-amber-500 w-12 flex-shrink-0">{a.time?.slice(0,5)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">{a.client_name}</div>
-                    <div className="text-xs text-neutral-500 truncate">
-                      {a.services?.name}{a.client_phone ? ` · ${a.client_phone}` : ''}
+                <div key={a.id} className={`px-5 py-4 border-b border-neutral-800 last:border-0 ${a.status === 'confirmed' ? 'bg-blue-500/5' : a.status === 'done' ? 'bg-green-500/5' : ''}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-sm text-amber-500 font-semibold">{a.time?.slice(0,5)}</span>
+                      <select
+                        value={a.status}
+                        disabled={statusUpdating[a.id]}
+                        onChange={e => updateStatus(a.id, e.target.value)}
+                        className={`bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1 text-xs font-semibold outline-none transition-colors ${
+                          a.status === 'done' ? 'text-green-400 border-green-500/30' :
+                          a.status === 'confirmed' ? 'text-blue-400 border-blue-500/30' :
+                          a.status === 'noshow' ? 'text-red-400' :
+                          'text-neutral-400'
+                        }`}>
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="done">Done</option>
+                        <option value="noshow">No Show</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
                     </div>
+                    <span className="text-xs font-mono text-amber-500 font-semibold">${a.price}</span>
                   </div>
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      a.status === 'done' ? 'bg-green-500/10 text-green-500' :
-                      a.status === 'confirmed' ? 'bg-blue-500/10 text-blue-400' :
-                      a.status === 'noshow' ? 'bg-red-500/10 text-red-400' :
-                      'bg-neutral-800 text-neutral-500'
-                    }`}>{a.status}</span>
-                    <div className="text-xs text-neutral-400">${a.price}</div>
-                  </div>
+                  <div className="text-sm font-semibold text-white mb-0.5">{a.client_name}</div>
+                  <div className="text-xs text-neutral-500 mb-3">{a.services?.name} · {a.client_phone}</div>
+                  {a.status === 'done' && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-neutral-500">Tip $</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={barberTipInput[a.id] || ''}
+                        onChange={e => {
+                          const val = e.target.value
+                          if (parseFloat(val) < 0) return
+                          setBarberTipInput(prev => ({ ...prev, [a.id]: val }))
+                        }}
+                        className="w-20 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <button
+                        onClick={() => addBarberTip(a.id)}
+                        disabled={addingTip[a.id] || !barberTipInput[a.id]}
+                        className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50">
+                        {addingTip[a.id] ? '...' : '+ Tip'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
