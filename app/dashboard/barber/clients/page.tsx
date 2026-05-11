@@ -31,7 +31,17 @@ export default function BarberClientsPage() {
 
     const { data: locks } = await supabase
       .from('client_locks')
-      .select('*, clients(*)')
+      .select(`
+        *,
+        clients (
+          id,
+          full_name,
+          phone,
+          email,
+          total_visits,
+          last_visit_date
+        )
+      `)
       .eq('barber_id', user.id)
     setClientLocks(locks || [])
 
@@ -119,13 +129,13 @@ export default function BarberClientsPage() {
                   <div key={l.id} className="px-5 py-4 flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
                       style={{ background: color + '22', border: `2px solid ${color}`, color }}>
-                      {(l.clients?.full_name || l.clients?.phone || '?')[0].toUpperCase()}
+                      {(l.clients?.full_name || l.clients?.phone || 'G')[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-white">
-                        {l.clients?.full_name || 'Guest Client'}
+                        {l.clients?.full_name || l.client_name || 'Guest Client'}
                       </div>
-                      <div className="text-xs text-neutral-500">{l.clients?.phone}</div>
+                      <div className="text-xs text-neutral-500">{l.clients?.phone || l.client_phone || ''}</div>
                       <div className="text-xs text-neutral-600 mt-0.5">
                         {l.booking_count} visits
                         {l.first_booking_date && ` · since ${new Date(l.first_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`}

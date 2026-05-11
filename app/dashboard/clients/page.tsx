@@ -35,7 +35,17 @@ export default function ClientsPage() {
 
     const { data: locks } = await supabase
       .from('client_locks')
-      .select('*, clients(*)')
+      .select(`
+        *,
+        clients (
+          id,
+          full_name,
+          phone,
+          email,
+          total_visits,
+          last_visit_date
+        )
+      `)
       .eq('shop_id', shop.id)
     setClientLocks(locks || [])
 
@@ -169,13 +179,13 @@ export default function ClientsPage() {
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0 bg-neutral-800 text-neutral-400">
-                          {(l.clients?.full_name || l.clients?.phone || '?')[0].toUpperCase()}
+                          {(l.clients?.full_name || l.clients?.phone || 'G')[0].toUpperCase()}
                         </div>
                         <div>
                           <div className="text-sm font-semibold text-white">
-                            {l.clients?.full_name || 'Guest Client'}
+                            {l.clients?.full_name || l.client_name || 'Guest Client'}
                           </div>
-                          <div className="text-xs text-neutral-500">{l.clients?.phone}</div>
+                          <div className="text-xs text-neutral-500">{l.clients?.phone || l.client_phone || ''}</div>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">
