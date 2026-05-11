@@ -37,26 +37,18 @@ export default function BookingPage() {
   useEffect(() => {
     async function load() {
       const { data: shop } = await supabase
-        .from('shops')
-        .select('*')
-        .eq('shop_code', shopCode)
-        .single()
-
+        .from('shops').select('*').eq('shop_code', shopCode).single()
       if (!shop) { setNotFound(true); setLoading(false); return }
       setShop(shop)
 
       const { data: barbers } = await supabase
-        .from('shop_barbers')
-        .select('*')
-        .eq('shop_id', shop.id)
-        .eq('active', true)
+        .from('shop_barbers').select('*')
+        .eq('shop_id', shop.id).eq('active', true)
       setBarbers(barbers || [])
 
       const { data: services } = await supabase
-        .from('services')
-        .select('*')
-        .eq('shop_id', shop.id)
-        .eq('active', true)
+        .from('services').select('*')
+        .eq('shop_id', shop.id).eq('active', true)
         .order('price', { ascending: true })
       setServices(services || [])
 
@@ -92,6 +84,21 @@ export default function BookingPage() {
     })
 
     if (bookErr) { setError(bookErr.message); setSubmitting(false); return }
+
+    // SMS confirmation to client
+    const dateFormatted = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric'
+    })
+    const barberName = selectedBarber?.barber_name || selectedBarber?.alias || 'your barber'
+    await fetch('/api/sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: clientPhone,
+        message: `✂️ You're booked at ${shop.name}!\n\nService: ${selectedService.name}\nBarber: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to unsubscribe.`
+      })
+    })
+
     setSuccess(true)
     setSubmitting(false)
   }
@@ -157,7 +164,7 @@ export default function BookingPage() {
             ))}
           </div>
           <p className="text-neutral-600 text-xs">
-            Confirmation sent to {clientPhone}. Powered by ChairOS.
+            Confirmation text sent to {clientPhone}. Powered by ChairOS.
           </p>
         </div>
       </div>
@@ -167,7 +174,6 @@ export default function BookingPage() {
   return (
     <div className="min-h-screen bg-neutral-950">
 
-      {/* HERO BANNER */}
       {shop.hero_url && (
         <div className="w-full h-48 md:h-64 overflow-hidden relative">
           <img src={shop.hero_url} alt={shop.name} className="w-full h-full object-cover" />
@@ -175,7 +181,6 @@ export default function BookingPage() {
         </div>
       )}
 
-      {/* SHOP HEADER */}
       <div style={{ background: shop.hero_url ? 'transparent' : '#0a0a0a' }}
         className={`px-6 py-5 border-b border-neutral-800 ${shop.hero_url ? '-mt-20 relative z-10' : ''}`}>
         <div className="max-w-2xl mx-auto flex items-center gap-4">
@@ -205,19 +210,18 @@ export default function BookingPage() {
         )}
       </div>
 
-      {/* PROGRESS */}
       <div className="bg-neutral-900 border-b border-neutral-800 px-6 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           {['Barber', 'Service', 'Date & Time', 'Your Info'].map((label, i) => (
             <div key={i} className="flex items-center gap-2 flex-1 last:flex-none">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all`}
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
                 style={{
                   background: step > i+1 ? '#22c55e' : step === i+1 ? brand : '#262626',
                   color: step > i+1 || step === i+1 ? '#000' : '#6b7280'
                 }}>
                 {step > i+1 ? '✓' : i+1}
               </div>
-              <span className={`text-xs hidden sm:block transition-colors`}
+              <span className="text-xs hidden sm:block transition-colors"
                 style={{ color: step === i+1 ? brand : step > i+1 ? '#22c55e' : '#4b5563' }}>
                 {label}
               </span>
@@ -231,7 +235,6 @@ export default function BookingPage() {
 
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
 
-        {/* STEP 1 — BARBER */}
         {step === 1 && (
           <div>
             <h2 className="font-serif text-xl text-white mb-1">Choose your barber</h2>
@@ -240,7 +243,6 @@ export default function BookingPage() {
               <div
                 onClick={() => { setSelectedBarber(null); setStep(2) }}
                 className="bg-neutral-900 border-2 border-neutral-800 rounded-xl p-4 cursor-pointer transition-all text-center hover:border-neutral-600"
-                style={{ '--hover-border': brand } as any}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = '#262626')}>
                 <div className="w-14 h-14 rounded-full bg-neutral-800 flex items-center justify-center mx-auto mb-3">
@@ -252,7 +254,6 @@ export default function BookingPage() {
                 <div className="text-sm font-semibold text-white">Any Barber</div>
                 <div className="text-xs text-neutral-500 mt-1">First available</div>
               </div>
-
               {barbers.map((b, i) => (
                 <div key={b.id}
                   onClick={() => { setSelectedBarber(b); setStep(2) }}
@@ -281,7 +282,6 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* STEP 2 — SERVICE */}
         {step === 2 && (
           <div>
             <h2 className="font-serif text-xl text-white mb-1">Choose a service</h2>
@@ -306,7 +306,6 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* STEP 3 — DATE & TIME */}
         {step === 3 && (
           <div>
             <h2 className="font-serif text-xl text-white mb-1">Pick a date & time</h2>
@@ -317,7 +316,6 @@ export default function BookingPage() {
                 <input type="date" value={selectedDate} min={today}
                   onChange={e => setSelectedDate(e.target.value)}
                   className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none transition-colors"
-                  style={{ '--tw-ring-color': brand } as any}
                   onFocus={e => e.target.style.borderColor = brand}
                   onBlur={e => e.target.style.borderColor = '#404040'} />
               </div>
@@ -352,12 +350,10 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* STEP 4 — CLIENT INFO */}
         {step === 4 && (
           <div>
             <h2 className="font-serif text-xl text-white mb-1">Your info</h2>
             <p className="text-neutral-500 text-sm mb-6">No account needed. Just your name and number.</p>
-
             <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6 space-y-2">
               <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Booking Summary</div>
               {[
@@ -376,7 +372,6 @@ export default function BookingPage() {
                 <span className="font-mono font-semibold" style={{ color: brand }}>${selectedService?.price}</span>
               </div>
             </div>
-
             <div className="space-y-4 mb-6">
               {[
                 { label: 'Full Name *', value: clientName, set: setClientName, type: 'text', placeholder: 'Your name' },
@@ -393,16 +388,14 @@ export default function BookingPage() {
                 </div>
               ))}
             </div>
-
             <div className="flex gap-3 items-center">
               <button onClick={() => setStep(3)} className="text-sm text-neutral-500 hover:text-white transition-colors">← Back</button>
               <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone}
                 className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
                 style={{ background: brand }}>
-                {submitting ? 'Booking...' : 'Confirm Booking'}
+                {submitting ? 'Sending confirmation...' : 'Confirm Booking'}
               </button>
             </div>
-
             <p className="text-neutral-700 text-xs text-center mt-6">Powered by ChairOS</p>
           </div>
         )}

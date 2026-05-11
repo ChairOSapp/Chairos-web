@@ -28,10 +28,10 @@ export default function NewAppointment() {
   const [clientEmail, setClientEmail] = useState('')
   const [notes, setNotes] = useState('')
   const [price, setPrice] = useState('')
+  const [sendSMS, setSendSMS] = useState(true)
 
   const router = useRouter()
   const supabase = createClient()
-
   const today = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
@@ -100,6 +100,24 @@ export default function NewAppointment() {
     })
 
     if (bookErr) { setError(bookErr.message); setSaving(false); return }
+
+    // SMS confirmation to client if toggled on
+    if (sendSMS && clientPhone) {
+      const dateFormatted = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric'
+      })
+      const barberName = barber?.barber_name || barber?.alias || 'your barber'
+      const svc = services.find(s => s.id === selectedService)
+      await fetch('/api/sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: clientPhone,
+          message: `✂️ Your appointment at ${shop.name} is confirmed!\n\nService: ${svc?.name}\nBarber: ${barberName}\nDate: ${dateFormatted}\nTime: ${time}\n\nSee you soon! Reply STOP to unsubscribe.`
+        })
+      })
+    }
+
     setSuccess(true)
     setSaving(false)
   }
@@ -118,9 +136,14 @@ export default function NewAppointment() {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
           <h2 className="font-serif text-xl text-white mb-2">Appointment booked</h2>
-          <p className="text-neutral-400 text-sm mb-6">The appointment has been added to today's schedule.</p>
+          <p className="text-neutral-400 text-sm mb-6">
+            Added to the schedule.{sendSMS ? ' Confirmation text sent.' : ''}
+          </p>
           <div className="flex gap-3">
-            <button onClick={() => { setSuccess(false); setClientName(''); setClientPhone(''); setClientEmail(''); setNotes(''); setSelectedBarber(''); setSelectedService(''); setTime(''); setPrice('') }}
+            <button onClick={() => {
+              setSuccess(false); setClientName(''); setClientPhone(''); setClientEmail('')
+              setNotes(''); setSelectedBarber(''); setSelectedService(''); setTime(''); setPrice('')
+            }}
               className="flex-1 bg-neutral-800 border border-neutral-700 text-neutral-400 font-semibold py-3 rounded-lg text-sm hover:text-white transition-colors">
               Book Another
             </button>
@@ -150,7 +173,6 @@ export default function NewAppointment() {
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
 
         <div className="space-y-6">
-
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
             <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-4">Client Info</div>
             <div className="grid grid-cols-2 gap-4">
@@ -228,6 +250,19 @@ export default function NewAppointment() {
               <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Notes (optional)</label>
               <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any notes about this appointment"
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500" />
+            </div>
+
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSendSMS(!sendSMS)}
+                className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${sendSMS ? 'bg-green-500' : 'bg-neutral-700'}`}>
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${sendSMS ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </button>
+              <div>
+                <div className="text-xs font-semibold text-white">Send confirmation text</div>
+                <div className="text-xs text-neutral-500">Client will receive an SMS confirmation</div>
+              </div>
             </div>
           </div>
 
