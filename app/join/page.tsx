@@ -54,7 +54,7 @@ export default function JoinPage() {
     // Link barber to their profile
     const { error: linkErr } = await supabase
       .from('shop_barbers')
-      .update({ barber_id: user.id })
+      .update({ barber_id: user.id, active: true })
       .eq('id', invite.shop_barber_id)
 
     if (linkErr) { setError(linkErr.message); setLoading(false); return }
@@ -121,7 +121,7 @@ export default function JoinPage() {
 
     const { error: linkErr } = await supabase
       .from('shop_barbers')
-      .update({ barber_id: user.id })
+      .update({ barber_id: user.id, active: true })
       .eq('id', slot.id)
 
     if (linkErr) { setError(linkErr.message); setLoading(false); return }
