@@ -69,8 +69,8 @@ export default function JoinPage() {
       .update({ role: 'barber' })
       .eq('id', user.id)
 
-    setMode('success')
     setLoading(false)
+    router.push('/dashboard/barber')
   }
 
   async function handleShopCode(e: React.FormEvent) {
@@ -130,10 +130,8 @@ export default function JoinPage() {
       .update({ role: 'barber' })
       .eq('id', user.id)
 
-    setShop(shop)
-    setBarber(slot)
-    setMode('success')
     setLoading(false)
+    router.push('/dashboard/barber')
   }
 
   if (mode === 'loading') return (
