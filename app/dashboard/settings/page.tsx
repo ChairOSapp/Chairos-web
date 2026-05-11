@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import MobileNav from '@/components/MobileNav'
 
 export default function ShopSettings() {
   const [shop, setShop] = useState<any>(null)
@@ -149,7 +150,7 @@ export default function ShopSettings() {
     <div className="min-h-screen bg-neutral-950">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} />
 
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-white mb-1">Shop Settings</h1>
           <p className="text-neutral-500 text-sm">Customize how your shop appears to clients</p>
@@ -344,6 +345,8 @@ export default function ShopSettings() {
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
+
+      <MobileNav />
     </div>
   )
 }

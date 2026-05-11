@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import MobileNav from '@/components/MobileNav'
 
 const TIMES = [
   '8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM',
@@ -164,7 +165,7 @@ export default function NewAppointment() {
     <div className="min-h-screen bg-neutral-950">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} />
 
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-white mb-1">New Appointment</h1>
           <p className="text-neutral-500 text-sm">Book a walk-in or call-in for {shop?.name}</p>
@@ -272,6 +273,8 @@ export default function NewAppointment() {
           </button>
         </div>
       </div>
+
+      <MobileNav />
     </div>
   )
 }

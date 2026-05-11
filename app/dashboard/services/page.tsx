@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import MobileNav from '@/components/MobileNav'
 
 const CATALOG = [
   { name: 'Precision Haircut', price: 55, duration_minutes: 30, description: 'Clean lines, sharp edges' },
@@ -131,7 +132,7 @@ export default function ManageServices() {
     <div className="min-h-screen bg-neutral-950">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} />
 
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-serif text-2xl text-white mb-1">Manage Services</h1>
@@ -259,6 +260,8 @@ export default function ManageServices() {
           )}
         </div>
       </div>
+
+      <MobileNav />
     </div>
   )
 }

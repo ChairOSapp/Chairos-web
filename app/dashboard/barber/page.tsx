@@ -13,6 +13,7 @@ export default function BarberDashboard() {
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [boothRent, setBoothRent] = useState<any>(null)
   const [showEarnings, setShowEarnings] = useState(false)
+  const [onFloor, setOnFloor] = useState(true)
   const [loading, setLoading] = useState(true)
   const [barberId, setBarberId] = useState<string | null>(null)
   const [shopId, setShopId] = useState<string | null>(null)
@@ -70,6 +71,7 @@ export default function BarberDashboard() {
 
       if (!shopBarber) { router.push('/join'); return }
       setShopBarber(shopBarber)
+      setOnFloor(shopBarber.active !== false)
       setShop(shopBarber.shops)
       setBarberId(user.id)
       setShopId(shopBarber.shop_id)
@@ -112,6 +114,14 @@ export default function BarberDashboard() {
     return () => { supabase.removeChannel(channel) }
   }, [barberId, shopId])
 
+  async function toggleFloor() {
+    const newStatus = !onFloor
+    setOnFloor(newStatus)
+    await supabase.from('shop_barbers')
+      .update({ active: newStatus })
+      .eq('id', shopBarber.id)
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
       <div className="text-amber-500 text-sm">Loading...</div>
@@ -143,13 +153,6 @@ export default function BarberDashboard() {
     return l.loyalty_protected ? daysSince > 300 : daysSince > 60
   })
   const loyaltyClients = lockedClients.filter(l => l.loyalty_protected)
-
-  const statusColor = (s: string) => {
-    if (s === 'done') return 'text-green-500'
-    if (s === 'confirmed') return 'text-blue-400'
-    if (s === 'noshow') return 'text-red-400'
-    return 'text-neutral-500'
-  }
 
   return (
     <div className="min-h-screen bg-neutral-950">
@@ -187,7 +190,15 @@ export default function BarberDashboard() {
             <div className="text-xs text-neutral-500 uppercase tracking-widest mt-0.5">{shop?.name}</div>
           </div>
           <div className="text-right">
-            <div className="text-xs font-semibold text-green-500 uppercase tracking-widest">● On the Floor</div>
+            <button
+              onClick={toggleFloor}
+              className={`text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full border transition-colors ${
+                onFloor
+                  ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20'
+                  : 'bg-neutral-800 border-neutral-700 text-neutral-500 hover:border-amber-500 hover:text-amber-500'
+              }`}>
+              {onFloor ? '● On Floor' : '○ Off Floor'}
+            </button>
             <div className="text-xs text-neutral-500 mt-1">
               {shopBarber?.compensation_type === 'commission'
                 ? `${Math.round((shopBarber?.commission_rate || 0.7) * 100)}% commission`
@@ -295,25 +306,23 @@ export default function BarberDashboard() {
             </div>
           ) : (
             <div className="divide-y divide-neutral-800">
-              <div className="grid grid-cols-12 gap-2 px-5 py-2 bg-neutral-800/50">
-                <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Time</div>
-                <div className="col-span-4 text-xs font-semibold tracking-widest uppercase text-neutral-500">Client</div>
-                <div className="col-span-4 text-xs font-semibold tracking-widest uppercase text-neutral-500">Service</div>
-                <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Status</div>
-              </div>
               {appointments.map((a) => (
-                <div key={a.id} className={`px-5 py-3 grid grid-cols-12 gap-2 items-center ${a.status === 'confirmed' ? 'bg-blue-500/5' : ''}`}>
-                  <div className="col-span-2 font-mono text-xs text-neutral-400">{a.time?.slice(0,5)}</div>
-                  <div className="col-span-4">
-                    <div className="text-sm font-medium text-white">{a.client_name}</div>
-                    <div className="text-xs text-neutral-500">{a.client_phone}</div>
+                <div key={a.id} className={`px-5 py-4 flex items-center gap-4 ${a.status === 'confirmed' ? 'bg-blue-500/5' : ''}`}>
+                  <div className="font-mono text-sm text-amber-500 w-12 flex-shrink-0">{a.time?.slice(0,5)}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-white truncate">{a.client_name}</div>
+                    <div className="text-xs text-neutral-500 truncate">
+                      {a.services?.name}{a.client_phone ? ` · ${a.client_phone}` : ''}
+                    </div>
                   </div>
-                  <div className="col-span-4">
-                    <div className="text-sm text-white">{a.services?.name}</div>
-                    <div className="text-xs text-neutral-500">${a.price}</div>
-                  </div>
-                  <div className={`col-span-2 text-xs font-semibold ${statusColor(a.status)}`}>
-                    {a.status}
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      a.status === 'done' ? 'bg-green-500/10 text-green-500' :
+                      a.status === 'confirmed' ? 'bg-blue-500/10 text-blue-400' :
+                      a.status === 'noshow' ? 'bg-red-500/10 text-red-400' :
+                      'bg-neutral-800 text-neutral-500'
+                    }`}>{a.status}</span>
+                    <div className="text-xs text-neutral-400">${a.price}</div>
                   </div>
                 </div>
               ))}

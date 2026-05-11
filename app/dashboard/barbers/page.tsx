@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import MobileNav from '@/components/MobileNav'
 
 const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
@@ -155,6 +156,32 @@ export default function ManageBarbers() {
     await loadData()
   }
 
+  async function markAsLinked(id: string, barberName: string) {
+    const email = prompt(`Enter the Supabase account email for ${barberName} to link them manually:`)
+    if (!email) return
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email.trim().toLowerCase())
+      .single()
+
+    if (!profile) {
+      setError(`No account found for ${email}. The barber must sign up first at chairos.cc.`)
+      return
+    }
+
+    const { error } = await supabase
+      .from('shop_barbers')
+      .update({ barber_id: profile.id })
+      .eq('id', id)
+
+    if (error) { setError(error.message); return }
+    setSuccess(`${barberName} linked successfully.`)
+    setTimeout(() => setSuccess(''), 3000)
+    await loadData()
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
       <div className="text-amber-500 text-sm">Loading...</div>
@@ -167,7 +194,7 @@ export default function ManageBarbers() {
     <div className="min-h-screen bg-neutral-950">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} />
 
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-serif text-2xl text-white mb-1">Manage Barbers</h1>
@@ -362,6 +389,12 @@ export default function ManageBarbers() {
                         Invite
                       </button>
                     )}
+                    {!b.barber_id && b.active && (
+                      <button onClick={() => markAsLinked(b.id, b.barber_name || b.alias)}
+                        className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg text-xs text-blue-400 hover:bg-blue-500 hover:text-white transition-colors font-semibold">
+                        Link
+                      </button>
+                    )}
                     <button onClick={() => openEdit(b)}
                       className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
                       Edit
@@ -381,6 +414,8 @@ export default function ManageBarbers() {
           )}
         </div>
       </div>
+
+      <MobileNav />
     </div>
   )
 }

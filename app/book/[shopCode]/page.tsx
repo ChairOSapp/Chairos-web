@@ -417,6 +417,20 @@ export default function BookingPage() {
                 </div>
               ))}
             </div>
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mt-2">
+              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">
+                Save Your Info (Optional)
+              </div>
+              <p className="text-xs text-neutral-500 mb-3">
+                Create a free account to rebook faster, track your visits, and get personalized recommendations.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.open(`/signup?prefill=${encodeURIComponent(clientEmail || '')}`, '_blank')}
+                className="w-full py-2.5 rounded-lg border border-neutral-700 text-xs font-semibold text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
+                Create a Free Account →
+              </button>
+            </div>
             <div className="flex gap-3 items-center">
               <button onClick={() => setStep(3)} className="text-sm text-neutral-500 hover:text-white transition-colors">← Back</button>
               <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone}

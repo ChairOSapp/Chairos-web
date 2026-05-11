@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import MobileNav from '@/components/MobileNav'
 
 export default function InviteBarber() {
   const [shop, setShop] = useState<any>(null)
@@ -81,7 +82,7 @@ export default function InviteBarber() {
     <div className="min-h-screen bg-neutral-950">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} />
 
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-white mb-1">Invite a Barber</h1>
           <p className="text-neutral-500 text-sm">Send an invite or share your shop code so barbers can claim their account.</p>
@@ -184,6 +185,8 @@ export default function InviteBarber() {
           )}
         </div>
       </div>
+
+      <MobileNav />
     </div>
   )
 }

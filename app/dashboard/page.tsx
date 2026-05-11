@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import MobileNav from '@/components/MobileNav'
 
 export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null)
@@ -208,72 +209,66 @@ export default function Dashboard() {
       </div>
     ) : (
       <div className="divide-y divide-neutral-800">
-        <div className="grid grid-cols-12 gap-1 px-5 py-2 bg-neutral-800/50">
-          <div className="col-span-1 text-xs font-semibold tracking-widest uppercase text-neutral-500">Time</div>
-          <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Client</div>
-          <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Service</div>
-          <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Barber</div>
-          <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Status</div>
-          <div className="col-span-2 text-xs font-semibold tracking-widest uppercase text-neutral-500">Tip</div>
-          {apptTab === 'upcoming' && <div className="col-span-1 text-xs font-semibold tracking-widest uppercase text-neutral-500">Date</div>}
-        </div>
         {appts.map((a) => (
-          <div key={a.id} className="px-5 py-3">
-            <div className="grid grid-cols-12 gap-1 items-center">
-              <div className="col-span-1 font-mono text-xs text-neutral-400">{a.time?.slice(0,5)}</div>
-              <div className="col-span-2">
-                <div className="text-xs font-medium text-white truncate">{a.client_name}</div>
-                <div className="text-xs text-neutral-500 truncate">{a.client_phone}</div>
-              </div>
-              <div className="col-span-2">
-                <div className="text-xs text-white truncate">{a.services?.name}</div>
-                <div className="text-xs text-neutral-500">${a.price}</div>
-              </div>
-              <div className="col-span-2">
-                <select value={a.barber_id || ''} onChange={e => updateAppointmentBarber(a.id, e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-xs text-white outline-none focus:border-amber-500">
-                  <option value="">Unassigned</option>
-                  {barbers.map(b => (
-                    <option key={b.id} value={b.barber_id || ''}>{b.barber_name || b.alias}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-span-2">
-                <select value={a.status} onChange={e => updateAppointmentStatus(a.id, e.target.value)}
-                  className={`w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-xs outline-none focus:border-amber-500 ${statusColor(a.status)}`}>
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="done">Done</option>
-                  <option value="noshow">No Show</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-              <div className="col-span-2">
-                {a.status === 'done' ? (
-                  <div className="flex items-center gap-1">
-                    <span className="text-neutral-500 text-xs">$</span>
-                    <input type="number" placeholder="0" min="0" step="0.01"
-                      value={tipInput[a.id] || ''}
-                      onChange={e => {
-                        const val = parseFloat(e.target.value)
-                        if (val < 0) return
-                        setTipInput(prev => ({ ...prev, [a.id]: e.target.value }))
-                      }}
-                      className="w-10 bg-neutral-800 border border-neutral-700 rounded px-1 py-1 text-xs text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <button onClick={() => addTip(a.id, a.barber_id)}
-                      disabled={addingTip === a.id}
-                      className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded px-1.5 py-1 text-xs transition-colors disabled:opacity-50">
-                      {addingTip === a.id ? '…' : '+'}
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-xs text-neutral-600">—</span>
-                )}
+          <div key={a.id} className="px-5 py-4">
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <div className="flex items-center gap-3">
+                <div className="font-mono text-sm text-amber-500 font-semibold w-16 flex-shrink-0">
+                  {a.time?.slice(0,5)}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">{a.client_name}</div>
+                  <div className="text-xs text-neutral-500">{a.client_phone}</div>
+                </div>
               </div>
               {apptTab === 'upcoming' && (
-                <div className="col-span-1 text-xs text-neutral-400 font-mono">
+                <div className="text-xs font-mono text-neutral-400 flex-shrink-0">
                   {new Date(a.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3 ml-19 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-white font-medium truncate">{a.services?.name}</div>
+                <div className="text-xs text-neutral-500">${a.price}</div>
+              </div>
+              <select
+                value={a.barber_id || ''}
+                onChange={e => updateAppointmentBarber(a.id, e.target.value)}
+                className="bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-amber-500 max-w-32">
+                <option value="">Unassigned</option>
+                {barbers.map(b => (
+                  <option key={b.id} value={b.barber_id || ''}>{b.barber_name || b.alias}</option>
+                ))}
+              </select>
+              <select
+                value={a.status}
+                onChange={e => updateAppointmentStatus(a.id, e.target.value)}
+                className={`bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-amber-500 ${statusColor(a.status)}`}>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="done">Done</option>
+                <option value="noshow">No Show</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              {a.status === 'done' && (
+                <div className="flex items-center gap-1">
+                  <span className="text-neutral-500 text-xs">$</span>
+                  <input
+                    type="number" placeholder="0" min="0" step="0.01"
+                    value={tipInput[a.id] || ''}
+                    onChange={e => {
+                      const val = parseFloat(e.target.value)
+                      if (val < 0) return
+                      setTipInput(prev => ({ ...prev, [a.id]: e.target.value }))
+                    }}
+                    className="w-14 bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    onClick={() => addTip(a.id, a.barber_id)}
+                    className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded px-2 py-1.5 text-xs transition-colors">
+                    + Tip
+                  </button>
                 </div>
               )}
             </div>
@@ -544,42 +539,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* QUICK ACTIONS */}
-        <div className="flex gap-3 flex-wrap">
-          {[
-            { label: '+ New Appointment', href: '/dashboard/appointments/new' },
-            { label: 'Manage Services', href: '/dashboard/services' },
-            { label: 'Manage Barbers', href: '/dashboard/barbers' },
-            { label: 'Invite Barber', href: '/dashboard/invite' },
-            { label: 'Shop Settings', href: '/dashboard/settings' },
-          ].map((action, i) => (
-            <button key={i} onClick={() => router.push(action.href)}
-              className="px-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-sm text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
-              {action.label}
-            </button>
-          ))}
-        </div>
-
       </div>
 
-      {/* MOBILE BOTTOM NAV */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 px-2 py-2 flex justify-around z-50">
-        {[
-          { label: 'Home', href: '/dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-          { label: 'Book', href: '/dashboard/appointments/new', icon: 'M12 4v16m8-8H4' },
-          { label: 'Barbers', href: '/dashboard/barbers', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-          { label: 'Services', href: '/dashboard/services', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-          { label: 'Settings', href: '/dashboard/settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
-        ].map((item, i) => (
-          <button key={i} onClick={() => router.push(item.href)}
-            className="flex flex-col items-center gap-1 px-3 py-1 text-neutral-500 hover:text-amber-500 transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d={item.icon} />
-            </svg>
-            <span className="text-xs">{item.label}</span>
-          </button>
-        ))}
-      </div>
+      <MobileNav />
     </div>
   )
 }
