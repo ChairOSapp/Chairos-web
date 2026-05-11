@@ -351,21 +351,21 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="grid grid-cols-3 divide-x divide-neutral-800 border-b border-neutral-800">
-            <div className="p-5 text-center">
+            <button onClick={() => router.push('/dashboard/clients')} className="p-5 text-center hover:bg-neutral-800/50 transition-colors w-full">
               <div className="font-serif text-3xl text-green-400 mb-1">{totalLocked}</div>
               <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Locked</div>
               <div className="text-xs text-neutral-600 mt-1">Claimed by a barber</div>
-            </div>
-            <div className="p-5 text-center">
+            </button>
+            <button onClick={() => router.push('/dashboard/clients')} className="p-5 text-center hover:bg-neutral-800/50 transition-colors w-full">
               <div className="font-serif text-3xl text-amber-500 mb-1">{totalAtRisk}</div>
               <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">At Risk</div>
               <div className="text-xs text-neutral-600 mt-1">Approaching lapse window</div>
-            </div>
-            <div className="p-5 text-center">
+            </button>
+            <button onClick={() => router.push('/dashboard/clients')} className="p-5 text-center hover:bg-neutral-800/50 transition-colors w-full">
               <div className="font-serif text-3xl text-red-400 mb-1">{totalFloating}</div>
               <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Floating</div>
               <div className="text-xs text-neutral-600 mt-1">Not assigned — revenue risk</div>
-            </div>
+            </button>
           </div>
           {locksByBarber.length === 0 ? (
             <div className="p-6 text-center text-neutral-500 text-sm">Client Lock activates after clients complete appointments.</div>
