@@ -15,9 +15,11 @@ export default function ManageBarbers() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [inviteResult, setInviteResult] = useState<{name: string, link: string} | null>(null)
 
   const [barberName, setBarberName] = useState('')
   const [barberAlias, setBarberAlias] = useState('')
+  const [barberEmail, setBarberEmail] = useState('')
   const [compType, setCompType] = useState<'commission'|'booth_rent'>('commission')
   const [commissionRate, setCommissionRate] = useState('70')
   const [tipSplit, setTipSplit] = useState('100')
@@ -50,7 +52,7 @@ export default function ManageBarbers() {
   }
 
   function resetForm() {
-    setBarberName(''); setBarberAlias(''); setCompType('commission')
+    setBarberName(''); setBarberAlias(''); setBarberEmail(''); setCompType('commission')
     setCommissionRate('70'); setTipSplit('100'); setBoothRent('')
     setRentDueDay('monday'); setLateFeeRate('5'); setLateFeeInterval('daily')
     setEditingId(null); setError('')
@@ -60,6 +62,7 @@ export default function ManageBarbers() {
     setEditingId(b.id)
     setBarberName(b.barber_name || '')
     setBarberAlias(b.alias || '')
+    setBarberEmail('')
     setCompType(b.compensation_type || 'commission')
     setCommissionRate(b.commission_rate ? String(Math.round(b.commission_rate * 100)) : '70')
     setTipSplit(b.tip_split_rate ? String(Math.round(b.tip_split_rate * 100)) : '100')
@@ -86,25 +89,62 @@ export default function ManageBarbers() {
       late_fee_interval: compType === 'booth_rent' ? lateFeeInterval : null,
     }
 
-    let saveError = null
+    let shopBarberId: string | null = null
+
     if (editingId) {
       const { error } = await supabase.from('shop_barbers').update(payload).eq('id', editingId)
-      saveError = error
+      if (error) { setError(error.message); setSaving(false); return }
+      shopBarberId = editingId
     } else {
-      const { error } = await supabase.from('shop_barbers').insert({
+      const { data, error } = await supabase.from('shop_barbers').insert({
         ...payload,
         shop_id: shop.id,
         barber_id: null,
         active: true,
         color: COLORS[barbers.length % COLORS.length]
-      })
-      saveError = error
+      }).select().single()
+      if (error) { setError(error.message); setSaving(false); return }
+      shopBarberId = data?.id || null
     }
 
-    if (saveError) { setError(saveError.message); setSaving(false); return }
-    setSuccess(editingId ? 'Barber updated.' : 'Barber added.')
-    setTimeout(() => setSuccess(''), 3000)
-    resetForm(); setShowForm(false); await loadData(); setSaving(false)
+    // If email provided and this is a new barber, create invite
+    if (barberEmail.trim() && shopBarberId && !editingId) {
+      const token = crypto.randomUUID()
+      await supabase.from('invites').insert({
+        shop_id: shop.id,
+        shop_barber_id: shopBarberId,
+        email: barberEmail.trim(),
+        token,
+        accepted: false
+      })
+      const inviteLink = `https://chairos.cc/join?token=${token}`
+      setInviteResult({ name: barberName.trim(), link: inviteLink })
+    } else {
+      setSuccess(editingId ? 'Barber updated.' : 'Barber added.')
+      setTimeout(() => setSuccess(''), 3000)
+    }
+
+    resetForm()
+    setShowForm(false)
+    await loadData()
+    setSaving(false)
+  }
+
+  async function sendInviteToExisting(b: any) {
+    const token = crypto.randomUUID()
+    const email = prompt(`Enter ${b.barber_name || b.alias}'s email address:`)
+    if (!email) return
+
+    await supabase.from('invites').insert({
+      shop_id: shop.id,
+      shop_barber_id: b.id,
+      email: email.trim(),
+      token,
+      accepted: false
+    })
+
+    const inviteLink = `https://chairos.cc/join?token=${token}`
+    setInviteResult({ name: b.barber_name || b.alias, link: inviteLink })
   }
 
   async function toggleActive(id: string, current: boolean) {
@@ -134,7 +174,7 @@ export default function ManageBarbers() {
             <p className="text-neutral-500 text-sm">{shop?.name} · {barbers.filter(b => b.active).length} active</p>
           </div>
           <button
-            onClick={() => { resetForm(); setShowForm(!showForm) }}
+            onClick={() => { resetForm(); setInviteResult(null); setShowForm(!showForm) }}
             className="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
             + Add Barber
           </button>
@@ -143,12 +183,42 @@ export default function ManageBarbers() {
         {error && !showForm && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
         {success && <p className="text-green-400 text-sm bg-green-950 border border-green-900 rounded-lg p-3 mb-6">{success}</p>}
 
+        {/* INVITE RESULT */}
+        {inviteResult && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-5 mb-6">
+            <div className="text-sm font-semibold text-green-400 mb-1">
+              {inviteResult.name} added — invite link ready
+            </div>
+            <div className="text-xs text-neutral-400 mb-3">
+              Send this link to {inviteResult.name}. They'll use it to claim their account.
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 font-mono text-xs text-amber-500 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 truncate">
+                {inviteResult.link}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(inviteResult.link)
+                  setSuccess('Link copied!')
+                  setTimeout(() => setSuccess(''), 2000)
+                }}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-4 py-2 rounded-lg text-xs transition-colors flex-shrink-0">
+                Copy Link
+              </button>
+            </div>
+            <button onClick={() => setInviteResult(null)} className="text-xs text-neutral-600 hover:text-neutral-400 mt-3 transition-colors">
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {showForm && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
             <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-4">
               {editingId ? 'Edit Barber' : 'New Barber'}
             </div>
             {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
+
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">First Name *</label>
@@ -161,6 +231,23 @@ export default function ManageBarbers() {
                   className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500" />
               </div>
             </div>
+
+            {!editingId && (
+              <div className="mb-4">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">
+                  Email — Invite to ChairOS
+                  <span className="ml-2 normal-case text-neutral-600 font-normal tracking-normal">optional</span>
+                </label>
+                <input
+                  type="email"
+                  value={barberEmail}
+                  onChange={e => setBarberEmail(e.target.value)}
+                  placeholder="barber@email.com"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500" />
+                <p className="text-xs text-neutral-600 mt-1">An invite link will be generated for you to share with them.</p>
+              </div>
+            )}
+
             <div className="mb-4">
               <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Compensation</label>
               <div className="grid grid-cols-2 gap-2">
@@ -172,6 +259,7 @@ export default function ManageBarbers() {
                 ))}
               </div>
             </div>
+
             {compType === 'commission' && (
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
@@ -194,6 +282,7 @@ export default function ManageBarbers() {
                 </div>
               </div>
             )}
+
             {compType === 'booth_rent' && (
               <div className="space-y-4 mb-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -230,6 +319,7 @@ export default function ManageBarbers() {
                 </div>
               </div>
             )}
+
             <div className="flex gap-3">
               <button onClick={() => { resetForm(); setShowForm(false) }}
                 className="px-6 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-400 hover:text-white transition-colors">
@@ -237,7 +327,7 @@ export default function ManageBarbers() {
               </button>
               <button onClick={handleSave} disabled={saving}
                 className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
-                {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add Barber'}
+                {saving ? 'Saving...' : editingId ? 'Save Changes' : barberEmail ? 'Add & Generate Invite' : 'Add Barber'}
               </button>
             </div>
           </div>
@@ -266,6 +356,12 @@ export default function ManageBarbers() {
                     {b.barber_id ? 'Linked' : 'Pending'}
                   </div>
                   <div className="flex gap-2">
+                    {!b.barber_id && b.active && (
+                      <button onClick={() => sendInviteToExisting(b)}
+                        className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-500 hover:bg-amber-500 hover:text-black transition-colors font-semibold">
+                        Invite
+                      </button>
+                    )}
                     <button onClick={() => openEdit(b)}
                       className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
                       Edit
