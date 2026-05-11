@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import BarberNav from '@/components/BarberNav'
+import BarberMobileNav from '@/components/BarberMobileNav'
 
 export default function BarberSettings() {
   const [profile, setProfile] = useState<any>(null)
@@ -117,7 +118,7 @@ export default function BarberSettings() {
         photoUrl={shopBarber?.photo_url || undefined}
       />
 
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-white mb-1">My Profile</h1>
           <p className="text-neutral-500 text-sm">{shop?.name} · How clients see you</p>
@@ -222,6 +223,7 @@ export default function BarberSettings() {
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
       </div>
+      <BarberMobileNav />
     </div>
   )
 }

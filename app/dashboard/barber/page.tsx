@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import BarberNav from '@/components/BarberNav'
+import BarberMobileNav from '@/components/BarberMobileNav'
 
 export default function BarberDashboard() {
   const [profile, setProfile] = useState<any>(null)
@@ -165,7 +166,7 @@ export default function BarberDashboard() {
         photoUrl={shopBarber?.photo_url || undefined}
       />
 
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
 
         <div className="mb-6">
           <h1 className="font-serif text-2xl text-white mb-1">{greeting}, {firstName}</h1>
@@ -415,6 +416,7 @@ export default function BarberDashboard() {
         </div>
 
       </div>
+      <BarberMobileNav />
     </div>
   )
 }
