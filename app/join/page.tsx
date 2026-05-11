@@ -172,7 +172,7 @@ export default function JoinPage() {
           <p className="text-neutral-500 text-xs mb-6">
             Your chair: <span className="text-neutral-300">{barber?.barber_name || barber?.alias}</span>
           </p>
-          <button onClick={() => router.push('/dashboard')}
+          <button onClick={() => router.push('/dashboard/barber')}
             className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm transition-colors">
             Go to My Dashboard
           </button>
