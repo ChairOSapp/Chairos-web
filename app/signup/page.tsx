@@ -18,23 +18,13 @@ export default function Signup() {
     setLoading(true)
     setError('')
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name, role } }
     })
 
     if (signUpError) { setError(signUpError.message); setLoading(false); return }
-
-    if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        full_name: name,
-        role
-      })
-      if (profileError) { setError(profileError.message); setLoading(false); return }
-    }
 
     setConfirmed(true)
     setLoading(false)
@@ -49,7 +39,9 @@ export default function Signup() {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
           <h2 className="font-serif text-xl text-white mb-2">Check your email</h2>
-          <p className="text-neutral-400 text-sm mb-6">We sent a confirmation link to <span className="text-white">{email}</span>. Click it to activate your account then sign in.</p>
+          <p className="text-neutral-400 text-sm mb-6">
+            We sent a confirmation link to <span className="text-white">{email}</span>. Click it to activate your account then sign in.
+          </p>
           <a href="/login" className="block w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm text-center transition-colors">
             Go to Sign In
           </a>
