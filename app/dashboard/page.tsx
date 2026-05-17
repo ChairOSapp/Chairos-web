@@ -5,6 +5,74 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 
+const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
+  appointmentId: string
+  barberId: string | null
+  shopId: string
+  onTipAdded: () => void
+}) => {
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const supabase = createClient()
+
+  async function handleAddTip() {
+    const amount = parseFloat(value)
+    if (!amount || amount <= 0 || !barberId) return
+    setSaving(true)
+
+    const { data: existing } = await supabase
+      .from('tips')
+      .select('id')
+      .eq('appointment_id', appointmentId)
+      .eq('barber_id', barberId)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase.from('tips').update({ amount }).eq('id', existing.id)
+    } else {
+      await supabase.from('tips').insert({
+        appointment_id: appointmentId,
+        barber_id: barberId,
+        shop_id: shopId,
+        amount,
+        cashed_out: false
+      })
+    }
+
+    setValue('')
+    setSaving(false)
+    onTipAdded()
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-neutral-500 text-xs">$</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step="0.01"
+        placeholder="0.00"
+        value={value}
+        onChange={e => {
+          const val = e.target.value
+          if (val !== '' && parseFloat(val) < 0) return
+          setValue(val)
+        }}
+        autoComplete="off"
+        className="w-14 bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      <button
+        onClick={handleAddTip}
+        disabled={saving || !value}
+        className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded px-2 py-1.5 text-xs transition-colors disabled:opacity-50">
+        {saving ? '...' : '+ Tip'}
+      </button>
+    </div>
+  )
+})
+TipInput.displayName = 'TipInput'
+
 export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
@@ -16,7 +84,6 @@ export default function Dashboard() {
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [shopId, setShopId] = useState<string | null>(null)
-  const [tipInput, setTipInput] = useState<{[key: string]: string}>({})
   const [apptTab, setApptTab] = useState<'today'|'upcoming'>('today')
   const [toast, setToast] = useState<{msg: string, type: 'success'|'error'} | null>(null)
   const [addingTip, setAddingTip] = useState<string | null>(null)
@@ -127,39 +194,6 @@ export default function Dashboard() {
   async function updateAppointmentBarber(id: string, barberId: string) {
     const { error } = await supabase.from('appointments').update({ barber_id: barberId || null }).eq('id', id)
     if (error) showToast(error.message, 'error')
-  }
-
-  async function addTip(appointmentId: string, barberId: string | null) {
-    const amount = parseFloat(tipInput[appointmentId] || '0')
-    if (!amount || amount <= 0 || !barberId || !shop) return
-
-    // Check for existing tip on this appointment
-    const { data: existing } = await supabase
-      .from('tips')
-      .select('id')
-      .eq('appointment_id', appointmentId)
-      .eq('barber_id', barberId)
-      .maybeSingle()
-
-    if (existing) {
-      // Update existing tip instead of inserting
-      const barber = barbers.find(b => b.barber_id === barberId)
-      const tipSplitRate = barber?.tip_split_rate || 1.0
-      await supabase.from('tips')
-        .update({ amount: amount * tipSplitRate })
-        .eq('id', existing.id)
-    } else {
-      const barber = barbers.find(b => b.barber_id === barberId)
-      const tipSplitRate = barber?.tip_split_rate || 1.0
-      await supabase.from('tips').insert({
-        appointment_id: appointmentId,
-        barber_id: barberId,
-        shop_id: shop.id,
-        amount: amount * tipSplitRate,
-        cashed_out: false
-      })
-    }
-    setTipInput(prev => ({ ...prev, [appointmentId]: '' }))
   }
 
   async function cashOutTips(barberId: string) {
@@ -274,30 +308,12 @@ export default function Dashboard() {
                 <option value="cancelled">Cancelled</option>
               </select>
               {a.status === 'done' && (
-                <div className="flex items-center gap-1">
-                  <span className="text-neutral-500 text-xs">$</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={tipInput[a.id] || ''}
-                    onChange={e => {
-                      const val = e.target.value
-                      if (val !== '' && parseFloat(val) < 0) return
-                      setTipInput(prev => ({ ...prev, [a.id]: val }))
-                    }}
-                    onBlur={undefined}
-                    autoComplete="off"
-                    className="w-14 bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <button
-                    onClick={() => addTip(a.id, a.barber_id)}
-                    className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded px-2 py-1.5 text-xs transition-colors">
-                    + Tip
-                  </button>
-                </div>
+                <TipInput
+                  appointmentId={a.id}
+                  barberId={a.barber_id}
+                  shopId={shop.id}
+                  onTipAdded={() => shopId && loadAppointmentsAndTips(shopId)}
+                />
               )}
             </div>
           </div>
