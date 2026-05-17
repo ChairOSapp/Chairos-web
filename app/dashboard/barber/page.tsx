@@ -30,6 +30,7 @@ export default function BarberDashboard() {
   const [statusUpdating, setStatusUpdating] = useState<{[key: string]: boolean}>({})
   const [barberTipInput, setBarberTipInput] = useState<{[key: string]: string}>({})
   const [addingTip, setAddingTip] = useState<{[key: string]: boolean}>({})
+  const [tippedAppointments, setTippedAppointments] = useState<Set<string>>(new Set())
   const router = useRouter()
   const supabase = createClient()
 
@@ -55,6 +56,15 @@ export default function BarberDashboard() {
       .eq('barber_id', uid)
       .gte('created_at', today)
     setTips(tips || [])
+
+    const { data: existingTips } = await supabase
+      .from('tips')
+      .select('appointment_id')
+      .eq('barber_id', uid)
+      .gte('created_at', today)
+    if (existingTips && existingTips.length > 0) {
+      setTippedAppointments(new Set(existingTips.map((t: any) => t.appointment_id)))
+    }
 
     const { data: locks } = await supabase
       .from('client_locks')
@@ -174,6 +184,7 @@ export default function BarberDashboard() {
 
     setBarberTipInput(prev => ({ ...prev, [appointmentId]: '' }))
     setAddingTip(prev => ({ ...prev, [appointmentId]: false }))
+    setTippedAppointments(prev => new Set([...prev, appointmentId]))
     if (barberId && shopId) await loadLiveData(barberId, shopId)
   }
 
@@ -490,7 +501,7 @@ export default function BarberDashboard() {
                   </div>
                   <div className="text-sm font-semibold text-white mb-0.5">{a.client_name}</div>
                   <div className="text-xs text-neutral-500 mb-3">{a.services?.name} · {a.client_phone}</div>
-                  {a.status === 'done' && (
+                  {a.status === 'done' && !tippedAppointments.has(a.id) && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-neutral-500">Tip $</span>
                       <input
