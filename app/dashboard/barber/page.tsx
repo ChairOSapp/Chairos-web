@@ -94,7 +94,7 @@ export default function BarberDashboard() {
 
       if (!shopBarber) { router.push('/join'); return }
       setShopBarber(shopBarber)
-      setOnFloor(shopBarber.active !== false)
+      setOnFloor(shopBarber.on_floor !== false)
       setShop(shopBarber.shops)
       setBarberId(user.id)
       setShopId(shopBarber.shop_id)
@@ -147,7 +147,7 @@ export default function BarberDashboard() {
     const newStatus = !onFloor
     setOnFloor(newStatus)
     await supabase.from('shop_barbers')
-      .update({ active: newStatus })
+      .update({ on_floor: newStatus })
       .eq('id', shopBarber.id)
   }
 

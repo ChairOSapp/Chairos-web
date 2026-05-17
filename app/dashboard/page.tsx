@@ -472,7 +472,7 @@ export default function Dashboard() {
           <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">The floor</div>
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-800">
-              <div className="text-xs text-neutral-500">{allBarbers.filter((b: any) => b.active && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} barbers in</div>
+              <div className="text-xs text-neutral-500">{allBarbers.filter((b: any) => b.on_floor && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} barbers in</div>
               <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                 Live
@@ -481,7 +481,7 @@ export default function Dashboard() {
             {allBarbers.map((b: any, i: number) => {
               const color = b.color || COLORS[i % COLORS.length]
               const isLinked = !!b.barber_id
-              const isOn = b.active && isLinked
+              const isOn = b.on_floor && isLinked
               return (
                 <div key={b.id} className="flex items-center gap-3 px-4 py-3 border-b border-neutral-800 last:border-0">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center font-serif text-sm font-bold flex-shrink-0 overflow-hidden"
