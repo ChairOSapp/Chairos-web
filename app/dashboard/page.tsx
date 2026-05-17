@@ -397,18 +397,26 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-neutral-800">
-            <div className="text-center">
+            <button
+              onClick={() => router.push('/dashboard/appointments/history')}
+              className="text-center hover:bg-neutral-800/50 rounded-lg py-2 transition-colors">
               <div className="font-serif text-xl text-green-400">${totalTips.toFixed(0)}</div>
               <div className="text-xs text-neutral-500 mt-0.5">Tips</div>
-            </div>
-            <div className="text-center border-x border-neutral-800">
+            </button>
+            <button
+              onClick={() => setApptTab('upcoming')}
+              className="text-center border-x border-neutral-800 hover:bg-neutral-800/50 rounded-lg py-2 transition-colors">
               <div className="font-serif text-xl text-white">{upcomingAppointments.length}</div>
               <div className="text-xs text-neutral-500 mt-0.5">Upcoming</div>
-            </div>
-            <div className="text-center">
-              <div className={`font-serif text-xl ${noShowCount > 0 ? 'text-red-400' : 'text-white'}`}>{noShowRate !== null ? `${noShowRate}%` : '0%'}</div>
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/appointments/history')}
+              className="text-center hover:bg-neutral-800/50 rounded-lg py-2 transition-colors">
+              <div className={`font-serif text-xl ${noShowCount > 0 ? 'text-red-400' : 'text-white'}`}>
+                {noShowRate !== null ? `${noShowRate}%` : '0%'}
+              </div>
               <div className="text-xs text-neutral-500 mt-0.5">No-show rate</div>
-            </div>
+            </button>
           </div>
         </div>
 
@@ -444,49 +452,50 @@ export default function Dashboard() {
         {/* THE FLOOR */}
         <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">The floor</div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-neutral-500">{barbers.filter(b => b.active && b.barber_id).length} of {barbers.filter(b => b.barber_id).length} barbers in</div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-800">
+              <div className="text-xs text-neutral-500">{barbers.filter((b: any) => b.active && b.barber_id).length} of {allBarbers.filter((b: any) => b.barber_id).length} barbers in</div>
               <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                 Live
               </div>
             </div>
-            <div className="space-y-2">
-              {allBarbers.map((b: any, i: number) => {
-                const color = b.color || COLORS[i % COLORS.length]
-                const isLinked = !!b.barber_id
-                const isOn = b.active && isLinked
-                return (
-                  <div key={b.id} className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-colors ${
-                    isOn ? 'bg-neutral-800/50 border-neutral-700' : 'bg-neutral-900 border-neutral-800'
-                  }`}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
-                      style={{
-                        background: isOn ? color + '22' : '#1e1e1e',
-                        border: `1.5px solid ${isOn ? color + '66' : '#2a2a2a'}`,
-                        color: isOn ? color : '#4a4a4a'
-                      }}>
-                      {b.photo_url
-                        ? <img src={b.photo_url} alt="" className="w-full h-full object-cover rounded-lg" />
-                        : (b.barber_name || b.alias || '?')[0].toUpperCase()
-                      }
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-semibold ${isOn ? 'text-white' : 'text-neutral-500'}`}>
-                        {b.barber_name || b.alias}
-                      </div>
-                      <div className={`text-xs mt-0.5 ${isOn ? 'text-green-500' : isLinked ? 'text-neutral-600' : 'text-amber-500/70'}`}>
-                        {!isLinked ? 'Pending — invite sent' : isOn ? 'On the floor' : 'Off the floor'}
-                      </div>
-                    </div>
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isOn ? 'bg-green-500' : 'bg-neutral-700'}`} />
+            {allBarbers.map((b: any, i: number) => {
+              const color = b.color || COLORS[i % COLORS.length]
+              const isLinked = !!b.barber_id
+              const isOn = b.active && isLinked
+              return (
+                <div key={b.id} className="flex items-center gap-3 px-4 py-3 border-b border-neutral-800 last:border-0">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-serif text-sm font-bold flex-shrink-0 overflow-hidden"
+                    style={{
+                      background: color + '22',
+                      border: `1.5px solid ${color}44`,
+                      color
+                    }}>
+                    {b.photo_url
+                      ? <img src={b.photo_url} alt="" className="w-full h-full object-cover" />
+                      : (b.barber_name || b.alias || '?')[0].toUpperCase()
+                    }
                   </div>
-                )
-              })}
-            </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-white truncate">{b.barber_name || b.alias}</div>
+                    <div className="text-xs text-neutral-500 mt-0.5">
+                      {b.compensation_type === 'commission'
+                        ? `${Math.round((b.commission_rate || 0.7) * 100)}% commission`
+                        : `Booth rent $${b.booth_rent_amount}/wk`}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className={`w-2.5 h-2.5 rounded-full ${isOn ? 'bg-green-500' : isLinked ? 'bg-neutral-600' : 'bg-amber-500/50'}`} />
+                    <div className={`text-xs font-semibold ${isOn ? 'text-green-500' : isLinked ? 'text-neutral-500' : 'text-amber-500/70'}`}>
+                      {!isLinked ? 'Pending' : isOn ? 'On floor' : 'Off floor'}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
             <button onClick={() => router.push('/dashboard/barbers')}
-              className="mt-3 w-full pt-3 text-xs text-neutral-500 hover:text-amber-500 transition-colors border-t border-neutral-800 text-center">
+              className="w-full py-3 text-xs text-neutral-500 hover:text-amber-500 transition-colors border-t border-neutral-800 text-center">
               Manage barbers →
             </button>
           </div>
