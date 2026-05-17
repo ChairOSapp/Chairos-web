@@ -1,13 +1,16 @@
 'use client'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import NotificationBell from '@/components/NotificationBell'
+import NotificationToast from '@/components/NotificationToast'
 
-export default function BarberNav({ shopName, barberName, color, initial, photoUrl }: {
+export default function BarberNav({ shopName, barberName, color, initial, photoUrl, userId }: {
   shopName: string
   barberName: string
   color: string
   initial: string
   photoUrl?: string
+  userId?: string
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -42,6 +45,8 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
           <div className="text-xs font-medium text-white">{barberName}</div>
           <div className="text-xs text-neutral-500">{shopName}</div>
         </div>
+        {userId && <NotificationBell userId={userId} />}
+        {userId && <NotificationToast userId={userId} />}
         <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
           style={{ background: color + '22', border: `2px solid ${color}`, color }}>
           {photoUrl

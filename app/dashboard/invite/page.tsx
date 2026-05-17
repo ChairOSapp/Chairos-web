@@ -11,6 +11,7 @@ export default function InviteBarber() {
   const [email, setEmail] = useState('')
   const [selectedBarber, setSelectedBarber] = useState('')
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
@@ -21,6 +22,7 @@ export default function InviteBarber() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      setUserId(user.id)
 
       const { data: shops } = await supabase
         .from('shops')
@@ -80,7 +82,7 @@ export default function InviteBarber() {
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} />
+      <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
 
       <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">

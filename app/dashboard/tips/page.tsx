@@ -13,6 +13,7 @@ export default function TipsPage() {
   const [filterBarber, setFilterBarber] = useState('')
   const [filterMonth, setFilterMonth] = useState('')
   const [profile, setProfile] = useState<any>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -21,6 +22,7 @@ export default function TipsPage() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
+    setUserId(user.id)
 
     const { data: profileData } = await supabase
       .from('profiles').select('full_name').eq('id', user.id).maybeSingle()
@@ -96,6 +98,7 @@ export default function TipsPage() {
         shopName={shop?.name || ''}
         ownerName={profile?.full_name || ''}
         initials={profile?.full_name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'OS'}
+        userId={userId || undefined}
       />
 
       <div className="p-5 max-w-2xl mx-auto pb-24">

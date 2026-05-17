@@ -113,6 +113,30 @@ function BookingPageInner() {
 
     if (bookErr) { setError(bookErr.message); setSubmitting(false); return }
 
+    // Notify owner
+    const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || 'Any barber'
+    const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    await supabase.from('notifications').insert({
+      user_id: shop.owner_id,
+      shop_id: shop.id,
+      type: 'booking',
+      title: 'New booking',
+      body: `${clientName} booked ${selectedService.name} with ${barberLabel} on ${dateLabel} at ${selectedTime}`,
+      read: false
+    })
+
+    // Notify barber if assigned
+    if (selectedBarber?.barber_id) {
+      await supabase.from('notifications').insert({
+        user_id: selectedBarber.barber_id,
+        shop_id: shop.id,
+        type: 'booking',
+        title: 'New appointment',
+        body: `${clientName} booked ${selectedService.name} on ${dateLabel} at ${selectedTime}`,
+        read: false
+      })
+    }
+
     // SMS confirmation to client
     const dateFormatted = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
       weekday: 'long', month: 'long', day: 'numeric'

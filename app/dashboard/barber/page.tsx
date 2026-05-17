@@ -214,6 +214,20 @@ export default function BarberDashboard() {
       status: 'confirmed',
     })
 
+    // Notify owner
+    const { data: shopData } = await supabase
+      .from('shops').select('owner_id').eq('id', shopId).maybeSingle()
+    if (shopData?.owner_id) {
+      await supabase.from('notifications').insert({
+        user_id: shopData.owner_id,
+        shop_id: shopId,
+        type: 'booking',
+        title: 'Walk-in booked',
+        body: `${bookingName} · ${svc?.name} · ${bookingTime} · booked by ${shopBarber?.barber_name || shopBarber?.alias}`,
+        read: false
+      })
+    }
+
     setBookingName(''); setBookingPhone(''); setBookingService(''); setBookingTime(''); setBookingPrice('')
     setShowBooking(false)
     setBookingSuccess('Walk-in booked!')
@@ -263,6 +277,7 @@ export default function BarberDashboard() {
         color={shopBarber?.color || '#b8861f'}
         initial={initial}
         photoUrl={shopBarber?.photo_url || undefined}
+        userId={barberId || undefined}
       />
 
       <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">

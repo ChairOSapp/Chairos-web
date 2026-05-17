@@ -12,6 +12,7 @@ export default function ManageBarbers() {
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -41,6 +42,7 @@ export default function ManageBarbers() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
+    setUserId(user.id)
 
     const { data: shops } = await supabase
       .from('shops').select('*').eq('owner_id', user.id)
@@ -212,7 +214,7 @@ export default function ManageBarbers() {
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} />
+      <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
 
       <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
         <div className="flex items-center justify-between mb-8">

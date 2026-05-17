@@ -9,6 +9,7 @@ export default function BarberSettings() {
   const [profile, setProfile] = useState<any>(null)
   const [shopBarber, setShopBarber] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -29,6 +30,7 @@ export default function BarberSettings() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
+    setUserId(user.id)
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -116,6 +118,7 @@ export default function BarberSettings() {
         color={shopBarber?.color || '#b8861f'}
         initial={initial}
         photoUrl={shopBarber?.photo_url || undefined}
+        userId={userId || undefined}
       />
 
       <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">

@@ -383,7 +383,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <OwnerNav shopName={shop?.name || ''} ownerName={profile?.full_name || ''} initials={profile?.full_name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || shop?.name?.substring(0,2).toUpperCase() || 'OS'} />
+      <OwnerNav shopName={shop?.name || ''} ownerName={profile?.full_name || ''} initials={profile?.full_name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || shop?.name?.substring(0,2).toUpperCase() || 'OS'} userId={profile?.id} />
 
       <div className="p-5 max-w-2xl mx-auto pb-24">
 

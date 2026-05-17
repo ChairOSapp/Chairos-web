@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m 'owner client modal with call/text, copy booking link button *)",
+      "Bash(git push *)"
+    ]
+  }
+}
