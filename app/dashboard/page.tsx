@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
@@ -222,7 +222,7 @@ export default function Dashboard() {
 
   const displayAppts = apptTab === 'today' ? appointments : upcomingAppointments
 
-  const ApptTable = ({ appts }: { appts: any[] }) => (
+  const ApptTable = React.memo(({ appts }: { appts: any[] }) => (
     appts.length === 0 ? (
       <div className="p-6 text-center text-neutral-500 text-sm">
         {apptTab === 'today'
@@ -279,15 +279,17 @@ export default function Dashboard() {
                   <input
                     type="number"
                     inputMode="decimal"
-                    placeholder="0.00"
                     min="0"
                     step="0.01"
+                    placeholder="0.00"
                     value={tipInput[a.id] || ''}
                     onChange={e => {
                       const val = e.target.value
-                      if (parseFloat(val) < 0) return
+                      if (val !== '' && parseFloat(val) < 0) return
                       setTipInput(prev => ({ ...prev, [a.id]: val }))
                     }}
+                    onBlur={undefined}
+                    autoComplete="off"
                     className="w-14 bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <button
@@ -302,7 +304,7 @@ export default function Dashboard() {
         ))}
       </div>
     )
-  )
+  ))
 
   return (
     <div className="min-h-screen bg-neutral-950">
