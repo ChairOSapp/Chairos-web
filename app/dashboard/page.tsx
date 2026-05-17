@@ -84,6 +84,7 @@ export default function Dashboard() {
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [yesterdayAppointments, setYesterdayAppointments] = useState<any[]>([])
   const [yesterdayTips, setYesterdayTips] = useState<any[]>([])
+  const [allBarbers, setAllBarbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [shopId, setShopId] = useState<string | null>(null)
   const [apptTab, setApptTab] = useState<'today'|'upcoming'>('today')
@@ -150,6 +151,12 @@ export default function Dashboard() {
           .from('shop_barbers').select('*')
           .eq('shop_id', shop.id).eq('active', true)
         setBarbers(barbers || [])
+
+        const { data: allBarbersData } = await supabase
+          .from('shop_barbers').select('*')
+          .eq('shop_id', shop.id)
+          .order('created_at', { ascending: true })
+        setAllBarbers(allBarbersData || [])
 
         const { data: services } = await supabase
           .from('services').select('*')
@@ -269,6 +276,9 @@ export default function Dashboard() {
   const totalLocked = clientLocks.filter(l => l.locked).length
   const totalAtRisk = locksByBarber.reduce((sum, b) => sum + b.atRisk, 0)
   const totalFloating = clientLocks.filter(l => !l.locked).length
+  const lockedCount = totalLocked
+  const atRiskCount = totalAtRisk
+  const floatingCount = totalFloating
 
   const statusColor = (s: string) => {
     if (s === 'done') return 'text-green-500'
@@ -355,12 +365,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      <OwnerNav shopName={shop?.name} ownerName={profile?.full_name} initials={initials} />
+      <OwnerNav shopName={shop?.name || ''} ownerName={profile?.full_name || ''} initials={profile?.full_name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || shop?.name?.substring(0,2).toUpperCase() || 'OS'} />
 
-      <div className="p-6 max-w-6xl mx-auto pb-20 md:pb-0">
+      <div className="p-5 max-w-2xl mx-auto pb-24">
 
         {/* GREETING */}
-        <div className="mb-6">
+        <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </div>
@@ -368,338 +378,247 @@ export default function Dashboard() {
             {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'},{' '}
             {profile?.full_name?.split(' ')[0] || shop?.name?.split(' ')[0] || 'Boss'}.
           </div>
-          <div className="text-sm text-neutral-500 mt-1">
-            {appointments.length > 0
-              ? `${appointments.length} appointment${appointments.length !== 1 ? 's' : ''} on the books today.`
-              : 'No appointments scheduled yet today.'}
+        </div>
+
+        {/* HERO — MONEY */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 mb-4">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Today's revenue</div>
+              <div className="font-serif text-5xl text-white leading-none mb-1">
+                ${todayRevenue.toFixed(2)}
+              </div>
+              <div className="text-xs text-neutral-500">{doneCount} completed · {appointments.length} total today</div>
+            </div>
+            <button
+              onClick={() => router.push('/dashboard/appointments/history')}
+              className="text-xs text-amber-500 hover:text-amber-400 transition-colors flex-shrink-0 mt-1">
+              History →
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-neutral-800">
+            <div className="text-center">
+              <div className="font-serif text-xl text-green-400">${totalTips.toFixed(0)}</div>
+              <div className="text-xs text-neutral-500 mt-0.5">Tips</div>
+            </div>
+            <div className="text-center border-x border-neutral-800">
+              <div className="font-serif text-xl text-white">{upcomingAppointments.length}</div>
+              <div className="text-xs text-neutral-500 mt-0.5">Upcoming</div>
+            </div>
+            <div className="text-center">
+              <div className={`font-serif text-xl ${noShowCount > 0 ? 'text-red-400' : 'text-white'}`}>{noShowRate !== null ? `${noShowRate}%` : '0%'}</div>
+              <div className="text-xs text-neutral-500 mt-0.5">No-show rate</div>
+            </div>
           </div>
         </div>
 
         {/* YESTERDAY RECAP */}
-        {yesterdayAppointments.length > 0 && (
-          <div className="mb-6">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Yesterday</div>
-            <button
-              onClick={() => router.push('/dashboard/appointments/history')}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-neutral-700 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">
-                  {new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('en-US', { weekday: 'long' })}'s recap
-                </div>
-                <div className="text-xs text-amber-500">View full report →</div>
-              </div>
-              <div className="flex items-center gap-0 divide-x divide-neutral-800">
-                {[
-                  {
-                    label: 'Revenue',
-                    value: `$${yesterdayAppointments.filter(a => a.status === 'done').reduce((s, a) => s + (parseFloat(a.price) || 0), 0).toFixed(0)}`,
-                    color: 'text-amber-500'
-                  },
-                  {
-                    label: 'Appointments',
-                    value: yesterdayAppointments.length.toString(),
-                    color: 'text-white'
-                  },
-                  {
-                    label: 'Tips',
-                    value: `$${yesterdayTips.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0).toFixed(0)}`,
-                    color: 'text-green-400'
-                  },
-                  {
-                    label: 'No-shows',
-                    value: yesterdayAppointments.filter(a => a.status === 'noshow').length.toString(),
-                    color: yesterdayAppointments.filter(a => a.status === 'noshow').length > 0 ? 'text-red-400' : 'text-white'
-                  },
-                ].map((stat, i) => (
-                  <div key={i} className="flex-1 px-4 first:pl-0 last:pr-0 text-center">
-                    <div className={`font-serif text-2xl mb-1 ${stat.color}`}>{stat.value}</div>
-                    <div className="text-xs text-neutral-500">{stat.label}</div>
-                  </div>
-                ))}
-              </div>
-            </button>
-          </div>
-        )}
-
-        <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Today</div>
-
-        {/* KPI CARDS */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <button onClick={() => router.push('/dashboard/appointments/history')}
-            className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-amber-500/50 transition-colors">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Today's Revenue</div>
-            <div className="font-serif text-3xl text-white mb-1">${todayRevenue.toFixed(2)}</div>
-            <div className="text-xs text-neutral-500">{doneCount} completed</div>
-          </button>
-          <button onClick={() => setApptTab('today')}
-            className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-amber-500/50 transition-colors">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Today's Bookings</div>
-            <div className="font-serif text-3xl text-white mb-1">{appointments.length}</div>
-            <div className="text-xs text-neutral-500">{upcomingAppointments.length} upcoming</div>
-          </button>
-          <button onClick={() => router.push('/dashboard/appointments/history?status=noshow')}
-            className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-amber-500/50 transition-colors">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">No-Show Rate</div>
-            <div className="font-serif text-3xl text-white mb-1">{noShowRate !== null ? `${noShowRate}%` : '—'}</div>
-            <div className="text-xs text-neutral-500">{noShowCount} no-shows</div>
-          </button>
-          <button onClick={() => router.push('/dashboard/clients')}
-            className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-amber-500/50 transition-colors">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Tips Today</div>
-            <div className="font-serif text-3xl text-green-400 mb-1">${totalTips.toFixed(2)}</div>
-            <div className="text-xs text-neutral-500">Across all barbers</div>
-          </button>
-        </div>
-
-        <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3 mt-6">Client lock</div>
-        {/* CLIENT LOCK */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
-            <div>
-              <div className="font-serif text-white flex items-center gap-2">
-                Client Lock
-                <span className="text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full">Proprietary</span>
-              </div>
-              <div className="text-xs text-neutral-500 mt-0.5">Client retention intelligence — updates on every completed appointment</div>
+        <button
+          onClick={() => router.push('/dashboard/appointments/history')}
+          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-5 text-left hover:border-neutral-700 transition-colors">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">
+              {new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('en-US', { weekday: 'long' })}'s recap
             </div>
+            <div className="text-xs text-amber-500">View →</div>
           </div>
-          <div className="grid grid-cols-3 divide-x divide-neutral-800 border-b border-neutral-800">
-            <button onClick={() => router.push('/dashboard/clients')} className="p-5 text-center hover:bg-neutral-800/50 transition-colors w-full">
-              <div className="font-serif text-3xl text-green-400 mb-1">{totalLocked}</div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Locked</div>
-              <div className="text-xs text-neutral-600 mt-1">Claimed by a barber</div>
-            </button>
-            <button onClick={() => router.push('/dashboard/clients')} className="p-5 text-center hover:bg-neutral-800/50 transition-colors w-full">
-              <div className="font-serif text-3xl text-amber-500 mb-1">{totalAtRisk}</div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">At Risk</div>
-              <div className="text-xs text-neutral-600 mt-1">Approaching lapse window</div>
-            </button>
-            <button onClick={() => router.push('/dashboard/clients')} className="p-5 text-center hover:bg-neutral-800/50 transition-colors w-full">
-              <div className="font-serif text-3xl text-red-400 mb-1">{totalFloating}</div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Floating</div>
-              <div className="text-xs text-neutral-600 mt-1">Not assigned — revenue risk</div>
-            </button>
-          </div>
-          {locksByBarber.length === 0 ? (
-            <div className="p-6 text-center text-neutral-500 text-sm">Client Lock activates after clients complete appointments.</div>
-          ) : (
-            <div className="divide-y divide-neutral-800">
-              {locksByBarber.map((b, i) => (
-                <div key={b.id} className="px-5 py-4 flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
-                    style={{ background: (b.color || COLORS[i % COLORS.length]) + '22', border: `2px solid ${b.color || COLORS[i % COLORS.length]}`, color: b.color || COLORS[i % COLORS.length] }}>
-                    {(b.barber_name || b.alias || '?')[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white">{b.barber_name || b.alias}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">
-                      {b.loyaltyProtected > 0 && <span className="text-amber-500 mr-2">★ {b.loyaltyProtected} loyalty</span>}
-                      {b.locked} locked
-                    </div>
-                  </div>
-                  <div className="flex gap-4 text-center">
-                    <div>
-                      <div className="font-serif text-lg text-green-400">{b.locked}</div>
-                      <div className="text-xs text-neutral-600">Locked</div>
-                    </div>
-                    <div>
-                      <div className={`font-serif text-lg ${b.atRisk > 0 ? 'text-amber-500' : 'text-neutral-600'}`}>{b.atRisk}</div>
-                      <div className="text-xs text-neutral-600">At Risk</div>
-                    </div>
-                    <div>
-                      <div className={`font-serif text-lg ${b.loyaltyProtected > 0 ? 'text-amber-500' : 'text-neutral-600'}`}>{b.loyaltyProtected}</div>
-                      <div className="text-xs text-neutral-600">Loyalty</div>
-                    </div>
-                  </div>
+          {yesterdayAppointments.length > 0 ? (
+            <div className="flex divide-x divide-neutral-800">
+              {[
+                { label: 'Revenue', value: `$${yesterdayAppointments.filter(a => a.status === 'done').reduce((s: number, a: any) => s + (parseFloat(a.price) || 0), 0).toFixed(0)}`, color: 'text-amber-500' },
+                { label: 'Apts', value: yesterdayAppointments.length.toString(), color: 'text-white' },
+                { label: 'Tips', value: `$${yesterdayTips.reduce((s: number, t: any) => s + (parseFloat(t.amount) || 0), 0).toFixed(0)}`, color: 'text-green-400' },
+                { label: 'No-shows', value: yesterdayAppointments.filter((a: any) => a.status === 'noshow').length.toString(), color: yesterdayAppointments.filter((a: any) => a.status === 'noshow').length > 0 ? 'text-red-400' : 'text-neutral-400' },
+              ].map((s, i) => (
+                <div key={i} className="flex-1 text-center px-2">
+                  <div className={`font-serif text-xl ${s.color}`}>{s.value}</div>
+                  <div className="text-xs text-neutral-500 mt-0.5">{s.label}</div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-        <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3 mt-6">Schedule</div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
-              <div className="flex gap-1 bg-neutral-800 rounded-lg p-1">
-                <button onClick={() => setApptTab('today')}
-                  className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${apptTab === 'today' ? 'bg-neutral-700 text-white' : 'text-neutral-500'}`}>
-                  Today ({appointments.length})
-                </button>
-                <button onClick={() => setApptTab('upcoming')}
-                  className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${apptTab === 'upcoming' ? 'bg-neutral-700 text-white' : 'text-neutral-500'}`}>
-                  Upcoming ({upcomingAppointments.length})
-                </button>
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => router.push('/dashboard/appointments/history')}
-                  className="text-xs text-neutral-500 hover:text-amber-500 transition-colors">
-                  History
-                </button>
-                <span className="text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 px-3 py-1 rounded-full">Live</span>
-              </div>
-            </div>
-            <ApptTable appts={displayAppts} />
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Shop</div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-neutral-800">
-              <div className="font-serif text-white">Shop Info</div>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Booking Link</div>
-                <div className="font-mono text-xs text-amber-500 break-all">
-                  {shop?.slug ? `chairos.cc/shop/${shop.slug}` : `chairos.cc/book/${shop?.shop_code}`}
-                </div>
-                <button
-                  onClick={() => {
-                    const link = shop?.slug
-                      ? `https://chairos.cc/book/${shop.shop_code}`
-                      : `https://chairos.cc/book/${shop?.shop_code}`
-                    navigator.clipboard.writeText(link)
-                    setLinkCopied(true)
-                    setTimeout(() => setLinkCopied(false), 2000)
-                  }}
-                  className="text-xs font-semibold text-amber-500 hover:text-amber-400 transition-colors mt-1">
-                  {linkCopied ? '✓ Copied!' : 'Copy link'}
-                </button>
-              </div>
-              <div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Shop Code</div>
-                <div className="font-mono text-lg font-bold text-amber-500 tracking-widest">{shop?.shop_code}</div>
-                <div className="text-xs text-neutral-600 mt-1">Share with barbers to join</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Location</div>
-                <div className="text-sm text-white">{shop?.address || '—'}</div>
-                <div className="text-xs text-neutral-500">{shop?.city || '—'}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Phone</div>
-                <div className="text-sm text-white">{shop?.phone || '—'}</div>
-              </div>
-            </div>
-          </div>
-          </div>
-        </div>
-
-        {/* TIPS */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
-            <div>
-              <div className="font-serif text-white">Daily Tips</div>
-              <div className="text-xs text-neutral-500 mt-0.5">Cashout tracker — barbers see this in real time</div>
-            </div>
-            <div className="font-serif text-lg text-green-400">${totalTips.toFixed(2)}</div>
-          </div>
-          {barbers.length === 0 ? (
-            <div className="p-5 text-center text-neutral-500 text-sm">No barbers added yet.</div>
           ) : (
-            <div className="divide-y divide-neutral-800">
-              {tipsByBarber.map((b, i) => (
-                <div key={b.id} className="px-5 py-4 flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
-                    style={{ background: (b.color || COLORS[i % COLORS.length]) + '22', border: `2px solid ${b.color || COLORS[i % COLORS.length]}`, color: b.color || COLORS[i % COLORS.length] }}>
-                    {(b.barber_name || b.alias || '?')[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-white">{b.barber_name || b.alias}</div>
-                    <div className="text-xs text-neutral-500">{b.tips.length} tip{b.tips.length !== 1 ? 's' : ''} today</div>
-                  </div>
-                  <div className="text-right mr-4">
-                    <div className="font-mono text-lg text-green-400">${b.pendingTips.toFixed(2)}</div>
-                    <div className="text-xs text-neutral-500">pending cashout</div>
-                  </div>
-                  <button onClick={() => b.barber_id && cashOutTips(b.barber_id)}
-                    disabled={b.pendingTips === 0 || cashingOut === b.barber_id}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                      b.pendingTips > 0 && cashingOut !== b.barber_id
-                        ? 'bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30'
-                        : 'bg-neutral-800 text-neutral-600 border border-neutral-700 cursor-not-allowed'
-                    }`}>
-                    {cashingOut === b.barber_id ? 'Cashing…' : b.pendingTips > 0 ? 'Cash Out' : 'Paid Out'}
-                  </button>
-                </div>
-              ))}
-            </div>
+            <div className="text-sm text-neutral-600">No appointments yesterday</div>
           )}
-        </div>
+        </button>
 
         {/* THE FLOOR */}
-        <div className="mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3 mt-6">The floor</div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Who's in</div>
+        <div className="mb-5">
+          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">The floor</div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs text-neutral-500">{barbers.filter(b => b.active && b.barber_id).length} of {barbers.filter(b => b.barber_id).length} barbers in</div>
               <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                 Live
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              {barbers.map((b, i) => {
+            <div className="space-y-2">
+              {allBarbers.map((b: any, i: number) => {
                 const color = b.color || COLORS[i % COLORS.length]
-                const isOn = b.active && b.barber_id
+                const isLinked = !!b.barber_id
+                const isOn = b.active && isLinked
                 return (
-                  <div key={b.id}
-                    className={`flex items-center gap-3 rounded-xl px-4 py-3 border flex-1 min-w-36 transition-colors ${
-                      isOn
-                        ? 'bg-neutral-800/50 border-neutral-700'
-                        : 'bg-neutral-900 border-neutral-800 opacity-50'
-                    }`}>
+                  <div key={b.id} className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-colors ${
+                    isOn ? 'bg-neutral-800/50 border-neutral-700' : 'bg-neutral-900 border-neutral-800'
+                  }`}>
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
                       style={{
-                        background: isOn ? color + '22' : '#1a1a1a',
+                        background: isOn ? color + '22' : '#1e1e1e',
                         border: `1.5px solid ${isOn ? color + '66' : '#2a2a2a'}`,
                         color: isOn ? color : '#4a4a4a'
                       }}>
-                      {(b.barber_name || b.alias || '?')[0].toUpperCase()}
+                      {b.photo_url
+                        ? <img src={b.photo_url} alt="" className="w-full h-full object-cover rounded-lg" />
+                        : (b.barber_name || b.alias || '?')[0].toUpperCase()
+                      }
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-white truncate">{b.barber_name || b.alias}</div>
-                      <div className={`text-xs mt-0.5 ${isOn ? 'text-green-500' : 'text-neutral-600'}`}>
-                        {!b.barber_id ? 'Pending' : isOn ? 'On the floor' : 'Off the floor'}
+                      <div className={`text-sm font-semibold ${isOn ? 'text-white' : 'text-neutral-500'}`}>
+                        {b.barber_name || b.alias}
+                      </div>
+                      <div className={`text-xs mt-0.5 ${isOn ? 'text-green-500' : isLinked ? 'text-neutral-600' : 'text-amber-500/70'}`}>
+                        {!isLinked ? 'Pending — invite sent' : isOn ? 'On the floor' : 'Off the floor'}
                       </div>
                     </div>
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isOn ? 'bg-green-500' : 'bg-neutral-700'}`} />
                   </div>
                 )
               })}
-              {barbers.length === 0 && (
-                <div className="text-sm text-neutral-500 py-2">No barbers added yet.</div>
-              )}
             </div>
-            <button
-              onClick={() => router.push('/dashboard/barbers')}
-              className="mt-4 w-full py-2 text-xs text-neutral-500 hover:text-amber-500 transition-colors border-t border-neutral-800 text-center">
+            <button onClick={() => router.push('/dashboard/barbers')}
+              className="mt-3 w-full pt-3 text-xs text-neutral-500 hover:text-amber-500 transition-colors border-t border-neutral-800 text-center">
               Manage barbers →
             </button>
           </div>
         </div>
 
-        {/* SERVICES */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
-            <div className="font-serif text-white">Services</div>
-            <span className="text-xs text-neutral-500">{services.length} active</span>
+        {/* SCHEDULE */}
+        <div className="mb-5">
+          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Schedule</div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
+              <div className="flex gap-1">
+                {(['today', 'upcoming'] as const).map(tab => (
+                  <button key={tab} onClick={() => setApptTab(tab)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      apptTab === tab ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'
+                    }`}>
+                    {tab === 'today' ? `Today (${appointments.length})` : `Upcoming (${upcomingAppointments.length})`}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => router.push('/dashboard/appointments/history')}
+                className="text-xs text-neutral-500 hover:text-amber-500 transition-colors">
+                History
+              </button>
+            </div>
+            <ApptTable appts={apptTab === 'today' ? appointments : upcomingAppointments} />
           </div>
-          {services.length === 0 ? (
-            <div className="p-5 text-center text-neutral-500 text-sm">No services added yet.</div>
-          ) : (
-            <div className="divide-y divide-neutral-800 max-h-72 overflow-y-auto">
-              {services.map((s) => (
-                <div key={s.id} className="px-5 py-3 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-white">{s.name}</div>
-                    <div className="text-xs text-neutral-500">{s.duration_minutes} mins</div>
-                  </div>
-                  <div className="font-mono text-sm text-amber-500 font-semibold">${s.price}</div>
-                </div>
+        </div>
+
+        {/* CLIENT LOCK */}
+        <div className="mb-5">
+          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Client lock</div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-neutral-800 flex items-center justify-between">
+              <div>
+                <div className="font-serif text-white text-lg">Client Lock</div>
+                <div className="text-xs text-neutral-500 mt-0.5">Retention intelligence — updates on every completed appointment</div>
+              </div>
+              <div className="text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-500/30 text-amber-500 bg-amber-500/10">
+                Proprietary
+              </div>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-neutral-800">
+              {[
+                { label: 'Locked', count: lockedCount, color: 'text-green-400', sub: 'Claimed by a barber', href: '/dashboard/clients' },
+                { label: 'At Risk', count: atRiskCount, color: 'text-amber-500', sub: 'Approaching lapse window', href: '/dashboard/clients' },
+                { label: 'Floating', count: floatingCount, color: 'text-red-400', sub: 'Not assigned — revenue risk', href: '/dashboard/clients' },
+              ].map((stat, i) => (
+                <button key={i} onClick={() => router.push(stat.href)}
+                  className="p-5 text-center hover:bg-neutral-800/50 transition-colors">
+                  <div className={`font-serif text-4xl mb-1 ${stat.color}`}>{stat.count}</div>
+                  <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400">{stat.label}</div>
+                  <div className="text-xs text-neutral-600 mt-1 hidden sm:block">{stat.sub}</div>
+                </button>
               ))}
             </div>
-          )}
+            {clientLocks.filter((l: any) => l.locked).length > 0 && (
+              <div className="px-5 py-3 border-t border-neutral-800 divide-y divide-neutral-800">
+                {barbers.map((b: any, i: number) => {
+                  const color = b.color || COLORS[i % COLORS.length]
+                  const locked = clientLocks.filter((l: any) => l.locked && l.barber_id === b.barber_id).length
+                  const atRisk = clientLocks.filter((l: any) => {
+                    if (!l.locked || l.barber_id !== b.barber_id) return false
+                    const days = l.last_booking_date ? Math.floor((Date.now() - new Date(l.last_booking_date).getTime()) / 86400000) : 0
+                    return l.loyalty_protected ? days > 300 : days > 60
+                  }).length
+                  const loyalty = clientLocks.filter((l: any) => l.locked && l.loyalty_protected && l.barber_id === b.barber_id).length
+                  if (!b.barber_id) return null
+                  return (
+                    <div key={b.id} className="flex items-center gap-3 py-3">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center font-serif text-xs font-bold flex-shrink-0"
+                        style={{ background: color + '22', color, border: `1.5px solid ${color}44` }}>
+                        {(b.barber_name || b.alias || '?')[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 text-sm font-medium text-white">{b.barber_name || b.alias}</div>
+                      <div className="flex gap-3 text-right">
+                        <div className="text-center">
+                          <div className="text-sm font-semibold text-green-400">{locked}</div>
+                          <div className="text-xs text-neutral-600">Locked</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm font-semibold text-neutral-400">{atRisk}</div>
+                          <div className="text-xs text-neutral-600">At Risk</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm font-semibold text-neutral-400">{loyalty}</div>
+                          <div className="text-xs text-neutral-600">Loyalty</div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* SHOP INFO */}
+        <div className="mb-5">
+          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Shop</div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+            <div className="divide-y divide-neutral-800">
+              <div className="flex items-center justify-between px-5 py-4">
+                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Booking link</div>
+                <div className="flex flex-col items-end gap-1">
+                  <div className="text-xs font-mono text-amber-500">
+                    {shop?.slug ? `chairos.cc/shop/${shop.slug}` : `chairos.cc/book/${shop?.shop_code}`}
+                  </div>
+                  <button
+                    onClick={() => {
+                      const link = shop?.slug
+                        ? `https://chairos.cc/shop/${shop.slug}`
+                        : `https://chairos.cc/book/${shop?.shop_code}`
+                      navigator.clipboard.writeText(link)
+                      setLinkCopied(true)
+                      setTimeout(() => setLinkCopied(false), 2000)
+                    }}
+                    className="text-xs text-amber-500 hover:text-amber-400 transition-colors">
+                    {linkCopied ? '✓ Copied!' : 'Copy link'}
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between px-5 py-4">
+                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Shop code</div>
+                <div className="font-mono text-sm text-white">{shop?.shop_code}</div>
+              </div>
+              <div className="flex items-center justify-between px-5 py-4">
+                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Active barbers</div>
+                <div className="text-sm text-white">{barbers.filter(b => b.active && b.barber_id).length} of {allBarbers.filter((b: any) => b.barber_id).length} on floor</div>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>
