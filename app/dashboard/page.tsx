@@ -88,6 +88,7 @@ export default function Dashboard() {
   const [toast, setToast] = useState<{msg: string, type: 'success'|'error'} | null>(null)
   const [addingTip, setAddingTip] = useState<string | null>(null)
   const [cashingOut, setCashingOut] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -469,11 +470,16 @@ export default function Dashboard() {
                   {shop?.slug ? `chairos.cc/shop/${shop.slug}` : `chairos.cc/book/${shop?.shop_code}`}
                 </div>
                 <button
-                  onClick={() => navigator.clipboard.writeText(
-                    shop?.slug ? `https://chairos.cc/shop/${shop.slug}` : `https://chairos.cc/book/${shop?.shop_code}`
-                  )}
-                  className="mt-2 text-xs text-neutral-500 hover:text-amber-500 transition-colors">
-                  Copy link
+                  onClick={() => {
+                    const link = shop?.slug
+                      ? `https://chairos.cc/book/${shop.shop_code}`
+                      : `https://chairos.cc/book/${shop?.shop_code}`
+                    navigator.clipboard.writeText(link)
+                    setLinkCopied(true)
+                    setTimeout(() => setLinkCopied(false), 2000)
+                  }}
+                  className="text-xs font-semibold text-amber-500 hover:text-amber-400 transition-colors mt-1">
+                  {linkCopied ? '✓ Copied!' : 'Copy link'}
                 </button>
               </div>
               <div>

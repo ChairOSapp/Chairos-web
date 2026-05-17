@@ -13,6 +13,7 @@ export default function ClientsPage() {
   const [activeTab, setActiveTab] = useState<'locked'|'atrisk'|'floating'>('locked')
   const [reassigning, setReassigning] = useState<string | null>(null)
   const [success, setSuccess] = useState('')
+  const [selectedClient, setSelectedClient] = useState<any>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -172,7 +173,7 @@ export default function ClientsPage() {
                   : null
 
                 return (
-                  <div key={l.id} className="px-5 py-4">
+                  <div key={l.id} className="px-5 py-4 cursor-pointer hover:bg-neutral-800/30 transition-colors" onClick={() => setSelectedClient(l)}>
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0 bg-neutral-800 text-neutral-400">
@@ -249,6 +250,55 @@ export default function ClientsPage() {
           )}
         </div>
       </div>
+      {selectedClient && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4 pb-24 sm:pb-4"
+          onClick={() => setSelectedClient(null)}>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6 mb-20 md:mb-0"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="font-serif text-lg text-white">Client Details</div>
+              <button onClick={() => setSelectedClient(null)} className="text-neutral-500 hover:text-white text-xl transition-colors">×</button>
+            </div>
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center font-serif text-2xl font-bold flex-shrink-0 bg-neutral-800 text-neutral-400">
+                {((selectedClient as any).clients?.full_name || 'G')[0].toUpperCase()}
+              </div>
+              <div>
+                <div className="font-serif text-xl text-white">{(selectedClient as any).clients?.full_name || 'Unknown'}</div>
+                <div className="text-sm text-neutral-500 mt-0.5">{(selectedClient as any).clients?.phone}</div>
+              </div>
+            </div>
+            <div className="space-y-0 mb-5 bg-neutral-800 rounded-xl overflow-hidden">
+              {[
+                { label: 'Total Visits', value: (selectedClient as any).clients?.total_visits || selectedClient.booking_count || 0 },
+                { label: 'Barber', value: getBarberName(selectedClient.barber_id) },
+                { label: 'First Visit', value: selectedClient.first_booking_date ? new Date(selectedClient.first_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—' },
+                { label: 'Last Visit', value: selectedClient.last_booking_date ? new Date(selectedClient.last_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—' },
+                { label: 'Status', value: selectedClient.loyalty_protected ? '★ Loyalty Protected' : selectedClient.locked ? 'Locked In' : 'Floating' },
+              ].map((row, i, arr) => (
+                <div key={i} className={`flex justify-between items-center px-4 py-3 ${i < arr.length - 1 ? 'border-b border-neutral-700' : ''}`}>
+                  <span className="text-xs font-semibold tracking-widest uppercase text-neutral-500">{row.label}</span>
+                  <span className="text-sm text-white">{String(row.value)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              {(selectedClient as any).clients?.phone && (
+                <a href={`tel:${(selectedClient as any).clients.phone}`}
+                  className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl py-3 text-sm text-center text-white font-semibold hover:border-amber-500 transition-colors">
+                  📞 Call
+                </a>
+              )}
+              {(selectedClient as any).clients?.phone && (
+                <a href={`sms:${(selectedClient as any).clients.phone}`}
+                  className="flex-1 bg-amber-500 hover:bg-amber-400 rounded-xl py-3 text-sm text-center text-black font-semibold transition-colors">
+                  💬 Text
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <MobileNav />
     </div>
   )
