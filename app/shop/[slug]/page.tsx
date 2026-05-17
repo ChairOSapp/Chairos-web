@@ -147,6 +147,21 @@ export default function ShopProfile() {
                 </div>
               )}
             </div>
+            {shop.hours && Array.isArray(shop.hours) && (
+              <div className="mt-4 pt-4 border-t border-neutral-800">
+                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-2">Hours</div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  {(shop.hours as { day: string; open: boolean; from: string; to: string }[]).map(h => (
+                    <div key={h.day} className="flex items-center justify-between text-xs">
+                      <span className="text-neutral-500">{h.day.slice(0, 3)}</span>
+                      <span className={h.open ? 'text-neutral-300' : 'text-neutral-600'}>
+                        {h.open ? `${h.from} – ${h.to}` : 'Closed'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

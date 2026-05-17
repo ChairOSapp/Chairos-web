@@ -131,7 +131,7 @@ export default function Dashboard() {
       .select('id')
       .eq('appointment_id', appointmentId)
       .eq('barber_id', barberId)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       // Update existing tip instead of inserting
@@ -417,7 +417,13 @@ export default function Dashboard() {
                   Upcoming ({upcomingAppointments.length})
                 </button>
               </div>
-              <span className="text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 px-3 py-1 rounded-full">Live</span>
+              <div className="flex items-center gap-3">
+                <button onClick={() => router.push('/dashboard/appointments/history')}
+                  className="text-xs text-neutral-500 hover:text-amber-500 transition-colors">
+                  History
+                </button>
+                <span className="text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 px-3 py-1 rounded-full">Live</span>
+              </div>
             </div>
             <ApptTable appts={displayAppts} />
           </div>

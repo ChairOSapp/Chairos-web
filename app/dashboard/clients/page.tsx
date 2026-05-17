@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 
 export default function ClientsPage() {
@@ -59,6 +60,7 @@ export default function ClientsPage() {
 
     await supabase.from('client_locks').update({
       barber_id: newBarberId,
+      locked: true,
       updated_at: new Date().toISOString()
     }).eq('id', lockId)
 
@@ -109,12 +111,11 @@ export default function ClientsPage() {
     return b?.barber_name || b?.alias || 'Unknown'
   }
 
+  const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
+
   return (
     <div className="min-h-screen bg-neutral-950">
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
-        <button onClick={() => router.push('/dashboard')} className="text-xs text-neutral-500 hover:text-white transition-colors">← Dashboard</button>
-      </header>
+      <OwnerNav shopName={shop?.name || ''} ownerName={''} initials={initials} />
 
       <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-6">
         <div className="mb-6">

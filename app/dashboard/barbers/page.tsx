@@ -367,40 +367,45 @@ export default function ManageBarbers() {
               </div>
             )}
 
-            <div className="mb-4">
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Barber Photo</label>
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 border-2 border-neutral-700">
-                  {barberPhotoUrl ? (
-                    <img src={barberPhotoUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-neutral-800 flex items-center justify-center font-serif text-lg text-neutral-500">
-                      {barberName[0]?.toUpperCase() || '?'}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => photoRef.current?.click()}
-                    disabled={uploadingPhoto}
-                    className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-semibold text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors disabled:opacity-50">
-                    {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
-                  </button>
-                  <input
-                    ref={photoRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={e => {
-                      const targetId = editingId || null
-                      if (targetId) handleBarberPhotoUpload(e, targetId)
-                    }}
-                    className="hidden"
-                  />
-                  <p className="text-xs text-neutral-600 mt-1">Shows on booking page</p>
+            {editingId && (
+              <div className="mb-4">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Barber Photo</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 border-2 border-neutral-700">
+                    {barberPhotoUrl ? (
+                      <img src={barberPhotoUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-neutral-800 flex items-center justify-center font-serif text-lg text-neutral-500">
+                        {barberName[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => photoRef.current?.click()}
+                      disabled={uploadingPhoto}
+                      className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-semibold text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors disabled:opacity-50">
+                      {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                    </button>
+                    <input
+                      ref={photoRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={e => handleBarberPhotoUpload(e, editingId)}
+                      className="hidden"
+                    />
+                    <p className="text-xs text-neutral-600 mt-1">Shows on booking page</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+            {!editingId && (
+              <div className="mb-4">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Barber Photo</label>
+                <p className="text-xs text-neutral-600">Save the barber first, then edit them to upload a photo.</p>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button onClick={() => { resetForm(); setShowForm(false) }}
@@ -455,6 +460,10 @@ export default function ManageBarbers() {
                     <button onClick={() => openEdit(b)}
                       className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
                       Edit
+                    </button>
+                    <button onClick={() => router.push(`/dashboard/barbers/${b.id}/earnings`)}
+                      className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-400 hover:border-green-500 hover:text-green-400 transition-colors">
+                      Earnings
                     </button>
                     <button onClick={() => toggleActive(b.id, b.active)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${

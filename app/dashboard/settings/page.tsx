@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+const DEFAULT_HOURS = DAYS.map(day => ({
+  day,
+  open: day !== 'Sunday',
+  from: '09:00',
+  to: day === 'Saturday' || day === 'Sunday' ? '16:00' : '18:00',
+}))
+
 export default function ShopSettings() {
   const [shop, setShop] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -25,6 +33,7 @@ export default function ShopSettings() {
   const [city, setCity] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [heroUrl, setHeroUrl] = useState('')
+  const [hours, setHours] = useState<typeof DEFAULT_HOURS>(DEFAULT_HOURS)
 
   const logoRef = useRef<HTMLInputElement>(null)
   const heroRef = useRef<HTMLInputElement>(null)
@@ -54,6 +63,7 @@ export default function ShopSettings() {
     setCity(shop.city || '')
     setLogoUrl(shop.logo_url || '')
     setHeroUrl(shop.hero_url || '')
+    if (shop.hours) setHours(shop.hours)
     setLoading(false)
   }
 
@@ -130,6 +140,7 @@ export default function ShopSettings() {
       city,
       logo_url: logoUrl,
       hero_url: heroUrl,
+      hours,
     }).eq('id', shop.id)
 
     if (saveErr) { setError(saveErr.message); setSaving(false); return }
@@ -338,6 +349,45 @@ export default function ShopSettings() {
               {slug ? `chairos.cc/shop/${slug}` : `chairos.cc/book/${shop?.shop_code}`}
             </span>
           </p>
+        </div>
+
+        {/* HOURS */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-5">Shop Hours</div>
+          <div className="space-y-3">
+            {hours.map((h, i) => (
+              <div key={h.day} className="flex items-center gap-3">
+                <div className="w-24 flex-shrink-0">
+                  <button
+                    onClick={() => setHours(prev => prev.map((d, j) => j === i ? { ...d, open: !d.open } : d))}
+                    className={`w-full py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      h.open ? 'bg-amber-500 border-amber-500 text-black' : 'bg-neutral-800 border-neutral-700 text-neutral-500'
+                    }`}>
+                    {h.day.slice(0, 3)}
+                  </button>
+                </div>
+                {h.open ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="time"
+                      value={h.from}
+                      onChange={e => setHours(prev => prev.map((d, j) => j === i ? { ...d, from: e.target.value } : d))}
+                      className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500 w-28"
+                    />
+                    <span className="text-neutral-600 text-xs">to</span>
+                    <input
+                      type="time"
+                      value={h.to}
+                      onChange={e => setHours(prev => prev.map((d, j) => j === i ? { ...d, to: e.target.value } : d))}
+                      className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500 w-28"
+                    />
+                  </div>
+                ) : (
+                  <div className="text-xs text-neutral-600">Closed</div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         <button onClick={handleSave} disabled={saving}

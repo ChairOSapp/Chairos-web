@@ -49,7 +49,7 @@ export default function JoinPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      router.push(`/signup?redirect=/join?token=${invite.token}`)
+      router.push(`/signup?redirect=${encodeURIComponent(`/join?token=${invite.token}`)}`)
       return
     }
 
