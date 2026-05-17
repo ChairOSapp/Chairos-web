@@ -543,10 +543,16 @@ export default function Dashboard() {
                           : `Booth rent $${b.booth_rent_amount}/wk`}
                       </div>
                     </div>
-                    <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${b.barber_id ? 'bg-green-500/10 text-green-500' : 'bg-neutral-800 text-neutral-500'}`}>
-                      {b.barber_id ? 'Linked' : 'Pending'}
-                    </div>
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${b.active && b.barber_id ? 'bg-green-500' : 'bg-neutral-700'}`} />
+                    {!b.barber_id && (
+                      <div className="text-xs font-semibold px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-500">
+                        Pending
+                      </div>
+                    )}
+                    {b.barber_id && (
+                      <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${b.active ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-neutral-800 text-neutral-500 border border-neutral-700'}`}>
+                        {b.active ? '● On Floor' : '○ Off Floor'}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

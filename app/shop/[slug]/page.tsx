@@ -216,7 +216,7 @@ export default function ShopProfile() {
               barbers.map((b, i) => (
                 <div key={b.id}
                   className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-center hover:border-neutral-700 transition-colors cursor-pointer"
-                  onClick={() => router.push(bookingUrl)}>
+                  onClick={() => router.push(`${bookingUrl}?barber=${b.id}`)}>
                   {b.photo_url ? (
                     <img src={b.photo_url} alt={b.barber_name || b.alias}
                       className="w-16 h-16 rounded-full object-cover mx-auto mb-3 border-2"
@@ -237,6 +237,7 @@ export default function ShopProfile() {
                   )}
                   {b.bio && <div className="text-xs text-neutral-500 mt-2 line-clamp-3">{b.bio}</div>}
                   <button
+                    onClick={e => { e.stopPropagation(); router.push(`${bookingUrl}?barber=${b.id}`) }}
                     className="mt-3 w-full py-1.5 rounded-lg text-xs font-semibold text-black transition-opacity hover:opacity-90"
                     style={{ background: brand }}>
                     Book {b.barber_name?.split(' ')[0] || b.alias}

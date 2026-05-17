@@ -1,7 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 
 const TIMES = [
   '8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM',
@@ -10,10 +10,11 @@ const TIMES = [
   '5:00 PM','5:30 PM','6:00 PM','6:30 PM','7:00 PM','7:30 PM','8:00 PM'
 ]
 
-export default function BookingPage() {
+function BookingPageInner() {
   const params = useParams()
   const shopCode = (params.shopCode as string)?.toUpperCase()
   const supabase = createClient()
+  const searchParams = useSearchParams()
 
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
@@ -46,6 +47,15 @@ export default function BookingPage() {
         .from('shop_barbers').select('*')
         .eq('shop_id', shop.id).eq('active', true)
       setBarbers(barbers || [])
+
+      const barberParam = searchParams.get('barber')
+      if (barberParam && barbers) {
+        const preSelected = barbers.find((b: any) => b.id === barberParam)
+        if (preSelected) {
+          setSelectedBarber(preSelected)
+          setStep(2)
+        }
+      }
 
       const { data: services } = await supabase
         .from('services').select('*')
@@ -417,20 +427,6 @@ export default function BookingPage() {
                 </div>
               ))}
             </div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mt-2">
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">
-                Save Your Info (Optional)
-              </div>
-              <p className="text-xs text-neutral-500 mb-3">
-                Create a free account to rebook faster, track your visits, and get personalized recommendations.
-              </p>
-              <button
-                type="button"
-                onClick={() => window.open(`/signup?prefill=${encodeURIComponent(clientEmail || '')}`, '_blank')}
-                className="w-full py-2.5 rounded-lg border border-neutral-700 text-xs font-semibold text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
-                Create a Free Account →
-              </button>
-            </div>
             <div className="flex gap-3 items-center">
               <button onClick={() => setStep(3)} className="text-sm text-neutral-500 hover:text-white transition-colors">← Back</button>
               <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone}
@@ -444,5 +440,17 @@ export default function BookingPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+        <div className="w-6 h-6 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+      </div>
+    }>
+      <BookingPageInner />
+    </Suspense>
   )
 }
