@@ -200,18 +200,36 @@ export default function Dashboard() {
   useEffect(() => {
     if (!shopId) return
     const channel = supabase
-      .channel(`dashboard-${shopId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `shop_id=eq.${shopId}` },
-        () => loadAppointmentsAndTips(shopId))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tips', filter: `shop_id=eq.${shopId}` },
-        () => loadAppointmentsAndTips(shopId))
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shop_barbers', filter: `shop_id=eq.${shopId}` },
-        async () => {
-          const { data: updatedBarbers } = await supabase
-            .from('shop_barbers').select('*')
-            .eq('shop_id', shopId).eq('active', true)
-          setBarbers(updatedBarbers || [])
-        })
+      .channel(`shop-${shopId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'appointments',
+        filter: `shop_id=eq.${shopId}`
+      }, () => {
+        loadAppointmentsAndTips(shopId)
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tips',
+        filter: `shop_id=eq.${shopId}`
+      }, () => {
+        loadAppointmentsAndTips(shopId)
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'shop_barbers',
+        filter: `shop_id=eq.${shopId}`
+      }, async () => {
+        const { data: updatedBarbers } = await supabase
+          .from('shop_barbers').select('*')
+          .eq('shop_id', shopId)
+          .order('joined_at', { ascending: true })
+        setAllBarbers(updatedBarbers || [])
+        setBarbers((updatedBarbers || []).filter((b: any) => b.active))
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [shopId])
