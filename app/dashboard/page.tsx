@@ -82,6 +82,8 @@ export default function Dashboard() {
   const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([])
   const [tips, setTips] = useState<any[]>([])
   const [clientLocks, setClientLocks] = useState<any[]>([])
+  const [yesterdayAppointments, setYesterdayAppointments] = useState<any[]>([])
+  const [yesterdayTips, setYesterdayTips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [shopId, setShopId] = useState<string | null>(null)
   const [apptTab, setApptTab] = useState<'today'|'upcoming'>('today')
@@ -161,6 +163,26 @@ export default function Dashboard() {
         setClientLocks(locks || [])
 
         await loadAppointmentsAndTips(shop.id)
+
+        // Yesterday's data
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+        const { data: yesterdayAppts } = await supabase
+          .from('appointments')
+          .select('price, status')
+          .eq('shop_id', shop.id)
+          .eq('date', yesterdayStr)
+        setYesterdayAppointments(yesterdayAppts || [])
+
+        const { data: yesterdayTipsData } = await supabase
+          .from('tips')
+          .select('amount')
+          .eq('shop_id', shop.id)
+          .gte('created_at', `${yesterdayStr}T00:00:00`)
+          .lte('created_at', `${yesterdayStr}T23:59:59`)
+        setYesterdayTips(yesterdayTipsData || [])
       }
 
       setLoading(false)
@@ -337,10 +359,69 @@ export default function Dashboard() {
 
       <div className="p-6 max-w-6xl mx-auto pb-20 md:pb-0">
 
-        <div className="mb-8">
-          <h1 className="font-serif text-2xl text-white mb-1">{greeting}, {profile?.full_name?.split(' ')[0]}</h1>
-          <p className="text-neutral-500 text-sm">{dateStr}</p>
+        {/* GREETING */}
+        <div className="mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </div>
+          <div className="font-serif text-2xl text-white">
+            {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'},{' '}
+            {profile?.full_name?.split(' ')[0] || shop?.name?.split(' ')[0] || 'Boss'}.
+          </div>
+          <div className="text-sm text-neutral-500 mt-1">
+            {appointments.length > 0
+              ? `${appointments.length} appointment${appointments.length !== 1 ? 's' : ''} on the books today.`
+              : 'No appointments scheduled yet today.'}
+          </div>
         </div>
+
+        {/* YESTERDAY RECAP */}
+        {yesterdayAppointments.length > 0 && (
+          <div className="mb-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Yesterday</div>
+            <button
+              onClick={() => router.push('/dashboard/appointments/history')}
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-neutral-700 transition-colors">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">
+                  {new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('en-US', { weekday: 'long' })}'s recap
+                </div>
+                <div className="text-xs text-amber-500">View full report →</div>
+              </div>
+              <div className="flex items-center gap-0 divide-x divide-neutral-800">
+                {[
+                  {
+                    label: 'Revenue',
+                    value: `$${yesterdayAppointments.filter(a => a.status === 'done').reduce((s, a) => s + (parseFloat(a.price) || 0), 0).toFixed(0)}`,
+                    color: 'text-amber-500'
+                  },
+                  {
+                    label: 'Appointments',
+                    value: yesterdayAppointments.length.toString(),
+                    color: 'text-white'
+                  },
+                  {
+                    label: 'Tips',
+                    value: `$${yesterdayTips.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0).toFixed(0)}`,
+                    color: 'text-green-400'
+                  },
+                  {
+                    label: 'No-shows',
+                    value: yesterdayAppointments.filter(a => a.status === 'noshow').length.toString(),
+                    color: yesterdayAppointments.filter(a => a.status === 'noshow').length > 0 ? 'text-red-400' : 'text-white'
+                  },
+                ].map((stat, i) => (
+                  <div key={i} className="flex-1 px-4 first:pl-0 last:pr-0 text-center">
+                    <div className={`font-serif text-2xl mb-1 ${stat.color}`}>{stat.value}</div>
+                    <div className="text-xs text-neutral-500">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            </button>
+          </div>
+        )}
+
+        <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Today</div>
 
         {/* KPI CARDS */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -370,6 +451,7 @@ export default function Dashboard() {
           </button>
         </div>
 
+        <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3 mt-6">Client lock</div>
         {/* CLIENT LOCK */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
@@ -435,6 +517,7 @@ export default function Dashboard() {
           )}
         </div>
 
+        <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3 mt-6">Schedule</div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
@@ -459,7 +542,9 @@ export default function Dashboard() {
             <ApptTable appts={displayAppts} />
           </div>
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+          <div>
+            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Shop</div>
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-800">
               <div className="font-serif text-white">Shop Info</div>
             </div>
@@ -497,6 +582,7 @@ export default function Dashboard() {
                 <div className="text-sm text-white">{shop?.phone || '—'}</div>
               </div>
             </div>
+          </div>
           </div>
         </div>
 
@@ -542,68 +628,78 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* BARBERS + SERVICES */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
-              <div className="font-serif text-white">Your Barbers</div>
-              <span className="text-xs text-neutral-500">{barbers.length} active</span>
+        {/* THE FLOOR */}
+        <div className="mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3 mt-6">The floor</div>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Who's in</div>
+              <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                Live
+              </div>
             </div>
-            {barbers.length === 0 ? (
-              <div className="p-5 text-center text-neutral-500 text-sm">No barbers added yet.</div>
-            ) : (
-              <div className="divide-y divide-neutral-800">
-                {barbers.map((b, i) => (
-                  <div key={b.id} className="px-5 py-3 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
-                      style={{ background: (b.color || COLORS[i % COLORS.length]) + '22', border: `2px solid ${b.color || COLORS[i % COLORS.length]}`, color: b.color || COLORS[i % COLORS.length] }}>
+            <div className="flex flex-wrap gap-3">
+              {barbers.map((b, i) => {
+                const color = b.color || COLORS[i % COLORS.length]
+                const isOn = b.active && b.barber_id
+                return (
+                  <div key={b.id}
+                    className={`flex items-center gap-3 rounded-xl px-4 py-3 border flex-1 min-w-36 transition-colors ${
+                      isOn
+                        ? 'bg-neutral-800/50 border-neutral-700'
+                        : 'bg-neutral-900 border-neutral-800 opacity-50'
+                    }`}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
+                      style={{
+                        background: isOn ? color + '22' : '#1a1a1a',
+                        border: `1.5px solid ${isOn ? color + '66' : '#2a2a2a'}`,
+                        color: isOn ? color : '#4a4a4a'
+                      }}>
                       {(b.barber_name || b.alias || '?')[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-white">{b.barber_name || b.alias}</div>
-                      <div className="text-xs text-neutral-500">
-                        {b.compensation_type === 'commission'
-                          ? `${Math.round((b.commission_rate || 0.7) * 100)}% commission`
-                          : `Booth rent $${b.booth_rent_amount}/wk`}
+                      <div className="text-sm font-semibold text-white truncate">{b.barber_name || b.alias}</div>
+                      <div className={`text-xs mt-0.5 ${isOn ? 'text-green-500' : 'text-neutral-600'}`}>
+                        {!b.barber_id ? 'Pending' : isOn ? 'On the floor' : 'Off the floor'}
                       </div>
                     </div>
-                    {!b.barber_id && (
-                      <div className="text-xs font-semibold px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-500">
-                        Pending
-                      </div>
-                    )}
-                    {b.barber_id && (
-                      <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${b.active ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-neutral-800 text-neutral-500 border border-neutral-700'}`}>
-                        {b.active ? '● On Floor' : '○ Off Floor'}
-                      </div>
-                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
-              <div className="font-serif text-white">Services</div>
-              <span className="text-xs text-neutral-500">{services.length} active</span>
+                )
+              })}
+              {barbers.length === 0 && (
+                <div className="text-sm text-neutral-500 py-2">No barbers added yet.</div>
+              )}
             </div>
-            {services.length === 0 ? (
-              <div className="p-5 text-center text-neutral-500 text-sm">No services added yet.</div>
-            ) : (
-              <div className="divide-y divide-neutral-800 max-h-72 overflow-y-auto">
-                {services.map((s) => (
-                  <div key={s.id} className="px-5 py-3 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-white">{s.name}</div>
-                      <div className="text-xs text-neutral-500">{s.duration_minutes} mins</div>
-                    </div>
-                    <div className="font-mono text-sm text-amber-500 font-semibold">${s.price}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <button
+              onClick={() => router.push('/dashboard/barbers')}
+              className="mt-4 w-full py-2 text-xs text-neutral-500 hover:text-amber-500 transition-colors border-t border-neutral-800 text-center">
+              Manage barbers →
+            </button>
           </div>
+        </div>
+
+        {/* SERVICES */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
+            <div className="font-serif text-white">Services</div>
+            <span className="text-xs text-neutral-500">{services.length} active</span>
+          </div>
+          {services.length === 0 ? (
+            <div className="p-5 text-center text-neutral-500 text-sm">No services added yet.</div>
+          ) : (
+            <div className="divide-y divide-neutral-800 max-h-72 overflow-y-auto">
+              {services.map((s) => (
+                <div key={s.id} className="px-5 py-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-white">{s.name}</div>
+                    <div className="text-xs text-neutral-500">{s.duration_minutes} mins</div>
+                  </div>
+                  <div className="font-mono text-sm text-amber-500 font-semibold">${s.price}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
