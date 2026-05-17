@@ -307,7 +307,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-neutral-950">
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg ${
+        <div className={`fixed bottom-20 md:bottom-6 right-6 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg ${
           toast.type === 'error' ? 'bg-red-900 border border-red-700 text-red-200' : 'bg-neutral-800 border border-green-700 text-green-300'
         }`}>
           {toast.msg}

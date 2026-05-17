@@ -155,9 +155,9 @@ export default function BarberClientsPage() {
         </div>
       </div>
       {selectedClient && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4"
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4 pb-24 sm:pb-4"
           onClick={() => setSelectedClient(null)}>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6"
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6 mb-20 md:mb-0"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <div className="font-serif text-lg text-white">Client Details</div>
