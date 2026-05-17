@@ -155,7 +155,7 @@ export default function Dashboard() {
         const { data: allBarbersData } = await supabase
           .from('shop_barbers').select('*')
           .eq('shop_id', shop.id)
-          .order('created_at', { ascending: true })
+          .order('joined_at', { ascending: true })
         setAllBarbers(allBarbersData || [])
 
         const { data: services } = await supabase
@@ -398,7 +398,7 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-neutral-800">
             <button
-              onClick={() => router.push('/dashboard/appointments/history')}
+              onClick={() => router.push('/dashboard/tips')}
               className="text-center hover:bg-neutral-800/50 rounded-lg py-2 transition-colors">
               <div className="font-serif text-xl text-green-400">${totalTips.toFixed(0)}</div>
               <div className="text-xs text-neutral-500 mt-0.5">Tips</div>
@@ -454,7 +454,7 @@ export default function Dashboard() {
           <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">The floor</div>
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-800">
-              <div className="text-xs text-neutral-500">{barbers.filter((b: any) => b.active && b.barber_id).length} of {allBarbers.filter((b: any) => b.barber_id).length} barbers in</div>
+              <div className="text-xs text-neutral-500">{allBarbers.filter((b: any) => b.active && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} barbers in</div>
               <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                 Live
