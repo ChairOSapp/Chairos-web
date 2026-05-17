@@ -58,7 +58,7 @@ export default function BarberDashboard() {
 
     const { data: locks } = await supabase
       .from('client_locks')
-      .select('*, clients(*)')
+      .select('id, locked, barber_id, shop_id, booking_count, first_booking_date, last_booking_date, loyalty_protected, updated_at, client_id, clients(id, full_name, phone, email, total_visits, last_visit_date)')
       .eq('barber_id', uid)
     setClientLocks(locks || [])
   }, [])
@@ -144,6 +144,7 @@ export default function BarberDashboard() {
   async function updateStatus(appointmentId: string, status: string) {
     setStatusUpdating(prev => ({ ...prev, [appointmentId]: true }))
     await supabase.from('appointments').update({ status }).eq('id', appointmentId)
+    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status } : a))
     setStatusUpdating(prev => ({ ...prev, [appointmentId]: false }))
   }
 
@@ -173,6 +174,7 @@ export default function BarberDashboard() {
 
     setBarberTipInput(prev => ({ ...prev, [appointmentId]: '' }))
     setAddingTip(prev => ({ ...prev, [appointmentId]: false }))
+    if (barberId && shopId) await loadLiveData(barberId, shopId)
   }
 
   async function handleWalkIn() {

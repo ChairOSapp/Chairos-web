@@ -10,6 +10,7 @@ export default function BarberClientsPage() {
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'locked'|'atrisk'|'loyalty'>('locked')
+  const [selectedClient, setSelectedClient] = useState<any>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -31,17 +32,7 @@ export default function BarberClientsPage() {
 
     const { data: locks } = await supabase
       .from('client_locks')
-      .select(`
-        *,
-        clients (
-          id,
-          full_name,
-          phone,
-          email,
-          total_visits,
-          last_visit_date
-        )
-      `)
+      .select('id, locked, barber_id, shop_id, booking_count, first_booking_date, last_booking_date, loyalty_protected, updated_at, client_id, clients(id, full_name, phone, email, total_visits, last_visit_date)')
       .eq('barber_id', user.id)
     setClientLocks(locks || [])
 
@@ -126,7 +117,7 @@ export default function BarberClientsPage() {
                   : null
 
                 return (
-                  <div key={l.id} className="px-5 py-4 flex items-center gap-4">
+                  <div key={l.id} className="px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => setSelectedClient(l)}>
                     <div className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
                       style={{ background: color + '22', border: `2px solid ${color}`, color }}>
                       {(l.clients?.full_name || l.clients?.phone || 'G')[0].toUpperCase()}
@@ -163,6 +154,55 @@ export default function BarberClientsPage() {
           )}
         </div>
       </div>
+      {selectedClient && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setSelectedClient(null)}>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="font-serif text-lg text-white">Client Details</div>
+              <button onClick={() => setSelectedClient(null)} className="text-neutral-500 hover:text-white text-xl">×</button>
+            </div>
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center font-serif text-2xl font-bold flex-shrink-0"
+                style={{ background: color + '22', border: `2px solid ${color}`, color }}>
+                {((selectedClient as any).clients?.full_name || 'G')[0].toUpperCase()}
+              </div>
+              <div>
+                <div className="font-serif text-xl text-white">{(selectedClient as any).clients?.full_name || 'Unknown'}</div>
+                <div className="text-sm text-neutral-500 mt-0.5">{(selectedClient as any).clients?.phone}</div>
+              </div>
+            </div>
+            <div className="space-y-3 mb-5">
+              {[
+                { label: 'Total Visits', value: (selectedClient as any).clients?.total_visits || selectedClient.booking_count || 0 },
+                { label: 'First Visit', value: selectedClient.first_booking_date ? new Date(selectedClient.first_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—' },
+                { label: 'Last Visit', value: selectedClient.last_booking_date ? new Date(selectedClient.last_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—' },
+                { label: 'Status', value: selectedClient.loyalty_protected ? '★ Loyalty Protected' : selectedClient.locked ? 'Locked' : 'Floating' },
+              ].map((row, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b border-neutral-800 last:border-0">
+                  <span className="text-xs font-semibold tracking-widest uppercase text-neutral-500">{row.label}</span>
+                  <span className="text-sm text-white">{String(row.value)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              {(selectedClient as any).clients?.phone && (
+                <a href={`tel:${(selectedClient as any).clients.phone}`}
+                  className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg py-2.5 text-sm text-center text-white font-semibold hover:border-amber-500 transition-colors">
+                  📞 Call
+                </a>
+              )}
+              {(selectedClient as any).clients?.phone && (
+                <a href={`sms:${(selectedClient as any).clients.phone}`}
+                  className="flex-1 bg-amber-500 hover:bg-amber-400 rounded-lg py-2.5 text-sm text-center text-black font-semibold transition-colors">
+                  💬 Text
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <BarberMobileNav />
     </div>
   )

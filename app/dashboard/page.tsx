@@ -87,7 +87,8 @@ export default function Dashboard() {
         setServices(services || [])
 
         const { data: locks } = await supabase
-          .from('client_locks').select('*, clients(*)')
+          .from('client_locks')
+          .select('id, locked, barber_id, shop_id, booking_count, first_booking_date, last_booking_date, loyalty_protected, updated_at, client_id, clients(id, full_name, phone, email, total_visits, last_visit_date)')
           .eq('shop_id', shop.id)
         setClientLocks(locks || [])
 
@@ -107,6 +108,13 @@ export default function Dashboard() {
         () => loadAppointmentsAndTips(shopId))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tips', filter: `shop_id=eq.${shopId}` },
         () => loadAppointmentsAndTips(shopId))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shop_barbers', filter: `shop_id=eq.${shopId}` },
+        async () => {
+          const { data: updatedBarbers } = await supabase
+            .from('shop_barbers').select('*')
+            .eq('shop_id', shopId).eq('active', true)
+          setBarbers(updatedBarbers || [])
+        })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [shopId])
@@ -317,26 +325,30 @@ export default function Dashboard() {
 
         {/* KPI CARDS */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+          <button onClick={() => router.push('/dashboard/appointments/history')}
+            className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-amber-500/50 transition-colors">
             <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Today's Revenue</div>
             <div className="font-serif text-3xl text-white mb-1">${todayRevenue.toFixed(2)}</div>
             <div className="text-xs text-neutral-500">{doneCount} completed</div>
-          </div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+          </button>
+          <button onClick={() => setApptTab('today')}
+            className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-amber-500/50 transition-colors">
             <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Today's Bookings</div>
             <div className="font-serif text-3xl text-white mb-1">{appointments.length}</div>
             <div className="text-xs text-neutral-500">{upcomingAppointments.length} upcoming</div>
-          </div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+          </button>
+          <button onClick={() => router.push('/dashboard/appointments/history?status=noshow')}
+            className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-amber-500/50 transition-colors">
             <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">No-Show Rate</div>
             <div className="font-serif text-3xl text-white mb-1">{noShowRate !== null ? `${noShowRate}%` : '—'}</div>
             <div className="text-xs text-neutral-500">{noShowCount} no-shows</div>
-          </div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+          </button>
+          <button onClick={() => router.push('/dashboard/clients')}
+            className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-left hover:border-amber-500/50 transition-colors">
             <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Tips Today</div>
             <div className="font-serif text-3xl text-green-400 mb-1">${totalTips.toFixed(2)}</div>
             <div className="text-xs text-neutral-500">Across all barbers</div>
-          </div>
+          </button>
         </div>
 
         {/* CLIENT LOCK */}
@@ -534,6 +546,7 @@ export default function Dashboard() {
                     <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${b.barber_id ? 'bg-green-500/10 text-green-500' : 'bg-neutral-800 text-neutral-500'}`}>
                       {b.barber_id ? 'Linked' : 'Pending'}
                     </div>
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${b.active && b.barber_id ? 'bg-green-500' : 'bg-neutral-700'}`} />
                   </div>
                 ))}
               </div>

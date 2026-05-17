@@ -10,6 +10,7 @@ export default function BarberEarningsHistory() {
   const [tips, setTips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [year, setYear] = useState(new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState<any>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -122,7 +123,7 @@ export default function BarberEarningsHistory() {
             <div className="px-5 py-4 border-b border-neutral-800 font-serif text-white">By Month</div>
             <div className="divide-y divide-neutral-800">
               {byMonth.map((m, i) => (
-                <div key={i} className="px-5 py-3 flex items-center justify-between">
+                <div key={i} className="px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => setSelectedMonth(m)}>
                   <div>
                     <div className="text-sm text-white font-medium">{m.month}</div>
                     <div className="text-xs text-neutral-500">{m.appointments} appointments</div>
@@ -143,6 +144,31 @@ export default function BarberEarningsHistory() {
           </div>
         )}
       </div>
+      {selectedMonth && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setSelectedMonth(null)}>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="font-serif text-lg text-white">{selectedMonth.month} {year}</div>
+              <button onClick={() => setSelectedMonth(null)} className="text-neutral-500 hover:text-white text-xl">×</button>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: 'Appointments', value: selectedMonth.appointments },
+                { label: 'Service Cut', value: `$${selectedMonth.cut.toFixed(2)}` },
+                { label: 'Tips', value: `$${selectedMonth.tips.toFixed(2)}` },
+                { label: 'Total', value: `$${selectedMonth.total.toFixed(2)}` },
+              ].map((row, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b border-neutral-800 last:border-0">
+                  <span className="text-xs font-semibold tracking-widest uppercase text-neutral-500">{row.label}</span>
+                  <span className={`text-sm font-mono font-semibold ${i === 3 ? 'text-amber-500' : 'text-white'}`}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <BarberMobileNav />
     </div>
   )
