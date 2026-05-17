@@ -21,12 +21,12 @@ export default function BarberClientsPage() {
     if (!user) { router.push('/login'); return }
 
     const { data: profile } = await supabase
-      .from('profiles').select('*').eq('id', user.id).single()
+      .from('profiles').select('*').eq('id', user.id).maybeSingle()
     setProfile(profile)
 
     const { data: shopBarber } = await supabase
       .from('shop_barbers').select('*, shops(*)')
-      .eq('barber_id', user.id).eq('active', true).single()
+      .eq('barber_id', user.id).eq('active', true).maybeSingle()
     if (!shopBarber) { router.push('/join'); return }
     setShopBarber(shopBarber)
 

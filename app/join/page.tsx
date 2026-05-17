@@ -27,7 +27,7 @@ export default function JoinPage() {
           .select('*, shops(*), shop_barbers(*)')
           .eq('token', token)
           .eq('accepted', false)
-          .single()
+          .maybeSingle()
 
         if (!invite) { setMode('error'); return }
         setInvite(invite)
@@ -91,7 +91,7 @@ export default function JoinPage() {
       .from('shops')
       .select('*')
       .eq('shop_code', shopCode.toUpperCase().trim())
-      .single()
+      .maybeSingle()
 
     if (!shop) { setError('Shop code not found. Check the code and try again.'); setLoading(false); return }
 
@@ -101,7 +101,7 @@ export default function JoinPage() {
       .select('id')
       .eq('shop_id', shop.id)
       .eq('barber_id', user.id)
-      .single()
+      .maybeSingle()
 
     if (existingLink) {
       await supabase.from('shop_barbers').update({ active: true }).eq('id', existingLink.id)

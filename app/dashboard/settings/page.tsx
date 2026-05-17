@@ -121,7 +121,7 @@ export default function ShopSettings() {
     // Check slug uniqueness if changed
     if (slug && slug !== shop.slug) {
       const { data: existing } = await supabase
-        .from('shops').select('id').eq('slug', slug).single()
+        .from('shops').select('id').eq('slug', slug).maybeSingle()
       if (existing && existing.id !== shop.id) {
         setError('That URL is already taken. Try a different one.')
         setSaving(false)

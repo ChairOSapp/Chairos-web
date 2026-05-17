@@ -34,7 +34,7 @@ export default function BarberSettings() {
       .from('profiles')
       .select('*')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
     setProfile(profile)
     setFullName(profile?.full_name || '')
 
@@ -43,7 +43,7 @@ export default function BarberSettings() {
       .select('*, shops(*)')
       .eq('barber_id', user.id)
       .eq('active', true)
-      .single()
+      .maybeSingle()
 
     if (!shopBarber) { router.push('/join'); return }
     setShopBarber(shopBarber)

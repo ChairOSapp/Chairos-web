@@ -184,7 +184,7 @@ export default function ManageBarbers() {
       .from('profiles')
       .select('id')
       .eq('email', email.trim().toLowerCase())
-      .single()
+      .maybeSingle()
 
     if (!profile) {
       setError(`No account found for ${email}. The barber must sign up first at chairos.cc.`)

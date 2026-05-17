@@ -39,7 +39,7 @@ function BookingPageInner() {
   useEffect(() => {
     async function load() {
       const { data: shop } = await supabase
-        .from('shops').select('*').eq('shop_code', shopCode).single()
+        .from('shops').select('*').eq('shop_code', shopCode).maybeSingle()
       if (!shop) { setNotFound(true); setLoading(false); return }
       setShop(shop)
 
@@ -74,7 +74,7 @@ function BookingPageInner() {
       .from('clients')
       .select('*, client_locks(*, shop_barbers(*))')
       .eq('phone', phone.replace(/\D/g, ''))
-      .single()
+      .maybeSingle()
     if (!client) return
     setReturningClient(client)
 
@@ -118,14 +118,18 @@ function BookingPageInner() {
       weekday: 'long', month: 'long', day: 'numeric'
     })
     const barberName = selectedBarber?.barber_name || selectedBarber?.alias || 'your barber'
-    await fetch('/api/sms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: clientPhone,
-        message: `✂️ You're booked at ${shop.name}!\n\nService: ${selectedService.name}\nBarber: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to unsubscribe.`
+    try {
+      await fetch('/api/sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: clientPhone,
+          message: `✂️ You're booked at ${shop.name}!\n\nService: ${selectedService.name}\nBarber: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to unsubscribe.`
+        })
       })
-    })
+    } catch {
+      // SMS failure is non-fatal — booking is already confirmed
+    }
 
     setSuccess(true)
     setSubmitting(false)

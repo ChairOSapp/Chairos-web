@@ -30,7 +30,7 @@ export default function BarberEarnings() {
     setShop(shop)
 
     const { data: barber } = await supabase
-      .from('shop_barbers').select('*').eq('id', barberId).single()
+      .from('shop_barbers').select('*').eq('id', barberId).maybeSingle()
     setBarber(barber)
 
     const startDate = `${year}-01-01`

@@ -72,7 +72,7 @@ export default function BarberDashboard() {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
       setProfile(profile)
 
       const { data: shopBarber } = await supabase
@@ -80,7 +80,7 @@ export default function BarberDashboard() {
         .select('*, shops(*)')
         .eq('barber_id', user.id)
         .eq('active', true)
-        .single()
+        .maybeSingle()
 
       if (!shopBarber) { router.push('/join'); return }
       setShopBarber(shopBarber)

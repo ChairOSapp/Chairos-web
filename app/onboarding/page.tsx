@@ -57,7 +57,7 @@ export default function Onboarding() {
         .from('shops')
         .select('id')
         .eq('owner_id', user.id)
-        .single()
+        .maybeSingle()
       if (shop) { router.push('/dashboard'); return }
       setChecking(false)
     }

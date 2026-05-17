@@ -62,7 +62,7 @@ export default function Dashboard() {
       if (!user) { router.push('/login'); return }
 
       const { data: profile } = await supabase
-        .from('profiles').select('*').eq('id', user.id).single()
+        .from('profiles').select('*').eq('id', user.id).maybeSingle()
       setProfile(profile)
 
       if (profile?.role === 'barber') { router.push('/dashboard/barber'); return }

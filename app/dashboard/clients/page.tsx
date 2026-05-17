@@ -48,11 +48,17 @@ export default function ClientsPage() {
     const barber = barbers.find(b => b.barber_id === newBarberId)
     if (!barber) { setReassigning(null); return }
 
-    await supabase.from('client_locks').update({
+    const { error } = await supabase.from('client_locks').update({
       barber_id: newBarberId,
       locked: true,
       updated_at: new Date().toISOString()
     }).eq('id', lockId)
+
+    if (error) {
+      alert(`Failed to reassign: ${error.message}`)
+      setReassigning(null)
+      return
+    }
 
     setSuccess('Client reassigned.')
     setTimeout(() => setSuccess(''), 3000)

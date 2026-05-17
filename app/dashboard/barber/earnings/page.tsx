@@ -22,7 +22,7 @@ export default function BarberEarningsHistory() {
 
     const { data: shopBarber } = await supabase
       .from('shop_barbers').select('*, shops(*)')
-      .eq('barber_id', user.id).eq('active', true).single()
+      .eq('barber_id', user.id).eq('active', true).maybeSingle()
     if (!shopBarber) { router.push('/join'); return }
     setShopBarber(shopBarber)
 

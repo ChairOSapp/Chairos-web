@@ -22,7 +22,7 @@ export default function ShopProfile() {
         .from('shops')
         .select('*')
         .eq('slug', slug)
-        .single()
+        .maybeSingle()
 
       if (!shop) { setNotFound(true); setLoading(false); return }
       setShop(shop)
