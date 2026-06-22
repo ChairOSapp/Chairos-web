@@ -2,15 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-// Redirects the user to Square's OAuth authorization page.
-// Query param ?role=owner|barber to track who is connecting.
-export async function GET(req: NextRequest) {
-  const role = req.nextUrl.searchParams.get('role') || 'owner'
+const SCOPES = 'MERCHANT_PROFILE_READ PAYMENTS_WRITE PAYMENTS_READ ORDERS_WRITE ORDERS_READ'
 
-  const appId = process.env.SQUARE_APP_ID
-  if (!appId) {
-    return NextResponse.json({ error: 'SQUARE_APP_ID not configured' }, { status: 500 })
-  }
+// Redirects to Square OAuth. Pass ?role=owner|barber to route the callback correctly.
+export async function GET(req: NextRequest) {
+  const role = req.nextUrl.searchParams.get('role') || 'barber'
 
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -25,19 +21,25 @@ export async function GET(req: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.redirect(new URL('/login', req.url))
-
-  const state = Buffer.from(JSON.stringify({ userId: user.id, role })).toString('base64')
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const origin = new URL(req.url).origin
   const redirectUri = `${origin}/api/square/callback`
 
-  const squareUrl = new URL('https://connect.squareup.com/oauth2/authorize')
-  squareUrl.searchParams.set('client_id', appId)
-  squareUrl.searchParams.set('scope', 'MERCHANT_PROFILE_READ PAYMENTS_READ PAYMENTS_WRITE')
-  squareUrl.searchParams.set('redirect_uri', redirectUri)
-  squareUrl.searchParams.set('state', state)
-  squareUrl.searchParams.set('session', 'false')
+  const isProd = process.env.SQUARE_ENVIRONMENT === 'production'
+  const baseUrl = isProd
+    ? 'https://connect.squareup.com/oauth2/authorize'
+    : 'https://connect.squareupsandbox.com/oauth2/authorize'
 
-  return NextResponse.redirect(squareUrl.toString())
+  // Encode both user ID and role in state
+  const state = Buffer.from(JSON.stringify({ userId: user.id, role })).toString('base64url')
+
+  const url = new URL(baseUrl)
+  url.searchParams.set('client_id', process.env.SQUARE_APPLICATION_ID!)
+  url.searchParams.set('scope', SCOPES)
+  url.searchParams.set('redirect_uri', redirectUri)
+  url.searchParams.set('state', state)
+  url.searchParams.set('session', 'false')
+
+  return NextResponse.redirect(url.toString())
 }
