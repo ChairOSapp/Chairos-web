@@ -80,7 +80,7 @@ export default function Dashboard() {
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [shopId, setShopId] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState<string>('')
+  const [selectedDate, setSelectedDate] = useState<string>(() => toDateStr(new Date()))
   const [toast, setToast] = useState<{msg: string; type: 'success'|'error'} | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const router = useRouter()
@@ -144,7 +144,6 @@ export default function Dashboard() {
       setLoading(false)
     }
     load()
-    setSelectedDate(toDateStr(new Date()))
   }, [])
 
   useEffect(() => {

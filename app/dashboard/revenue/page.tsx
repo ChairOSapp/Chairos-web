@@ -63,18 +63,18 @@ function getDaysBetween(start: string, end: string): string[] {
   return days
 }
 
-function BarChart({ days, revenueByDay, showLabels }: {
+function BarChart({ days, revenueByDay }: {
   days: string[]
   revenueByDay: Record<string, number>
-  showLabels: boolean
 }) {
   const values = days.map(d => revenueByDay[d] || 0)
   const maxVal = Math.max(...values, 1)
-  const chartH = 100
-  const labelH = showLabels ? 20 : 0
-  const totalH = chartH + labelH
+
+  const LEFT = 44; const RIGHT = 4; const TOP = 6; const BOT = 20
+  const W = 600; const H = 130
+  const cW = W - LEFT - RIGHT; const cH = H - TOP - BOT
   const count = days.length
-  const slotW = count > 0 ? 600 / count : 600
+  const slotW = count > 0 ? cW / count : cW
   const barW = Math.max(2, slotW - 2)
 
   if (values.every(v => v === 0)) {
@@ -85,26 +85,38 @@ function BarChart({ days, revenueByDay, showLabels }: {
     )
   }
 
+  const yTicks = [0, Math.round(maxVal / 2), maxVal]
+  const maxXLabels = Math.min(7, count)
+  const xLabelIndices = Array.from({ length: maxXLabels }, (_, i) =>
+    Math.floor(i * (count - 1) / Math.max(maxXLabels - 1, 1))
+  ).filter((v, i, a) => a.indexOf(v) === i)
+
   return (
-    <svg viewBox={`0 0 600 ${totalH}`} className="w-full" style={{ height: `${totalH}px` }} preserveAspectRatio="none">
-      <line x1="0" y1={chartH} x2="600" y2={chartH} stroke="#e8e0d5" strokeWidth="1" />
-      {values.map((v, i) => {
-        const barH = Math.max(2, (v / maxVal) * (chartH - 6))
-        const x = i * slotW + (slotW - barW) / 2
-        const y = chartH - barH
-        const day = days[i]
-        const label = showLabels
-          ? new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 2)
-          : null
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
+      {yTicks.map(t => {
+        const y = TOP + cH - (t / maxVal) * cH
         return (
-          <g key={day}>
-            <rect x={x} y={y} width={barW} height={barH} fill="#4B5320" rx="1" />
-            {label && (
-              <text x={i * slotW + slotW / 2} y={totalH - 3} textAnchor="middle" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
-                {label}
-              </text>
-            )}
+          <g key={t}>
+            <line x1={LEFT} y1={y} x2={LEFT + cW} y2={y} stroke="#e8e0d5" strokeWidth="0.8" />
+            <text x={LEFT - 4} y={y + 3} textAnchor="end" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
+              ${t >= 1000 ? `${(t / 1000).toFixed(0)}k` : t.toFixed(0)}
+            </text>
           </g>
+        )
+      })}
+      {values.map((v, i) => {
+        const barH = Math.max(v > 0 ? 2 : 0, (v / maxVal) * cH)
+        const x = LEFT + i * slotW + (slotW - barW) / 2
+        const y = TOP + cH - barH
+        return <rect key={days[i]} x={x} y={y} width={barW} height={barH} fill="#4B5320" rx="1" />
+      })}
+      {xLabelIndices.map(i => {
+        const label = new Date(days[i] + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const x = LEFT + i * slotW + slotW / 2
+        return (
+          <text key={i} x={x} y={H - 3} textAnchor="middle" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
+            {label}
+          </text>
         )
       })}
     </svg>
@@ -259,8 +271,8 @@ export default function RevenuePage() {
             <h1 className="font-serif text-2xl text-charcoal-900">{shop?.name || 'Your Shop'}</h1>
           </div>
           <button onClick={() => router.push('/dashboard')}
-            className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">
-            &larr; Dashboard
+            className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
+            ← Dashboard
           </button>
         </div>
 
@@ -284,7 +296,7 @@ export default function RevenuePage() {
           <div className="font-serif text-5xl text-charcoal-900 leading-none mb-5">
             ${totalRevenue.toFixed(2)}
           </div>
-          <BarChart days={days} revenueByDay={revenueByDay} showLabels={showLabels} />
+          <BarChart days={days} revenueByDay={revenueByDay} />
         </div>
 
         {/* STATS ROW */}

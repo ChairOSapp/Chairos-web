@@ -77,7 +77,7 @@ export default function AppointmentHistory() {
     <div className="min-h-screen bg-warm-50">
       <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
         <span className="font-serif text-od-green text-lg">ChairOS</span>
-        <button onClick={() => router.push('/dashboard')} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">← Dashboard</button>
+        <button onClick={() => router.push('/dashboard')} className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">← Dashboard</button>
       </header>
 
       <div className="p-6 max-w-4xl mx-auto pb-20 md:pb-6">

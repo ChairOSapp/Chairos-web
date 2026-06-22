@@ -36,7 +36,7 @@ export default function BarberDashboard() {
   const [loading, setLoading] = useState(true)
   const [barberId, setBarberId] = useState<string | null>(null)
   const [shopId, setShopId] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState<string>('')
+  const [selectedDate, setSelectedDate] = useState<string>(() => toDateStr(new Date()))
   const [weekAppointments, setWeekAppointments] = useState<any[]>([])
   const [showBooking, setShowBooking] = useState(false)
   const [bookingName, setBookingName] = useState('')
@@ -153,7 +153,6 @@ export default function BarberDashboard() {
       setLoading(false)
     }
     load()
-    setSelectedDate(toDateStr(new Date()))
   }, [])
 
   useEffect(() => {
@@ -278,7 +277,7 @@ export default function BarberDashboard() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const firstName = profile?.full_name?.split(' ')[0] || shopBarber?.barber_name || 'Barber'
+  const firstName = profile?.full_name?.split(' ')[0] || shopBarber?.barber_name || shopBarber?.alias || profile?.email?.split('@')[0] || 'there'
   const color = shopBarber?.color || '#b8861f'
   const initial = firstName[0].toUpperCase()
 

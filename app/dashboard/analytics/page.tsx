@@ -64,34 +64,52 @@ function getDaysBetween(start: string, end: string): string[] {
 function LineTrendChart({ days, revenueByDay }: { days: string[]; revenueByDay: Record<string, number> }) {
   const values = days.map(d => revenueByDay[d] || 0)
   const maxVal = Math.max(...values, 1)
-  const minVal = 0
-  const W = 600; const H = 100; const pad = 8
+
+  const LEFT = 44; const RIGHT = 4; const TOP = 6; const BOT = 18
+  const W = 600; const H = 120
+  const cW = W - LEFT - RIGHT; const cH = H - TOP - BOT
 
   if (values.every(v => v === 0)) {
     return <div className="flex items-center justify-center h-28 text-charcoal-500 text-sm">No revenue data</div>
   }
 
   const avg = values.reduce((s, v) => s + v, 0) / values.length
-  const max = Math.max(...values)
-  const min = Math.min(...values.filter(v => v > 0))
-
-  const toY = (v: number) => H - pad - ((v - minVal) / (maxVal - minVal)) * (H - pad * 2)
-  const toX = (i: number) => (i / Math.max(values.length - 1, 1)) * W
+  const toX = (i: number) => LEFT + (i / Math.max(values.length - 1, 1)) * cW
+  const toY = (v: number) => TOP + cH - (v / maxVal) * cH
 
   const points = values.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ')
-  const areaPoints = `0,${H} ` + points + ` ${W},${H}`
+  const areaPoints = `${LEFT},${TOP + cH} ` + points + ` ${LEFT + cW},${TOP + cH}`
   const avgY = toY(avg)
+
+  const yTicks = [0, Math.round(maxVal / 2), maxVal]
+  const xLabelIndices = [0, Math.floor(values.length * 0.25), Math.floor(values.length * 0.5), Math.floor(values.length * 0.75), values.length - 1]
+    .filter((v, i, a) => a.indexOf(v) === i && v >= 0 && v < values.length)
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
-      {/* avg reference line */}
-      <line x1="0" y1={avgY} x2={W} y2={avgY} stroke="#4B5320" strokeWidth="0.8" strokeDasharray="4 3" opacity="0.4" />
-      {/* area fill */}
-      <polygon points={areaPoints} fill="#4B5320" opacity="0.1" />
-      {/* line */}
+      {yTicks.map(t => {
+        const y = toY(t)
+        return (
+          <g key={t}>
+            <line x1={LEFT} y1={y} x2={LEFT + cW} y2={y} stroke="#e8e0d5" strokeWidth="0.8" />
+            <text x={LEFT - 4} y={y + 3} textAnchor="end" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
+              ${t >= 1000 ? `${(t / 1000).toFixed(0)}k` : t.toFixed(0)}
+            </text>
+          </g>
+        )
+      })}
+      {xLabelIndices.map(i => {
+        const label = new Date(days[i] + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return (
+          <text key={i} x={toX(i)} y={H - 3} textAnchor="middle" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
+            {label}
+          </text>
+        )
+      })}
+      <line x1={LEFT} y1={avgY} x2={LEFT + cW} y2={avgY} stroke="#4B5320" strokeWidth="0.8" strokeDasharray="4 3" opacity="0.4" />
+      <polygon points={areaPoints} fill="#4B5320" opacity="0.08" />
       <polyline points={points} fill="none" stroke="#4B5320" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      {/* avg label */}
-      <text x="4" y={avgY - 3} fontSize="7" fill="#4B5320" opacity="0.7" fontFamily="sans-serif">avg ${avg.toFixed(0)}</text>
+      <text x={LEFT + 4} y={avgY - 3} fontSize="8" fill="#4B5320" opacity="0.7" fontFamily="sans-serif">avg ${avg.toFixed(0)}</text>
     </svg>
   )
 }
@@ -110,27 +128,35 @@ function MonthlyBarsChart({ year, appointments }: { year: number; appointments: 
     }
   })
   const maxRev = Math.max(...months.map(m => m.revenue), 1)
-  const W = 600; const H = 80; const labelH = 16; const totalH = H + labelH
-  const slotW = W / 12
-  const barW = slotW - 4
+
+  const LEFT = 44; const RIGHT = 4; const TOP = 6; const BOT = 18
+  const W = 600; const H = 110
+  const cW = W - LEFT - RIGHT; const cH = H - TOP - BOT
+  const slotW = cW / 12; const barW = slotW - 4
+
+  const yTicks = [0, Math.round(maxRev / 2), maxRev]
 
   return (
-    <svg viewBox={`0 0 ${W} ${totalH}`} className="w-full" style={{ height: `${totalH}px` }} preserveAspectRatio="none">
-      <line x1="0" y1={H} x2={W} y2={H} stroke="#e8e0d5" strokeWidth="1" />
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
+      {yTicks.map(t => {
+        const y = TOP + cH - (t / maxRev) * cH
+        return (
+          <g key={t}>
+            <line x1={LEFT} y1={y} x2={LEFT + cW} y2={y} stroke="#e8e0d5" strokeWidth="0.8" />
+            <text x={LEFT - 4} y={y + 3} textAnchor="end" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
+              ${t >= 1000 ? `${(t / 1000).toFixed(0)}k` : t.toFixed(0)}
+            </text>
+          </g>
+        )
+      })}
       {months.map((m, i) => {
-        const barH = m.revenue > 0 ? Math.max(3, (m.revenue / maxRev) * (H - 16)) : 0
-        const x = i * slotW + 2
-        const y = H - barH
+        const barH = m.revenue > 0 ? Math.max(3, (m.revenue / maxRev) * cH) : 0
+        const x = LEFT + i * slotW + 2
+        const y = TOP + cH - barH
         return (
           <g key={i}>
-            <rect x={x} y={y} width={barW} height={barH || 0}
-              fill={m.isCurrent ? '#4B5320' : '#e8e0d5'} rx="1" />
-            {m.revenue > 0 && (
-              <text x={x + barW / 2} y={Math.max(y - 2, 8)} textAnchor="middle" fontSize="6.5" fill={m.isCurrent ? '#4B5320' : '#9e9589'} fontFamily="sans-serif">
-                ${m.revenue.toFixed(0)}
-              </text>
-            )}
-            <text x={x + barW / 2} y={totalH - 2} textAnchor="middle" fontSize="8" fill="#9e9589" fontFamily="sans-serif">
+            <rect x={x} y={y} width={barW} height={barH} fill={m.isCurrent ? '#4B5320' : '#d8d5c8'} rx="1" />
+            <text x={x + barW / 2} y={H - 3} textAnchor="middle" fontSize="8" fill={m.isCurrent ? '#4B5320' : '#9e9589'} fontFamily="sans-serif" fontWeight={m.isCurrent ? 'bold' : 'normal'}>
               {m.label}
             </text>
           </g>
@@ -408,8 +434,8 @@ export default function AnalyticsPage() {
             <h1 className="font-serif text-2xl text-charcoal-900">{shop?.name || 'Your Shop'}</h1>
           </div>
           <button onClick={() => router.push('/dashboard')}
-            className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">
-            &larr; Dashboard
+            className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
+            ← Dashboard
           </button>
         </div>
 
@@ -500,35 +526,41 @@ export default function AnalyticsPage() {
               <div className="text-xs text-charcoal-500 mt-0.5">Bookings and revenue by day of week</div>
             </div>
             <div className="p-4">
-              <div className="flex gap-1 items-end h-20 mb-2">
-                {busyDays.map((d, i) => {
-                  const maxCount = Math.max(...busyDays.map(x => x.count), 1)
-                  const pct = d.count / maxCount
-                  const isBest = d.day === busiestDay.day && d.count > 0
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1">
-                      <div
-                        className="w-full rounded-t transition-all"
-                        style={{
-                          height: `${Math.max(pct * 64, d.count > 0 ? 4 : 0)}px`,
-                          background: isBest ? '#4B5320' : '#d8d5c8',
-                        }}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="flex gap-1">
-                {busyDays.map((d, i) => {
-                  const isBest = d.day === busiestDay.day && d.count > 0
-                  return (
-                    <div key={i} className="flex-1 text-center">
-                      <div className={`text-xs font-semibold ${isBest ? 'text-od-green' : 'text-charcoal-500'}`}>{d.day}</div>
-                      {d.count > 0 && <div className="text-[10px] text-charcoal-400">{d.count}</div>}
-                    </div>
-                  )
-                })}
-              </div>
+              {(() => {
+                const maxCount = Math.max(...busyDays.map(x => x.count), 1)
+                const LEFT = 32; const RIGHT = 4; const TOP = 6; const BOT = 20
+                const W = 600; const H = 100
+                const cW = W - LEFT - RIGHT; const cH = H - TOP - BOT
+                const slotW = cW / 7; const barW = slotW - 8
+                const yTicks = [0, Math.round(maxCount / 2), maxCount]
+                return (
+                  <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
+                    {yTicks.map(t => {
+                      const y = TOP + cH - (t / maxCount) * cH
+                      return (
+                        <g key={t}>
+                          <line x1={LEFT} y1={y} x2={LEFT + cW} y2={y} stroke="#e8e0d5" strokeWidth="0.8" />
+                          <text x={LEFT - 4} y={y + 3} textAnchor="end" fontSize="9" fill="#9e9589" fontFamily="sans-serif">{t}</text>
+                        </g>
+                      )
+                    })}
+                    {busyDays.map((d, i) => {
+                      const barH = d.count > 0 ? Math.max(3, (d.count / maxCount) * cH) : 0
+                      const x = LEFT + i * slotW + (slotW - barW) / 2
+                      const y = TOP + cH - barH
+                      const isBest = d.day === busiestDay.day && d.count > 0
+                      return (
+                        <g key={i}>
+                          <rect x={x} y={y} width={barW} height={barH} fill={isBest ? '#4B5320' : '#d8d5c8'} rx="2" />
+                          <text x={x + barW / 2} y={H - 3} textAnchor="middle" fontSize="9" fill={isBest ? '#4B5320' : '#9e9589'} fontFamily="sans-serif" fontWeight={isBest ? 'bold' : 'normal'}>
+                            {d.day}
+                          </text>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                )
+              })()}
             </div>
             {busiestDay.count > 0 && (
               <div className="border-t border-warm-200 px-5 py-3 bg-od-green/5">

@@ -174,8 +174,8 @@ export default function ClientProfilePage() {
             {client.phone && <div className="text-sm text-charcoal-500 mt-1">{client.phone}</div>}
             {client.email && <div className="text-xs text-charcoal-400 mt-0.5">{client.email}</div>}
           </div>
-          <button onClick={() => router.back()} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors mt-1">
-            &larr; Back
+          <button onClick={() => router.back()} className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
+            ← Back
           </button>
         </div>
 
