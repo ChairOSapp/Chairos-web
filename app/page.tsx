@@ -80,8 +80,10 @@ export default function LandingPage() {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  function handleJoin() {
+  async function handleJoin() {
     if (!email || !email.includes('@')) { setEmailError(true); return }
+    const { error } = await supabase.from('waitlist').insert({ email })
+    if (error && error.code !== '23505') { setEmailError(true); return }
     setEmailError(false)
     setJoined(true)
   }
