@@ -166,44 +166,7 @@ function MonthlyBarsChart({ year, appointments }: { year: number; appointments: 
   )
 }
 
-function SVGBarChart({ items }: { items: { label: string; value: number; sub?: string; color?: string }[] }) {
-  const maxVal = Math.max(...items.map(i => i.value), 1)
-  const LEFT = 44; const RIGHT = 4; const TOP = 6; const BOT = 20
-  const W = 600; const H = 120
-  const cW = W - LEFT - RIGHT; const cH = H - TOP - BOT
-  const slotW = cW / Math.max(items.length, 1)
-  const barW = Math.max(8, slotW - 8)
-  const yTicks = [0, Math.round(maxVal / 2), maxVal]
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
-      {yTicks.map(t => {
-        const y = TOP + cH - (t / maxVal) * cH
-        return (
-          <g key={t}>
-            <line x1={LEFT} y1={y} x2={LEFT + cW} y2={y} stroke="#e8e0d5" strokeWidth="0.8" />
-            <text x={LEFT - 4} y={y + 3} textAnchor="end" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
-              ${t >= 1000 ? `${(t / 1000).toFixed(0)}k` : t.toFixed(0)}
-            </text>
-          </g>
-        )
-      })}
-      {items.map((item, i) => {
-        const barH = item.value > 0 ? Math.max(3, (item.value / maxVal) * cH) : 0
-        const x = LEFT + i * slotW + (slotW - barW) / 2
-        const y = TOP + cH - barH
-        const label = item.label.length > 10 ? item.label.slice(0, 9) + '…' : item.label
-        return (
-          <g key={i}>
-            <rect x={x} y={y} width={barW} height={barH} fill={item.color || '#4B5320'} rx="2" />
-            <text x={x + barW / 2} y={H - 3} textAnchor="middle" fontSize="8" fill="#9e9589" fontFamily="sans-serif">
-              {label}
-            </text>
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
+// (SVGBarChart removed — replaced by ServiceRevenueTable and BarberPerfCards below)
 
 export default function AnalyticsPage() {
   const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>('30')
@@ -331,6 +294,11 @@ export default function AnalyticsPage() {
         value: cut + bTips,
         sub: `$${cut.toFixed(0)} cuts + $${bTips.toFixed(0)} tips`,
         color: (b.color && b.color !== '#b8861f') ? b.color : '#4B5320',
+        barberId: b.barber_id,
+        apptCount: bAppts.length,
+        avgTicket: bAppts.length > 0 ? rev / bAppts.length : 0,
+        cutsTotal: cut,
+        tipsTotal: bTips,
       }
     }).sort((a, b) => b.value - a.value)
   }, [periodAppts, periodTips, shopBarbers])
@@ -507,30 +475,117 @@ export default function AnalyticsPage() {
         </div>
 
         {/* C) SERVICE REVENUE BREAKDOWN */}
-        {serviceBreakdown.length > 0 && (
-          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
-            <div className="px-5 py-4 border-b border-warm-200">
-              <div className="font-serif text-charcoal-900">Service Revenue</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">By service for selected period</div>
+        {serviceBreakdown.length > 0 && (() => {
+          const totalSvcRev = serviceBreakdown.reduce((s, i) => s + i.value, 0)
+          const maxSvcRev = Math.max(...serviceBreakdown.map(i => i.value), 1)
+          return (
+            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
+              <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between">
+                <div>
+                  <div className="font-serif text-charcoal-900">Service Revenue</div>
+                  <div className="text-xs text-charcoal-500 mt-0.5">By service for selected period</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono text-sm font-semibold text-charcoal-900">${totalSvcRev.toFixed(0)}</div>
+                  <div className="text-xs text-charcoal-500">total</div>
+                </div>
+              </div>
+              <div className="divide-y divide-warm-200">
+                {serviceBreakdown.map((item, i) => {
+                  const count = parseInt(item.sub?.split(' × ')[0] || '0') || 0
+                  const avg = count > 0 ? item.value / count : 0
+                  const share = item.value / maxSvcRev
+                  const isTop = i === 0
+                  return (
+                    <div key={i} className="px-5 py-3.5">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-charcoal-900">{item.label}</span>
+                          {isTop && (
+                            <span className="text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-od-green/10 text-od-green border border-od-green/20">
+                              Top
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-mono text-sm font-semibold text-charcoal-900">${item.value.toFixed(0)}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs text-charcoal-500">{count} bookings</span>
+                        <span className="text-xs text-charcoal-400">·</span>
+                        <span className="text-xs text-charcoal-500">${avg.toFixed(0)}/avg</span>
+                        <span className="text-xs text-charcoal-400">·</span>
+                        <span className="text-xs text-charcoal-400">{Math.round((item.value / totalSvcRev) * 100)}% of revenue</span>
+                      </div>
+                      <div className="h-1.5 bg-warm-200 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-od-green" style={{ width: `${Math.max(2, share * 100)}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            <div className="p-5">
-              <SVGBarChart items={serviceBreakdown} />
-            </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* D) BARBER PERFORMANCE */}
-        {barberPerf.length > 0 && (
-          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
-            <div className="px-5 py-4 border-b border-warm-200">
-              <div className="font-serif text-charcoal-900">Barber Performance</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">Total earnings (cuts + tips) for selected period</div>
+        {barberPerf.length > 0 && (() => {
+          const shopTotal = barberPerf.reduce((s, b) => s + b.value, 0)
+          return (
+            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
+              <div className="px-5 py-4 border-b border-warm-200">
+                <div className="font-serif text-charcoal-900">Barber Performance</div>
+                <div className="text-xs text-charcoal-500 mt-0.5">Cuts + tips for selected period · ranked by total earnings</div>
+              </div>
+              <div className="divide-y divide-warm-200">
+                {barberPerf.map((b, i) => {
+                  const cuts = b.cutsTotal ?? 0
+                  const tips = b.tipsTotal ?? 0
+                  const avgTicket = b.avgTicket ?? 0
+                  const share = shopTotal > 0 ? b.value / shopTotal : 0
+                  const initials = b.label.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+                  const rankColors = ['text-od-green', 'text-charcoal-500', 'text-charcoal-400']
+                  return (
+                    <div key={i} className="px-5 py-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`text-xs font-bold w-4 text-right ${rankColors[i] || 'text-charcoal-400'}`}>#{i + 1}</span>
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                            style={{ background: b.color || '#4B5320' }}>
+                            {initials}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-charcoal-900 mb-0.5">{b.label}</div>
+                          <div className="text-xs text-charcoal-500">{b.apptCount ?? 0} cuts · ${avgTicket.toFixed(0)}/avg ticket</div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <div className="font-mono text-sm font-bold text-od-green">${b.value.toFixed(0)}</div>
+                          <div className="text-xs text-charcoal-400">total</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="bg-warm-200/60 rounded-lg px-3 py-2 text-center">
+                          <div className="font-mono text-sm font-semibold text-charcoal-900">${cuts.toFixed(0)}</div>
+                          <div className="text-[10px] font-semibold tracking-widest uppercase text-charcoal-500">Cuts</div>
+                        </div>
+                        <div className="bg-warm-200/60 rounded-lg px-3 py-2 text-center">
+                          <div className="font-mono text-sm font-semibold text-green-500">${tips.toFixed(0)}</div>
+                          <div className="text-[10px] font-semibold tracking-widest uppercase text-charcoal-500">Tips</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-warm-200 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-od-green" style={{ width: `${Math.max(2, share * 100)}%` }} />
+                        </div>
+                        <span className="text-xs text-charcoal-400 flex-shrink-0">{Math.round(share * 100)}% of shop</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            <div className="p-5">
-              <SVGBarChart items={barberPerf} />
-            </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* G) BUSIEST DAYS */}
         {totalBookings > 0 && (
