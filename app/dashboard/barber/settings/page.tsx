@@ -23,9 +23,6 @@ function BarberSettingsInner() {
   const [alias, setAlias] = useState('')
   const [bio, setBio] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
-  const [squareConnected, setSquareConnected] = useState(false)
-  const [squareMerchantId, setSquareMerchantId] = useState<string | null>(null)
-  const [disconnectingSquare, setDisconnectingSquare] = useState(false)
 
   const photoRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -70,8 +67,10 @@ function BarberSettingsInner() {
     setAlias(shopBarber.alias || '')
     setBio(shopBarber.bio || '')
     setPhotoUrl(shopBarber.photo_url || '')
-    setSquareConnected(!!shopBarber.square_access_token)
-    setSquareMerchantId(shopBarber.square_merchant_id || null)
+
+    const { data: sq } = await supabase
+      .from('square_accounts').select('square_merchant_id, square_location_id, connected_at').eq('user_id', user.id).maybeSingle()
+    setSquareAccount(sq || null)
 
     const params = new URLSearchParams(window.location.search)
     if (params.get('square_connected') === '1') {
@@ -105,22 +104,6 @@ function BarberSettingsInner() {
     if (updateErr) { setError(updateErr.message); setUploadingPhoto(false); return }
     setPhotoUrl(data.publicUrl)
     setUploadingPhoto(false)
-  }
-
-  async function handleSquareDisconnect() {
-    setDisconnectingSquare(true)
-    try {
-      await fetch('/api/square/disconnect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'barber' }),
-      })
-      setSquareConnected(false)
-      setSquareMerchantId(null)
-      setSuccess('Square account disconnected.')
-    } finally {
-      setDisconnectingSquare(false)
-    }
   }
 
   async function handleSave() {
@@ -288,25 +271,25 @@ function BarberSettingsInner() {
               <div className="font-serif text-charcoal-900 text-sm">Square Payments</div>
               <div className="text-xs text-charcoal-500">Accept payments for your appointments directly</div>
             </div>
-            {squareConnected && (
+            {squareAccount && (
               <span className="ml-auto text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-od-green/10 text-od-green border border-od-green/20">
                 Connected
               </span>
             )}
           </div>
           <div className="p-5">
-            {squareConnected ? (
+            {squareAccount ? (
               <div>
-                {squareMerchantId && (
+                {squareAccount.square_merchant_id && (
                   <div className="text-xs text-charcoal-500 mb-4">
-                    Merchant ID: <span className="font-mono text-charcoal-900">{squareMerchantId}</span>
+                    Merchant ID: <span className="font-mono text-charcoal-900">{squareAccount.square_merchant_id}</span>
                   </div>
                 )}
                 <p className="text-xs text-charcoal-500 mb-4">
                   Your Square account is linked. Payments you process through Square will automatically mark appointments as paid in ChairOS.
                 </p>
                 <button
-                  onClick={handleSquareDisconnect}
+                  onClick={handleDisconnectSquare}
                   disabled={disconnectingSquare}
                   className="px-4 py-2 rounded-lg border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">
                   {disconnectingSquare ? 'Disconnecting...' : 'Disconnect Square'}

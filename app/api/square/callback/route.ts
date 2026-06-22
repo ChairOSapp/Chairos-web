@@ -1,81 +1,101 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { SquareClient, SquareEnvironment } from 'square'
 import { createClient } from '@supabase/supabase-js'
 
-// Handles Square OAuth callback — exchanges the code for an access token
-// and saves it to either shops (owner) or shop_barbers (barber).
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
 export async function GET(req: NextRequest) {
-  const { searchParams } = req.nextUrl
+  const { searchParams, origin } = new URL(req.url)
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const errorParam = searchParams.get('error')
 
-  const origin = new URL(req.url).origin
-
-  if (errorParam) {
-    return NextResponse.redirect(`${origin}/dashboard/settings?square_error=${errorParam}`)
-  }
-
-  if (!code || !state) {
-    return NextResponse.redirect(`${origin}/dashboard/settings?square_error=missing_params`)
-  }
-
-  let parsed: { userId: string; role: string }
+  // Decode role from state; fall back to barber for backward compat with old plain-userId state
+  let userId = state || ''
+  let role = 'barber'
   try {
-    parsed = JSON.parse(Buffer.from(state, 'base64').toString())
+    const parsed = JSON.parse(Buffer.from(state || '', 'base64url').toString())
+    userId = parsed.userId
+    role = parsed.role || 'barber'
   } catch {
-    return NextResponse.redirect(`${origin}/dashboard/settings?square_error=invalid_state`)
+    // old-style state was just a raw user ID string — keep as-is, role stays 'barber'
+    userId = state || ''
   }
 
-  const { userId, role } = parsed
-  const redirectBase = role === 'barber' ? `${origin}/dashboard/barber/settings` : `${origin}/dashboard/settings`
+  const settingsPath = role === 'owner' ? '/dashboard/settings' : '/dashboard/barber/settings'
 
-  const appId = process.env.SQUARE_APP_ID
-  const appSecret = process.env.SQUARE_APP_SECRET
-  if (!appId || !appSecret) {
-    return NextResponse.redirect(`${redirectBase}?square_error=not_configured`)
+  if (errorParam || !code || !userId) {
+    return NextResponse.redirect(`${origin}${settingsPath}?square_error=access_denied`)
   }
 
-  const redirectUri = `${origin}/api/square/callback`
+  try {
+    const redirectUri = `${origin}/api/square/callback`
+    const isProd = process.env.SQUARE_ENVIRONMENT === 'production'
 
-  const tokenRes = await fetch('https://connect.squareup.com/oauth2/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Square-Version': '2024-01-18' },
-    body: JSON.stringify({
-      client_id: appId,
-      client_secret: appSecret,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: redirectUri,
-    }),
-  })
+    const tokenRes = await fetch(
+      isProd
+        ? 'https://connect.squareup.com/oauth2/token'
+        : 'https://connect.squareupsandbox.com/oauth2/token',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Square-Version': '2024-01-18' },
+        body: JSON.stringify({
+          client_id: process.env.SQUARE_APPLICATION_ID,
+          client_secret: process.env.SQUARE_APPLICATION_SECRET,
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri,
+        }),
+      }
+    )
 
-  if (!tokenRes.ok) {
-    return NextResponse.redirect(`${redirectBase}?square_error=token_exchange_failed`)
+    const tokenData = await tokenRes.json()
+    if (!tokenRes.ok || !tokenData.access_token) {
+      console.error('Square token exchange failed:', tokenData)
+      return NextResponse.redirect(`${origin}${settingsPath}?square_error=token_failed`)
+    }
+
+    const client = new SquareClient({
+      token: tokenData.access_token,
+      environment: isProd ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
+    })
+
+    const { locations } = await client.locations.list()
+    const primaryLocation = locations?.find(l => l.status === 'ACTIVE') ?? locations?.[0]
+
+    // Look up shop_id for this user
+    let shopId: string | null = null
+    if (role === 'owner') {
+      const { data: shop } = await supabase
+        .from('shops').select('id').eq('owner_id', userId).maybeSingle()
+      shopId = shop?.id ?? null
+    } else {
+      const { data: sb } = await supabase
+        .from('shop_barbers').select('shop_id').eq('barber_id', userId).eq('active', true).maybeSingle()
+      shopId = sb?.shop_id ?? null
+    }
+
+    await supabase
+      .from('square_accounts')
+      .upsert(
+        {
+          user_id: userId,
+          shop_id: shopId,
+          square_merchant_id: tokenData.merchant_id,
+          square_access_token: tokenData.access_token,
+          square_refresh_token: tokenData.refresh_token ?? null,
+          square_location_id: primaryLocation?.id ?? null,
+          connected_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      )
+
+    return NextResponse.redirect(`${origin}${settingsPath}?square_connected=1`)
+  } catch (err: any) {
+    console.error('Square OAuth callback error:', err)
+    return NextResponse.redirect(`${origin}${settingsPath}?square_error=server_error`)
   }
-
-  const tokenData = await tokenRes.json()
-  const { access_token, refresh_token, expires_at, merchant_id } = tokenData
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  if (role === 'barber') {
-    await supabase.from('shop_barbers').update({
-      square_access_token: access_token,
-      square_refresh_token: refresh_token,
-      square_merchant_id: merchant_id,
-      square_token_expires_at: expires_at,
-    }).eq('barber_id', userId)
-  } else {
-    await supabase.from('shops').update({
-      square_access_token: access_token,
-      square_refresh_token: refresh_token,
-      square_merchant_id: merchant_id,
-      square_token_expires_at: expires_at,
-    }).eq('owner_id', userId)
-  }
-
-  return NextResponse.redirect(`${redirectBase}?square_connected=1`)
 }
