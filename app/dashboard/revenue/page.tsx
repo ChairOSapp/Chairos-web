@@ -303,7 +303,7 @@ export default function RevenuePage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
             { label: 'Completed Apts', value: appointments.length.toString(), color: 'text-charcoal-900' },
-            ...(!shop?.barbers_collect_own_payments ? [{ label: 'Tips Total', value: `$${totalTips.toFixed(2)}`, color: 'text-green-400' }] : []),
+            { label: 'Tips Total', value: `$${totalTips.toFixed(2)}`, color: 'text-green-400' },
             { label: 'Avg / Apt', value: `$${avgPerApt.toFixed(2)}`, color: 'text-od-green' },
             {
             label: 'No-show Rate',
@@ -335,7 +335,7 @@ export default function RevenuePage() {
                   <tr className="border-b border-warm-200 bg-warm-50">
                     <th className="text-left px-5 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Barber</th>
                     <th className="text-right px-4 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Cuts</th>
-                    {!shop?.barbers_collect_own_payments && <th className="text-right px-4 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Tips</th>}
+                    <th className="text-right px-4 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Tips</th>
                     <th className="text-right px-5 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Total</th>
                   </tr>
                 </thead>
@@ -350,8 +350,8 @@ export default function RevenuePage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-charcoal-900">${b.cuts.toFixed(2)}</td>
-                      {!shop?.barbers_collect_own_payments && <td className="px-4 py-3 text-right font-mono text-green-400">${b.tips.toFixed(2)}</td>}
-                      <td className="px-5 py-3 text-right font-mono font-semibold text-od-green">${shop?.barbers_collect_own_payments ? b.cuts.toFixed(2) : b.total.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-green-400">${b.tips.toFixed(2)}</td>
+                      <td className="px-5 py-3 text-right font-mono font-semibold text-od-green">${b.total.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
