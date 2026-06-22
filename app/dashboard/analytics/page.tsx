@@ -311,6 +311,57 @@ export default function AnalyticsPage() {
     return { name: barber?.barber_name || barber?.alias || 'Barber', count: top[1] }
   }, [atRiskClients, shopBarbers])
 
+  // G) Busiest days of week
+  const busyDays = useMemo(() => {
+    const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const map: Record<number, { revenue: number; count: number }> = {}
+    for (let i = 0; i < 7; i++) map[i] = { revenue: 0, count: 0 }
+    periodAppts.forEach(a => {
+      const d = new Date(a.date + 'T12:00:00').getDay()
+      map[d].count++
+      map[d].revenue += parseFloat(String(a.price)) || 0
+    })
+    return Array.from({ length: 7 }, (_, i) => ({
+      day: DAY_NAMES[i],
+      count: map[i].count,
+      revenue: map[i].revenue,
+    }))
+  }, [periodAppts])
+
+  const busiestDay = busyDays.reduce((best, d) => d.count > best.count ? d : best, busyDays[0])
+
+  // H) Service insights — stars vs drag
+  const serviceInsights = useMemo(() => {
+    const map: Record<string, { count: number; revenue: number }> = {}
+    periodAppts.forEach(a => {
+      const name = (a.services as any)?.name || 'Unknown'
+      if (!map[name]) map[name] = { count: 0, revenue: 0 }
+      map[name].count++
+      map[name].revenue += parseFloat(String(a.price)) || 0
+    })
+    const entries = Object.entries(map).map(([name, v]) => ({
+      name,
+      count: v.count,
+      revenue: v.revenue,
+      avgPrice: v.count > 0 ? v.revenue / v.count : 0,
+    }))
+    const totalRevenue = entries.reduce((s, e) => s + e.revenue, 0)
+    return entries.map(e => ({
+      ...e,
+      revenueShare: totalRevenue > 0 ? e.revenue / totalRevenue : 0,
+    })).sort((a, b) => b.revenue - a.revenue)
+  }, [periodAppts])
+
+  // Stars: top revenue + above-avg price. Drag: low avg price AND low count (<5% of bookings)
+  const totalBookings = periodAppts.length
+  const avgServicePrice = serviceInsights.length > 0
+    ? serviceInsights.reduce((s, e) => s + e.avgPrice, 0) / serviceInsights.length
+    : 0
+  const stars = serviceInsights.filter(s => s.revenueShare >= 0.1 || s.avgPrice >= avgServicePrice * 1.2).slice(0, 3)
+  const drag = serviceInsights.filter(s =>
+    s.avgPrice < avgServicePrice * 0.7 && s.count < Math.max(1, totalBookings * 0.05) && s.count > 0
+  ).slice(0, 3)
+
   // F) Booking volume
   const thisMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   const lastMonthEnd = fmt(new Date(new Date(thisMonthStart).getTime() - 1))
@@ -436,6 +487,116 @@ export default function AnalyticsPage() {
             <div className="p-5">
               <HorizontalBars items={barberPerf} />
             </div>
+          </div>
+        )}
+
+        {/* G) BUSIEST DAYS */}
+        {totalBookings > 0 && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
+            <div className="px-5 py-4 border-b border-warm-200">
+              <div className="font-serif text-charcoal-900">Busiest Days</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">Bookings and revenue by day of week</div>
+            </div>
+            <div className="p-4">
+              <div className="flex gap-1 items-end h-20 mb-2">
+                {busyDays.map((d, i) => {
+                  const maxCount = Math.max(...busyDays.map(x => x.count), 1)
+                  const pct = d.count / maxCount
+                  const isBest = d.day === busiestDay.day && d.count > 0
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1">
+                      <div
+                        className="w-full rounded-t transition-all"
+                        style={{
+                          height: `${Math.max(pct * 64, d.count > 0 ? 4 : 0)}px`,
+                          background: isBest ? '#4B5320' : '#d8d5c8',
+                        }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="flex gap-1">
+                {busyDays.map((d, i) => {
+                  const isBest = d.day === busiestDay.day && d.count > 0
+                  return (
+                    <div key={i} className="flex-1 text-center">
+                      <div className={`text-xs font-semibold ${isBest ? 'text-od-green' : 'text-charcoal-500'}`}>{d.day}</div>
+                      {d.count > 0 && <div className="text-[10px] text-charcoal-400">{d.count}</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            {busiestDay.count > 0 && (
+              <div className="border-t border-warm-200 px-5 py-3 bg-od-green/5">
+                <div className="text-xs text-od-green font-semibold">
+                  {busiestDay.day} is your busiest day — {busiestDay.count} bookings, ${busiestDay.revenue.toFixed(0)} revenue
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* H) SERVICE INSIGHTS */}
+        {serviceInsights.length > 0 && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
+            <div className="px-5 py-4 border-b border-warm-200">
+              <div className="font-serif text-charcoal-900">Service Insights</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">What's driving revenue — and what's not</div>
+            </div>
+
+            {stars.length > 0 && (
+              <div className="px-5 pt-4 pb-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-xs font-bold tracking-widest uppercase text-od-green">Stars</span>
+                  <span className="text-[10px] text-charcoal-400">High revenue, above-avg ticket</span>
+                </div>
+                <div className="space-y-2">
+                  {stars.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm text-charcoal-900">{s.name}</span>
+                        <span className="ml-2 text-xs text-charcoal-400">{s.count} bookings</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-mono text-charcoal-900">${s.revenue.toFixed(0)}</div>
+                        <div className="text-[10px] text-charcoal-400">${s.avgPrice.toFixed(0)}/avg</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {drag.length > 0 && (
+              <div className={`px-5 pb-4 ${stars.length > 0 ? 'pt-3 border-t border-warm-200' : 'pt-4'}`}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-xs font-bold tracking-widest uppercase text-red-400">Drag</span>
+                  <span className="text-[10px] text-charcoal-400">Low ticket price, rarely booked</span>
+                </div>
+                <div className="space-y-2">
+                  {drag.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm text-charcoal-900">{s.name}</span>
+                        <span className="ml-2 text-xs text-charcoal-400">{s.count} bookings</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-mono text-charcoal-500">${s.avgPrice.toFixed(0)}/avg</div>
+                        <div className="text-[10px] text-red-400">Consider raising price or removing</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {drag.length === 0 && stars.length > 0 && (
+              <div className="px-5 pb-4 pt-3 border-t border-warm-200">
+                <div className="text-xs text-charcoal-500">No obvious drag services — your menu looks healthy.</div>
+              </div>
+            )}
           </div>
         )}
 
