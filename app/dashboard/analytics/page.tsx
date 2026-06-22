@@ -166,28 +166,42 @@ function MonthlyBarsChart({ year, appointments }: { year: number; appointments: 
   )
 }
 
-function HorizontalBars({ items }: { items: { label: string; value: number; sub?: string; color?: string }[] }) {
+function SVGBarChart({ items }: { items: { label: string; value: number; sub?: string; color?: string }[] }) {
   const maxVal = Math.max(...items.map(i => i.value), 1)
+  const LEFT = 44; const RIGHT = 4; const TOP = 6; const BOT = 20
+  const W = 600; const H = 120
+  const cW = W - LEFT - RIGHT; const cH = H - TOP - BOT
+  const slotW = cW / Math.max(items.length, 1)
+  const barW = Math.max(8, slotW - 8)
+  const yTicks = [0, Math.round(maxVal / 2), maxVal]
   return (
-    <div className="space-y-3">
-      {items.map((item, i) => (
-        <div key={i}>
-          <div className="flex justify-between items-baseline mb-1">
-            <span className="text-sm text-charcoal-900 truncate max-w-[60%]">{item.label}</span>
-            <span className="text-xs font-mono text-charcoal-500 ml-2 flex-shrink-0">{item.sub || ''}</span>
-          </div>
-          <div className="h-2.5 bg-warm-200 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${Math.max(2, (item.value / maxVal) * 100)}%`,
-                background: item.color || '#4B5320',
-              }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
+      {yTicks.map(t => {
+        const y = TOP + cH - (t / maxVal) * cH
+        return (
+          <g key={t}>
+            <line x1={LEFT} y1={y} x2={LEFT + cW} y2={y} stroke="#e8e0d5" strokeWidth="0.8" />
+            <text x={LEFT - 4} y={y + 3} textAnchor="end" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
+              ${t >= 1000 ? `${(t / 1000).toFixed(0)}k` : t.toFixed(0)}
+            </text>
+          </g>
+        )
+      })}
+      {items.map((item, i) => {
+        const barH = item.value > 0 ? Math.max(3, (item.value / maxVal) * cH) : 0
+        const x = LEFT + i * slotW + (slotW - barW) / 2
+        const y = TOP + cH - barH
+        const label = item.label.length > 10 ? item.label.slice(0, 9) + '…' : item.label
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH} fill={item.color || '#4B5320'} rx="2" />
+            <text x={x + barW / 2} y={H - 3} textAnchor="middle" fontSize="8" fill="#9e9589" fontFamily="sans-serif">
+              {label}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
   )
 }
 
@@ -500,7 +514,7 @@ export default function AnalyticsPage() {
               <div className="text-xs text-charcoal-500 mt-0.5">By service for selected period</div>
             </div>
             <div className="p-5">
-              <HorizontalBars items={serviceBreakdown} />
+              <SVGBarChart items={serviceBreakdown} />
             </div>
           </div>
         )}
@@ -513,7 +527,7 @@ export default function AnalyticsPage() {
               <div className="text-xs text-charcoal-500 mt-0.5">Total earnings (cuts + tips) for selected period</div>
             </div>
             <div className="p-5">
-              <HorizontalBars items={barberPerf} />
+              <SVGBarChart items={barberPerf} />
             </div>
           </div>
         )}

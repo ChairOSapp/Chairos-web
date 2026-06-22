@@ -202,20 +202,44 @@ export default function BarberEarningsPage() {
               const chartDays = byDay.slice().reverse()
               const values = chartDays.map(d => d.total)
               const maxVal = Math.max(...values, 1)
-              const W = 600
-              const H = 100
-              const slotW = W / chartDays.length
+              const LEFT = 44; const RIGHT = 4; const TOP = 6; const BOT = 20
+              const W = 600; const H = 120
+              const cW = W - LEFT - RIGHT; const cH = H - TOP - BOT
+              const slotW = cW / chartDays.length
               const barW = Math.max(2, slotW - 2)
+              const yTicks = [0, Math.round(maxVal / 2), maxVal]
+              const xIndices = chartDays.length <= 7
+                ? chartDays.map((_, i) => i)
+                : [0, Math.floor(chartDays.length * 0.25), Math.floor(chartDays.length * 0.5), Math.floor(chartDays.length * 0.75), chartDays.length - 1].filter((v, i, a) => a.indexOf(v) === i)
               return (
                 <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-4">
                   <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Daily Earnings</div>
                   <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
-                    <line x1="0" y1={H} x2={W} y2={H} stroke="#e8e0d5" strokeWidth="1" />
+                    {yTicks.map(t => {
+                      const y = TOP + cH - (t / maxVal) * cH
+                      return (
+                        <g key={t}>
+                          <line x1={LEFT} y1={y} x2={LEFT + cW} y2={y} stroke="#e8e0d5" strokeWidth="0.8" />
+                          <text x={LEFT - 4} y={y + 3} textAnchor="end" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
+                            ${t >= 1000 ? `${(t / 1000).toFixed(0)}k` : t.toFixed(0)}
+                          </text>
+                        </g>
+                      )
+                    })}
                     {chartDays.map((d, i) => {
-                      const barH = Math.max(2, (d.total / maxVal) * (H - 6))
-                      const x = i * slotW + (slotW - barW) / 2
-                      const y = H - barH
+                      const barH = Math.max(2, (d.total / maxVal) * cH)
+                      const x = LEFT + i * slotW + (slotW - barW) / 2
+                      const y = TOP + cH - barH
                       return <rect key={d.date} x={x} y={y} width={barW} height={barH} fill={barColor} rx="1" opacity="0.85" />
+                    })}
+                    {xIndices.map(i => {
+                      const label = new Date(chartDays[i].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      const x = LEFT + i * slotW + slotW / 2
+                      return (
+                        <text key={i} x={x} y={H - 3} textAnchor="middle" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
+                          {label}
+                        </text>
+                      )
                     })}
                   </svg>
                 </div>
