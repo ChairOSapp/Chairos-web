@@ -4,12 +4,16 @@ import { useRouter } from 'next/navigation'
 export default function TrialCountdownBanner({
   subscriptionStatus,
   trialEnd,
+  stripeCustomerId,
 }: {
   subscriptionStatus: string | null
   trialEnd: string | null
+  stripeCustomerId?: string | null
 }) {
   const router = useRouter()
 
+  // Already subscribed (card on file) — trial is running, auto-charges when it ends
+  if (stripeCustomerId) return null
   if (subscriptionStatus !== 'trialing' || !trialEnd) return null
 
   const daysLeft = Math.max(

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import TrialCountdownBanner from '@/components/TrialCountdownBanner'
+import PaywallBanner from '@/components/PaywallBanner'
+import { getBillingStatus } from '@/lib/billing'
 
 const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
   appointmentId: string
@@ -127,9 +129,21 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+      let { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+
+      // Re-fetch after a short delay when returning from Stripe checkout so the
+      // webhook has time to land before we read subscription state.
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('subscribed') === '1') {
+        await new Promise(r => setTimeout(r, 2500))
+        const { data: fresh } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+        if (fresh) prof = fresh
+        window.history.replaceState({}, '', '/dashboard')
+      }
+
       setProfile(prof)
       if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
+      if (getBillingStatus(prof) === 'blocked') { router.push('/subscribe'); return }
 
       if (prof?.role === 'owner') {
         const { data: shops } = await supabase.from('shops').select('*').eq('owner_id', user.id).order('created_at', { ascending: true }).limit(1)
@@ -240,6 +254,11 @@ export default function Dashboard() {
         <TrialCountdownBanner
           subscriptionStatus={profile?.subscription_status ?? null}
           trialEnd={profile?.trial_end ?? null}
+          stripeCustomerId={profile?.stripe_customer_id ?? null}
+        />
+        <PaywallBanner
+          subscriptionStatus={profile?.subscription_status ?? null}
+          subscriptionEndDate={profile?.subscription_end_date ?? null}
         />
 
         {/* 2. HEADER */}

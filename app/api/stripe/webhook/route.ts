@@ -151,14 +151,43 @@ export async function POST(req: NextRequest) {
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription
       const customerId = subscription.customer as string
+      const graceEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
       console.log('[stripe/webhook] subscription.deleted | customer:', customerId)
 
-      const { error: dbErr } = await supabase.from('profiles').update({
-        subscription_status: 'cancelled',
-      }).eq('stripe_customer_id', customerId)
+      const { data: ownerProfile, error: dbErr } = await supabase
+        .from('profiles')
+        .update({ subscription_status: 'cancelled', subscription_end_date: graceEnd })
+        .eq('stripe_customer_id', customerId)
+        .select('id, role')
+        .maybeSingle()
 
       if (dbErr) console.error('[stripe/webhook] DB update failed:', dbErr.message)
+
+      // If an owner cancels, give their shop barbers 7 days to convert to solo plan
+      if (ownerProfile?.role === 'owner') {
+        const { data: shop } = await supabase
+          .from('shops')
+          .select('id')
+          .eq('owner_id', ownerProfile.id)
+          .maybeSingle()
+
+        if (shop) {
+          const { data: shopBarbers } = await supabase
+            .from('shop_barbers')
+            .select('barber_id')
+            .eq('shop_id', shop.id)
+            .eq('active', true)
+
+          const barberIds = (shopBarbers ?? []).map((b: any) => b.barber_id).filter(Boolean)
+          if (barberIds.length > 0) {
+            await supabase
+              .from('profiles')
+              .update({ subscription_status: 'grace_period', subscription_end_date: graceEnd })
+              .in('id', barberIds)
+          }
+        }
+      }
 
       await notifySlack(`⚠️ ChairOS subscription cancelled\nCustomer: ${customerId}`)
       break

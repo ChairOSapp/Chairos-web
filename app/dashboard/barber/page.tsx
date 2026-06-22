@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import BarberNav from '@/components/BarberNav'
 import BarberMobileNav from '@/components/BarberMobileNav'
+import PaywallBanner from '@/components/PaywallBanner'
+import { getBillingStatus } from '@/lib/billing'
 
 function getWeekDays(): Date[] {
   const now = new Date()
@@ -125,6 +127,7 @@ export default function BarberDashboard() {
         .maybeSingle()
 
       if (!shopBarber) { router.push('/join'); return }
+      if (getBillingStatus(profile) === 'blocked') { router.push('/subscribe'); return }
       setShopBarber(shopBarber)
       setOnFloor(shopBarber.on_floor !== false)
       setShop(shopBarber.shops)
@@ -313,6 +316,11 @@ export default function BarberDashboard() {
       />
 
       <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
+
+        <PaywallBanner
+          subscriptionStatus={profile?.subscription_status ?? null}
+          subscriptionEndDate={profile?.subscription_end_date ?? null}
+        />
 
         <div className="mb-6">
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">{greeting}, {firstName}</h1>

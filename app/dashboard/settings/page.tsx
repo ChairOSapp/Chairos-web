@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { daysUntil } from '@/lib/billing'
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 const DEFAULT_HOURS = DAYS.map(day => ({
@@ -15,6 +16,7 @@ const DEFAULT_HOURS = DAYS.map(day => ({
 
 export default function ShopSettings() {
   const [shop, setShop] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -47,6 +49,8 @@ export default function ShopSettings() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
     setUserId(user.id)
+    const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+    setProfile(prof)
 
     const { data: shops } = await supabase
       .from('shops').select('*').eq('owner_id', user.id)
@@ -396,6 +400,49 @@ export default function ShopSettings() {
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
+
+        {/* BILLING */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">Billing</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-charcoal-900">
+                {profile?.subscription_status === 'active' && 'Shop Plan · $99/mo'}
+                {profile?.subscription_status === 'trialing' && 'Shop Plan · Free Trial'}
+                {profile?.subscription_status === 'past_due' && 'Shop Plan · Payment Failed'}
+                {profile?.subscription_status === 'cancelled' && 'Shop Plan · Cancelled'}
+                {!profile?.subscription_status && 'Shop Plan'}
+              </div>
+              <div className="text-xs text-charcoal-500 mt-0.5">
+                {profile?.subscription_status === 'trialing' && profile?.trial_end && (
+                  `Trial ends in ${daysUntil(profile.trial_end)} day${daysUntil(profile.trial_end) === 1 ? '' : 's'}`
+                )}
+                {profile?.subscription_status === 'active' && profile?.subscription_end_date && (
+                  `Next charge ${new Date(profile.subscription_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                )}
+                {profile?.subscription_status === 'past_due' && 'Update your card to restore full access'}
+                {profile?.subscription_status === 'cancelled' && profile?.subscription_end_date && (
+                  `Access until ${new Date(profile.subscription_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                )}
+              </div>
+            </div>
+            {profile?.stripe_customer_id ? (
+              <button
+                onClick={() => router.push('/api/stripe/portal')}
+                className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors whitespace-nowrap"
+              >
+                Manage Billing
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push('/subscribe')}
+                className="px-4 py-2 bg-od-green text-white rounded-lg text-xs font-semibold hover:opacity-80 transition-colors whitespace-nowrap"
+              >
+                Subscribe
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <MobileNav />

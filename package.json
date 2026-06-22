@@ -6,12 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "trigger:deploy": "npx trigger.dev@latest deploy"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
     "@square/web-sdk": "^2.2.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
+    "@trigger.dev/sdk": "4.4.6",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",

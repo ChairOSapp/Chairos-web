@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         metadata: { user_id: user.id, plan },
       },
       metadata: { user_id: user.id, plan },
-      success_url: `${origin}/dashboard`,
+      success_url: `${origin}/dashboard?subscribed=1`,
       cancel_url: `${origin}/subscribe`,
     }
 
