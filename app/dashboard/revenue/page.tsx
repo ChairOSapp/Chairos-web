@@ -176,7 +176,7 @@ export default function RevenuePage() {
         .lte('created_at', end + 'T23:59:59'),
     ])
 
-    setAppointments((appts || []) as Appointment[])
+    setAppointments((appts || []) as unknown as Appointment[])
     setTips(tipsData || [])
   }
 
