@@ -63,7 +63,12 @@ function BarberSettingsInner() {
 
     if (!shopBarber) { router.push('/join'); return }
     setShopBarber(shopBarber)
-    setShop(shopBarber.shops)
+
+    // Fetch shop directly to ensure barbers_collect_own_payments is included
+    const { data: shopData } = await supabase
+      .from('shops').select('*').eq('id', shopBarber.shop_id).maybeSingle()
+    setShop(shopData || shopBarber.shops)
+
     setAlias(shopBarber.alias || '')
     setBio(shopBarber.bio || '')
     setPhotoUrl(shopBarber.photo_url || '')
