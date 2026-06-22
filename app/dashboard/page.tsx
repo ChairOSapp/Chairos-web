@@ -47,7 +47,7 @@ const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
 
   return (
     <div className="flex items-center gap-1">
-      <span className="text-neutral-500 text-xs">$</span>
+      <span className="text-charcoal-500 text-xs">$</span>
       <input
         type="number"
         inputMode="decimal"
@@ -61,7 +61,7 @@ const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
           setValue(val)
         }}
         autoComplete="off"
-        className="w-14 bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-14 bg-warm-200 border border-warm-300 rounded px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       <button
         onClick={handleAddTip}
@@ -257,8 +257,8 @@ export default function Dashboard() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
@@ -303,47 +303,47 @@ export default function Dashboard() {
     if (s === 'done') return 'text-green-500'
     if (s === 'confirmed') return 'text-blue-400'
     if (s === 'noshow') return 'text-red-400'
-    return 'text-neutral-500'
+    return 'text-charcoal-500'
   }
 
   const displayAppts = apptTab === 'today' ? appointments : upcomingAppointments
 
   const ApptTable = React.memo(({ appts }: { appts: any[] }) => (
     appts.length === 0 ? (
-      <div className="p-6 text-center text-neutral-500 text-sm">
+      <div className="p-6 text-center text-charcoal-500 text-sm">
         {apptTab === 'today'
-          ? <>No appointments today. Share <span className="text-amber-500 font-mono">chairos.cc/book/{shop?.shop_code}</span> to start taking bookings.</>
+          ? <>No appointments today. Share <span className="text-od-green font-mono">chairos.cc/book/{shop?.shop_code}</span> to start taking bookings.</>
           : 'No upcoming appointments scheduled.'}
       </div>
     ) : (
-      <div className="divide-y divide-neutral-800">
+      <div className="divide-y divide-warm-200">
         {appts.map((a) => (
           <div key={a.id} className="px-5 py-4">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div className="flex items-center gap-3">
-                <div className="font-mono text-sm text-amber-500 font-semibold w-16 flex-shrink-0">
+                <div className="font-mono text-sm text-od-green font-semibold w-16 flex-shrink-0">
                   {a.time?.slice(0,5)}
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-white">{a.client_name}</div>
-                  <div className="text-xs text-neutral-500">{a.client_phone}</div>
+                  <div className="text-sm font-semibold text-charcoal-900">{a.client_name}</div>
+                  <div className="text-xs text-charcoal-500">{a.client_phone}</div>
                 </div>
               </div>
               {apptTab === 'upcoming' && (
-                <div className="text-xs font-mono text-neutral-400 flex-shrink-0">
+                <div className="text-xs font-mono text-charcoal-400 flex-shrink-0">
                   {new Date(a.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </div>
               )}
             </div>
             <div className="flex items-center gap-3 ml-19 flex-wrap">
               <div className="flex-1 min-w-0">
-                <div className="text-xs text-white font-medium truncate">{a.services?.name}</div>
-                <div className="text-xs text-neutral-500">${a.price}</div>
+                <div className="text-xs text-charcoal-900 font-medium truncate">{a.services?.name}</div>
+                <div className="text-xs text-charcoal-500">${a.price}</div>
               </div>
               <select
                 value={a.barber_id || ''}
                 onChange={e => updateAppointmentBarber(a.id, e.target.value)}
-                className="bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-amber-500 max-w-32">
+                className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-od-green max-w-32">
                 <option value="">Unassigned</option>
                 {barbers.map(b => (
                   <option key={b.id} value={b.barber_id || ''}>{b.barber_name || b.alias}</option>
@@ -352,7 +352,7 @@ export default function Dashboard() {
               <select
                 value={a.status}
                 onChange={e => updateAppointmentStatus(a.id, e.target.value)}
-                className={`bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-amber-500 ${statusColor(a.status)}`}>
+                className={`bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-od-green ${statusColor(a.status)}`}>
                 <option value="pending">Pending</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="done">Done</option>
@@ -375,10 +375,10 @@ export default function Dashboard() {
   ))
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-warm-50">
       {toast && (
         <div className={`fixed bottom-20 md:bottom-6 right-6 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg ${
-          toast.type === 'error' ? 'bg-red-900 border border-red-700 text-red-200' : 'bg-neutral-800 border border-green-700 text-green-300'
+          toast.type === 'error' ? 'bg-red-900 border border-red-700 text-red-200' : 'bg-warm-200 border border-green-700 text-green-300'
         }`}>
           {toast.msg}
         </div>
@@ -395,51 +395,51 @@ export default function Dashboard() {
 
         {/* GREETING */}
         <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </div>
-          <div className="font-serif text-2xl text-white">
+          <div className="font-serif text-2xl text-charcoal-900">
             {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'},{' '}
             {profile?.full_name?.split(' ')[0] || shop?.name?.split(' ')[0] || 'Boss'}.
           </div>
         </div>
 
         {/* HERO — MONEY */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 mb-4">
+        <div className="bg-warm-100 border border-warm-200 rounded-2xl p-5 mb-4">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Today's revenue</div>
-              <div className="font-serif text-5xl text-white leading-none mb-1">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Today's revenue</div>
+              <div className="font-serif text-5xl text-charcoal-900 leading-none mb-1">
                 ${todayRevenue.toFixed(2)}
               </div>
-              <div className="text-xs text-neutral-500">{doneCount} completed · {appointments.length} total today</div>
+              <div className="text-xs text-charcoal-500">{doneCount} completed · {appointments.length} total today</div>
             </div>
             <button
               onClick={() => router.push('/dashboard/appointments/history')}
-              className="text-xs text-amber-500 hover:text-amber-400 transition-colors flex-shrink-0 mt-1">
+              className="text-xs text-od-green hover:text-od-green-light transition-colors flex-shrink-0 mt-1">
               History →
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-neutral-800">
+          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-warm-200">
             <button
               onClick={() => router.push('/dashboard/tips')}
-              className="text-center hover:bg-neutral-800/50 rounded-lg py-2 transition-colors">
+              className="text-center hover:bg-warm-200/50 rounded-lg py-2 transition-colors">
               <div className="font-serif text-xl text-green-400">${totalTips.toFixed(0)}</div>
-              <div className="text-xs text-neutral-500 mt-0.5">Tips</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">Tips</div>
             </button>
             <button
               onClick={() => setApptTab('upcoming')}
-              className="text-center border-x border-neutral-800 hover:bg-neutral-800/50 rounded-lg py-2 transition-colors">
-              <div className="font-serif text-xl text-white">{upcomingAppointments.length}</div>
-              <div className="text-xs text-neutral-500 mt-0.5">Upcoming</div>
+              className="text-center border-x border-warm-200 hover:bg-warm-200/50 rounded-lg py-2 transition-colors">
+              <div className="font-serif text-xl text-charcoal-900">{upcomingAppointments.length}</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">Upcoming</div>
             </button>
             <button
               onClick={() => router.push('/dashboard/appointments/history')}
-              className="text-center hover:bg-neutral-800/50 rounded-lg py-2 transition-colors">
-              <div className={`font-serif text-xl ${noShowCount > 0 ? 'text-red-400' : 'text-white'}`}>
+              className="text-center hover:bg-warm-200/50 rounded-lg py-2 transition-colors">
+              <div className={`font-serif text-xl ${noShowCount > 0 ? 'text-red-400' : 'text-charcoal-900'}`}>
                 {noShowRate !== null ? `${noShowRate}%` : '0%'}
               </div>
-              <div className="text-xs text-neutral-500 mt-0.5">No-show rate</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">No-show rate</div>
             </button>
           </div>
         </div>
@@ -447,38 +447,38 @@ export default function Dashboard() {
         {/* YESTERDAY RECAP */}
         <button
           onClick={() => router.push('/dashboard/appointments/history')}
-          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-5 text-left hover:border-neutral-700 transition-colors">
+          className="w-full bg-warm-100 border border-warm-200 rounded-xl p-4 mb-5 text-left hover:border-warm-300 transition-colors">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">
               {new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('en-US', { weekday: 'long' })}'s recap
             </div>
-            <div className="text-xs text-amber-500">View →</div>
+            <div className="text-xs text-od-green">View →</div>
           </div>
           {yesterdayAppointments.length > 0 ? (
-            <div className="flex divide-x divide-neutral-800">
+            <div className="flex divide-x divide-warm-200">
               {[
-                { label: 'Revenue', value: `$${yesterdayAppointments.filter(a => a.status === 'done').reduce((s: number, a: any) => s + (parseFloat(a.price) || 0), 0).toFixed(0)}`, color: 'text-amber-500' },
-                { label: 'Apts', value: yesterdayAppointments.length.toString(), color: 'text-white' },
+                { label: 'Revenue', value: `$${yesterdayAppointments.filter(a => a.status === 'done').reduce((s: number, a: any) => s + (parseFloat(a.price) || 0), 0).toFixed(0)}`, color: 'text-od-green' },
+                { label: 'Apts', value: yesterdayAppointments.length.toString(), color: 'text-charcoal-900' },
                 { label: 'Tips', value: `$${yesterdayTips.reduce((s: number, t: any) => s + (parseFloat(t.amount) || 0), 0).toFixed(0)}`, color: 'text-green-400' },
-                { label: 'No-shows', value: yesterdayAppointments.filter((a: any) => a.status === 'noshow').length.toString(), color: yesterdayAppointments.filter((a: any) => a.status === 'noshow').length > 0 ? 'text-red-400' : 'text-neutral-400' },
+                { label: 'No-shows', value: yesterdayAppointments.filter((a: any) => a.status === 'noshow').length.toString(), color: yesterdayAppointments.filter((a: any) => a.status === 'noshow').length > 0 ? 'text-red-400' : 'text-charcoal-400' },
               ].map((s, i) => (
                 <div key={i} className="flex-1 text-center px-2">
                   <div className={`font-serif text-xl ${s.color}`}>{s.value}</div>
-                  <div className="text-xs text-neutral-500 mt-0.5">{s.label}</div>
+                  <div className="text-xs text-charcoal-500 mt-0.5">{s.label}</div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-sm text-neutral-600">No appointments yesterday</div>
+            <div className="text-sm text-charcoal-600">No appointments yesterday</div>
           )}
         </button>
 
         {/* THE FLOOR */}
         <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">The floor</div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-800">
-              <div className="text-xs text-neutral-500">{allBarbers.filter((b: any) => b.on_floor && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} barbers in</div>
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">The floor</div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 flex items-center justify-between border-b border-warm-200">
+              <div className="text-xs text-charcoal-500">{allBarbers.filter((b: any) => b.on_floor && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} barbers in</div>
               <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                 Live
@@ -489,7 +489,7 @@ export default function Dashboard() {
               const isLinked = !!b.barber_id
               const isOn = b.on_floor && isLinked
               return (
-                <div key={b.id} className="flex items-center gap-3 px-4 py-3 border-b border-neutral-800 last:border-0">
+                <div key={b.id} className="flex items-center gap-3 px-4 py-3 border-b border-warm-200 last:border-0">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center font-serif text-sm font-bold flex-shrink-0 overflow-hidden"
                     style={{
                       background: color + '22',
@@ -502,16 +502,16 @@ export default function Dashboard() {
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">{b.barber_name || b.alias}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">
+                    <div className="text-sm font-semibold text-charcoal-900 truncate">{b.barber_name || b.alias}</div>
+                    <div className="text-xs text-charcoal-500 mt-0.5">
                       {b.compensation_type === 'commission'
                         ? `${Math.round((b.commission_rate || 0.7) * 100)}% commission`
                         : `Booth rent $${b.booth_rent_amount}/wk`}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className={`w-2.5 h-2.5 rounded-full ${isOn ? 'bg-green-500' : isLinked ? 'bg-neutral-600' : 'bg-amber-500/50'}`} />
-                    <div className={`text-xs font-semibold ${isOn ? 'text-green-500' : isLinked ? 'text-neutral-500' : 'text-amber-500/70'}`}>
+                    <div className={`w-2.5 h-2.5 rounded-full ${isOn ? 'bg-green-500' : isLinked ? 'bg-warm-400' : 'bg-od-green/50'}`} />
+                    <div className={`text-xs font-semibold ${isOn ? 'text-green-500' : isLinked ? 'text-charcoal-500' : 'text-od-green/70'}`}>
                       {!isLinked ? 'Pending' : isOn ? 'On floor' : 'Off floor'}
                     </div>
                   </div>
@@ -519,7 +519,7 @@ export default function Dashboard() {
               )
             })}
             <button onClick={() => router.push('/dashboard/barbers')}
-              className="w-full py-3 text-xs text-neutral-500 hover:text-amber-500 transition-colors border-t border-neutral-800 text-center">
+              className="w-full py-3 text-xs text-charcoal-500 hover:text-od-green transition-colors border-t border-warm-200 text-center">
               Manage barbers →
             </button>
           </div>
@@ -527,21 +527,21 @@ export default function Dashboard() {
 
         {/* SCHEDULE */}
         <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Schedule</div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Schedule</div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-warm-200">
               <div className="flex gap-1">
                 {(['today', 'upcoming'] as const).map(tab => (
                   <button key={tab} onClick={() => setApptTab(tab)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                      apptTab === tab ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'
+                      apptTab === tab ? 'bg-warm-200 text-charcoal-900' : 'text-charcoal-500 hover:text-charcoal-900'
                     }`}>
                     {tab === 'today' ? `Today (${appointments.length})` : `Upcoming (${upcomingAppointments.length})`}
                   </button>
                 ))}
               </div>
               <button onClick={() => router.push('/dashboard/appointments/history')}
-                className="text-xs text-neutral-500 hover:text-amber-500 transition-colors">
+                className="text-xs text-charcoal-500 hover:text-od-green transition-colors">
                 History
               </button>
             </div>
@@ -551,33 +551,33 @@ export default function Dashboard() {
 
         {/* CLIENT LOCK */}
         <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Client lock</div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-neutral-800 flex items-center justify-between">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Client lock</div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between">
               <div>
-                <div className="font-serif text-white text-lg">Client Lock</div>
-                <div className="text-xs text-neutral-500 mt-0.5">Retention intelligence — updates on every completed appointment</div>
+                <div className="font-serif text-charcoal-900 text-lg">Client Lock</div>
+                <div className="text-xs text-charcoal-500 mt-0.5">Retention intelligence — updates on every completed appointment</div>
               </div>
-              <div className="text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-500/30 text-amber-500 bg-amber-500/10">
+              <div className="text-xs font-semibold px-2.5 py-1 rounded-full border border-od-green/30 text-od-green bg-od-green/10">
                 Proprietary
               </div>
             </div>
-            <div className="grid grid-cols-3 divide-x divide-neutral-800">
+            <div className="grid grid-cols-3 divide-x divide-warm-200">
               {[
                 { label: 'Locked', count: lockedCount, color: 'text-green-400', sub: 'Claimed by a barber', href: '/dashboard/clients' },
-                { label: 'At Risk', count: atRiskCount, color: 'text-amber-500', sub: 'Approaching lapse window', href: '/dashboard/clients' },
+                { label: 'At Risk', count: atRiskCount, color: 'text-od-green', sub: 'Approaching lapse window', href: '/dashboard/clients' },
                 { label: 'Floating', count: floatingCount, color: 'text-red-400', sub: 'Not assigned — revenue risk', href: '/dashboard/clients' },
               ].map((stat, i) => (
                 <button key={i} onClick={() => router.push(stat.href)}
-                  className="p-5 text-center hover:bg-neutral-800/50 transition-colors">
+                  className="p-5 text-center hover:bg-warm-200/50 transition-colors">
                   <div className={`font-serif text-4xl mb-1 ${stat.color}`}>{stat.count}</div>
-                  <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400">{stat.label}</div>
-                  <div className="text-xs text-neutral-600 mt-1 hidden sm:block">{stat.sub}</div>
+                  <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400">{stat.label}</div>
+                  <div className="text-xs text-charcoal-600 mt-1 hidden sm:block">{stat.sub}</div>
                 </button>
               ))}
             </div>
             {clientLocks.filter((l: any) => l.locked).length > 0 && (
-              <div className="px-5 py-3 border-t border-neutral-800 divide-y divide-neutral-800">
+              <div className="px-5 py-3 border-t border-warm-200 divide-y divide-warm-200">
                 {barbers.map((b: any, i: number) => {
                   const color = b.color || COLORS[i % COLORS.length]
                   const locked = clientLocks.filter((l: any) => l.locked && l.barber_id === b.barber_id).length
@@ -594,19 +594,19 @@ export default function Dashboard() {
                         style={{ background: color + '22', color, border: `1.5px solid ${color}44` }}>
                         {(b.barber_name || b.alias || '?')[0].toUpperCase()}
                       </div>
-                      <div className="flex-1 text-sm font-medium text-white">{b.barber_name || b.alias}</div>
+                      <div className="flex-1 text-sm font-medium text-charcoal-900">{b.barber_name || b.alias}</div>
                       <div className="flex gap-3 text-right">
                         <div className="text-center">
                           <div className="text-sm font-semibold text-green-400">{locked}</div>
-                          <div className="text-xs text-neutral-600">Locked</div>
+                          <div className="text-xs text-charcoal-600">Locked</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-sm font-semibold text-neutral-400">{atRisk}</div>
-                          <div className="text-xs text-neutral-600">At Risk</div>
+                          <div className="text-sm font-semibold text-charcoal-400">{atRisk}</div>
+                          <div className="text-xs text-charcoal-600">At Risk</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-sm font-semibold text-neutral-400">{loyalty}</div>
-                          <div className="text-xs text-neutral-600">Loyalty</div>
+                          <div className="text-sm font-semibold text-charcoal-400">{loyalty}</div>
+                          <div className="text-xs text-charcoal-600">Loyalty</div>
                         </div>
                       </div>
                     </div>
@@ -619,13 +619,13 @@ export default function Dashboard() {
 
         {/* SHOP INFO */}
         <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Shop</div>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-            <div className="divide-y divide-neutral-800">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Shop</div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+            <div className="divide-y divide-warm-200">
               <div className="flex items-center justify-between px-5 py-4">
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Booking link</div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Booking link</div>
                 <div className="flex flex-col items-end gap-1">
-                  <div className="text-xs font-mono text-amber-500">
+                  <div className="text-xs font-mono text-od-green">
                     {shop?.slug ? `chairos.cc/shop/${shop.slug}` : `chairos.cc/book/${shop?.shop_code}`}
                   </div>
                   <button
@@ -637,18 +637,18 @@ export default function Dashboard() {
                       setLinkCopied(true)
                       setTimeout(() => setLinkCopied(false), 2000)
                     }}
-                    className="text-xs text-amber-500 hover:text-amber-400 transition-colors">
+                    className="text-xs text-od-green hover:text-od-green-light transition-colors">
                     {linkCopied ? '✓ Copied!' : 'Copy link'}
                   </button>
                 </div>
               </div>
               <div className="flex items-center justify-between px-5 py-4">
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Shop code</div>
-                <div className="font-mono text-sm text-white">{shop?.shop_code}</div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Shop code</div>
+                <div className="font-mono text-sm text-charcoal-900">{shop?.shop_code}</div>
               </div>
               <div className="flex items-center justify-between px-5 py-4">
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Active barbers</div>
-                <div className="text-sm text-white">{barbers.filter(b => b.active && b.barber_id).length} of {allBarbers.filter((b: any) => b.barber_id).length} on floor</div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Active barbers</div>
+                <div className="text-sm text-charcoal-900">{barbers.filter(b => b.active && b.barber_id).length} of {allBarbers.filter((b: any) => b.barber_id).length} on floor</div>
               </div>
             </div>
           </div>

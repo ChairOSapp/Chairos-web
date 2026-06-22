@@ -60,8 +60,8 @@ export default function BarberEarnings() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
@@ -90,54 +90,54 @@ export default function BarberEarnings() {
   }).filter(m => m.appointments > 0)
 
   return (
-    <div className="min-h-screen bg-neutral-950">
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-50 no-print">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
+    <div className="min-h-screen bg-warm-50">
+      <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50 no-print">
+        <span className="font-serif text-od-green text-lg">ChairOS</span>
         <div className="flex items-center gap-3">
           <button onClick={() => window.print()}
-            className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg text-xs transition-colors">
+            className="px-4 py-1.5 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-xs transition-colors">
             Print / Save PDF
           </button>
-          <button onClick={() => router.push('/dashboard/barbers')} className="text-xs text-neutral-500 hover:text-white transition-colors">← Barbers</button>
+          <button onClick={() => router.push('/dashboard/barbers')} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">← Barbers</button>
         </div>
       </header>
 
       <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-6">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="font-serif text-2xl text-white mb-1">Earnings Statement</h1>
-            <p className="text-neutral-500 text-sm">{barber?.barber_name || barber?.alias} · {shop?.name}</p>
+            <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Earnings Statement</h1>
+            <p className="text-charcoal-500 text-sm">{barber?.barber_name || barber?.alias} · {shop?.name}</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setYear(y => y - 1)}
-              className="w-8 h-8 bg-neutral-800 border border-neutral-700 rounded-lg text-neutral-400 hover:text-white transition-colors text-sm">←</button>
-            <span className="font-mono text-white font-semibold px-2">{year}</span>
+              className="w-8 h-8 bg-warm-200 border border-warm-300 rounded-lg text-charcoal-400 hover:text-charcoal-900 transition-colors text-sm">←</button>
+            <span className="font-mono text-charcoal-900 font-semibold px-2">{year}</span>
             <button onClick={() => setYear(y => y + 1)}
               disabled={year >= new Date().getFullYear()}
-              className="w-8 h-8 bg-neutral-800 border border-neutral-700 rounded-lg text-neutral-400 hover:text-white transition-colors text-sm disabled:opacity-30">→</button>
+              className="w-8 h-8 bg-warm-200 border border-warm-300 rounded-lg text-charcoal-400 hover:text-charcoal-900 transition-colors text-sm disabled:opacity-30">→</button>
           </div>
         </div>
 
         {/* SUMMARY */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-4">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-4">
             {year} Annual Summary
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Appointments', value: appointments.length.toString(), color: 'text-white' },
-              { label: 'Service Revenue', value: `$${barberCut.toFixed(2)}`, color: 'text-white' },
+              { label: 'Appointments', value: appointments.length.toString(), color: 'text-charcoal-900' },
+              { label: 'Service Revenue', value: `$${barberCut.toFixed(2)}`, color: 'text-charcoal-900' },
               { label: 'Tips Earned', value: `$${totalTips.toFixed(2)}`, color: 'text-green-400' },
-              { label: 'Total Earnings', value: `$${totalEarnings.toFixed(2)}`, color: 'text-amber-500' },
+              { label: 'Total Earnings', value: `$${totalEarnings.toFixed(2)}`, color: 'text-od-green' },
             ].map((stat, i) => (
               <div key={i} className="text-center">
                 <div className={`font-serif text-2xl mb-1 ${stat.color}`}>{stat.value}</div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">{stat.label}</div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{stat.label}</div>
               </div>
             ))}
           </div>
           {barber?.compensation_type === 'commission' && (
-            <div className="mt-4 pt-4 border-t border-neutral-800 text-xs text-neutral-500 text-center">
+            <div className="mt-4 pt-4 border-t border-warm-200 text-xs text-charcoal-500 text-center">
               Commission rate: {Math.round((barber.commission_rate || 0.7) * 100)}% · Total shop revenue: ${totalRevenue.toFixed(2)}
             </div>
           )}
@@ -145,38 +145,38 @@ export default function BarberEarnings() {
 
         {/* MONTHLY BREAKDOWN */}
         {byMonth.length > 0 && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
-            <div className="px-5 py-4 border-b border-neutral-800">
-              <div className="font-serif text-white">Monthly Breakdown</div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+            <div className="px-5 py-4 border-b border-warm-200">
+              <div className="font-serif text-charcoal-900">Monthly Breakdown</div>
             </div>
-            <div className="divide-y divide-neutral-800">
-              <div className="grid grid-cols-5 gap-2 px-5 py-2 bg-neutral-800/50">
+            <div className="divide-y divide-warm-200">
+              <div className="grid grid-cols-5 gap-2 px-5 py-2 bg-warm-200/50">
                 {['Month', 'Apts', 'Service Cut', 'Tips', 'Total'].map(h => (
-                  <div key={h} className="text-xs font-semibold tracking-widest uppercase text-neutral-500">{h}</div>
+                  <div key={h} className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{h}</div>
                 ))}
               </div>
               {byMonth.map((m, i) => (
                 <div key={i} className="grid grid-cols-5 gap-2 px-5 py-3 items-center">
-                  <div className="text-sm text-white">{m.month}</div>
-                  <div className="text-sm text-neutral-400">{m.appointments}</div>
-                  <div className="text-sm text-white font-mono">${m.cut.toFixed(2)}</div>
+                  <div className="text-sm text-charcoal-900">{m.month}</div>
+                  <div className="text-sm text-charcoal-400">{m.appointments}</div>
+                  <div className="text-sm text-charcoal-900 font-mono">${m.cut.toFixed(2)}</div>
                   <div className="text-sm text-green-400 font-mono">${m.tips.toFixed(2)}</div>
-                  <div className="text-sm text-amber-500 font-mono font-semibold">${m.total.toFixed(2)}</div>
+                  <div className="text-sm text-od-green font-mono font-semibold">${m.total.toFixed(2)}</div>
                 </div>
               ))}
-              <div className="grid grid-cols-5 gap-2 px-5 py-3 bg-neutral-800/30">
-                <div className="text-xs font-semibold text-neutral-400">TOTAL</div>
-                <div className="text-xs font-semibold text-neutral-400">{appointments.length}</div>
-                <div className="text-xs font-semibold font-mono text-white">${barberCut.toFixed(2)}</div>
+              <div className="grid grid-cols-5 gap-2 px-5 py-3 bg-warm-200/30">
+                <div className="text-xs font-semibold text-charcoal-400">TOTAL</div>
+                <div className="text-xs font-semibold text-charcoal-400">{appointments.length}</div>
+                <div className="text-xs font-semibold font-mono text-charcoal-900">${barberCut.toFixed(2)}</div>
                 <div className="text-xs font-semibold font-mono text-green-400">${totalTips.toFixed(2)}</div>
-                <div className="text-xs font-semibold font-mono text-amber-500">${totalEarnings.toFixed(2)}</div>
+                <div className="text-xs font-semibold font-mono text-od-green">${totalEarnings.toFixed(2)}</div>
               </div>
             </div>
           </div>
         )}
 
         {appointments.length === 0 && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 text-center text-neutral-500 text-sm">
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-8 text-center text-charcoal-500 text-sm">
             No completed appointments found for {year}.
           </div>
         )}
@@ -187,10 +187,10 @@ export default function BarberEarnings() {
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; color: black !important; }
-          .bg-neutral-950, .bg-neutral-900, .bg-neutral-800 { background: white !important; }
-          .text-white, .text-neutral-400, .text-neutral-500 { color: #333 !important; }
-          .border-neutral-800, .border-neutral-700 { border-color: #ddd !important; }
-          .text-amber-500 { color: #b8861f !important; }
+          .bg-warm-50, .bg-warm-100, .bg-warm-200 { background: white !important; }
+          .text-charcoal-900, .text-charcoal-400, .text-charcoal-500 { color: #333 !important; }
+          .border-warm-200, .border-warm-300 { border-color: #ddd !important; }
+          .text-od-green { color: #b8861f !important; }
           .text-green-400 { color: #16a34a !important; }
         }
       `}</style>

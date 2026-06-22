@@ -205,26 +205,26 @@ export default function ManageBarbers() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
   const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-warm-50">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
 
       <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="font-serif text-2xl text-white mb-1">Manage Barbers</h1>
-            <p className="text-neutral-500 text-sm">{shop?.name} · {barbers.filter(b => b.active).length} active</p>
+            <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Manage Barbers</h1>
+            <p className="text-charcoal-500 text-sm">{shop?.name} · {barbers.filter(b => b.active).length} active</p>
           </div>
           <button
             onClick={() => { resetForm(); setInviteResult(null); setShowForm(!showForm) }}
-            className="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+            className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
             + Add Barber
           </button>
         </div>
@@ -238,11 +238,11 @@ export default function ManageBarbers() {
             <div className="text-sm font-semibold text-green-400 mb-1">
               {inviteResult.name} added — invite link ready
             </div>
-            <div className="text-xs text-neutral-400 mb-3">
+            <div className="text-xs text-charcoal-400 mb-3">
               Send this link to {inviteResult.name}. They'll use it to claim their account.
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex-1 font-mono text-xs text-amber-500 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 truncate">
+              <div className="flex-1 font-mono text-xs text-od-green bg-warm-100 border border-warm-300 rounded-lg px-3 py-2 truncate">
                 {inviteResult.link}
               </div>
               <button
@@ -251,58 +251,58 @@ export default function ManageBarbers() {
                   setSuccess('Link copied!')
                   setTimeout(() => setSuccess(''), 2000)
                 }}
-                className="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-4 py-2 rounded-lg text-xs transition-colors flex-shrink-0">
+                className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors flex-shrink-0">
                 Copy Link
               </button>
             </div>
-            <button onClick={() => setInviteResult(null)} className="text-xs text-neutral-600 hover:text-neutral-400 mt-3 transition-colors">
+            <button onClick={() => setInviteResult(null)} className="text-xs text-charcoal-600 hover:text-charcoal-400 mt-3 transition-colors">
               Dismiss
             </button>
           </div>
         )}
 
         {showForm && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-4">
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">
               {editingId ? 'Edit Barber' : 'New Barber'}
             </div>
             {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">First Name *</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">First Name *</label>
                 <input value={barberName} onChange={e => setBarberName(e.target.value)} placeholder="Marcus"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500" />
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
               </div>
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Alias / Specialty</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Alias / Specialty</label>
                 <input value={barberAlias} onChange={e => setBarberAlias(e.target.value)} placeholder="Fade King"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500" />
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
               </div>
             </div>
 
             {!editingId && (
               <div className="mb-4">
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
                   Email — Invite to ChairOS
-                  <span className="ml-2 normal-case text-neutral-600 font-normal tracking-normal">optional</span>
+                  <span className="ml-2 normal-case text-charcoal-600 font-normal tracking-normal">optional</span>
                 </label>
                 <input
                   type="email"
                   value={barberEmail}
                   onChange={e => setBarberEmail(e.target.value)}
                   placeholder="barber@email.com"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500" />
-                <p className="text-xs text-neutral-600 mt-1">An invite link will be generated for you to share with them.</p>
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                <p className="text-xs text-charcoal-600 mt-1">An invite link will be generated for you to share with them.</p>
               </div>
             )}
 
             <div className="mb-4">
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Compensation</label>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Compensation</label>
               <div className="grid grid-cols-2 gap-2">
                 {(['commission','booth_rent'] as const).map(t => (
                   <button key={t} onClick={() => setCompType(t)}
-                    className={`py-2 rounded-lg border text-xs font-semibold transition-colors ${compType === t ? 'bg-amber-500 border-amber-500 text-black' : 'bg-neutral-800 border-neutral-700 text-neutral-400'}`}>
+                    className={`py-2 rounded-lg border text-xs font-semibold transition-colors ${compType === t ? 'bg-od-green border-od-green text-white' : 'bg-warm-200 border-warm-300 text-charcoal-400'}`}>
                     {t === 'commission' ? 'Commission' : 'Booth Rent'}
                   </button>
                 ))}
@@ -312,22 +312,22 @@ export default function ManageBarbers() {
             {compType === 'commission' && (
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Barber Commission %</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Barber Commission %</label>
                   <div className="relative">
                     <input type="number" min="1" max="100" value={commissionRate} onChange={e => setCommissionRate(e.target.value)}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 pr-8" />
-                    <span className="absolute right-3 top-3 text-neutral-400 text-sm">%</span>
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
+                    <span className="absolute right-3 top-3 text-charcoal-400 text-sm">%</span>
                   </div>
-                  <div className="text-xs text-neutral-500 mt-1">Shop keeps {100 - parseInt(commissionRate || '0')}%</div>
+                  <div className="text-xs text-charcoal-500 mt-1">Shop keeps {100 - parseInt(commissionRate || '0')}%</div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Barber Tip %</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Barber Tip %</label>
                   <div className="relative">
                     <input type="number" min="1" max="100" value={tipSplit} onChange={e => setTipSplit(e.target.value)}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 pr-8" />
-                    <span className="absolute right-3 top-3 text-neutral-400 text-sm">%</span>
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
+                    <span className="absolute right-3 top-3 text-charcoal-400 text-sm">%</span>
                   </div>
-                  <div className="text-xs text-neutral-500 mt-1">Default 100% to barber</div>
+                  <div className="text-xs text-charcoal-500 mt-1">Default 100% to barber</div>
                 </div>
               </div>
             )}
@@ -336,31 +336,31 @@ export default function ManageBarbers() {
               <div className="space-y-4 mb-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Weekly Rent $</label>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Weekly Rent $</label>
                     <input type="number" value={boothRent} onChange={e => setBoothRent(e.target.value)} placeholder="150"
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500" />
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Due Every</label>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Due Every</label>
                     <select value={rentDueDay} onChange={e => setRentDueDay(e.target.value)}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500">
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green">
                       {DAYS.map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>)}
                     </select>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Late Fee %</label>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Late Fee %</label>
                     <div className="relative">
                       <input type="number" value={lateFeeRate} onChange={e => setLateFeeRate(e.target.value)} placeholder="5"
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 pr-8" />
-                      <span className="absolute right-3 top-3 text-neutral-400 text-sm">%</span>
+                        className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
+                      <span className="absolute right-3 top-3 text-charcoal-400 text-sm">%</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Applied Per</label>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Applied Per</label>
                     <select value={lateFeeInterval} onChange={e => setLateFeeInterval(e.target.value as any)}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500">
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green">
                       <option value="daily">Day</option>
                       <option value="weekly">Week</option>
                     </select>
@@ -371,13 +371,13 @@ export default function ManageBarbers() {
 
             {editingId && (
               <div className="mb-4">
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Barber Photo</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Barber Photo</label>
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 border-2 border-neutral-700">
+                  <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 border-2 border-warm-300">
                     {barberPhotoUrl ? (
                       <img src={barberPhotoUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full bg-neutral-800 flex items-center justify-center font-serif text-lg text-neutral-500">
+                      <div className="w-full h-full bg-warm-200 flex items-center justify-center font-serif text-lg text-charcoal-500">
                         {barberName[0]?.toUpperCase() || '?'}
                       </div>
                     )}
@@ -387,7 +387,7 @@ export default function ManageBarbers() {
                       type="button"
                       onClick={() => photoRef.current?.click()}
                       disabled={uploadingPhoto}
-                      className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-semibold text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors disabled:opacity-50">
+                      className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors disabled:opacity-50">
                       {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
                     </button>
                     <input
@@ -397,36 +397,36 @@ export default function ManageBarbers() {
                       onChange={e => handleBarberPhotoUpload(e, editingId)}
                       className="hidden"
                     />
-                    <p className="text-xs text-neutral-600 mt-1">Shows on booking page</p>
+                    <p className="text-xs text-charcoal-600 mt-1">Shows on booking page</p>
                   </div>
                 </div>
               </div>
             )}
             {!editingId && (
               <div className="mb-4">
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Barber Photo</label>
-                <p className="text-xs text-neutral-600">Save the barber first, then edit them to upload a photo.</p>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Barber Photo</label>
+                <p className="text-xs text-charcoal-600">Save the barber first, then edit them to upload a photo.</p>
               </div>
             )}
 
             <div className="flex gap-3">
               <button onClick={() => { resetForm(); setShowForm(false) }}
-                className="px-6 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-400 hover:text-white transition-colors">
+                className="px-6 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
                 Cancel
               </button>
               <button onClick={handleSave} disabled={saving}
-                className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
                 {saving ? 'Saving...' : editingId ? 'Save Changes' : barberEmail ? 'Add & Generate Invite' : 'Add Barber'}
               </button>
             </div>
           </div>
         )}
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
           {barbers.length === 0 ? (
-            <div className="p-8 text-center text-neutral-500 text-sm">No barbers yet. Add your first barber above.</div>
+            <div className="p-8 text-center text-charcoal-500 text-sm">No barbers yet. Add your first barber above.</div>
           ) : (
-            <div className="divide-y divide-neutral-800">
+            <div className="divide-y divide-warm-200">
               {barbers.map((b, i) => (
                 <div key={b.id} className={`px-5 py-4 ${!b.active ? 'opacity-50' : ''}`}>
                   <div className="flex items-center gap-3 mb-3">
@@ -435,21 +435,21 @@ export default function ManageBarbers() {
                       {(b.barber_name || b.alias || '?')[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-white">{b.barber_name || b.alias}</div>
-                      <div className="text-xs text-neutral-500 mt-0.5">
+                      <div className="text-sm font-semibold text-charcoal-900">{b.barber_name || b.alias}</div>
+                      <div className="text-xs text-charcoal-500 mt-0.5">
                         {b.compensation_type === 'commission'
                           ? `${Math.round((b.commission_rate || 0.7) * 100)}% commission · Tips ${Math.round((b.tip_split_rate || 1) * 100)}%`
                           : `Booth rent $${b.booth_rent_amount}/wk · Due ${b.booth_rent_due_day}`}
                       </div>
                     </div>
-                    <div className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${b.barber_id ? 'bg-green-500/10 text-green-500' : 'bg-neutral-800 text-neutral-500'}`}>
+                    <div className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${b.barber_id ? 'bg-green-500/10 text-green-500' : 'bg-warm-200 text-charcoal-500'}`}>
                       {b.barber_id ? 'Linked' : 'Pending'}
                     </div>
                   </div>
                   <div className="flex gap-2 flex-wrap ml-13">
                     {!b.barber_id && b.active && (
                       <button onClick={() => sendInviteToExisting(b)}
-                        className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-500 hover:bg-amber-500 hover:text-black transition-colors font-semibold">
+                        className="px-3 py-1.5 bg-od-green/10 border border-od-green/30 rounded-lg text-xs text-od-green hover:bg-od-green hover:text-white transition-colors font-semibold">
                         Invite
                       </button>
                     )}
@@ -460,17 +460,17 @@ export default function ManageBarbers() {
                       </button>
                     )}
                     <button onClick={() => openEdit(b)}
-                      className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
+                      className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors">
                       Edit
                     </button>
                     <button onClick={() => router.push(`/dashboard/barbers/${b.id}/earnings`)}
-                      className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-400 hover:border-green-500 hover:text-green-400 transition-colors">
+                      className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:border-green-500 hover:text-green-400 transition-colors">
                       Earnings
                     </button>
                     <button onClick={() => toggleActive(b.id, b.active)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                         b.active
-                          ? 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-red-500 hover:text-red-400'
+                          ? 'bg-warm-200 border-warm-300 text-charcoal-400 hover:border-red-500 hover:text-red-400'
                           : 'bg-green-500/10 border-green-500/30 text-green-500'
                       }`}>
                       {b.active ? 'Deactivate' : 'Reactivate'}

@@ -237,8 +237,8 @@ export default function BarberDashboard() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
@@ -269,7 +269,7 @@ export default function BarberDashboard() {
   const loyaltyClients = lockedClients.filter(l => l.loyalty_protected)
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-warm-50">
 
       <BarberNav
         shopName={shop?.name || ''}
@@ -283,12 +283,12 @@ export default function BarberDashboard() {
       <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
 
         <div className="mb-6">
-          <h1 className="font-serif text-2xl text-white mb-1">{greeting}, {firstName}</h1>
-          <p className="text-neutral-500 text-sm">{today}</p>
+          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">{greeting}, {firstName}</h1>
+          <p className="text-charcoal-500 text-sm">{today}</p>
         </div>
 
         {/* IDENTITY CARD */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-6 flex items-center gap-4">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0"
             style={{ border: `2px solid ${color}` }}>
             {shopBarber?.photo_url ? (
@@ -301,8 +301,8 @@ export default function BarberDashboard() {
             )}
           </div>
           <div className="flex-1">
-            <div className="font-serif text-lg text-white">{shopBarber?.barber_name || shopBarber?.alias}</div>
-            <div className="text-xs text-neutral-500 uppercase tracking-widest mt-0.5">{shop?.name}</div>
+            <div className="font-serif text-lg text-charcoal-900">{shopBarber?.barber_name || shopBarber?.alias}</div>
+            <div className="text-xs text-charcoal-500 uppercase tracking-widest mt-0.5">{shop?.name}</div>
           </div>
           <div className="text-right">
             <button
@@ -310,11 +310,11 @@ export default function BarberDashboard() {
               className={`text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full border transition-colors ${
                 onFloor
                   ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20'
-                  : 'bg-neutral-800 border-neutral-700 text-neutral-500 hover:border-amber-500 hover:text-amber-500'
+                  : 'bg-warm-200 border-warm-300 text-charcoal-500 hover:border-od-green hover:text-od-green'
               }`}>
               {onFloor ? '● On Floor' : '○ Off Floor'}
             </button>
-            <div className="text-xs text-neutral-500 mt-1">
+            <div className="text-xs text-charcoal-500 mt-1">
               {shopBarber?.compensation_type === 'commission'
                 ? `${Math.round((shopBarber?.commission_rate || 0.7) * 100)}% commission`
                 : `Booth rent $${shopBarber?.booth_rent_amount}/wk`}
@@ -324,12 +324,12 @@ export default function BarberDashboard() {
 
         {/* BOOTH RENT ALERT */}
         {boothRent && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
+          <div className="bg-od-green/10 border border-od-green/30 rounded-xl p-4 mb-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-amber-500 mb-1">Booth Rent Due</div>
-                <div className="font-serif text-2xl text-white">${boothRent.total_due}</div>
-                <div className="text-xs text-neutral-400 mt-1">
+                <div className="text-xs font-semibold tracking-widest uppercase text-od-green mb-1">Booth Rent Due</div>
+                <div className="font-serif text-2xl text-charcoal-900">${boothRent.total_due}</div>
+                <div className="text-xs text-charcoal-400 mt-1">
                   Due {new Date(boothRent.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
                   {boothRent.late_fee_amount > 0 && (
                     <span className="text-red-400 ml-2">+${boothRent.late_fee_amount} late fee</span>
@@ -343,7 +343,7 @@ export default function BarberDashboard() {
                     .eq('id', boothRent.id)
                   setBoothRent(null)
                 }}
-                className="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+                className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
                 Mark Paid
               </button>
             </div>
@@ -351,53 +351,53 @@ export default function BarberDashboard() {
         )}
 
         {/* CLIENT LOCK */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200 flex justify-between items-center">
             <div>
-              <div className="font-serif text-white flex items-center gap-2">
+              <div className="font-serif text-charcoal-900 flex items-center gap-2">
                 My Client Lock
-                <span className="text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-semibold bg-od-green/10 text-od-green border border-od-green/20 px-2 py-0.5 rounded-full">
                   Live
                 </span>
               </div>
-              <div className="text-xs text-neutral-500 mt-0.5">Your client retention at a glance</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">Your client retention at a glance</div>
             </div>
           </div>
-          <div className="grid grid-cols-3 divide-x divide-neutral-800">
+          <div className="grid grid-cols-3 divide-x divide-warm-200">
             <div className="p-4 text-center">
               <div className="font-serif text-2xl text-green-400 mb-1">{lockedClients.length}</div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Locked</div>
-              <div className="text-xs text-neutral-600 mt-0.5">Your clients</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Locked</div>
+              <div className="text-xs text-charcoal-600 mt-0.5">Your clients</div>
             </div>
             <div className="p-4 text-center">
-              <div className={`font-serif text-2xl mb-1 ${atRiskClients.length > 0 ? 'text-amber-500' : 'text-neutral-600'}`}>
+              <div className={`font-serif text-2xl mb-1 ${atRiskClients.length > 0 ? 'text-od-green' : 'text-charcoal-600'}`}>
                 {atRiskClients.length}
               </div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">At Risk</div>
-              <div className="text-xs text-neutral-600 mt-0.5">Need rebooking</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">At Risk</div>
+              <div className="text-xs text-charcoal-600 mt-0.5">Need rebooking</div>
             </div>
             <div className="p-4 text-center">
-              <div className={`font-serif text-2xl mb-1 ${loyaltyClients.length > 0 ? 'text-amber-500' : 'text-neutral-600'}`}>
+              <div className={`font-serif text-2xl mb-1 ${loyaltyClients.length > 0 ? 'text-od-green' : 'text-charcoal-600'}`}>
                 {loyaltyClients.length}
               </div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Loyalty</div>
-              <div className="text-xs text-neutral-600 mt-0.5">12+ months</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Loyalty</div>
+              <div className="text-xs text-charcoal-600 mt-0.5">12+ months</div>
             </div>
           </div>
           {atRiskClients.length > 0 && (
-            <div className="border-t border-neutral-800 px-5 py-3 bg-amber-500/5">
-              <div className="text-xs font-semibold text-amber-500 mb-2">At Risk — Reach Out</div>
+            <div className="border-t border-warm-200 px-5 py-3 bg-od-green/5">
+              <div className="text-xs font-semibold text-od-green mb-2">At Risk — Reach Out</div>
               <div className="space-y-1.5">
                 {atRiskClients.slice(0, 3).map((l, i) => (
                   <div key={i} className="flex justify-between items-center">
-                    <span className="text-xs text-white">{l.clients?.full_name || l.clients?.phone || 'Client'}</span>
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-xs text-charcoal-900">{l.clients?.full_name || l.clients?.phone || 'Client'}</span>
+                    <span className="text-xs text-charcoal-500">
                       Last visit {new Date(l.last_booking_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>
                   </div>
                 ))}
                 {atRiskClients.length > 3 && (
-                  <div className="text-xs text-neutral-600">+{atRiskClients.length - 3} more</div>
+                  <div className="text-xs text-charcoal-600">+{atRiskClients.length - 3} more</div>
                 )}
               </div>
             </div>
@@ -410,46 +410,46 @@ export default function BarberDashboard() {
             {bookingSuccess}
           </div>
         )}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <button onClick={() => setShowBooking(!showBooking)}
-            className="w-full px-5 py-4 flex items-center justify-between hover:bg-neutral-800 transition-colors">
+            className="w-full px-5 py-4 flex items-center justify-between hover:bg-warm-200 transition-colors">
             <div className="flex items-center gap-3">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 4v16m8-8H4"/>
               </svg>
-              <div className="text-sm font-semibold text-white">Book a Walk-In</div>
+              <div className="text-sm font-semibold text-charcoal-900">Book a Walk-In</div>
             </div>
             <svg className={`transition-transform ${showBooking ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </button>
           {showBooking && (
-            <div className="border-t border-neutral-800 p-5 space-y-3">
+            <div className="border-t border-warm-200 p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Client Name *</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Client Name *</label>
                   <input value={bookingName} onChange={e => setBookingName(e.target.value)} placeholder="Name"
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Phone *</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Phone *</label>
                   <input type="tel" value={bookingPhone} onChange={e => setBookingPhone(e.target.value)} placeholder="Phone"
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Service *</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Service *</label>
                 <select value={bookingService} onChange={e => { setBookingService(e.target.value); const s = services.find(sv => sv.id === e.target.value); if(s) setBookingPrice(String(s.price)) }}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500">
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green">
                   <option value="">Select service...</option>
                   {services.map(s => <option key={s.id} value={s.id}>{s.name} — ${s.price}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Time *</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Time *</label>
                   <select value={bookingTime} onChange={e => setBookingTime(e.target.value)}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500">
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green">
                     <option value="">Select time...</option>
                     {['8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM','5:30 PM','6:00 PM','6:30 PM','7:00 PM'].map(t => (
                       <option key={t} value={t}>{t}</option>
@@ -457,16 +457,16 @@ export default function BarberDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1">Price</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Price</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-neutral-400 text-sm">$</span>
+                    <span className="absolute left-3 top-2 text-charcoal-400 text-sm">$</span>
                     <input type="number" value={bookingPrice} onChange={e => setBookingPrice(e.target.value)}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-7 pr-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg pl-7 pr-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                   </div>
                 </div>
               </div>
               <button onClick={handleWalkIn} disabled={bookingSubmitting || !bookingName || !bookingPhone || !bookingService || !bookingTime}
-                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
                 {bookingSubmitting ? 'Booking...' : 'Book Walk-In'}
               </button>
             </div>
@@ -474,36 +474,36 @@ export default function BarberDashboard() {
         </div>
 
         {/* SCHEDULE */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-neutral-800 flex justify-between items-center">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200 flex justify-between items-center">
             <div>
-              <div className="font-serif text-white">Today's Schedule</div>
-              <div className="text-xs text-neutral-500 mt-0.5">{appointments.length} appointments</div>
+              <div className="font-serif text-charcoal-900">Today's Schedule</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">{appointments.length} appointments</div>
             </div>
             <span className="text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full">
               Live
             </span>
           </div>
           {appointments.length === 0 ? (
-            <div className="p-6 text-center text-neutral-500 text-sm">
+            <div className="p-6 text-center text-charcoal-500 text-sm">
               No appointments today. Your schedule updates in real time.
             </div>
           ) : (
-            <div className="divide-y divide-neutral-800">
+            <div className="divide-y divide-warm-200">
               {appointments.map((a) => (
-                <div key={a.id} className={`px-5 py-4 border-b border-neutral-800 last:border-0 ${a.status === 'confirmed' ? 'bg-blue-500/5' : a.status === 'done' ? 'bg-green-500/5' : ''}`}>
+                <div key={a.id} className={`px-5 py-4 border-b border-warm-200 last:border-0 ${a.status === 'confirmed' ? 'bg-blue-500/5' : a.status === 'done' ? 'bg-green-500/5' : ''}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      <span className="font-mono text-sm text-amber-500 font-semibold">{a.time?.slice(0,5)}</span>
+                      <span className="font-mono text-sm text-od-green font-semibold">{a.time?.slice(0,5)}</span>
                       <select
                         value={a.status}
                         disabled={statusUpdating[a.id]}
                         onChange={e => updateStatus(a.id, e.target.value)}
-                        className={`bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1 text-xs font-semibold outline-none transition-colors ${
+                        className={`bg-warm-200 border border-warm-300 rounded-lg px-2 py-1 text-xs font-semibold outline-none transition-colors ${
                           a.status === 'done' ? 'text-green-400 border-green-500/30' :
                           a.status === 'confirmed' ? 'text-blue-400 border-blue-500/30' :
                           a.status === 'noshow' ? 'text-red-400' :
-                          'text-neutral-400'
+                          'text-charcoal-400'
                         }`}>
                         <option value="pending">Pending</option>
                         <option value="confirmed">Confirmed</option>
@@ -512,13 +512,13 @@ export default function BarberDashboard() {
                         <option value="cancelled">Cancelled</option>
                       </select>
                     </div>
-                    <span className="text-xs font-mono text-amber-500 font-semibold">${a.price}</span>
+                    <span className="text-xs font-mono text-od-green font-semibold">${a.price}</span>
                   </div>
-                  <div className="text-sm font-semibold text-white mb-0.5">{a.client_name}</div>
-                  <div className="text-xs text-neutral-500 mb-3">{a.services?.name} · {a.client_phone}</div>
+                  <div className="text-sm font-semibold text-charcoal-900 mb-0.5">{a.client_name}</div>
+                  <div className="text-xs text-charcoal-500 mb-3">{a.services?.name} · {a.client_phone}</div>
                   {a.status === 'done' && !tippedAppointments.has(a.id) && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-neutral-500">Tip $</span>
+                      <span className="text-xs text-charcoal-500">Tip $</span>
                       <input
                         type="number"
                         inputMode="decimal"
@@ -531,7 +531,7 @@ export default function BarberDashboard() {
                           if (parseFloat(val) < 0) return
                           setBarberTipInput(prev => ({ ...prev, [a.id]: val }))
                         }}
-                        className="w-20 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-20 bg-warm-200 border border-warm-300 rounded-lg px-3 py-1.5 text-sm text-charcoal-900 outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                       <button
                         onClick={() => addBarberTip(a.id)}
@@ -548,17 +548,17 @@ export default function BarberDashboard() {
         </div>
 
         {/* EARNINGS TOGGLE */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-6">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <button
             onClick={() => setShowEarnings(!showEarnings)}
-            className="w-full px-5 py-4 flex items-center justify-between hover:bg-neutral-800 transition-colors">
+            className="w-full px-5 py-4 flex items-center justify-between hover:bg-warm-200 transition-colors">
             <div className="flex items-center gap-3">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={showEarnings ? '#f59e0b' : '#6b7280'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
               <div className="text-left">
-                <div className="text-sm font-semibold text-white">My Earnings</div>
-                <div className="text-xs text-neutral-500">Tap to {showEarnings ? 'hide' : 'show'} — private</div>
+                <div className="text-sm font-semibold text-charcoal-900">My Earnings</div>
+                <div className="text-xs text-charcoal-500">Tap to {showEarnings ? 'hide' : 'show'} — private</div>
               </div>
             </div>
             <svg className={`transition-transform ${showEarnings ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -567,61 +567,61 @@ export default function BarberDashboard() {
           </button>
 
           {showEarnings && (
-            <div className="border-t border-neutral-800">
-              <div className="grid grid-cols-2 divide-x divide-neutral-800">
+            <div className="border-t border-warm-200">
+              <div className="grid grid-cols-2 divide-x divide-warm-200">
                 <div className="p-5">
-                  <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-2">My Cut Today</div>
-                  <div className="font-serif text-2xl text-white mb-1">${barberCut.toFixed(2)}</div>
-                  <div className="text-xs text-neutral-500">
+                  <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-2">My Cut Today</div>
+                  <div className="font-serif text-2xl text-charcoal-900 mb-1">${barberCut.toFixed(2)}</div>
+                  <div className="text-xs text-charcoal-500">
                     {shopBarber?.compensation_type === 'commission'
                       ? `${Math.round((shopBarber?.commission_rate || 0.7) * 100)}% of $${todayRevenue.toFixed(2)}`
                       : 'Service revenue'}
                   </div>
                 </div>
                 <div className="p-5">
-                  <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-2">Tips Today</div>
+                  <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-2">Tips Today</div>
                   <div className="font-serif text-2xl text-green-400 mb-1">${totalTips.toFixed(2)}</div>
-                  <div className="text-xs text-neutral-500">
+                  <div className="text-xs text-charcoal-500">
                     {pendingTips > 0
-                      ? <span className="text-amber-500">${pendingTips.toFixed(2)} pending cashout</span>
+                      ? <span className="text-od-green">${pendingTips.toFixed(2)} pending cashout</span>
                       : cashedTips > 0
                         ? <span className="text-green-500">${cashedTips.toFixed(2)} cashed out</span>
                         : 'No tips yet today'}
                   </div>
                 </div>
               </div>
-              <div className="border-t border-neutral-800 p-5">
+              <div className="border-t border-warm-200 p-5">
                 <div className="flex justify-between items-center">
                   <div>
-                    <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Total Today</div>
-                    <div className="font-serif text-2xl text-amber-500">${(barberCut + totalTips).toFixed(2)}</div>
+                    <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Total Today</div>
+                    <div className="font-serif text-2xl text-od-green">${(barberCut + totalTips).toFixed(2)}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-neutral-500 mb-1">Appointments</div>
-                    <div className="font-serif text-2xl text-white">{appointments.filter(a => a.status === 'done').length}</div>
-                    <div className="text-xs text-neutral-500">completed</div>
+                    <div className="text-xs text-charcoal-500 mb-1">Appointments</div>
+                    <div className="font-serif text-2xl text-charcoal-900">{appointments.filter(a => a.status === 'done').length}</div>
+                    <div className="text-xs text-charcoal-500">completed</div>
                   </div>
                 </div>
               </div>
 
               {pendingTips > 0 && (
-                <div className="border-t border-neutral-800 px-5 py-4 bg-amber-500/5">
+                <div className="border-t border-warm-200 px-5 py-4 bg-od-green/5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-semibold text-amber-500">Tips Pending Cashout</div>
-                      <div className="text-xs text-neutral-500 mt-0.5">Your owner will cash these out</div>
+                      <div className="text-sm font-semibold text-od-green">Tips Pending Cashout</div>
+                      <div className="text-xs text-charcoal-500 mt-0.5">Your owner will cash these out</div>
                     </div>
-                    <div className="font-serif text-xl text-amber-500">${pendingTips.toFixed(2)}</div>
+                    <div className="font-serif text-xl text-od-green">${pendingTips.toFixed(2)}</div>
                   </div>
                 </div>
               )}
 
               {cashedTips > 0 && (
-                <div className="border-t border-neutral-800 px-5 py-4 bg-green-500/5">
+                <div className="border-t border-warm-200 px-5 py-4 bg-green-500/5">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm font-semibold text-green-500">Tips Cashed Out</div>
-                      <div className="text-xs text-neutral-500 mt-0.5">Paid out today</div>
+                      <div className="text-xs text-charcoal-500 mt-0.5">Paid out today</div>
                     </div>
                     <div className="font-serif text-xl text-green-500">${cashedTips.toFixed(2)}</div>
                   </div>

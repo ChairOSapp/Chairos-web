@@ -29,9 +29,9 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
   }
 
   return (
-    <header className="bg-neutral-900 border-b border-neutral-800 px-4 h-14 flex items-center justify-between sticky top-0 z-50">
+    <header className="bg-warm-100 border-b border-warm-200 px-4 h-14 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-1">
-        <span className="font-serif text-amber-500 text-lg mr-4">ChairOS</span>
+        <span className="font-serif text-od-green text-lg mr-4">ChairOS</span>
         {NAV_ITEMS.map(item => {
           const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
           return (
@@ -39,7 +39,7 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
               key={item.href}
               onClick={() => router.push(item.href)}
               className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                active ? 'bg-amber-500/15 text-amber-500' : 'text-neutral-500 hover:text-white hover:bg-neutral-800'
+                active ? 'bg-od-green/15 text-od-green' : 'text-charcoal-500 hover:text-white hover:bg-warm-200'
               }`}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d={item.icon} />
@@ -51,15 +51,15 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
       </div>
       <div className="flex items-center gap-3">
         <div className="hidden sm:block text-right">
-          <div className="text-xs font-medium text-white">{ownerName}</div>
-          <div className="text-xs text-neutral-500">{shopName}</div>
+          <div className="text-xs font-medium text-charcoal-900">{ownerName}</div>
+          <div className="text-xs text-charcoal-500">{shopName}</div>
         </div>
         {userId && <NotificationBell userId={userId} />}
         {userId && <NotificationToast userId={userId} />}
-        <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center font-serif text-amber-500 text-sm">
+        <div className="w-8 h-8 rounded-lg bg-od-green/10 border border-od-green/30 flex items-center justify-center font-serif text-od-green text-sm">
           {initials}
         </div>
-        <button onClick={handleSignOut} className="text-xs text-neutral-500 hover:text-white transition-colors">
+        <button onClick={handleSignOut} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">
           Sign out
         </button>
       </div>

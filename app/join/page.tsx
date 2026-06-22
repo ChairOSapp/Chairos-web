@@ -143,19 +143,19 @@ export default function JoinPage() {
   }
 
   if (mode === 'loading') return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
   if (mode === 'error') return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center">
-        <h1 className="font-serif text-3xl text-amber-500 mb-4">ChairOS</h1>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8">
+        <h1 className="font-serif text-3xl text-od-green mb-4">ChairOS</h1>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-8">
           <div className="text-red-400 text-sm mb-4">This invite link is invalid or has already been used.</div>
           <button onClick={() => setMode('code')}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm transition-colors">
+            className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors">
             Enter Shop Code Instead
           </button>
         </div>
@@ -164,22 +164,22 @@ export default function JoinPage() {
   )
 
   if (mode === 'success') return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center">
-        <h1 className="font-serif text-3xl text-amber-500 mb-4">ChairOS</h1>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8">
+        <h1 className="font-serif text-3xl text-od-green mb-4">ChairOS</h1>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-8">
           <div className="w-14 h-14 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
-          <h2 className="font-serif text-xl text-white mb-2">You're in.</h2>
-          <p className="text-neutral-400 text-sm mb-2">
-            You've been linked to <span className="text-white font-medium">{shop?.name}</span>.
+          <h2 className="font-serif text-xl text-charcoal-900 mb-2">You're in.</h2>
+          <p className="text-charcoal-400 text-sm mb-2">
+            You've been linked to <span className="text-charcoal-900 font-medium">{shop?.name}</span>.
           </p>
-          <p className="text-neutral-500 text-xs mb-6">
-            Your chair: <span className="text-neutral-300">{barber?.barber_name || barber?.alias}</span>
+          <p className="text-charcoal-500 text-xs mb-6">
+            Your chair: <span className="text-charcoal-700">{barber?.barber_name || barber?.alias}</span>
           </p>
           <button onClick={() => router.push('/dashboard/barber')}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm transition-colors">
+            className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors">
             Go to My Dashboard
           </button>
         </div>
@@ -188,33 +188,33 @@ export default function JoinPage() {
   )
 
   if (mode === 'invite') return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="font-serif text-3xl text-amber-500 mb-1">ChairOS</h1>
-          <p className="text-neutral-400 text-sm">You've been invited</p>
+          <h1 className="font-serif text-3xl text-od-green mb-1">ChairOS</h1>
+          <p className="text-charcoal-400 text-sm">You've been invited</p>
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-8">
           {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
           <div className="text-center mb-6">
-            <div className="text-neutral-400 text-sm mb-1">You've been invited to join</div>
-            <div className="font-serif text-2xl text-white mb-1">{shop?.name}</div>
-            <div className="text-neutral-500 text-sm">{shop?.city}</div>
+            <div className="text-charcoal-400 text-sm mb-1">You've been invited to join</div>
+            <div className="font-serif text-2xl text-charcoal-900 mb-1">{shop?.name}</div>
+            <div className="text-charcoal-500 text-sm">{shop?.city}</div>
           </div>
-          <div className="bg-neutral-800 rounded-lg p-4 mb-6">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Your Chair</div>
-            <div className="text-white font-medium">{barber?.barber_name || barber?.alias}</div>
-            <div className="text-xs text-neutral-500 mt-1">
+          <div className="bg-warm-200 rounded-lg p-4 mb-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Your Chair</div>
+            <div className="text-charcoal-900 font-medium">{barber?.barber_name || barber?.alias}</div>
+            <div className="text-xs text-charcoal-500 mt-1">
               {barber?.compensation_type === 'commission'
                 ? `${Math.round((barber?.commission_rate || 0.7) * 100)}% commission`
                 : `Booth rent $${barber?.booth_rent_amount}/wk`}
             </div>
           </div>
           <button onClick={handleAcceptInvite} disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50 mb-3">
+            className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50 mb-3">
             {loading ? 'Linking your account...' : 'Accept Invite'}
           </button>
-          <p className="text-center text-neutral-500 text-xs">
+          <p className="text-center text-charcoal-500 text-xs">
             You'll need to be signed in to accept. If you don't have an account you'll be directed to create one.
           </p>
         </div>
@@ -224,31 +224,31 @@ export default function JoinPage() {
 
   // mode === 'code'
   return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="font-serif text-3xl text-amber-500 mb-1">ChairOS</h1>
-          <p className="text-neutral-400 text-sm">Join your shop</p>
+          <h1 className="font-serif text-3xl text-od-green mb-1">ChairOS</h1>
+          <p className="text-charcoal-400 text-sm">Join your shop</p>
         </div>
-        <form onSubmit={handleShopCode} className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 space-y-4">
+        <form onSubmit={handleShopCode} className="bg-warm-100 border border-warm-200 rounded-xl p-8 space-y-4">
           {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3">{error}</p>}
           <div>
-            <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Shop Code</label>
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Shop Code</label>
             <input
               type="text"
               value={shopCode}
               onChange={e => setShopCode(e.target.value.toUpperCase())}
               placeholder="e.g. 3F31-5489"
               maxLength={9}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors font-mono tracking-widest text-center text-lg"
+              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors font-mono tracking-widest text-center text-lg"
             />
-            <p className="text-neutral-600 text-xs mt-2 text-center">Ask your shop owner for this code</p>
+            <p className="text-charcoal-600 text-xs mt-2 text-center">Ask your shop owner for this code</p>
           </div>
           <button type="submit" disabled={loading || shopCode.length < 9}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+            className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
             {loading ? 'Searching...' : 'Find My Shop'}
           </button>
-          <p className="text-center text-neutral-500 text-xs">
+          <p className="text-center text-charcoal-500 text-xs">
             Have an invite link? Check your email and click it directly.
           </p>
         </form>

@@ -172,16 +172,16 @@ export default function Onboarding() {
   const stepLabel = ['Shop Info', 'Services', 'Barbers']
 
   if (checking) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-neutral-950 flex flex-col items-center py-10 px-4">
+    <div className="min-h-screen bg-warm-50 flex flex-col items-center py-10 px-4">
       <div className="text-center mb-8">
-        <h1 className="font-serif text-3xl text-amber-500 mb-1">ChairOS</h1>
-        <p className="text-neutral-400 text-sm">Let's set up your shop</p>
+        <h1 className="font-serif text-3xl text-od-green mb-1">ChairOS</h1>
+        <p className="text-charcoal-400 text-sm">Let's set up your shop</p>
       </div>
 
       <div className="w-full max-w-lg mb-8">
@@ -190,29 +190,29 @@ export default function Onboarding() {
             <div key={i} className="flex items-center flex-1 last:flex-none">
               <div className="flex flex-col items-center">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all
-                  ${step > i+1 ? 'bg-green-500 text-white' : step === i+1 ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-neutral-500'}`}>
+                  ${step > i+1 ? 'bg-green-500 text-white' : step === i+1 ? 'bg-od-green text-white' : 'bg-warm-200 text-charcoal-500'}`}>
                   {step > i+1 ? '✓' : i+1}
                 </div>
-                <div className={`text-xs mt-1 font-medium ${step === i+1 ? 'text-amber-500' : step > i+1 ? 'text-green-500' : 'text-neutral-600'}`}>
+                <div className={`text-xs mt-1 font-medium ${step === i+1 ? 'text-od-green' : step > i+1 ? 'text-green-500' : 'text-charcoal-600'}`}>
                   {label}
                 </div>
               </div>
               {i < stepLabel.length-1 && (
-                <div className={`flex-1 h-0.5 mx-2 mb-4 transition-all ${step > i+1 ? 'bg-green-500' : 'bg-neutral-800'}`} />
+                <div className={`flex-1 h-0.5 mx-2 mb-4 transition-all ${step > i+1 ? 'bg-green-500' : 'bg-warm-200'}`} />
               )}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-xl p-8">
+      <div className="w-full max-w-lg bg-warm-100 border border-warm-200 rounded-xl p-8">
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
 
         {step === 1 && (
           <div className="space-y-4">
             <div>
-              <h2 className="font-serif text-xl text-white mb-1">Your shop</h2>
-              <p className="text-neutral-500 text-sm">This is how clients will find you.</p>
+              <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your shop</h2>
+              <p className="text-charcoal-500 text-sm">This is how clients will find you.</p>
             </div>
             {[
               { label: 'Shop Name', value: shopName, set: setShopName, placeholder: 'e.g. Precision House' },
@@ -221,13 +221,13 @@ export default function Onboarding() {
               { label: 'City', value: shopCity, set: setShopCity, placeholder: 'Jacksonville, FL' },
             ].map(f => (
               <div key={f.label}>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">{f.label}</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{f.label}</label>
                 <input value={f.value} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
               </div>
             ))}
             <button onClick={() => { if (!shopName) { setError('Shop name is required'); return }; setError(''); setStep(2) }}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm mt-4">
+              className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm mt-4">
               Continue →
             </button>
           </div>
@@ -236,13 +236,13 @@ export default function Onboarding() {
         {step === 2 && (
           <div>
             <div className="mb-5">
-              <h2 className="font-serif text-xl text-white mb-1">Your services</h2>
-              <p className="text-neutral-500 text-sm">Pick from the catalog or add custom services.</p>
+              <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your services</h2>
+              <p className="text-charcoal-500 text-sm">Pick from the catalog or add custom services.</p>
             </div>
-            <div className="flex gap-1 bg-neutral-800 rounded-lg p-1 mb-5 w-fit">
+            <div className="flex gap-1 bg-warm-200 rounded-lg p-1 mb-5 w-fit">
               {(['catalog','custom'] as const).map(m => (
                 <button key={m} onClick={() => setSvcMode(m)}
-                  className={`px-4 py-2 rounded-md text-xs font-semibold capitalize transition-all ${svcMode === m ? 'bg-neutral-700 text-white' : 'text-neutral-500'}`}>
+                  className={`px-4 py-2 rounded-md text-xs font-semibold capitalize transition-all ${svcMode === m ? 'bg-warm-300 text-charcoal-900' : 'text-charcoal-500'}`}>
                   {m === 'catalog' ? 'Service Catalog' : 'Custom Service'}
                 </button>
               ))}
@@ -251,70 +251,70 @@ export default function Onboarding() {
               <div className="grid grid-cols-2 gap-2 mb-4 max-h-64 overflow-y-auto pr-1">
                 {CATALOG.map((s, i) => (
                   <div key={i} onClick={() => toggleCatalog(i)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all relative ${selectedCatalog.has(i) ? 'border-amber-500 bg-amber-500/10' : 'border-neutral-700 bg-neutral-800 hover:border-neutral-600'}`}>
-                    {selectedCatalog.has(i) && <div className="absolute top-2 right-2 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center text-black text-xs font-bold">✓</div>}
-                    <div className="text-sm font-semibold text-white mb-0.5">{s.name}</div>
-                    <div className="text-xs text-neutral-400">{s.duration_minutes} mins</div>
-                    <div className="text-sm font-semibold text-amber-500 mt-1">${s.price}</div>
+                    className={`p-3 rounded-lg border cursor-pointer transition-all relative ${selectedCatalog.has(i) ? 'border-od-green bg-od-green/10' : 'border-warm-300 bg-warm-200 hover:border-warm-400'}`}>
+                    {selectedCatalog.has(i) && <div className="absolute top-2 right-2 w-4 h-4 bg-od-green rounded-full flex items-center justify-center text-white text-xs font-bold">✓</div>}
+                    <div className="text-sm font-semibold text-charcoal-900 mb-0.5">{s.name}</div>
+                    <div className="text-xs text-charcoal-400">{s.duration_minutes} mins</div>
+                    <div className="text-sm font-semibold text-od-green mt-1">${s.price}</div>
                   </div>
                 ))}
               </div>
             )}
             {svcMode === 'custom' && (
-              <div className="bg-neutral-800 rounded-lg p-4 mb-4 space-y-3">
+              <div className="bg-warm-200 rounded-lg p-4 mb-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1.5">Name</label>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Name</label>
                     <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Service name"
-                      className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                      className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1.5">Price</label>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Price</label>
                     <input value={customPrice} onChange={e => setCustomPrice(e.target.value)} placeholder="$50"
-                      className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                      className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1.5">Duration (mins)</label>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Duration (mins)</label>
                     <input value={customDuration} onChange={e => setCustomDuration(e.target.value)} placeholder="30"
-                      className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                      className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-1.5">Description</label>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Description</label>
                     <input value={customDesc} onChange={e => setCustomDesc(e.target.value)} placeholder="Optional"
-                      className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                      className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                   </div>
                 </div>
                 <button onClick={addCustomService}
-                  className="w-full border border-dashed border-neutral-600 rounded-lg py-2 text-neutral-400 hover:border-amber-500 hover:text-amber-500 text-sm transition-colors">
+                  className="w-full border border-dashed border-warm-400 rounded-lg py-2 text-charcoal-400 hover:border-od-green hover:text-od-green text-sm transition-colors">
                   + Add Service
                 </button>
               </div>
             )}
             {services.length > 0 && (
-              <div className="border-t border-neutral-800 pt-4 mb-4">
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">
+              <div className="border-t border-warm-200 pt-4 mb-4">
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">
                   Your Services ({services.length})
                 </div>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {services.map((s, i) => (
-                    <div key={i} className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2">
+                    <div key={i} className="flex items-center justify-between bg-warm-200 rounded-lg px-3 py-2">
                       <div>
-                        <div className="text-sm font-medium text-white">{s.name}</div>
-                        <div className="text-xs text-neutral-400">${s.price} · {s.duration_minutes} mins</div>
+                        <div className="text-sm font-medium text-charcoal-900">{s.name}</div>
+                        <div className="text-xs text-charcoal-400">${s.price} · {s.duration_minutes} mins</div>
                       </div>
-                      <button onClick={() => removeService(i)} className="text-neutral-600 hover:text-red-400 transition-colors text-lg leading-none">×</button>
+                      <button onClick={() => removeService(i)} className="text-charcoal-600 hover:text-red-400 transition-colors text-lg leading-none">×</button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
             <div className="flex gap-3 mt-4">
-              <button onClick={() => setStep(1)} className="px-6 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-400 hover:text-white transition-colors">
+              <button onClick={() => setStep(1)} className="px-6 py-3 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
                 Back
               </button>
-              <button onClick={() => setStep(3)} className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm">
+              <button onClick={() => setStep(3)} className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm">
                 Continue →
               </button>
             </div>
@@ -324,52 +324,52 @@ export default function Onboarding() {
         {step === 3 && (
           <div>
             <div className="mb-5">
-              <h2 className="font-serif text-xl text-white mb-1">Your barbers</h2>
-              <p className="text-neutral-500 text-sm">Set up each barber and their compensation.</p>
+              <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your barbers</h2>
+              <p className="text-charcoal-500 text-sm">Set up each barber and their compensation.</p>
             </div>
             {barbers.length > 0 && (
               <div className="space-y-2 mb-5">
                 {barbers.map((b, i) => (
-                  <div key={i} className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2.5">
+                  <div key={i} className="flex items-center justify-between bg-warm-200 rounded-lg px-3 py-2.5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif text-sm font-bold"
                         style={{ background: b.color + '22', border: `2px solid ${b.color}`, color: b.color }}>
                         {b.name[0].toUpperCase()}
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-white">{b.name}</div>
-                        <div className="text-xs text-neutral-400">
+                        <div className="text-sm font-medium text-charcoal-900">{b.name}</div>
+                        <div className="text-xs text-charcoal-400">
                           {b.compensation_type === 'commission'
                             ? `${Math.round(b.commission_rate * 100)}% commission · Tips ${Math.round(b.tip_split_rate * 100)}%`
                             : `Booth rent $${b.booth_rent_amount}/wk · Due ${b.booth_rent_due_day}`}
                         </div>
                       </div>
                     </div>
-                    <button onClick={() => removeBarber(i)} className="text-neutral-600 hover:text-red-400 transition-colors text-lg leading-none">×</button>
+                    <button onClick={() => removeBarber(i)} className="text-charcoal-600 hover:text-red-400 transition-colors text-lg leading-none">×</button>
                   </div>
                 ))}
               </div>
             )}
-            <div className="bg-neutral-800 rounded-lg p-4 space-y-3">
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400">Add a Barber</div>
+            <div className="bg-warm-200 rounded-lg p-4 space-y-3">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400">Add a Barber</div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-neutral-500 mb-1.5">First Name *</label>
+                  <label className="block text-xs text-charcoal-500 mb-1.5">First Name *</label>
                   <input value={barberName} onChange={e => setBarberName(e.target.value)} placeholder="Marcus"
-                    className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                    className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                 </div>
                 <div>
-                  <label className="block text-xs text-neutral-500 mb-1.5">Alias / Specialty</label>
+                  <label className="block text-xs text-charcoal-500 mb-1.5">Alias / Specialty</label>
                   <input value={barberAlias} onChange={e => setBarberAlias(e.target.value)} placeholder="Fade King"
-                    className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                    className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-neutral-500 mb-1.5">Compensation Type</label>
+                <label className="block text-xs text-charcoal-500 mb-1.5">Compensation Type</label>
                 <div className="grid grid-cols-2 gap-2">
                   {(['commission','booth_rent'] as const).map(t => (
                     <button key={t} type="button" onClick={() => setCompType(t)}
-                      className={`py-2 rounded-lg border text-xs font-semibold transition-colors ${compType === t ? 'bg-amber-500 border-amber-500 text-black' : 'bg-neutral-700 border-neutral-600 text-neutral-400'}`}>
+                      className={`py-2 rounded-lg border text-xs font-semibold transition-colors ${compType === t ? 'bg-od-green border-od-green text-white' : 'bg-warm-300 border-warm-400 text-charcoal-400'}`}>
                       {t === 'commission' ? 'Commission' : 'Booth Rent'}
                     </button>
                   ))}
@@ -378,22 +378,22 @@ export default function Onboarding() {
               {compType === 'commission' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-neutral-500 mb-1.5">Barber Commission %</label>
+                    <label className="block text-xs text-charcoal-500 mb-1.5">Barber Commission %</label>
                     <div className="relative">
                       <input type="number" min="1" max="100" value={commissionRate} onChange={e => setCommissionRate(e.target.value)}
-                        className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500 pr-8" />
-                      <span className="absolute right-3 top-2 text-neutral-400 text-sm">%</span>
+                        className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
+                      <span className="absolute right-3 top-2 text-charcoal-400 text-sm">%</span>
                     </div>
-                    <div className="text-xs text-neutral-500 mt-1">Shop keeps {100 - parseInt(commissionRate || '0')}%</div>
+                    <div className="text-xs text-charcoal-500 mt-1">Shop keeps {100 - parseInt(commissionRate || '0')}%</div>
                   </div>
                   <div>
-                    <label className="block text-xs text-neutral-500 mb-1.5">Barber Tip %</label>
+                    <label className="block text-xs text-charcoal-500 mb-1.5">Barber Tip %</label>
                     <div className="relative">
                       <input type="number" min="1" max="100" value={tipSplit} onChange={e => setTipSplit(e.target.value)}
-                        className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500 pr-8" />
-                      <span className="absolute right-3 top-2 text-neutral-400 text-sm">%</span>
+                        className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
+                      <span className="absolute right-3 top-2 text-charcoal-400 text-sm">%</span>
                     </div>
-                    <div className="text-xs text-neutral-500 mt-1">Default 100% to barber</div>
+                    <div className="text-xs text-charcoal-500 mt-1">Default 100% to barber</div>
                   </div>
                 </div>
               )}
@@ -401,52 +401,52 @@ export default function Onboarding() {
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-neutral-500 mb-1.5">Weekly Rent $</label>
+                      <label className="block text-xs text-charcoal-500 mb-1.5">Weekly Rent $</label>
                       <input type="number" value={boothRent} onChange={e => setBoothRent(e.target.value)} placeholder="150"
-                        className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500" />
+                        className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                     </div>
                     <div>
-                      <label className="block text-xs text-neutral-500 mb-1.5">Due Every</label>
+                      <label className="block text-xs text-charcoal-500 mb-1.5">Due Every</label>
                       <select value={rentDueDay} onChange={e => setRentDueDay(e.target.value)}
-                        className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500">
+                        className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green">
                         {DAYS.map(d => <option key={d} value={d} className="capitalize">{d.charAt(0).toUpperCase() + d.slice(1)}</option>)}
                       </select>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-neutral-500 mb-1.5">Late Fee %</label>
+                      <label className="block text-xs text-charcoal-500 mb-1.5">Late Fee %</label>
                       <div className="relative">
                         <input type="number" value={lateFeeRate} onChange={e => setLateFeeRate(e.target.value)} placeholder="5"
-                          className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500 pr-8" />
-                        <span className="absolute right-3 top-2 text-neutral-400 text-sm">%</span>
+                          className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
+                        <span className="absolute right-3 top-2 text-charcoal-400 text-sm">%</span>
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-neutral-500 mb-1.5">Applied Per</label>
+                      <label className="block text-xs text-charcoal-500 mb-1.5">Applied Per</label>
                       <select value={lateFeeInterval} onChange={e => setLateFeeInterval(e.target.value as any)}
-                        className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-amber-500">
+                        className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green">
                         <option value="daily">Day</option>
                         <option value="weekly">Week</option>
                       </select>
                     </div>
                   </div>
-                  <div className="text-xs text-neutral-500 bg-neutral-700 rounded-lg p-2">
+                  <div className="text-xs text-charcoal-500 bg-warm-300 rounded-lg p-2">
                     Late fee of {lateFeeRate}% will be added per {lateFeeInterval === 'daily' ? 'day' : 'week'} after the due date
                   </div>
                 </div>
               )}
               <button onClick={addBarber} disabled={!barberName}
-                className="w-full border border-dashed border-neutral-600 rounded-lg py-2 text-neutral-400 hover:border-amber-500 hover:text-amber-500 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                className="w-full border border-dashed border-warm-400 rounded-lg py-2 text-charcoal-400 hover:border-od-green hover:text-od-green text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 + Add Barber
               </button>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setStep(2)} className="px-6 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-400 hover:text-white transition-colors">
+              <button onClick={() => setStep(2)} className="px-6 py-3 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
                 Back
               </button>
               <button onClick={handleLaunch} disabled={loading || !shopName}
-                className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm disabled:opacity-50">
+                className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm disabled:opacity-50">
                 {loading ? 'Setting up your shop...' : 'Launch My Shop →'}
               </button>
             </div>

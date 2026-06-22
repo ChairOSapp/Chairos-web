@@ -68,8 +68,8 @@ export default function TipsPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
     </div>
   )
 
@@ -93,7 +93,7 @@ export default function TipsPage() {
   })).filter(b => b.count > 0)
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-warm-50">
       <OwnerNav
         shopName={shop?.name || ''}
         ownerName={profile?.full_name || ''}
@@ -103,29 +103,29 @@ export default function TipsPage() {
 
       <div className="p-5 max-w-2xl mx-auto pb-24">
         <div className="mb-6">
-          <h1 className="font-serif text-2xl text-white mb-1">Tips</h1>
-          <p className="text-neutral-500 text-sm">{shop?.name}</p>
+          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Tips</h1>
+          <p className="text-charcoal-500 text-sm">{shop?.name}</p>
         </div>
 
         {/* SUMMARY TILES */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
-            { label: 'Total Tips', value: `$${totalAll.toFixed(2)}`, color: 'text-white' },
-            { label: 'Pending', value: `$${totalPending.toFixed(2)}`, color: 'text-amber-500' },
+            { label: 'Total Tips', value: `$${totalAll.toFixed(2)}`, color: 'text-charcoal-900' },
+            { label: 'Pending', value: `$${totalPending.toFixed(2)}`, color: 'text-od-green' },
             { label: 'Paid Out', value: `$${totalPaidOut.toFixed(2)}`, color: 'text-green-400' },
           ].map((s, i) => (
-            <div key={i} className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-center">
+            <div key={i} className="bg-warm-100 border border-warm-200 rounded-xl p-4 text-center">
               <div className={`font-serif text-2xl mb-1 ${s.color}`}>{s.value}</div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">{s.label}</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{s.label}</div>
             </div>
           ))}
         </div>
 
         {/* BY BARBER */}
         {byBarber.length > 0 && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-5">
-            <div className="px-5 py-3 border-b border-neutral-800 text-xs font-semibold tracking-widest uppercase text-neutral-500">By Barber</div>
-            <div className="divide-y divide-neutral-800">
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-5">
+            <div className="px-5 py-3 border-b border-warm-200 text-xs font-semibold tracking-widest uppercase text-charcoal-500">By Barber</div>
+            <div className="divide-y divide-warm-200">
               {byBarber.map((b, i) => {
                 const color = getBarberColor(b.barber.barber_id)
                 return (
@@ -135,13 +135,13 @@ export default function TipsPage() {
                       {(b.barber.barber_name || b.barber.alias || '?')[0].toUpperCase()}
                     </div>
                     <div className="flex-1">
-                      <div className="text-sm font-semibold text-white">{b.barber.barber_name || b.barber.alias}</div>
-                      <div className="text-xs text-neutral-500 mt-0.5">{b.count} tips</div>
+                      <div className="text-sm font-semibold text-charcoal-900">{b.barber.barber_name || b.barber.alias}</div>
+                      <div className="text-xs text-charcoal-500 mt-0.5">{b.count} tips</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-mono font-semibold text-white">${b.total.toFixed(2)}</div>
+                      <div className="text-sm font-mono font-semibold text-charcoal-900">${b.total.toFixed(2)}</div>
                       {b.pending > 0 && (
-                        <div className="text-xs text-amber-500 mt-0.5">${b.pending.toFixed(2)} pending</div>
+                        <div className="text-xs text-od-green mt-0.5">${b.pending.toFixed(2)} pending</div>
                       )}
                     </div>
                   </div>
@@ -154,14 +154,14 @@ export default function TipsPage() {
         {/* FILTERS */}
         <div className="flex gap-3 flex-wrap mb-4">
           <select value={filterBarber} onChange={e => setFilterBarber(e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+            className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
             <option value="">All Barbers</option>
             {barbers.filter(b => b.barber_id).map(b => (
               <option key={b.id} value={b.barber_id}>{b.barber_name || b.alias}</option>
             ))}
           </select>
           <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+            className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
             <option value="">All Time</option>
             {months.map(m => (
               <option key={m} value={m}>
@@ -171,37 +171,37 @@ export default function TipsPage() {
           </select>
           {(filterBarber || filterMonth) && (
             <button onClick={() => { setFilterBarber(''); setFilterMonth('') }}
-              className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-400 hover:text-white transition-colors">
+              className="px-3 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:text-charcoal-900 transition-colors">
               Clear
             </button>
           )}
         </div>
 
         {/* TIP LIST */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-neutral-800 flex items-center justify-between">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-warm-200 flex items-center justify-between">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">
               {filtered.length} tips
             </div>
-            <div className="text-xs text-neutral-500">Tap to mark paid out</div>
+            <div className="text-xs text-charcoal-500">Tap to mark paid out</div>
           </div>
           {filtered.length === 0 ? (
-            <div className="p-8 text-center text-neutral-500 text-sm">No tips found.</div>
+            <div className="p-8 text-center text-charcoal-500 text-sm">No tips found.</div>
           ) : (
-            <div className="divide-y divide-neutral-800">
+            <div className="divide-y divide-warm-200">
               {filtered.map(t => {
                 const color = getBarberColor(t.barber_id)
                 return (
                   <div key={t.id}
                     onClick={() => toggleCashout(t.id, t.cashed_out)}
-                    className="px-5 py-4 flex items-center gap-3 cursor-pointer hover:bg-neutral-800/30 transition-colors">
+                    className="px-5 py-4 flex items-center gap-3 cursor-pointer hover:bg-warm-200/30 transition-colors">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center font-serif text-xs font-bold flex-shrink-0"
                       style={{ background: color + '22', border: `1.5px solid ${color}44`, color }}>
                       {getBarberName(t.barber_id)[0]?.toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-white">{t.appointments?.client_name || 'Client'}</div>
-                      <div className="text-xs text-neutral-500 mt-0.5">
+                      <div className="text-sm font-semibold text-charcoal-900">{t.appointments?.client_name || 'Client'}</div>
+                      <div className="text-xs text-charcoal-500 mt-0.5">
                         {getBarberName(t.barber_id)}
                         {t.appointments?.date ? ` · ${new Date(t.appointments.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
                         {t.appointments?.services?.name ? ` · ${t.appointments.services.name}` : ''}
@@ -212,7 +212,7 @@ export default function TipsPage() {
                       <div className={`text-xs font-semibold px-2 py-1 rounded-full border ${
                         t.cashed_out
                           ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                          : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                          : 'bg-od-green/10 text-od-green border-od-green/20'
                       }`}>
                         {t.cashed_out ? 'Paid out' : 'Pending'}
                       </div>

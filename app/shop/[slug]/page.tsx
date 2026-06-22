@@ -48,17 +48,17 @@ export default function ShopProfile() {
   }, [slug])
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
     </div>
   )
 
   if (notFound) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
       <div className="text-center">
-        <h1 className="font-serif text-3xl text-amber-500 mb-4">ChairOS</h1>
-        <p className="text-neutral-400 mb-6">Shop not found.</p>
-        <a href="/" className="text-sm text-neutral-500 hover:text-white transition-colors">← Go home</a>
+        <h1 className="font-serif text-3xl text-od-green mb-4">ChairOS</h1>
+        <p className="text-charcoal-400 mb-6">Shop not found.</p>
+        <a href="/" className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Go home</a>
       </div>
     </div>
   )
@@ -70,7 +70,7 @@ export default function ShopProfile() {
   const bookingUrl = `/book/${shop.shop_code}`
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-warm-50">
 
       {/* HERO */}
       <div className="relative">
@@ -88,15 +88,15 @@ export default function ShopProfile() {
           <div className="flex items-end gap-5 mb-6">
             {shop.logo_url ? (
               <img src={shop.logo_url} alt={shop.name}
-                className="w-20 h-20 rounded-2xl object-cover flex-shrink-0 shadow-xl border-4 border-neutral-950" />
+                className="w-20 h-20 rounded-2xl object-cover flex-shrink-0 shadow-xl border-4 border-warm-300" />
             ) : (
-              <div className="w-20 h-20 rounded-2xl flex items-center justify-center font-serif text-3xl font-bold flex-shrink-0 shadow-xl border-4 border-neutral-950"
+              <div className="w-20 h-20 rounded-2xl flex items-center justify-center font-serif text-3xl font-bold flex-shrink-0 shadow-xl border-4 border-warm-300"
                 style={{ background: brandMid, color: brand }}>
                 {shop.name[0]}
               </div>
             )}
             <div className="pb-1">
-              <h1 className="font-serif text-2xl md:text-3xl text-white">{shop.name}</h1>
+              <h1 className="font-serif text-2xl md:text-3xl text-charcoal-900">{shop.name}</h1>
               {shop.tagline && <p className="text-sm mt-1" style={{ color: brand }}>{shop.tagline}</p>}
             </div>
           </div>
@@ -104,13 +104,13 @@ export default function ShopProfile() {
       </div>
 
       {/* STICKY BOOK BUTTON */}
-      <div className="sticky top-0 z-50 bg-neutral-950/95 backdrop-blur border-b border-neutral-800 px-6 py-3">
+      <div className="sticky top-0 z-50 bg-warm-50/95 backdrop-blur border-b border-warm-200 px-6 py-3">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {shop.logo_url && (
               <img src={shop.logo_url} alt={shop.name} className="w-7 h-7 rounded-lg object-cover" />
             )}
-            <span className="font-serif text-white text-sm">{shop.name}</span>
+            <span className="font-serif text-charcoal-900 text-sm">{shop.name}</span>
           </div>
           <button
             onClick={() => router.push(bookingUrl)}
@@ -125,13 +125,13 @@ export default function ShopProfile() {
 
         {/* ABOUT */}
         {(shop.bio || shop.address || shop.phone) && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
             {shop.bio && (
-              <p className="text-neutral-300 text-sm leading-relaxed mb-4">{shop.bio}</p>
+              <p className="text-charcoal-700 text-sm leading-relaxed mb-4">{shop.bio}</p>
             )}
             <div className="flex flex-wrap gap-4">
               {shop.address && (
-                <div className="flex items-center gap-2 text-xs text-neutral-500">
+                <div className="flex items-center gap-2 text-xs text-charcoal-500">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
                   </svg>
@@ -139,7 +139,7 @@ export default function ShopProfile() {
                 </div>
               )}
               {shop.phone && (
-                <div className="flex items-center gap-2 text-xs text-neutral-500">
+                <div className="flex items-center gap-2 text-xs text-charcoal-500">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.85a16 16 0 0 0 6.29 6.29l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
                   </svg>
@@ -148,13 +148,13 @@ export default function ShopProfile() {
               )}
             </div>
             {shop.hours && Array.isArray(shop.hours) && (
-              <div className="mt-4 pt-4 border-t border-neutral-800">
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-2">Hours</div>
+              <div className="mt-4 pt-4 border-t border-warm-200">
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-2">Hours</div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                   {(shop.hours as { day: string; open: boolean; from: string; to: string }[]).map(h => (
                     <div key={h.day} className="flex items-center justify-between text-xs">
-                      <span className="text-neutral-500">{h.day.slice(0, 3)}</span>
-                      <span className={h.open ? 'text-neutral-300' : 'text-neutral-600'}>
+                      <span className="text-charcoal-500">{h.day.slice(0, 3)}</span>
+                      <span className={h.open ? 'text-charcoal-700' : 'text-charcoal-600'}>
                         {h.open ? `${h.from} – ${h.to}` : 'Closed'}
                       </span>
                     </div>
@@ -166,7 +166,7 @@ export default function ShopProfile() {
         )}
 
         {/* TABS */}
-        <div className="flex gap-1 bg-neutral-900 border border-neutral-800 rounded-xl p-1 mb-6 w-fit">
+        <div className="flex gap-1 bg-warm-100 border border-warm-200 rounded-xl p-1 mb-6 w-fit">
           {(['services','team'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all"
@@ -183,16 +183,16 @@ export default function ShopProfile() {
         {activeTab === 'services' && (
           <div className="space-y-2">
             {services.length === 0 ? (
-              <div className="text-center text-neutral-500 text-sm py-8">No services listed yet.</div>
+              <div className="text-center text-charcoal-500 text-sm py-8">No services listed yet.</div>
             ) : (
               services.map(s => (
                 <div key={s.id}
-                  className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex items-center justify-between hover:border-neutral-700 transition-colors cursor-pointer"
+                  className="bg-warm-100 border border-warm-200 rounded-xl p-5 flex items-center justify-between hover:border-warm-300 transition-colors cursor-pointer"
                   onClick={() => router.push(bookingUrl)}>
                   <div>
-                    <div className="text-sm font-semibold text-white">{s.name}</div>
-                    {s.description && <div className="text-xs text-neutral-500 mt-0.5">{s.description}</div>}
-                    <div className="text-xs text-neutral-600 mt-1">{s.duration_minutes} mins</div>
+                    <div className="text-sm font-semibold text-charcoal-900">{s.name}</div>
+                    {s.description && <div className="text-xs text-charcoal-500 mt-0.5">{s.description}</div>}
+                    <div className="text-xs text-charcoal-600 mt-1">{s.duration_minutes} mins</div>
                   </div>
                   <div className="flex items-center gap-3 ml-4 flex-shrink-0">
                     <span className="font-serif text-xl font-semibold" style={{ color: brand }}>${s.price}</span>
@@ -211,11 +211,11 @@ export default function ShopProfile() {
         {activeTab === 'team' && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {barbers.length === 0 ? (
-              <div className="col-span-3 text-center text-neutral-500 text-sm py-8">No team members listed yet.</div>
+              <div className="col-span-3 text-center text-charcoal-500 text-sm py-8">No team members listed yet.</div>
             ) : (
               barbers.map((b, i) => (
                 <div key={b.id}
-                  className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 text-center hover:border-neutral-700 transition-colors cursor-pointer"
+                  className="bg-warm-100 border border-warm-200 rounded-xl p-5 text-center hover:border-warm-300 transition-colors cursor-pointer"
                   onClick={() => router.push(`${bookingUrl}?barber=${b.id}`)}>
                   {b.photo_url ? (
                     <img src={b.photo_url} alt={b.barber_name || b.alias}
@@ -231,11 +231,11 @@ export default function ShopProfile() {
                       {(b.barber_name || b.alias || '?')[0].toUpperCase()}
                     </div>
                   )}
-                  <div className="text-sm font-semibold text-white">{b.barber_name || b.alias}</div>
+                  <div className="text-sm font-semibold text-charcoal-900">{b.barber_name || b.alias}</div>
                   {b.alias && b.barber_name && b.alias !== b.barber_name && (
                     <div className="text-xs mt-0.5" style={{ color: brand }}>{b.alias}</div>
                   )}
-                  {b.bio && <div className="text-xs text-neutral-500 mt-2 line-clamp-3">{b.bio}</div>}
+                  {b.bio && <div className="text-xs text-charcoal-500 mt-2 line-clamp-3">{b.bio}</div>}
                   <button
                     onClick={e => { e.stopPropagation(); router.push(`${bookingUrl}?barber=${b.id}`) }}
                     className="mt-3 w-full py-1.5 rounded-lg text-xs font-semibold text-black transition-opacity hover:opacity-90"
@@ -250,8 +250,8 @@ export default function ShopProfile() {
 
         {/* BOOK CTA */}
         <div className="mt-10 rounded-xl p-8 text-center" style={{ background: brandLight, border: `1px solid ${brand}30` }}>
-          <h2 className="font-serif text-xl text-white mb-2">Ready to book?</h2>
-          <p className="text-neutral-400 text-sm mb-5">Choose your barber, pick a time, and you're set.</p>
+          <h2 className="font-serif text-xl text-charcoal-900 mb-2">Ready to book?</h2>
+          <p className="text-charcoal-400 text-sm mb-5">Choose your barber, pick a time, and you're set.</p>
           <button
             onClick={() => router.push(bookingUrl)}
             className="font-semibold px-8 py-3 rounded-lg text-sm text-black transition-opacity hover:opacity-90"
@@ -260,7 +260,7 @@ export default function ShopProfile() {
           </button>
         </div>
 
-        <p className="text-neutral-700 text-xs text-center mt-8">Powered by ChairOS</p>
+        <p className="text-charcoal-600 text-xs text-center mt-8">Powered by ChairOS</p>
       </div>
     </div>
   )

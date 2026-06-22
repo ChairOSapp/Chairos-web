@@ -40,8 +40,8 @@ export default function BarberClientsPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
@@ -60,43 +60,43 @@ export default function BarberClientsPage() {
   const color = shopBarber?.color || '#b8861f'
 
   return (
-    <div className="min-h-screen bg-neutral-950">
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
-        <button onClick={() => router.push('/dashboard/barber')} className="text-xs text-neutral-500 hover:text-white transition-colors">← My Dashboard</button>
+    <div className="min-h-screen bg-warm-50">
+      <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
+        <span className="font-serif text-od-green text-lg">ChairOS</span>
+        <button onClick={() => router.push('/dashboard/barber')} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">← My Dashboard</button>
       </header>
 
       <div className="p-6 max-w-2xl mx-auto pb-24">
         <div className="mb-6">
-          <h1 className="font-serif text-2xl text-white mb-1">My Clients</h1>
-          <p className="text-neutral-500 text-sm">{shopBarber?.shops?.name} · {lockedClients.length} locked clients</p>
+          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">My Clients</h1>
+          <p className="text-charcoal-500 text-sm">{shopBarber?.shops?.name} · {lockedClients.length} locked clients</p>
         </div>
 
         {/* SUMMARY */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
             { key: 'locked', label: 'Locked', count: lockedClients.length, color: 'text-green-400' },
-            { key: 'atrisk', label: 'At Risk', count: atRiskClients.length, color: 'text-amber-500' },
-            { key: 'loyalty', label: 'Loyalty', count: loyaltyClients.length, color: 'text-amber-500' },
+            { key: 'atrisk', label: 'At Risk', count: atRiskClients.length, color: 'text-od-green' },
+            { key: 'loyalty', label: 'Loyalty', count: loyaltyClients.length, color: 'text-od-green' },
           ].map(tab => (
             <button key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
-              className={`bg-neutral-900 border rounded-xl p-4 text-center transition-all ${
-                activeTab === tab.key ? 'border-amber-500/50' : 'border-neutral-800 hover:border-neutral-700'
+              className={`bg-warm-100 border rounded-xl p-4 text-center transition-all ${
+                activeTab === tab.key ? 'border-od-green/50' : 'border-warm-200 hover:border-warm-300'
               }`}>
               <div className={`font-serif text-3xl mb-1 ${tab.color}`}>{tab.count}</div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400">{tab.label}</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400">{tab.label}</div>
             </button>
           ))}
         </div>
 
         {/* CLIENT LIST */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-neutral-800">
-            <div className="font-serif text-white capitalize">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-warm-200">
+            <div className="font-serif text-charcoal-900 capitalize">
               {activeTab === 'atrisk' ? 'At Risk' : activeTab} Clients
             </div>
-            <div className="text-xs text-neutral-500 mt-0.5">
+            <div className="text-xs text-charcoal-500 mt-0.5">
               {activeTab === 'locked' && 'Clients who regularly book with you'}
               {activeTab === 'atrisk' && 'Reach out — these clients are close to their lapse window'}
               {activeTab === 'loyalty' && 'Your most loyal clients — 12+ months of consecutive bookings'}
@@ -104,45 +104,45 @@ export default function BarberClientsPage() {
           </div>
 
           {displayClients.length === 0 ? (
-            <div className="p-8 text-center text-neutral-500 text-sm">
+            <div className="p-8 text-center text-charcoal-500 text-sm">
               {activeTab === 'locked' && 'No locked clients yet. Complete appointments to start building your client base.'}
               {activeTab === 'atrisk' && 'No at-risk clients right now.'}
               {activeTab === 'loyalty' && 'No loyalty clients yet. Keep booking clients consistently for 12+ months.'}
             </div>
           ) : (
-            <div className="divide-y divide-neutral-800">
+            <div className="divide-y divide-warm-200">
               {displayClients.map((l) => {
                 const daysSince = l.last_booking_date
                   ? Math.floor((Date.now() - new Date(l.last_booking_date).getTime()) / (1000 * 60 * 60 * 24))
                   : null
 
                 return (
-                  <div key={l.id} className="px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => setSelectedClient(l)}>
+                  <div key={l.id} className="px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-warm-200/50 transition-colors" onClick={() => setSelectedClient(l)}>
                     <div className="w-10 h-10 rounded-full flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
                       style={{ background: color + '22', border: `2px solid ${color}`, color }}>
                       {(l.clients?.full_name || l.clients?.phone || 'G')[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-white">
+                      <div className="text-sm font-semibold text-charcoal-900">
                         {l.clients?.full_name || l.client_name || 'Guest Client'}
                       </div>
-                      <div className="text-xs text-neutral-500">{l.clients?.phone || l.client_phone || ''}</div>
-                      <div className="text-xs text-neutral-600 mt-0.5">
+                      <div className="text-xs text-charcoal-500">{l.clients?.phone || l.client_phone || ''}</div>
+                      <div className="text-xs text-charcoal-600 mt-0.5">
                         {l.booking_count} visits
                         {l.first_booking_date && ` · since ${new Date(l.first_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`}
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
                       {l.loyalty_protected && (
-                        <div className="text-xs text-amber-500 font-semibold mb-1">★ Loyalty</div>
+                        <div className="text-xs text-od-green font-semibold mb-1">★ Loyalty</div>
                       )}
                       {daysSince !== null && (
-                        <div className={`text-xs font-mono ${daysSince > 60 ? 'text-amber-500' : 'text-neutral-500'}`}>
+                        <div className={`text-xs font-mono ${daysSince > 60 ? 'text-od-green' : 'text-charcoal-500'}`}>
                           {daysSince}d ago
                         </div>
                       )}
                       {l.last_booking_date && (
-                        <div className="text-xs text-neutral-600 mt-0.5">
+                        <div className="text-xs text-charcoal-600 mt-0.5">
                           {new Date(l.last_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </div>
                       )}
@@ -155,13 +155,13 @@ export default function BarberClientsPage() {
         </div>
       </div>
       {selectedClient && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4 pb-24 sm:pb-4"
+        <div className="fixed inset-0 bg-warm-50/80 z-50 flex items-end sm:items-center justify-center p-4 pb-24 sm:pb-4"
           onClick={() => setSelectedClient(null)}>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6 mb-20 md:mb-0"
+          <div className="bg-warm-100 border border-warm-200 rounded-2xl w-full max-w-md p-6 mb-20 md:mb-0"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <div className="font-serif text-lg text-white">Client Details</div>
-              <button onClick={() => setSelectedClient(null)} className="text-neutral-500 hover:text-white text-xl">×</button>
+              <div className="font-serif text-lg text-charcoal-900">Client Details</div>
+              <button onClick={() => setSelectedClient(null)} className="text-charcoal-500 hover:text-charcoal-900 text-xl">×</button>
             </div>
             <div className="flex items-center gap-4 mb-5">
               <div className="w-14 h-14 rounded-full flex items-center justify-center font-serif text-2xl font-bold flex-shrink-0"
@@ -169,8 +169,8 @@ export default function BarberClientsPage() {
                 {((selectedClient as any).clients?.full_name || 'G')[0].toUpperCase()}
               </div>
               <div>
-                <div className="font-serif text-xl text-white">{(selectedClient as any).clients?.full_name || 'Unknown'}</div>
-                <div className="text-sm text-neutral-500 mt-0.5">{(selectedClient as any).clients?.phone}</div>
+                <div className="font-serif text-xl text-charcoal-900">{(selectedClient as any).clients?.full_name || 'Unknown'}</div>
+                <div className="text-sm text-charcoal-500 mt-0.5">{(selectedClient as any).clients?.phone}</div>
               </div>
             </div>
             <div className="space-y-3 mb-5">
@@ -180,22 +180,22 @@ export default function BarberClientsPage() {
                 { label: 'Last Visit', value: selectedClient.last_booking_date ? new Date(selectedClient.last_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—' },
                 { label: 'Status', value: selectedClient.loyalty_protected ? '★ Loyalty Protected' : selectedClient.locked ? 'Locked' : 'Floating' },
               ].map((row, i) => (
-                <div key={i} className="flex justify-between items-center py-2 border-b border-neutral-800 last:border-0">
-                  <span className="text-xs font-semibold tracking-widest uppercase text-neutral-500">{row.label}</span>
-                  <span className="text-sm text-white">{String(row.value)}</span>
+                <div key={i} className="flex justify-between items-center py-2 border-b border-warm-200 last:border-0">
+                  <span className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{row.label}</span>
+                  <span className="text-sm text-charcoal-900">{String(row.value)}</span>
                 </div>
               ))}
             </div>
             <div className="flex gap-3">
               {(selectedClient as any).clients?.phone && (
                 <a href={`tel:${(selectedClient as any).clients.phone}`}
-                  className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg py-2.5 text-sm text-center text-white font-semibold hover:border-amber-500 transition-colors">
+                  className="flex-1 bg-warm-200 border border-warm-300 rounded-lg py-2.5 text-sm text-center text-charcoal-900 font-semibold hover:border-od-green transition-colors">
                   📞 Call
                 </a>
               )}
               {(selectedClient as any).clients?.phone && (
                 <a href={`sms:${(selectedClient as any).clients.phone}`}
-                  className="flex-1 bg-amber-500 hover:bg-amber-400 rounded-lg py-2.5 text-sm text-center text-black font-semibold transition-colors">
+                  className="flex-1 bg-od-green hover:bg-od-green-light rounded-lg py-2.5 text-sm text-center text-white font-semibold transition-colors">
                   💬 Text
                 </a>
               )}

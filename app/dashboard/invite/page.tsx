@@ -73,47 +73,47 @@ export default function InviteBarber() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
   const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-warm-50">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
 
       <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
-          <h1 className="font-serif text-2xl text-white mb-1">Invite a Barber</h1>
-          <p className="text-neutral-500 text-sm">Send an invite or share your shop code so barbers can claim their account.</p>
+          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Invite a Barber</h1>
+          <p className="text-charcoal-500 text-sm">Send an invite or share your shop code so barbers can claim their account.</p>
         </div>
 
         {/* SHOP CODE CARD */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Option A — Share Shop Code</div>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Option A — Share Shop Code</div>
           <div className="flex items-center gap-4">
-            <div className="font-mono text-3xl font-bold text-amber-500 tracking-widest">{shop?.shop_code}</div>
+            <div className="font-mono text-3xl font-bold text-od-green tracking-widest">{shop?.shop_code}</div>
             <button
               onClick={() => navigator.clipboard.writeText(shop?.shop_code)}
-              className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors">
+              className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors">
               Copy Code
             </button>
           </div>
-          <p className="text-neutral-500 text-xs mt-3">
+          <p className="text-charcoal-500 text-xs mt-3">
             Barber downloads ChairOS, signs up, and enters this code to link to your shop.
           </p>
         </div>
 
         {/* EMAIL INVITE CARD */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-4">Option B — Send Email Invite</div>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-4">Option B — Send Email Invite</div>
 
           {barbers.length === 0 ? (
-            <div className="text-neutral-500 text-sm text-center py-4">
+            <div className="text-charcoal-500 text-sm text-center py-4">
               All barbers are already linked. Add more barbers in{' '}
-              <button onClick={() => router.push('/dashboard/barbers')} className="text-amber-500 hover:underline">
+              <button onClick={() => router.push('/dashboard/barbers')} className="text-od-green hover:underline">
                 Manage Barbers
               </button>.
             </div>
@@ -122,9 +122,9 @@ export default function InviteBarber() {
               {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3">{error}</p>}
 
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Select Barber</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Select Barber</label>
                 <select value={selectedBarber} onChange={e => setSelectedBarber(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors">
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
                   <option value="">Choose a barber...</option>
                   {barbers.map(b => (
                     <option key={b.id} value={b.id}>{b.barber_name || b.alias}</option>
@@ -133,14 +133,14 @@ export default function InviteBarber() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Barber's Email</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Barber's Email</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="barber@email.com"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
               </div>
 
               <button type="submit" disabled={sending}
-                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
                 {sending ? 'Sending...' : 'Send Invite'}
               </button>
             </form>
@@ -152,33 +152,33 @@ export default function InviteBarber() {
           <div className="bg-green-950 border border-green-900 rounded-xl p-5">
             <div className="text-xs font-semibold tracking-widest uppercase text-green-500 mb-2">Invite Created</div>
             <pre className="text-green-400 text-xs whitespace-pre-wrap break-all">{success}</pre>
-            <p className="text-neutral-500 text-xs mt-3">
+            <p className="text-charcoal-500 text-xs mt-3">
               Note: Automated email delivery will be active once Twilio is connected. For now share the link manually.
             </p>
           </div>
         )}
 
         {/* PENDING INVITES */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mt-6">
-          <div className="px-5 py-4 border-b border-neutral-800">
-            <div className="font-serif text-white">Pending Barbers</div>
-            <div className="text-xs text-neutral-500 mt-0.5">Barbers not yet linked to an account</div>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mt-6">
+          <div className="px-5 py-4 border-b border-warm-200">
+            <div className="font-serif text-charcoal-900">Pending Barbers</div>
+            <div className="text-xs text-charcoal-500 mt-0.5">Barbers not yet linked to an account</div>
           </div>
           {barbers.length === 0 ? (
-            <div className="p-5 text-center text-neutral-500 text-sm">All barbers have claimed their accounts.</div>
+            <div className="p-5 text-center text-charcoal-500 text-sm">All barbers have claimed their accounts.</div>
           ) : (
-            <div className="divide-y divide-neutral-800">
+            <div className="divide-y divide-warm-200">
               {barbers.map((b) => (
                 <div key={b.id} className="px-5 py-3 flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-medium text-white">{b.barber_name || b.alias}</div>
-                    <div className="text-xs text-neutral-500">
+                    <div className="text-sm font-medium text-charcoal-900">{b.barber_name || b.alias}</div>
+                    <div className="text-xs text-charcoal-500">
                       {b.compensation_type === 'commission'
                         ? `${Math.round((b.commission_rate || 0.7) * 100)}% commission`
                         : `Booth rent $${b.booth_rent_amount}/wk`}
                     </div>
                   </div>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-500">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-warm-200 text-charcoal-500">
                     Pending
                   </span>
                 </div>

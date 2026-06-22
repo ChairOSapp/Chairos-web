@@ -1,28 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FAFAF7;
+  --foreground: #1A1A18;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: var(--font-dm-sans);
+  --font-serif: var(--font-dm-serif);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-warm-50: #FAFAF7;
+  --color-warm-100: #F4F2EC;
+  --color-warm-200: #EAE8E0;
+  --color-warm-300: #D8D5C8;
+  --color-warm-400: #C0BDB0;
+  --color-warm-500: #9B9890;
+  --color-warm-600: #757268;
+
+  --color-charcoal-900: #1A1A18;
+  --color-charcoal-800: #2C2C28;
+  --color-charcoal-700: #3D3D38;
+  --color-charcoal-600: #4F4F48;
+  --color-charcoal-500: #65655F;
+  --color-charcoal-400: #858580;
+
+  --color-od-green: #4B5320;
+  --color-od-green-dark: #3A4019;
+  --color-od-green-light: #5C6628;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-dm-sans), Arial, Helvetica, sans-serif;
 }
 
 @keyframes slide-in {

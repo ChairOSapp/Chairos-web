@@ -148,19 +148,19 @@ export default function BarberEarningsPage() {
   ]
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-neutral-950">
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
+    <div className="min-h-screen bg-warm-50">
+      <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
+        <span className="font-serif text-od-green text-lg">ChairOS</span>
         {drillMode ? (
-          <button onClick={() => setDrillMode(null)} className="text-xs text-neutral-500 hover:text-white transition-colors">← Back</button>
+          <button onClick={() => setDrillMode(null)} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
         ) : (
-          <button onClick={() => router.push('/dashboard/barber')} className="text-xs text-neutral-500 hover:text-white transition-colors">← Dashboard</button>
+          <button onClick={() => router.push('/dashboard/barber')} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">← Dashboard</button>
         )}
       </header>
 
@@ -170,16 +170,16 @@ export default function BarberEarningsPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <button onClick={() => setYear(y => y - 1)}
-              className="w-8 h-8 bg-neutral-800 border border-neutral-700 rounded-lg text-neutral-400 hover:text-white text-sm transition-colors">←</button>
-            <span className="font-mono text-white font-semibold w-12 text-center">{year}</span>
+              className="w-8 h-8 bg-warm-200 border border-warm-300 rounded-lg text-charcoal-400 hover:text-charcoal-900 text-sm transition-colors">←</button>
+            <span className="font-mono text-charcoal-900 font-semibold w-12 text-center">{year}</span>
             <button onClick={() => setYear(y => y + 1)}
               disabled={year >= new Date().getFullYear()}
-              className="w-8 h-8 bg-neutral-800 border border-neutral-700 rounded-lg text-neutral-400 hover:text-white text-sm transition-colors disabled:opacity-30">→</button>
+              className="w-8 h-8 bg-warm-200 border border-warm-300 rounded-lg text-charcoal-400 hover:text-charcoal-900 text-sm transition-colors disabled:opacity-30">→</button>
           </div>
           <div className="flex gap-1">
             {TIME_FILTERS.map(f => (
               <button key={f.key} onClick={() => setTimeFilter(f.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${timeFilter === f.key ? 'text-black' : 'bg-neutral-800 text-neutral-500 hover:text-white'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${timeFilter === f.key ? 'text-black' : 'bg-warm-200 text-charcoal-500 hover:text-charcoal-900'}`}
                 style={timeFilter === f.key ? { background: color } : {}}>
                 {f.label}
               </button>
@@ -190,46 +190,46 @@ export default function BarberEarningsPage() {
         {drillMode === null && (
           <>
             {/* TOTAL EARNINGS HERO */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 mb-4 text-center">
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-2">Total Earnings</div>
+            <div className="bg-warm-100 border border-warm-200 rounded-2xl p-6 mb-4 text-center">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-2">Total Earnings</div>
               <div className="font-serif text-5xl mb-1" style={{ color }}>${totalEarnings.toFixed(2)}</div>
-              <div className="text-xs text-neutral-500">{filteredAppointments.length} appointments</div>
+              <div className="text-xs text-charcoal-500">{filteredAppointments.length} appointments</div>
             </div>
 
             {/* THREE CLICKABLE TILES */}
             <div className="grid grid-cols-3 gap-3 mb-6">
               <button onClick={() => setDrillMode('appointments')}
-                className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-center hover:border-amber-500/50 transition-colors group">
-                <div className="font-serif text-2xl text-white mb-1 group-hover:text-amber-500 transition-colors">{filteredAppointments.length}</div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Cuts</div>
-                <div className="text-xs text-neutral-600 mt-1">Tap for details</div>
+                className="bg-warm-100 border border-warm-200 rounded-xl p-4 text-center hover:border-od-green/50 transition-colors group">
+                <div className="font-serif text-2xl text-charcoal-900 mb-1 group-hover:text-od-green transition-colors">{filteredAppointments.length}</div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Cuts</div>
+                <div className="text-xs text-charcoal-600 mt-1">Tap for details</div>
               </button>
               <button onClick={() => setDrillMode('cut')}
-                className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-center hover:border-amber-500/50 transition-colors group">
-                <div className="font-serif text-2xl text-white mb-1 group-hover:text-amber-500 transition-colors">${totalCut.toFixed(0)}</div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">My Cut</div>
-                <div className="text-xs text-neutral-600 mt-1">Tap for details</div>
+                className="bg-warm-100 border border-warm-200 rounded-xl p-4 text-center hover:border-od-green/50 transition-colors group">
+                <div className="font-serif text-2xl text-charcoal-900 mb-1 group-hover:text-od-green transition-colors">${totalCut.toFixed(0)}</div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">My Cut</div>
+                <div className="text-xs text-charcoal-600 mt-1">Tap for details</div>
               </button>
               <button onClick={() => setDrillMode('tips')}
-                className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-center hover:border-green-500/50 transition-colors group">
+                className="bg-warm-100 border border-warm-200 rounded-xl p-4 text-center hover:border-green-500/50 transition-colors group">
                 <div className="font-serif text-2xl text-green-400 mb-1">${totalTips.toFixed(0)}</div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500">Tips</div>
-                <div className="text-xs text-neutral-600 mt-1">Tap for details</div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Tips</div>
+                <div className="text-xs text-charcoal-600 mt-1">Tap for details</div>
               </button>
             </div>
 
             {/* BY SERVICE BREAKDOWN */}
             {byService.length > 0 && (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden mb-4">
-                <div className="px-5 py-4 border-b border-neutral-800">
-                  <div className="font-serif text-white">By Service</div>
+              <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
+                <div className="px-5 py-4 border-b border-warm-200">
+                  <div className="font-serif text-charcoal-900">By Service</div>
                 </div>
-                <div className="divide-y divide-neutral-800">
+                <div className="divide-y divide-warm-200">
                   {byService.map((s, i) => (
                     <div key={i} className="px-5 py-3 flex items-center justify-between">
                       <div>
-                        <div className="text-sm text-white font-medium">{s.name}</div>
-                        <div className="text-xs text-neutral-500">{s.count} cuts</div>
+                        <div className="text-sm text-charcoal-900 font-medium">{s.name}</div>
+                        <div className="text-xs text-charcoal-500">{s.count} cuts</div>
                       </div>
                       <div className="font-mono text-sm font-semibold" style={{ color }}>${s.cut.toFixed(2)}</div>
                     </div>
@@ -240,18 +240,18 @@ export default function BarberEarningsPage() {
 
             {/* BY DAY */}
             {byDay.length > 0 && (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-neutral-800">
-                  <div className="font-serif text-white">By Day</div>
+              <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-warm-200">
+                  <div className="font-serif text-charcoal-900">By Day</div>
                 </div>
-                <div className="divide-y divide-neutral-800">
+                <div className="divide-y divide-warm-200">
                   {byDay.slice(0, 10).map((d, i) => (
                     <div key={i} className="px-5 py-3 flex items-center justify-between">
                       <div>
-                        <div className="text-sm text-white">
+                        <div className="text-sm text-charcoal-900">
                           {new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                         </div>
-                        <div className="text-xs text-neutral-500">{d.count} cuts · ${d.tips.toFixed(2)} tips</div>
+                        <div className="text-xs text-charcoal-500">{d.count} cuts · ${d.tips.toFixed(2)} tips</div>
                       </div>
                       <div className="font-mono text-sm font-semibold" style={{ color }}>${d.total.toFixed(2)}</div>
                     </div>
@@ -261,7 +261,7 @@ export default function BarberEarningsPage() {
             )}
 
             {filteredAppointments.length === 0 && (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 text-center text-neutral-500 text-sm">
+              <div className="bg-warm-100 border border-warm-200 rounded-xl p-8 text-center text-charcoal-500 text-sm">
                 No completed appointments for this period.
               </div>
             )}
@@ -272,27 +272,27 @@ export default function BarberEarningsPage() {
         {drillMode === 'appointments' && (
           <div>
             <div className="mb-4">
-              <div className="font-serif text-2xl text-white mb-1">{filteredAppointments.length} Cuts</div>
-              <div className="text-neutral-500 text-sm">${totalCut.toFixed(2)} earned</div>
+              <div className="font-serif text-2xl text-charcoal-900 mb-1">{filteredAppointments.length} Cuts</div>
+              <div className="text-charcoal-500 text-sm">${totalCut.toFixed(2)} earned</div>
             </div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
               {filteredAppointments.length === 0 ? (
-                <div className="p-8 text-center text-neutral-500 text-sm">No appointments for this period.</div>
+                <div className="p-8 text-center text-charcoal-500 text-sm">No appointments for this period.</div>
               ) : (
-                <div className="divide-y divide-neutral-800">
+                <div className="divide-y divide-warm-200">
                   {filteredAppointments.map(a => (
                     <div key={a.id} className="px-5 py-4">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-amber-500">{a.time?.slice(0,5)}</span>
-                          <span className="text-xs text-neutral-500">
+                          <span className="font-mono text-xs text-od-green">{a.time?.slice(0,5)}</span>
+                          <span className="text-xs text-charcoal-500">
                             {new Date(a.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         </div>
                         <span className="font-mono text-sm font-semibold" style={{ color }}>${(parseFloat(String(a.price)) * commissionRate).toFixed(2)}</span>
                       </div>
-                      <div className="text-sm font-semibold text-white">{a.client_name}</div>
-                      <div className="text-xs text-neutral-500">{a.services?.name} · ${parseFloat(String(a.price)).toFixed(2)} service</div>
+                      <div className="text-sm font-semibold text-charcoal-900">{a.client_name}</div>
+                      <div className="text-xs text-charcoal-500">{a.services?.name} · ${parseFloat(String(a.price)).toFixed(2)} service</div>
                     </div>
                   ))}
                 </div>
@@ -305,28 +305,28 @@ export default function BarberEarningsPage() {
         {drillMode === 'cut' && (
           <div>
             <div className="mb-4">
-              <div className="font-serif text-2xl text-white mb-1">My Cut</div>
-              <div className="text-neutral-500 text-sm">
+              <div className="font-serif text-2xl text-charcoal-900 mb-1">My Cut</div>
+              <div className="text-charcoal-500 text-sm">
                 {shopBarber?.compensation_type === 'commission'
                   ? `${Math.round(commissionRate * 100)}% commission on all services`
                   : `Booth rent — you keep 100%`}
               </div>
             </div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-4">
+            <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-4">
               {[
                 { label: 'Total Service Revenue', value: `$${totalRevenue.toFixed(2)}`, dim: true },
                 { label: 'Your Rate', value: shopBarber?.compensation_type === 'commission' ? `${Math.round(commissionRate * 100)}%` : '100%', dim: true },
                 { label: 'Your Cut', value: `$${totalCut.toFixed(2)}`, color: true },
               ].map((row, i) => (
-                <div key={i} className={`flex justify-between items-center py-3 ${i < 2 ? 'border-b border-neutral-800' : ''}`}>
-                  <span className="text-sm text-neutral-400">{row.label}</span>
-                  <span className={`font-mono font-semibold ${row.color ? 'text-amber-500 text-lg' : 'text-white text-sm'}`}>{row.value}</span>
+                <div key={i} className={`flex justify-between items-center py-3 ${i < 2 ? 'border-b border-warm-200' : ''}`}>
+                  <span className="text-sm text-charcoal-400">{row.label}</span>
+                  <span className={`font-mono font-semibold ${row.color ? 'text-od-green text-lg' : 'text-charcoal-900 text-sm'}`}>{row.value}</span>
                 </div>
               ))}
             </div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-neutral-800 text-xs font-semibold tracking-widest uppercase text-neutral-500">By Month</div>
-              <div className="divide-y divide-neutral-800">
+            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-warm-200 text-xs font-semibold tracking-widest uppercase text-charcoal-500">By Month</div>
+              <div className="divide-y divide-warm-200">
                 {Array.from({ length: 12 }, (_, i) => {
                   const month = i + 1
                   const monthAppts = appointments.filter(a => new Date(a.date).getMonth() + 1 === month)
@@ -336,8 +336,8 @@ export default function BarberEarningsPage() {
                   return (
                     <div key={i} className="px-5 py-3 flex justify-between items-center">
                       <div>
-                        <div className="text-sm text-white">{new Date(year, i).toLocaleDateString('en-US', { month: 'long' })}</div>
-                        <div className="text-xs text-neutral-500">{monthAppts.length} cuts</div>
+                        <div className="text-sm text-charcoal-900">{new Date(year, i).toLocaleDateString('en-US', { month: 'long' })}</div>
+                        <div className="text-xs text-charcoal-500">{monthAppts.length} cuts</div>
                       </div>
                       <div className="font-mono text-sm font-semibold" style={{ color }}>${cut.toFixed(2)}</div>
                     </div>
@@ -352,27 +352,27 @@ export default function BarberEarningsPage() {
         {drillMode === 'tips' && (
           <div>
             <div className="mb-4">
-              <div className="font-serif text-2xl text-white mb-1">Tips</div>
-              <div className="text-neutral-500 text-sm">${totalTips.toFixed(2)} total · {filteredTips.length} tips</div>
+              <div className="font-serif text-2xl text-charcoal-900 mb-1">Tips</div>
+              <div className="text-charcoal-500 text-sm">${totalTips.toFixed(2)} total · {filteredTips.length} tips</div>
             </div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-4 text-center">
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-1">Average Tip</div>
+            <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-4 text-center">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Average Tip</div>
               <div className="font-serif text-3xl text-green-400">
                 ${filteredTips.length > 0 ? (totalTips / filteredTips.length).toFixed(2) : '0.00'}
               </div>
             </div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
               {filteredTips.length === 0 ? (
-                <div className="p-8 text-center text-neutral-500 text-sm">No tips for this period.</div>
+                <div className="p-8 text-center text-charcoal-500 text-sm">No tips for this period.</div>
               ) : (
-                <div className="divide-y divide-neutral-800">
+                <div className="divide-y divide-warm-200">
                   {filteredTips.map(t => {
                     const appt = appointments.find(a => a.id === t.appointment_id)
                     return (
                       <div key={t.id} className="px-5 py-4 flex items-center justify-between">
                         <div>
-                          <div className="text-sm font-semibold text-white">{appt?.client_name || 'Client'}</div>
-                          <div className="text-xs text-neutral-500">
+                          <div className="text-sm font-semibold text-charcoal-900">{appt?.client_name || 'Client'}</div>
+                          <div className="text-xs text-charcoal-500">
                             {new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             {appt?.services?.name ? ` · ${appt.services.name}` : ''}
                           </div>

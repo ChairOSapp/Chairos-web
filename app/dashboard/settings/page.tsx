@@ -152,50 +152,50 @@ export default function ShopSettings() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
   const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-warm-50">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
 
       <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
-          <h1 className="font-serif text-2xl text-white mb-1">Shop Settings</h1>
-          <p className="text-neutral-500 text-sm">Customize how your shop appears to clients</p>
+          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Shop Settings</h1>
+          <p className="text-charcoal-500 text-sm">Customize how your shop appears to clients</p>
         </div>
 
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
         {success && <p className="text-green-400 text-sm bg-green-950 border border-green-900 rounded-lg p-3 mb-6">{success}</p>}
 
         {/* BRANDING */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-5">Branding</div>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-5">Branding</div>
 
           {/* LOGO */}
           <div className="mb-6">
-            <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Shop Logo</label>
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Shop Logo</label>
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-20 h-20 rounded-xl bg-warm-200 border border-warm-300 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {logoUrl ? (
                   <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="font-serif text-2xl text-neutral-600">{name[0] || '?'}</span>
+                  <span className="font-serif text-2xl text-charcoal-600">{name[0] || '?'}</span>
                 )}
               </div>
               <div>
                 <button
                   onClick={() => logoRef.current?.click()}
                   disabled={uploadingLogo}
-                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-semibold text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors disabled:opacity-50">
+                  className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors disabled:opacity-50">
                   {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
                 </button>
                 <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                <p className="text-xs text-neutral-600 mt-2">PNG or JPG. Square works best. Max 2MB.</p>
+                <p className="text-xs text-charcoal-600 mt-2">PNG or JPG. Square works best. Max 2MB.</p>
                 {logoUrl && (
                   <button onClick={() => { setLogoUrl(''); supabase.from('shops').update({ logo_url: null }).eq('id', shop.id) }}
                     className="text-xs text-red-400 hover:text-red-300 mt-1 transition-colors">
@@ -208,45 +208,45 @@ export default function ShopSettings() {
 
           {/* HERO */}
           <div className="mb-6">
-            <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Hero / Banner Photo</label>
-            <div className="w-full h-32 rounded-xl bg-neutral-800 border border-neutral-700 overflow-hidden mb-3 flex items-center justify-center relative">
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Hero / Banner Photo</label>
+            <div className="w-full h-32 rounded-xl bg-warm-200 border border-warm-300 overflow-hidden mb-3 flex items-center justify-center relative">
               {heroUrl ? (
                 <img src={heroUrl} alt="Hero" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-xs text-neutral-600">No banner photo yet</span>
+                <span className="text-xs text-charcoal-600">No banner photo yet</span>
               )}
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => heroRef.current?.click()}
                 disabled={uploadingHero}
-                className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-semibold text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors disabled:opacity-50">
+                className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors disabled:opacity-50">
                 {uploadingHero ? 'Uploading...' : 'Upload Banner Photo'}
               </button>
               <input ref={heroRef} type="file" accept="image/*" onChange={handleHeroUpload} className="hidden" />
               {heroUrl && (
                 <button onClick={() => { setHeroUrl(''); supabase.from('shops').update({ hero_url: null }).eq('id', shop.id) }}
-                  className="px-4 py-2 bg-neutral-800 border border-red-900 rounded-lg text-xs font-semibold text-red-400 hover:border-red-500 transition-colors">
+                  className="px-4 py-2 bg-warm-200 border border-red-900 rounded-lg text-xs font-semibold text-red-400 hover:border-red-500 transition-colors">
                   Remove
                 </button>
               )}
             </div>
-            <p className="text-xs text-neutral-600 mt-2">Wide photo of your shop. Shown at the top of your booking page. Max 5MB.</p>
+            <p className="text-xs text-charcoal-600 mt-2">Wide photo of your shop. Shown at the top of your booking page. Max 5MB.</p>
           </div>
 
           {/* BRAND COLOR */}
           <div>
-            <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Brand Color</label>
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Brand Color</label>
             <div className="flex items-center gap-4">
               <input
                 type="color"
                 value={brandColor}
                 onChange={e => setBrandColor(e.target.value)}
-                className="w-12 h-12 rounded-lg border border-neutral-700 bg-neutral-800 cursor-pointer p-1"
+                className="w-12 h-12 rounded-lg border border-warm-300 bg-warm-200 cursor-pointer p-1"
               />
               <div>
-                <div className="text-sm font-mono text-white">{brandColor}</div>
-                <div className="text-xs text-neutral-500 mt-0.5">Used on your booking page buttons and accents</div>
+                <div className="text-sm font-mono text-charcoal-900">{brandColor}</div>
+                <div className="text-xs text-charcoal-500 mt-0.5">Used on your booking page buttons and accents</div>
               </div>
               <div className="flex gap-2 ml-auto">
                 {['#b8861f','#2563eb','#16a34a','#dc2626','#7c3aed','#0891b2'].map(c => (
@@ -260,65 +260,65 @@ export default function ShopSettings() {
         </div>
 
         {/* SHOP INFO */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-5">Shop Info</div>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-5">Shop Info</div>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Shop Name</label>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Shop Name</label>
               <input value={name} onChange={e => setName(e.target.value)}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Tagline</label>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Tagline</label>
               <input value={tagline} onChange={e => setTagline(e.target.value)}
                 placeholder="e.g. Premium cuts in the heart of Jacksonville"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">About Your Shop</label>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">About Your Shop</label>
               <textarea value={bio} onChange={e => setBio(e.target.value)}
                 rows={3} placeholder="Tell clients what makes your shop special..."
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors resize-none" />
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors resize-none" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Phone</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Phone</label>
                 <input value={phone} onChange={e => setPhone(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
               </div>
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">City</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">City</label>
                 <input value={city} onChange={e => setCity(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Street Address</label>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Street Address</label>
               <input value={address} onChange={e => setAddress(e.target.value)}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
             </div>
           </div>
         </div>
 
         {/* CUSTOM URL */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Custom Booking URL</div>
-          <p className="text-xs text-neutral-500 mb-4">Give your shop a clean URL instead of the shop code. Clients will be able to find you at this address.</p>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Custom Booking URL</div>
+          <p className="text-xs text-charcoal-500 mb-4">Give your shop a clean URL instead of the shop code. Clients will be able to find you at this address.</p>
           <div className="flex items-center gap-0">
-            <span className="bg-neutral-800 border border-r-0 border-neutral-700 rounded-l-lg px-4 py-3 text-xs text-neutral-500 whitespace-nowrap">chairos.cc/shop/</span>
+            <span className="bg-warm-200 border border-r-0 border-warm-300 rounded-l-lg px-4 py-3 text-xs text-charcoal-500 whitespace-nowrap">chairos.cc/shop/</span>
             <input
               value={slug}
               onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
               placeholder="precisehouse"
-              className="flex-1 bg-neutral-800 border border-neutral-700 rounded-r-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+              className="flex-1 bg-warm-200 border border-warm-300 rounded-r-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
           </div>
-          <p className="text-xs text-neutral-600 mt-2">Lowercase letters, numbers, and hyphens only. e.g. precise-house</p>
+          <p className="text-xs text-charcoal-600 mt-2">Lowercase letters, numbers, and hyphens only. e.g. precise-house</p>
         </div>
 
         {/* PREVIEW */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-4">Booking Page Preview</div>
-          <div className="rounded-lg overflow-hidden border border-neutral-700">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">Booking Page Preview</div>
+          <div className="rounded-lg overflow-hidden border border-warm-300">
             {heroUrl && (
               <div className="h-24 overflow-hidden">
                 <img src={heroUrl} alt="Hero" className="w-full h-full object-cover" />
@@ -335,27 +335,27 @@ export default function ShopSettings() {
                   </div>
                 )}
                 <div>
-                  <div className="font-serif text-white text-base">{name || 'Your Shop Name'}</div>
-                  <div className="text-xs text-neutral-400">{tagline || 'Your tagline appears here'}</div>
+                  <div className="font-serif text-charcoal-900 text-base">{name || 'Your Shop Name'}</div>
+                  <div className="text-xs text-charcoal-400">{tagline || 'Your tagline appears here'}</div>
                 </div>
               </div>
-              <div className="text-xs text-neutral-500 mb-3">{bio || 'Your shop description appears here'}</div>
+              <div className="text-xs text-charcoal-500 mb-3">{bio || 'Your shop description appears here'}</div>
               <button className="px-4 py-2 rounded-lg text-xs font-semibold text-black"
                 style={{ background: brandColor }}>
                 Book Appointment
               </button>
             </div>
           </div>
-          <p className="text-xs text-neutral-600 mt-3">
-            Your booking page: <span className="text-amber-500 font-mono">
+          <p className="text-xs text-charcoal-600 mt-3">
+            Your booking page: <span className="text-od-green font-mono">
               {slug ? `chairos.cc/shop/${slug}` : `chairos.cc/book/${shop?.shop_code}`}
             </span>
           </p>
         </div>
 
         {/* HOURS */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-5">Shop Hours</div>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-5">Shop Hours</div>
           <div className="space-y-3">
             {hours.map((h, i) => (
               <div key={h.day} className="flex items-center gap-3">
@@ -363,7 +363,7 @@ export default function ShopSettings() {
                   <button
                     onClick={() => setHours(prev => prev.map((d, j) => j === i ? { ...d, open: !d.open } : d))}
                     className={`w-full py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                      h.open ? 'bg-amber-500 border-amber-500 text-black' : 'bg-neutral-800 border-neutral-700 text-neutral-500'
+                      h.open ? 'bg-od-green border-od-green text-white' : 'bg-warm-200 border-warm-300 text-charcoal-500'
                     }`}>
                     {h.day.slice(0, 3)}
                   </button>
@@ -374,18 +374,18 @@ export default function ShopSettings() {
                       type="time"
                       value={h.from}
                       onChange={e => setHours(prev => prev.map((d, j) => j === i ? { ...d, from: e.target.value } : d))}
-                      className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500 w-28"
+                      className="bg-warm-200 border border-warm-300 rounded-lg px-3 py-1.5 text-charcoal-900 text-xs outline-none focus:border-od-green w-28"
                     />
-                    <span className="text-neutral-600 text-xs">to</span>
+                    <span className="text-charcoal-600 text-xs">to</span>
                     <input
                       type="time"
                       value={h.to}
                       onChange={e => setHours(prev => prev.map((d, j) => j === i ? { ...d, to: e.target.value } : d))}
-                      className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500 w-28"
+                      className="bg-warm-200 border border-warm-300 rounded-lg px-3 py-1.5 text-charcoal-900 text-xs outline-none focus:border-od-green w-28"
                     />
                   </div>
                 ) : (
-                  <div className="text-xs text-neutral-600">Closed</div>
+                  <div className="text-xs text-charcoal-600">Closed</div>
                 )}
               </div>
             ))}
@@ -393,7 +393,7 @@ export default function ShopSettings() {
         </div>
 
         <button onClick={handleSave} disabled={saving}
-          className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+          className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>

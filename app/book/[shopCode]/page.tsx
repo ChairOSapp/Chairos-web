@@ -166,22 +166,22 @@ function BookingPageInner() {
   const brandMid = brand + '33'
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
     </div>
   )
 
   if (notFound) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
       <div className="text-center">
-        <h1 className="font-serif text-3xl text-amber-500 mb-4">ChairOS</h1>
-        <p className="text-neutral-400">Shop not found. Check your link and try again.</p>
+        <h1 className="font-serif text-3xl text-od-green mb-4">ChairOS</h1>
+        <p className="text-charcoal-400">Shop not found. Check your link and try again.</p>
       </div>
     </div>
   )
 
   if (success) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center">
         {shop.logo_url ? (
           <img src={shop.logo_url} alt={shop.name} className="w-16 h-16 rounded-xl object-cover mx-auto mb-4" />
@@ -191,20 +191,20 @@ function BookingPageInner() {
             {shop.name[0]}
           </div>
         )}
-        <h1 className="font-serif text-2xl text-white mb-6">{shop.name}</h1>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8">
+        <h1 className="font-serif text-2xl text-charcoal-900 mb-6">{shop.name}</h1>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-8">
           <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
             style={{ background: brand + '20', border: `2px solid ${brand}40` }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </div>
-          <h2 className="font-serif text-xl text-white mb-2">You're booked.</h2>
-          <p className="text-neutral-400 text-sm mb-6">
+          <h2 className="font-serif text-xl text-charcoal-900 mb-2">You're booked.</h2>
+          <p className="text-charcoal-400 text-sm mb-6">
             {selectedService.name} with {selectedBarber?.barber_name || selectedBarber?.alias || 'any barber'} on{' '}
             {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at {selectedTime}.
           </p>
-          <div className="bg-neutral-800 rounded-lg p-4 mb-6 text-left space-y-2">
+          <div className="bg-warm-200 rounded-lg p-4 mb-6 text-left space-y-2">
             {[
               { label: 'Service', value: selectedService.name },
               { label: 'Price', value: `$${selectedService.price}`, colored: true },
@@ -212,14 +212,14 @@ function BookingPageInner() {
               { label: 'Barber', value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
             ].map((row, i) => (
               <div key={i} className="flex justify-between text-sm">
-                <span className="text-neutral-400">{row.label}</span>
-                <span style={row.colored ? { color: brand } : {}} className={row.colored ? 'font-mono font-semibold' : 'text-white'}>
+                <span className="text-charcoal-400">{row.label}</span>
+                <span style={row.colored ? { color: brand } : {}} className={row.colored ? 'font-mono font-semibold' : 'text-charcoal-900'}>
                   {row.value}
                 </span>
               </div>
             ))}
           </div>
-          <p className="text-neutral-600 text-xs">
+          <p className="text-charcoal-600 text-xs">
             Confirmation text sent to {clientPhone}. Powered by ChairOS.
           </p>
         </div>
@@ -228,7 +228,7 @@ function BookingPageInner() {
   )
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-warm-50">
 
       {shop.hero_url && (
         <div className="w-full h-48 md:h-64 overflow-hidden relative">
@@ -238,7 +238,7 @@ function BookingPageInner() {
       )}
 
       <div style={{ background: shop.hero_url ? 'transparent' : '#0a0a0a' }}
-        className={`px-6 py-5 border-b border-neutral-800 ${shop.hero_url ? '-mt-20 relative z-10' : ''}`}>
+        className={`px-6 py-5 border-b border-warm-200 ${shop.hero_url ? '-mt-20 relative z-10' : ''}`}>
         <div className="max-w-2xl mx-auto flex items-center gap-4">
           {shop.logo_url ? (
             <img src={shop.logo_url} alt={shop.name}
@@ -250,10 +250,10 @@ function BookingPageInner() {
             </div>
           )}
           <div className="flex-1">
-            <h1 className="font-serif text-xl text-white">{shop.name}</h1>
+            <h1 className="font-serif text-xl text-charcoal-900">{shop.name}</h1>
             {shop.tagline && <p className="text-xs mt-0.5" style={{ color: brand }}>{shop.tagline}</p>}
             {(shop.address || shop.city) && (
-              <p className="text-neutral-500 text-xs mt-0.5">
+              <p className="text-charcoal-500 text-xs mt-0.5">
                 {[shop.address, shop.city].filter(Boolean).join(' · ')}
               </p>
             )}
@@ -261,12 +261,12 @@ function BookingPageInner() {
         </div>
         {shop.bio && (
           <div className="max-w-2xl mx-auto mt-3">
-            <p className="text-neutral-400 text-xs leading-relaxed">{shop.bio}</p>
+            <p className="text-charcoal-400 text-xs leading-relaxed">{shop.bio}</p>
           </div>
         )}
       </div>
 
-      <div className="bg-neutral-900 border-b border-neutral-800 px-6 py-3">
+      <div className="bg-warm-100 border-b border-warm-200 px-6 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           {['Barber', 'Service', 'Date & Time', 'Your Info'].map((label, i) => (
             <div key={i} className="flex items-center gap-2 flex-1 last:flex-none">
@@ -281,7 +281,7 @@ function BookingPageInner() {
                 style={{ color: step === i+1 ? brand : step > i+1 ? '#22c55e' : '#4b5563' }}>
                 {label}
               </span>
-              {i < 3 && <div className={`flex-1 h-px ${step > i+1 ? 'bg-green-500' : 'bg-neutral-800'}`} />}
+              {i < 3 && <div className={`flex-1 h-px ${step > i+1 ? 'bg-green-500' : 'bg-warm-200'}`} />}
             </div>
           ))}
         </div>
@@ -293,27 +293,27 @@ function BookingPageInner() {
 
         {step === 1 && (
           <div>
-            <h2 className="font-serif text-xl text-white mb-1">Choose your barber</h2>
-            <p className="text-neutral-500 text-sm mb-6">Pick who you want or select any available barber.</p>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-1">Choose your barber</h2>
+            <p className="text-charcoal-500 text-sm mb-6">Pick who you want or select any available barber.</p>
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div
                 onClick={() => { setSelectedBarber(null); setStep(2) }}
-                className="bg-neutral-900 border-2 border-neutral-800 rounded-xl p-4 cursor-pointer transition-all text-center hover:border-neutral-600"
+                className="bg-warm-100 border-2 border-warm-200 rounded-xl p-4 cursor-pointer transition-all text-center hover:border-warm-400"
                 onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = '#262626')}>
-                <div className="w-14 h-14 rounded-full bg-neutral-800 flex items-center justify-center mx-auto mb-3">
+                <div className="w-14 h-14 rounded-full bg-warm-200 flex items-center justify-center mx-auto mb-3">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
                     <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                   </svg>
                 </div>
-                <div className="text-sm font-semibold text-white">Any Barber</div>
-                <div className="text-xs text-neutral-500 mt-1">First available</div>
+                <div className="text-sm font-semibold text-charcoal-900">Any Barber</div>
+                <div className="text-xs text-charcoal-500 mt-1">First available</div>
               </div>
               {barbers.map((b, i) => (
                 <div key={b.id}
                   onClick={() => { setSelectedBarber(b); setStep(2) }}
-                  className="bg-neutral-900 border-2 border-neutral-800 rounded-xl p-4 cursor-pointer transition-all text-center"
+                  className="bg-warm-100 border-2 border-warm-200 rounded-xl p-4 cursor-pointer transition-all text-center"
                   onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = '#262626')}>
                   {b.photo_url ? (
@@ -330,8 +330,8 @@ function BookingPageInner() {
                       {(b.barber_name || b.alias || '?')[0].toUpperCase()}
                     </div>
                   )}
-                  <div className="text-sm font-semibold text-white">{b.barber_name || b.alias}</div>
-                  {b.bio && <div className="text-xs text-neutral-500 mt-1 line-clamp-2">{b.bio}</div>}
+                  <div className="text-sm font-semibold text-charcoal-900">{b.barber_name || b.alias}</div>
+                  {b.bio && <div className="text-xs text-charcoal-500 mt-1 line-clamp-2">{b.bio}</div>}
                 </div>
               ))}
             </div>
@@ -340,44 +340,44 @@ function BookingPageInner() {
 
         {step === 2 && (
           <div>
-            <h2 className="font-serif text-xl text-white mb-1">Choose a service</h2>
-            <p className="text-neutral-500 text-sm mb-6">Select what you'd like done today.</p>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-1">Choose a service</h2>
+            <p className="text-charcoal-500 text-sm mb-6">Select what you'd like done today.</p>
             <div className="space-y-2 mb-6">
               {services.map((s) => (
                 <div key={s.id}
                   onClick={() => { setSelectedService(s); setStep(3) }}
-                  className="bg-neutral-900 border-2 rounded-xl p-4 cursor-pointer transition-all flex items-center justify-between"
+                  className="bg-warm-100 border-2 rounded-xl p-4 cursor-pointer transition-all flex items-center justify-between"
                   style={{ borderColor: selectedService?.id === s.id ? brand : '#262626' }}
                   onMouseEnter={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#404040' }}
                   onMouseLeave={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#262626' }}>
                   <div>
-                    <div className="text-sm font-semibold text-white">{s.name}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
+                    <div className="text-sm font-semibold text-charcoal-900">{s.name}</div>
+                    <div className="text-xs text-charcoal-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
                   </div>
                   <div className="font-serif text-lg ml-4 flex-shrink-0 font-semibold" style={{ color: brand }}>${s.price}</div>
                 </div>
               ))}
             </div>
-            <button onClick={() => setStep(1)} className="text-sm text-neutral-500 hover:text-white transition-colors">← Back</button>
+            <button onClick={() => setStep(1)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
           </div>
         )}
 
         {step === 3 && (
           <div>
-            <h2 className="font-serif text-xl text-white mb-1">Pick a date & time</h2>
-            <p className="text-neutral-500 text-sm mb-6">Choose when you'd like to come in.</p>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-1">Pick a date & time</h2>
+            <p className="text-charcoal-500 text-sm mb-6">Choose when you'd like to come in.</p>
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Date</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Date</label>
                 <input type="date" value={selectedDate} min={today}
                   onChange={e => setSelectedDate(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none transition-colors"
+                  className="w-full bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none transition-colors"
                   onFocus={e => e.target.style.borderColor = brand}
                   onBlur={e => e.target.style.borderColor = '#404040'} />
               </div>
               {selectedDate && (
                 <div>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Time</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Time</label>
                   <div className="grid grid-cols-4 gap-2">
                     {TIMES.map(t => (
                       <button key={t} onClick={() => setSelectedTime(t)}
@@ -395,7 +395,7 @@ function BookingPageInner() {
               )}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setStep(2)} className="text-sm text-neutral-500 hover:text-white transition-colors">← Back</button>
+              <button onClick={() => setStep(2)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
               <button
                 onClick={() => { if (!selectedDate || !selectedTime) { setError('Please select a date and time'); return }; setError(''); setStep(4) }}
                 className="ml-auto font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors text-black"
@@ -408,10 +408,10 @@ function BookingPageInner() {
 
         {step === 4 && (
           <div>
-            <h2 className="font-serif text-xl text-white mb-1">Your info</h2>
-            <p className="text-neutral-500 text-sm mb-6">No account needed. Just your name and number.</p>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6 space-y-2">
-              <div className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-3">Booking Summary</div>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your info</h2>
+            <p className="text-charcoal-500 text-sm mb-6">No account needed. Just your name and number.</p>
+            <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-6 space-y-2">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Booking Summary</div>
               {[
                 { label: 'Barber', value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
                 { label: 'Service', value: selectedService?.name },
@@ -419,12 +419,12 @@ function BookingPageInner() {
                 { label: 'Time', value: selectedTime },
               ].map((row, i) => (
                 <div key={i} className="flex justify-between text-sm">
-                  <span className="text-neutral-400">{row.label}</span>
-                  <span className="text-white">{row.value}</span>
+                  <span className="text-charcoal-400">{row.label}</span>
+                  <span className="text-charcoal-900">{row.value}</span>
                 </div>
               ))}
-              <div className="flex justify-between text-sm border-t border-neutral-800 pt-2 mt-2">
-                <span className="text-neutral-400">Total</span>
+              <div className="flex justify-between text-sm border-t border-warm-200 pt-2 mt-2">
+                <span className="text-charcoal-400">Total</span>
                 <span className="font-mono font-semibold" style={{ color: brand }}>${selectedService?.price}</span>
               </div>
             </div>
@@ -436,17 +436,17 @@ function BookingPageInner() {
                 { label: 'Notes (optional)', value: notes, set: setNotes, type: 'text', placeholder: 'Any requests for your barber' },
               ].map(f => (
                 <div key={f.label}>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">{f.label}</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{f.label}</label>
                   <input type={f.type} value={f.value} onChange={e => { f.set(e.target.value); if (f.label === 'Phone Number *') checkReturningClient(e.target.value) }} placeholder={f.placeholder}
-                    className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none transition-colors"
+                    className="w-full bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none transition-colors"
                     onFocus={e => e.target.style.borderColor = brand}
                     onBlur={e => e.target.style.borderColor = '#404040'} />
                   {f.label === 'Phone Number *' && returningClient && (
-                    <div className="bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 flex items-center gap-3 mt-2">
+                    <div className="bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 flex items-center gap-3 mt-2">
                       <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                       <div>
                         <div className="text-xs font-semibold text-green-400">Welcome back, {returningClient.full_name?.split(' ')[0]}!</div>
-                        <div className="text-xs text-neutral-500 mt-0.5">
+                        <div className="text-xs text-charcoal-500 mt-0.5">
                           {returningClient.total_visits} visit{returningClient.total_visits !== 1 ? 's' : ''} — your barber has been pre-selected
                         </div>
                       </div>
@@ -456,14 +456,14 @@ function BookingPageInner() {
               ))}
             </div>
             <div className="flex gap-3 items-center">
-              <button onClick={() => setStep(3)} className="text-sm text-neutral-500 hover:text-white transition-colors">← Back</button>
+              <button onClick={() => setStep(3)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
               <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone}
                 className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
                 style={{ background: brand }}>
                 {submitting ? 'Sending confirmation...' : 'Confirm Booking'}
               </button>
             </div>
-            <p className="text-neutral-700 text-xs text-center mt-6">Powered by ChairOS</p>
+            <p className="text-charcoal-600 text-xs text-center mt-6">Powered by ChairOS</p>
           </div>
         )}
       </div>
@@ -474,8 +474,8 @@ function BookingPageInner() {
 export default function BookingPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="w-6 h-6 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+      <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+        <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
       </div>
     }>
       <BookingPageInner />

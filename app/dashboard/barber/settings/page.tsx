@@ -102,8 +102,8 @@ export default function BarberSettings() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
@@ -111,7 +111,7 @@ export default function BarberSettings() {
   const initial = (fullName || shopBarber?.barber_name || 'B')[0].toUpperCase()
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-warm-50">
       <BarberNav
         shopName={shop?.name || ''}
         barberName={shopBarber?.barber_name || shopBarber?.alias || ''}
@@ -123,16 +123,16 @@ export default function BarberSettings() {
 
       <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
-          <h1 className="font-serif text-2xl text-white mb-1">My Profile</h1>
-          <p className="text-neutral-500 text-sm">{shop?.name} · How clients see you</p>
+          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">My Profile</h1>
+          <p className="text-charcoal-500 text-sm">{shop?.name} · How clients see you</p>
         </div>
 
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
         {success && <p className="text-green-400 text-sm bg-green-950 border border-green-900 rounded-lg p-3 mb-6">{success}</p>}
 
         {/* PHOTO */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-5">Profile Photo</div>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-5">Profile Photo</div>
           <div className="flex items-center gap-5">
             <div className="relative flex-shrink-0">
               {photoUrl ? (
@@ -147,16 +147,16 @@ export default function BarberSettings() {
               )}
             </div>
             <div>
-              <p className="text-sm text-white font-medium mb-1">{fullName || shopBarber?.barber_name}</p>
-              <p className="text-xs text-neutral-500 mb-3">{shop?.name}</p>
+              <p className="text-sm text-charcoal-900 font-medium mb-1">{fullName || shopBarber?.barber_name}</p>
+              <p className="text-xs text-charcoal-500 mb-3">{shop?.name}</p>
               <button
                 onClick={() => photoRef.current?.click()}
                 disabled={uploadingPhoto}
-                className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-semibold text-neutral-400 hover:border-amber-500 hover:text-amber-500 transition-colors disabled:opacity-50">
+                className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors disabled:opacity-50">
                 {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
               </button>
               <input ref={photoRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-              <p className="text-xs text-neutral-600 mt-2">Square photo works best. Max 2MB.</p>
+              <p className="text-xs text-charcoal-600 mt-2">Square photo works best. Max 2MB.</p>
               {photoUrl && (
                 <button
                   onClick={async () => {
@@ -172,39 +172,39 @@ export default function BarberSettings() {
         </div>
 
         {/* PROFILE INFO */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-5">Profile Info</div>
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-5">Profile Info</div>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Full Name</label>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Full Name</label>
               <input value={fullName} onChange={e => setFullName(e.target.value)}
                 placeholder="Your full name"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
                 Chair Name / Specialty
               </label>
               <input value={alias} onChange={e => setAlias(e.target.value)}
                 placeholder="e.g. Fade King, The Surgeon"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors" />
-              <p className="text-xs text-neutral-600 mt-1">Shown on the booking page under your name</p>
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+              <p className="text-xs text-charcoal-600 mt-1">Shown on the booking page under your name</p>
             </div>
             <div>
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Bio</label>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Bio</label>
               <textarea value={bio} onChange={e => setBio(e.target.value)}
                 rows={3}
                 placeholder="Tell clients about your style, specialties, and experience..."
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors resize-none" />
-              <p className="text-xs text-neutral-600 mt-1">Shown on the shop profile page under your card</p>
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors resize-none" />
+              <p className="text-xs text-charcoal-600 mt-1">Shown on the shop profile page under your card</p>
             </div>
           </div>
         </div>
 
         {/* PREVIEW */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-4">Booking Page Preview</div>
-          <div className="flex flex-col items-center text-center bg-neutral-800 rounded-xl p-5 w-40 mx-auto">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">Booking Page Preview</div>
+          <div className="flex flex-col items-center text-center bg-warm-200 rounded-xl p-5 w-40 mx-auto">
             {photoUrl ? (
               <img src={photoUrl} alt="Preview"
                 className="w-14 h-14 rounded-full object-cover mb-3 border-2"
@@ -215,14 +215,14 @@ export default function BarberSettings() {
                 {initial}
               </div>
             )}
-            <div className="text-sm font-semibold text-white">{fullName || shopBarber?.barber_name || 'Your Name'}</div>
+            <div className="text-sm font-semibold text-charcoal-900">{fullName || shopBarber?.barber_name || 'Your Name'}</div>
             {alias && <div className="text-xs mt-0.5" style={{ color }}>{alias}</div>}
-            {bio && <div className="text-xs text-neutral-500 mt-1 line-clamp-2">{bio}</div>}
+            {bio && <div className="text-xs text-charcoal-500 mt-1 line-clamp-2">{bio}</div>}
           </div>
         </div>
 
         <button onClick={handleSave} disabled={saving}
-          className="w-full bg-amber-500 hover:bg-amber-400 text-black font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+          className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
       </div>

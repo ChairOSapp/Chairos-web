@@ -14,12 +14,12 @@ export default function MobileNav() {
   const pathname = usePathname()
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 px-2 py-2 flex justify-around z-50">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-warm-100 border-t border-warm-200 px-2 py-2 flex justify-around z-50">
       {ITEMS.map((item, i) => {
         const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
         return (
           <button key={i} onClick={() => router.push(item.href)}
-            className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-amber-500' : 'text-neutral-500 hover:text-white'}`}>
+            className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-od-green' : 'text-charcoal-500 hover:text-charcoal-900'}`}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d={item.icon} />
             </svg>

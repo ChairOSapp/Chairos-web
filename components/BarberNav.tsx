@@ -22,9 +22,9 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
   }
 
   return (
-    <header className="bg-neutral-900 border-b border-neutral-800 px-4 h-14 flex items-center justify-between sticky top-0 z-50">
+    <header className="bg-warm-100 border-b border-warm-200 px-4 h-14 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-1">
-        <span className="font-serif text-amber-500 text-lg mr-4">ChairOS</span>
+        <span className="font-serif text-od-green text-lg mr-4">ChairOS</span>
         {[
           { label: 'My Schedule', href: '/dashboard/barber' },
           { label: 'My Profile', href: '/dashboard/barber/settings' },
@@ -33,7 +33,7 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
           return (
             <button key={item.href} onClick={() => router.push(item.href)}
               className={`hidden md:flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                active ? 'bg-amber-500/15 text-amber-500' : 'text-neutral-500 hover:text-white hover:bg-neutral-800'
+                active ? 'bg-od-green/15 text-od-green' : 'text-charcoal-500 hover:text-white hover:bg-warm-200'
               }`}>
               {item.label}
             </button>
@@ -42,8 +42,8 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
       </div>
       <div className="flex items-center gap-3">
         <div className="hidden sm:block text-right">
-          <div className="text-xs font-medium text-white">{barberName}</div>
-          <div className="text-xs text-neutral-500">{shopName}</div>
+          <div className="text-xs font-medium text-charcoal-900">{barberName}</div>
+          <div className="text-xs text-charcoal-500">{shopName}</div>
         </div>
         {userId && <NotificationBell userId={userId} />}
         {userId && <NotificationToast userId={userId} />}
@@ -53,7 +53,7 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
             ? <img src={photoUrl} alt="" className="w-full h-full object-cover" />
             : initial}
         </div>
-        <button onClick={handleSignOut} className="text-xs text-neutral-500 hover:text-white transition-colors">
+        <button onClick={handleSignOut} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">
           Sign out
         </button>
       </div>

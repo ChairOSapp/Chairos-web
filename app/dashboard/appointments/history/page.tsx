@@ -44,8 +44,8 @@ export default function AppointmentHistory() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-amber-500 text-sm">Loading...</div>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="text-od-green text-sm">Loading...</div>
     </div>
   )
 
@@ -62,8 +62,8 @@ export default function AppointmentHistory() {
     if (s === 'done') return 'bg-green-500/10 text-green-500'
     if (s === 'confirmed') return 'bg-blue-500/10 text-blue-400'
     if (s === 'noshow') return 'bg-red-500/10 text-red-400'
-    if (s === 'cancelled') return 'bg-neutral-800 text-neutral-500'
-    return 'bg-neutral-800 text-neutral-500'
+    if (s === 'cancelled') return 'bg-warm-200 text-charcoal-500'
+    return 'bg-warm-200 text-charcoal-500'
   }
 
   const getBarberName = (barberId: string) => {
@@ -74,29 +74,29 @@ export default function AppointmentHistory() {
   const months = [...new Set(appointments.map(a => a.date?.slice(0, 7)))].slice(0, 12)
 
   return (
-    <div className="min-h-screen bg-neutral-950">
-      <header className="bg-neutral-900 border-b border-neutral-800 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
-        <span className="font-serif text-amber-500 text-lg">ChairOS</span>
-        <button onClick={() => router.push('/dashboard')} className="text-xs text-neutral-500 hover:text-white transition-colors">← Dashboard</button>
+    <div className="min-h-screen bg-warm-50">
+      <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
+        <span className="font-serif text-od-green text-lg">ChairOS</span>
+        <button onClick={() => router.push('/dashboard')} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">← Dashboard</button>
       </header>
 
       <div className="p-6 max-w-4xl mx-auto pb-20 md:pb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="font-serif text-2xl text-white mb-1">Appointment History</h1>
-            <p className="text-neutral-500 text-sm">{filtered.length} appointments · ${totalRevenue.toFixed(2)} revenue</p>
+            <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Appointment History</h1>
+            <p className="text-charcoal-500 text-sm">{filtered.length} appointments · ${totalRevenue.toFixed(2)} revenue</p>
           </div>
         </div>
 
         {/* FILTERS */}
         <div className="flex gap-3 flex-wrap mb-6">
           <select value={filterBarber} onChange={e => setFilterBarber(e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+            className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
             <option value="">All Barbers</option>
             {barbers.map(b => <option key={b.id} value={b.barber_id}>{b.barber_name || b.alias}</option>)}
           </select>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+            className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
             <option value="">All Statuses</option>
             <option value="done">Done</option>
             <option value="confirmed">Confirmed</option>
@@ -105,7 +105,7 @@ export default function AppointmentHistory() {
             <option value="cancelled">Cancelled</option>
           </select>
           <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
-            className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+            className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
             <option value="">All Months</option>
             {months.map(m => (
               <option key={m} value={m}>
@@ -115,33 +115,33 @@ export default function AppointmentHistory() {
           </select>
           {(filterBarber || filterStatus || filterMonth) && (
             <button onClick={() => { setFilterBarber(''); setFilterStatus(''); setFilterMonth('') }}
-              className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-400 hover:text-white transition-colors">
+              className="px-3 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:text-charcoal-900 transition-colors">
               Clear filters
             </button>
           )}
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
           {filtered.length === 0 ? (
-            <div className="p-8 text-center text-neutral-500 text-sm">No appointments found.</div>
+            <div className="p-8 text-center text-charcoal-500 text-sm">No appointments found.</div>
           ) : (
-            <div className="divide-y divide-neutral-800">
+            <div className="divide-y divide-warm-200">
               {filtered.map(a => (
                 <div key={a.id} className="px-5 py-4">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-3">
-                      <span className="font-mono text-xs text-neutral-500">
+                      <span className="font-mono text-xs text-charcoal-500">
                         {new Date(a.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>
-                      <span className="font-mono text-xs text-amber-500">{a.time?.slice(0,5)}</span>
+                      <span className="font-mono text-xs text-od-green">{a.time?.slice(0,5)}</span>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor(a.status)}`}>
                         {a.status}
                       </span>
                     </div>
-                    <span className="font-mono text-sm text-white font-semibold">${a.price}</span>
+                    <span className="font-mono text-sm text-charcoal-900 font-semibold">${a.price}</span>
                   </div>
-                  <div className="text-sm font-semibold text-white">{a.client_name}</div>
-                  <div className="text-xs text-neutral-500 mt-0.5">
+                  <div className="text-sm font-semibold text-charcoal-900">{a.client_name}</div>
+                  <div className="text-xs text-charcoal-500 mt-0.5">
                     {a.services?.name} · {getBarberName(a.barber_id)} · {a.client_phone}
                   </div>
                 </div>

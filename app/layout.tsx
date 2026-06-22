@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#b8861f',
+  themeColor: '#4B5320',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="ChairOS" />
       </head>
-      <body className="min-h-screen bg-neutral-950 antialiased" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+      <body className="min-h-screen bg-warm-50 antialiased" style={{ fontFamily: 'var(--font-dm-sans)' }}>
         {children}
       </body>
     </html>

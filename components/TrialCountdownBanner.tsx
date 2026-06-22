@@ -25,7 +25,7 @@ export default function TrialCountdownBanner({
     <div className={`flex items-center justify-between gap-4 rounded-xl px-4 py-3 mb-5 border text-sm ${
       urgent
         ? 'bg-red-950/60 border-red-800/60 text-red-300'
-        : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+        : 'bg-od-green/10 border-od-green/20 text-od-green-light'
     }`}>
       <div className="flex items-center gap-2.5">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
@@ -39,7 +39,7 @@ export default function TrialCountdownBanner({
       </div>
       <button
         onClick={() => router.push('/subscribe')}
-        className="flex-shrink-0 bg-amber-500 hover:bg-amber-400 text-black font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors"
+        className="flex-shrink-0 bg-od-green hover:bg-od-green-light text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors"
       >
         Subscribe
       </button>
