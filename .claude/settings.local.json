@@ -3,7 +3,22 @@
     "allow": [
       "Bash(git add *)",
       "Bash(git commit -m 'owner client modal with call/text, copy booking link button *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Skill(run)",
+      "Bash(npm run *)",
+      "Bash(cat /tmp/nextjs-dev.log)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "Bash(node -e \"const s = require\\('C:/Users/tbbry/Chairos-web/node_modules/stripe'\\); console.log\\(s.PACKAGE_VERSION || 'unknown'\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d['version']\\)\")",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(pkill -f \"next dev\")",
+      "Read(//tmp/**)",
+      "PowerShell(taskkill *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/subscribe)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X POST http://localhost:3000/api/stripe/checkout -H \"Content-Type: application/json\" -d '{\"plan\":\"owner\"}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X POST http://localhost:3000/api/stripe/webhook -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(git -C \"C:/Users/tbbry/Chairos-web\" status --short)",
+      "Bash(git commit *)"
     ]
   }
 }

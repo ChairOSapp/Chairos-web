@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import twilio from 'twilio'
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID!,
-  process.env.TWILIO_AUTH_TOKEN!
-)
-
 export async function POST(req: NextRequest) {
   try {
     const { to, message } = await req.json()
@@ -13,6 +8,11 @@ export async function POST(req: NextRequest) {
     if (!to || !message) {
       return NextResponse.json({ error: 'Missing to or message' }, { status: 400 })
     }
+
+    const client = twilio(
+      process.env.TWILIO_ACCOUNT_SID!,
+      process.env.TWILIO_AUTH_TOKEN!
+    )
 
     // Clean phone number — strip everything except digits and leading +
     const cleaned = to.replace(/[^\d+]/g, '')

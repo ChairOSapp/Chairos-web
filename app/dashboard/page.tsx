@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import TrialCountdownBanner from '@/components/TrialCountdownBanner'
 
 const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
   appointmentId: string
@@ -386,6 +387,11 @@ export default function Dashboard() {
       <OwnerNav shopName={shop?.name || ''} ownerName={profile?.full_name || ''} initials={profile?.full_name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || shop?.name?.substring(0,2).toUpperCase() || 'OS'} userId={profile?.id} />
 
       <div className="p-5 max-w-2xl mx-auto pb-24">
+
+        <TrialCountdownBanner
+          subscriptionStatus={profile?.subscription_status ?? null}
+          trialEnd={profile?.trial_end ?? null}
+        />
 
         {/* GREETING */}
         <div className="mb-5">

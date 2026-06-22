@@ -162,7 +162,7 @@ export default function Onboarding() {
         if (bErr) throw bErr
       }
 
-      router.push('/dashboard')
+      router.push('/subscribe?plan=owner')
     } catch (err: any) {
       setError(err.message)
       setLoading(false)
