@@ -107,6 +107,21 @@ export default function TipsPage() {
           <p className="text-charcoal-500 text-sm">{shop?.name}</p>
         </div>
 
+        {shop?.barbers_collect_own_payments ? (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-od-green/10 border border-od-green/20 flex items-center justify-center mx-auto mb-4">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="20" height="20" className="text-od-green">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div className="font-serif text-charcoal-900 text-lg mb-2">Barbers collect their own tips</div>
+            <p className="text-sm text-charcoal-500 mb-4">Your shop is set up so each barber receives tips directly through their own Square account. You don't handle tip payouts.</p>
+            <a href="/dashboard/settings" className="inline-flex items-center gap-1.5 text-xs font-semibold text-od-green hover:underline">
+              Change in Settings →
+            </a>
+          </div>
+        ) : (
+        <>
         {/* SUMMARY TILES */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
@@ -223,6 +238,8 @@ export default function TipsPage() {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
       <MobileNav />
     </div>

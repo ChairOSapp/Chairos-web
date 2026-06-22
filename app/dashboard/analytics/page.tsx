@@ -534,7 +534,7 @@ export default function AnalyticsPage() {
             <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
               <div className="px-5 py-4 border-b border-warm-200">
                 <div className="font-serif text-charcoal-900">Barber Performance</div>
-                <div className="text-xs text-charcoal-500 mt-0.5">Cuts + tips for selected period · ranked by total earnings</div>
+                <div className="text-xs text-charcoal-500 mt-0.5">{shop?.barbers_collect_own_payments ? 'Cuts for selected period · ranked by earnings' : 'Cuts + tips for selected period · ranked by total earnings'}</div>
               </div>
               <div className="divide-y divide-warm-200">
                 {barberPerf.map((b, i) => {
@@ -563,15 +563,17 @@ export default function AnalyticsPage() {
                           <div className="text-xs text-charcoal-400">total</div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className={`grid gap-2 mb-3 ${shop?.barbers_collect_own_payments ? 'grid-cols-1' : 'grid-cols-2'}`}>
                         <div className="bg-warm-200/60 rounded-lg px-3 py-2 text-center">
                           <div className="font-mono text-sm font-semibold text-charcoal-900">${cuts.toFixed(0)}</div>
                           <div className="text-[10px] font-semibold tracking-widest uppercase text-charcoal-500">Cuts</div>
                         </div>
-                        <div className="bg-warm-200/60 rounded-lg px-3 py-2 text-center">
-                          <div className="font-mono text-sm font-semibold text-green-500">${tips.toFixed(0)}</div>
-                          <div className="text-[10px] font-semibold tracking-widest uppercase text-charcoal-500">Tips</div>
-                        </div>
+                        {!shop?.barbers_collect_own_payments && (
+                          <div className="bg-warm-200/60 rounded-lg px-3 py-2 text-center">
+                            <div className="font-mono text-sm font-semibold text-green-500">${tips.toFixed(0)}</div>
+                            <div className="text-[10px] font-semibold tracking-widest uppercase text-charcoal-500">Tips</div>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-warm-200 rounded-full overflow-hidden">

@@ -259,7 +259,8 @@ function BarberSettingsInner() {
           </div>
         </div>
 
-        {/* SQUARE PAYMENTS */}
+        {/* SQUARE PAYMENTS — only shown when shop lets barbers collect their own */}
+        {shop?.barbers_collect_own_payments ? (
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-warm-200 flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-warm-200 border border-warm-300 flex items-center justify-center flex-shrink-0">
@@ -313,6 +314,17 @@ function BarberSettingsInner() {
             )}
           </div>
         </div>
+        ) : (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-6 flex items-center gap-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" className="text-charcoal-400 flex-shrink-0">
+              <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>
+            </svg>
+            <div>
+              <div className="text-sm font-semibold text-charcoal-900">Payments handled by shop</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">Your shop owner processes payments and tips. No Square connection needed on your end.</div>
+            </div>
+          </div>
+        )}
 
         <button onClick={handleSave} disabled={saving}
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
