@@ -1,77 +1,81 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { SquareClient, SquareEnvironment } from 'square'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
+// Handles Square OAuth callback — exchanges the code for an access token
+// and saves it to either shops (owner) or shop_barbers (barber).
 export async function GET(req: NextRequest) {
-  const { searchParams, origin } = new URL(req.url)
+  const { searchParams } = req.nextUrl
   const code = searchParams.get('code')
-  const state = searchParams.get('state') // user ID encoded as state
+  const state = searchParams.get('state')
   const errorParam = searchParams.get('error')
 
-  if (errorParam || !code || !state) {
-    return NextResponse.redirect(`${origin}/dashboard/barber/settings?square_error=access_denied`)
+  const origin = new URL(req.url).origin
+
+  if (errorParam) {
+    return NextResponse.redirect(`${origin}/dashboard/settings?square_error=${errorParam}`)
   }
 
+  if (!code || !state) {
+    return NextResponse.redirect(`${origin}/dashboard/settings?square_error=missing_params`)
+  }
+
+  let parsed: { userId: string; role: string }
   try {
-    const redirectUri = `${origin}/api/square/callback`
-    const isProd = process.env.SQUARE_ENVIRONMENT === 'production'
-
-    // Exchange authorization code for access token
-    const tokenRes = await fetch(
-      isProd
-        ? 'https://connect.squareup.com/oauth2/token'
-        : 'https://connect.squareupsandbox.com/oauth2/token',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Square-Version': '2024-01-18' },
-        body: JSON.stringify({
-          client_id: process.env.SQUARE_APPLICATION_ID,
-          client_secret: process.env.SQUARE_APPLICATION_SECRET,
-          code,
-          grant_type: 'authorization_code',
-          redirect_uri: redirectUri,
-        }),
-      }
-    )
-
-    const tokenData = await tokenRes.json()
-
-    if (!tokenRes.ok || !tokenData.access_token) {
-      console.error('Square token exchange failed:', tokenData)
-      return NextResponse.redirect(`${origin}/dashboard/barber/settings?square_error=token_failed`)
-    }
-
-    // Fetch merchant locations using the new access token
-    const barberClient = new SquareClient({
-      token: tokenData.access_token,
-      environment: isProd ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
-    })
-
-    const { locations } = await barberClient.locations.list()
-    const primaryLocation = locations?.find(l => l.status === 'ACTIVE') ?? locations?.[0]
-
-    await supabase
-      .from('square_accounts')
-      .upsert(
-        {
-          user_id: state,
-          square_merchant_id: tokenData.merchant_id,
-          square_access_token: tokenData.access_token,
-          square_refresh_token: tokenData.refresh_token ?? null,
-          square_location_id: primaryLocation?.id ?? null,
-          connected_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
-
-    return NextResponse.redirect(`${origin}/dashboard/barber/settings?square_connected=1`)
-  } catch (err: any) {
-    console.error('Square OAuth callback error:', err)
-    return NextResponse.redirect(`${origin}/dashboard/barber/settings?square_error=server_error`)
+    parsed = JSON.parse(Buffer.from(state, 'base64').toString())
+  } catch {
+    return NextResponse.redirect(`${origin}/dashboard/settings?square_error=invalid_state`)
   }
+
+  const { userId, role } = parsed
+  const redirectBase = role === 'barber' ? `${origin}/dashboard/barber/settings` : `${origin}/dashboard/settings`
+
+  const appId = process.env.SQUARE_APP_ID
+  const appSecret = process.env.SQUARE_APP_SECRET
+  if (!appId || !appSecret) {
+    return NextResponse.redirect(`${redirectBase}?square_error=not_configured`)
+  }
+
+  const redirectUri = `${origin}/api/square/callback`
+
+  const tokenRes = await fetch('https://connect.squareup.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Square-Version': '2024-01-18' },
+    body: JSON.stringify({
+      client_id: appId,
+      client_secret: appSecret,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+    }),
+  })
+
+  if (!tokenRes.ok) {
+    return NextResponse.redirect(`${redirectBase}?square_error=token_exchange_failed`)
+  }
+
+  const tokenData = await tokenRes.json()
+  const { access_token, refresh_token, expires_at, merchant_id } = tokenData
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  if (role === 'barber') {
+    await supabase.from('shop_barbers').update({
+      square_access_token: access_token,
+      square_refresh_token: refresh_token,
+      square_merchant_id: merchant_id,
+      square_token_expires_at: expires_at,
+    }).eq('barber_id', userId)
+  } else {
+    await supabase.from('shops').update({
+      square_access_token: access_token,
+      square_refresh_token: refresh_token,
+      square_merchant_id: merchant_id,
+      square_token_expires_at: expires_at,
+    }).eq('owner_id', userId)
+  }
+
+  return NextResponse.redirect(`${redirectBase}?square_connected=1`)
 }

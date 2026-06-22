@@ -24,6 +24,9 @@ export default function ShopSettings() {
   const [uploadingHero, setUploadingHero] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
+  const [squareConnected, setSquareConnected] = useState(false)
+  const [squareMerchantId, setSquareMerchantId] = useState<string | null>(null)
+  const [disconnectingSquare, setDisconnectingSquare] = useState(false)
 
   // Form state
   const [name, setName] = useState('')
@@ -70,6 +73,20 @@ export default function ShopSettings() {
     setLogoUrl(shop.logo_url || '')
     setHeroUrl(shop.hero_url || '')
     if (shop.hours) setHours(shop.hours)
+    setSquareConnected(!!shop.square_access_token)
+    setSquareMerchantId(shop.square_merchant_id || null)
+
+    // Handle Square OAuth return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('square_connected') === '1') {
+      setSuccess('Square account connected successfully.')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+    if (params.get('square_error')) {
+      setError(`Square connection failed: ${params.get('square_error')}`)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+
     setLoading(false)
   }
 
@@ -110,6 +127,22 @@ export default function ShopSettings() {
       await supabase.from('shops').update({ hero_url: url }).eq('id', shop.id)
     }
     setUploadingHero(false)
+  }
+
+  async function handleSquareDisconnect() {
+    setDisconnectingSquare(true)
+    try {
+      await fetch('/api/square/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'owner' }),
+      })
+      setSquareConnected(false)
+      setSquareMerchantId(null)
+      setSuccess('Square account disconnected.')
+    } finally {
+      setDisconnectingSquare(false)
+    }
   }
 
   async function handleSave() {
@@ -393,6 +426,61 @@ export default function ShopSettings() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* SQUARE PAYMENTS */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-warm-200 border border-warm-300 flex items-center justify-center flex-shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" className="text-charcoal-500">
+                <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>
+              </svg>
+            </div>
+            <div>
+              <div className="font-serif text-charcoal-900 text-sm">Square Payments</div>
+              <div className="text-xs text-charcoal-500">Accept payments for appointments directly</div>
+            </div>
+            {squareConnected && (
+              <span className="ml-auto text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-od-green/10 text-od-green border border-od-green/20">
+                Connected
+              </span>
+            )}
+          </div>
+          <div className="p-5">
+            {squareConnected ? (
+              <div>
+                {squareMerchantId && (
+                  <div className="text-xs text-charcoal-500 mb-4">
+                    Merchant ID: <span className="font-mono text-charcoal-900">{squareMerchantId}</span>
+                  </div>
+                )}
+                <p className="text-xs text-charcoal-500 mb-4">
+                  Your Square account is linked. Appointment payments processed through Square will automatically update the payment status in ChairOS.
+                </p>
+                <button
+                  onClick={handleSquareDisconnect}
+                  disabled={disconnectingSquare}
+                  className="px-4 py-2 rounded-lg border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">
+                  {disconnectingSquare ? 'Disconnecting...' : 'Disconnect Square'}
+                </button>
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs text-charcoal-500 mb-4">
+                  Connect your Square account to accept appointment payments directly. Payments will sync back to ChairOS and mark appointments as paid automatically.
+                </p>
+                <a
+                  href="/api/square/connect?role=owner"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-charcoal-900 text-white text-xs font-semibold hover:opacity-90 transition-opacity">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                  Connect Square Account
+                </a>
+                <p className="text-xs text-charcoal-400 mt-3">You'll be redirected to Square to authorize. Your access token is stored securely.</p>
+              </div>
+            )}
           </div>
         </div>
 
