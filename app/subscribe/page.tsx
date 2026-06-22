@@ -64,7 +64,7 @@ export default function Subscribe() {
         <div className="text-center mb-10">
           <h1 className="font-serif text-3xl text-amber-500 mb-2">ChairOS</h1>
           <h2 className="font-serif text-2xl text-white mb-2">Choose your plan</h2>
-          <p className="text-neutral-400 text-sm">30-day free trial on every plan. No credit card required upfront.</p>
+          <p className="text-neutral-400 text-sm">Start your 30-day free trial — cancel anytime.</p>
         </div>
 
         {error && (

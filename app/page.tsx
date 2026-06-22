@@ -123,7 +123,7 @@ export default function LandingPage() {
           </button>
         </div>
         <div data-anim style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' as const }}>
-          {['No credit card required', 'Built for shop owners', 'Cancel anytime'].map((t, i) => (
+          {['30-day free trial', 'Built for shop owners', 'Cancel anytime'].map((t, i) => (
             <span key={i} style={{ fontSize: '12px', color: '#4a4845' }}>{t}</span>
           ))}
         </div>
@@ -348,7 +348,7 @@ export default function LandingPage() {
           </div>
           <div style={{ fontSize: 'clamp(24px, 5vw, 32px)', fontWeight: 400, letterSpacing: '-0.6px', color: '#f5f0e8', marginBottom: '8px' }}>Start your free trial.</div>
           <div style={{ fontSize: '15px', color: '#6b6760', marginBottom: '28px', lineHeight: 1.6 }}>
-            30 days free. No credit card.<br />Founding members lock in current pricing forever.
+            Start your 30-day free trial — cancel anytime.<br />Founding members lock in current pricing forever.
           </div>
           {joined ? (
             <div style={{ background: '#1e2e1a', border: '0.5px solid #3a5530', borderRadius: '12px', padding: '20px', maxWidth: '400px', margin: '0 auto' }}>

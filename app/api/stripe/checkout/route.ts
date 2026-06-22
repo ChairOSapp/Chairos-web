@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
 
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: 'subscription',
+      payment_method_collection: 'always',
       line_items: [{ price: PRICES[plan], quantity: 1 }],
       subscription_data: {
         trial_period_days: 30,
