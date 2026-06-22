@@ -40,6 +40,26 @@ export async function POST(req: NextRequest) {
         subscription_status: subscription.status,
         subscription_end_date: new Date((subscription as any).current_period_end * 1000).toISOString(),
       }).eq('id', userId)
+
+      if (process.env.SLACK_WEBHOOK_URL) {
+        const plan = session.metadata?.plan || 'unknown'
+        const email = session.customer_email || session.customer_details?.email || 'unknown'
+        const planLabel = plan === 'owner' ? 'Shop Owner ($99/mo)' : plan === 'barber' ? 'Solo Barber ($25/mo)' : plan
+        await fetch(process.env.SLACK_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: `🎉 New ChairOS subscriber!`,
+            blocks: [{
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `*🎉 New subscriber!*\n*Plan:* ${planLabel}\n*Email:* ${email}`,
+              },
+            }],
+          }),
+        }).catch(() => {})
+      }
       break
     }
 
