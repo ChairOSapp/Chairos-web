@@ -196,6 +196,32 @@ export default function BarberEarningsPage() {
               <div className="text-xs text-charcoal-500">{filteredAppointments.length} appointments</div>
             </div>
 
+            {/* EARNINGS BAR CHART */}
+            {byDay.length > 0 && (() => {
+              const barColor = shopBarber?.color || '#4B5320'
+              const chartDays = byDay.slice().reverse()
+              const values = chartDays.map(d => d.total)
+              const maxVal = Math.max(...values, 1)
+              const W = 600
+              const H = 100
+              const slotW = W / chartDays.length
+              const barW = Math.max(2, slotW - 2)
+              return (
+                <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-4">
+                  <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Daily Earnings</div>
+                  <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
+                    <line x1="0" y1={H} x2={W} y2={H} stroke="#e8e0d5" strokeWidth="1" />
+                    {chartDays.map((d, i) => {
+                      const barH = Math.max(2, (d.total / maxVal) * (H - 6))
+                      const x = i * slotW + (slotW - barW) / 2
+                      const y = H - barH
+                      return <rect key={d.date} x={x} y={y} width={barW} height={barH} fill={barColor} rx="1" opacity="0.85" />
+                    })}
+                  </svg>
+                </div>
+              )
+            })()}
+
             {/* THREE CLICKABLE TILES */}
             <div className="grid grid-cols-3 gap-3 mb-6">
               <button onClick={() => setDrillMode('appointments')}

@@ -407,18 +407,27 @@ export default function Dashboard() {
         {/* HERO — MONEY */}
         <div className="bg-warm-100 border border-warm-200 rounded-2xl p-5 mb-4">
           <div className="flex items-start justify-between mb-4">
-            <div>
+            <button
+              onClick={() => router.push('/dashboard/revenue')}
+              className="text-left hover:opacity-80 transition-opacity">
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Today's revenue</div>
               <div className="font-serif text-5xl text-charcoal-900 leading-none mb-1">
                 ${todayRevenue.toFixed(2)}
               </div>
               <div className="text-xs text-charcoal-500">{doneCount} completed · {appointments.length} total today</div>
-            </div>
-            <button
-              onClick={() => router.push('/dashboard/appointments/history')}
-              className="text-xs text-od-green hover:text-od-green-light transition-colors flex-shrink-0 mt-1">
-              History →
             </button>
+            <div className="flex flex-col items-end gap-1 flex-shrink-0 mt-1">
+              <button
+                onClick={() => router.push('/dashboard/appointments/history')}
+                className="text-xs text-od-green hover:text-od-green-light transition-colors">
+                History →
+              </button>
+              <button
+                onClick={() => router.push('/dashboard/analytics')}
+                className="text-xs text-charcoal-500 hover:text-od-green transition-colors">
+                Analytics →
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-2 pt-4 border-t border-warm-200">
             <button
