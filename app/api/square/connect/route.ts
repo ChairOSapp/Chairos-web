@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-const SCOPES = 'MERCHANT_PROFILE_READ PAYMENTS_WRITE PAYMENTS_READ ORDERS_WRITE ORDERS_READ'
-
+// Redirects the user to Square's OAuth authorization page.
+// Query param ?role=owner|barber to track who is connecting.
 export async function GET(req: NextRequest) {
+  const role = req.nextUrl.searchParams.get('role') || 'owner'
+
+  const appId = process.env.SQUARE_APP_ID
+  if (!appId) {
+    return NextResponse.json({ error: 'SQUARE_APP_ID not configured' }, { status: 500 })
+  }
+
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,30 +19,25 @@ export async function GET(req: NextRequest) {
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-        },
+        setAll(cs) { cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) },
       },
     }
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.redirect(new URL('/login', req.url))
+
+  const state = Buffer.from(JSON.stringify({ userId: user.id, role })).toString('base64')
 
   const origin = new URL(req.url).origin
   const redirectUri = `${origin}/api/square/callback`
 
-  const isProd = process.env.SQUARE_ENVIRONMENT === 'production'
-  const baseUrl = isProd
-    ? 'https://connect.squareup.com/oauth2/authorize'
-    : 'https://connect.squareupsandbox.com/oauth2/authorize'
+  const squareUrl = new URL('https://connect.squareup.com/oauth2/authorize')
+  squareUrl.searchParams.set('client_id', appId)
+  squareUrl.searchParams.set('scope', 'MERCHANT_PROFILE_READ PAYMENTS_READ PAYMENTS_WRITE')
+  squareUrl.searchParams.set('redirect_uri', redirectUri)
+  squareUrl.searchParams.set('state', state)
+  squareUrl.searchParams.set('session', 'false')
 
-  const url = new URL(baseUrl)
-  url.searchParams.set('client_id', process.env.SQUARE_APPLICATION_ID!)
-  url.searchParams.set('scope', SCOPES)
-  url.searchParams.set('state', user.id)
-  url.searchParams.set('response_type', 'code')
-  url.searchParams.set('redirect_uri', redirectUri)
-
-  return NextResponse.redirect(url.toString())
+  return NextResponse.redirect(squareUrl.toString())
 }

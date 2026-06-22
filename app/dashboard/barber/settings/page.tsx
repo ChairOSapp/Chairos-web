@@ -23,6 +23,9 @@ function BarberSettingsInner() {
   const [alias, setAlias] = useState('')
   const [bio, setBio] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
+  const [squareConnected, setSquareConnected] = useState(false)
+  const [squareMerchantId, setSquareMerchantId] = useState<string | null>(null)
+  const [disconnectingSquare, setDisconnectingSquare] = useState(false)
 
   const photoRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -67,13 +70,18 @@ function BarberSettingsInner() {
     setAlias(shopBarber.alias || '')
     setBio(shopBarber.bio || '')
     setPhotoUrl(shopBarber.photo_url || '')
+    setSquareConnected(!!shopBarber.square_access_token)
+    setSquareMerchantId(shopBarber.square_merchant_id || null)
 
-    const { data: sq } = await supabase
-      .from('square_accounts')
-      .select('square_merchant_id, square_location_id, connected_at')
-      .eq('user_id', user.id)
-      .maybeSingle()
-    setSquareAccount(sq || null)
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('square_connected') === '1') {
+      setSuccess('Square account connected successfully.')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+    if (params.get('square_error')) {
+      setError(`Square connection failed: ${params.get('square_error')}`)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
 
     setLoading(false)
   }
@@ -97,6 +105,22 @@ function BarberSettingsInner() {
     if (updateErr) { setError(updateErr.message); setUploadingPhoto(false); return }
     setPhotoUrl(data.publicUrl)
     setUploadingPhoto(false)
+  }
+
+  async function handleSquareDisconnect() {
+    setDisconnectingSquare(true)
+    try {
+      await fetch('/api/square/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'barber' }),
+      })
+      setSquareConnected(false)
+      setSquareMerchantId(null)
+      setSuccess('Square account disconnected.')
+    } finally {
+      setDisconnectingSquare(false)
+    }
   }
 
   async function handleSave() {
@@ -253,65 +277,58 @@ function BarberSettingsInner() {
         </div>
 
         {/* SQUARE PAYMENTS */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400">Square Payments</div>
-            {squareAccount && (
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-warm-200 border border-warm-300 flex items-center justify-center flex-shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" className="text-charcoal-500">
+                <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>
+              </svg>
+            </div>
+            <div>
+              <div className="font-serif text-charcoal-900 text-sm">Square Payments</div>
+              <div className="text-xs text-charcoal-500">Accept payments for your appointments directly</div>
+            </div>
+            {squareConnected && (
+              <span className="ml-auto text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-od-green/10 text-od-green border border-od-green/20">
                 Connected
               </span>
             )}
           </div>
-
-          {squareAccount ? (
-            <div className="space-y-3">
-              <div className="bg-neutral-800 rounded-lg px-4 py-3 space-y-1.5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-400">Merchant ID</span>
-                  <span className="text-white font-mono text-xs">{squareAccount.square_merchant_id}</span>
-                </div>
-                {squareAccount.square_location_id && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-neutral-400">Location ID</span>
-                    <span className="text-white font-mono text-xs">{squareAccount.square_location_id}</span>
+          <div className="p-5">
+            {squareConnected ? (
+              <div>
+                {squareMerchantId && (
+                  <div className="text-xs text-charcoal-500 mb-4">
+                    Merchant ID: <span className="font-mono text-charcoal-900">{squareMerchantId}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-400">Connected</span>
-                  <span className="text-neutral-400 text-xs">
-                    {new Date(squareAccount.connected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
-                </div>
+                <p className="text-xs text-charcoal-500 mb-4">
+                  Your Square account is linked. Payments you process through Square will automatically mark appointments as paid in ChairOS.
+                </p>
+                <button
+                  onClick={handleSquareDisconnect}
+                  disabled={disconnectingSquare}
+                  className="px-4 py-2 rounded-lg border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">
+                  {disconnectingSquare ? 'Disconnecting...' : 'Disconnect Square'}
+                </button>
               </div>
-              <p className="text-xs text-neutral-500">
-                Appointment payments go directly to your Square account.
-              </p>
-              <button
-                onClick={handleDisconnectSquare}
-                disabled={disconnectingSquare}
-                className="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50">
-                {disconnectingSquare ? 'Disconnecting...' : 'Disconnect Square account'}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-neutral-400">
-                Connect your Square account to receive appointment payments directly.
-              </p>
-              <button
-                onClick={() => { window.location.href = '/api/square/connect' }}
-                className="flex items-center gap-2 px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm font-semibold text-white hover:border-amber-500 transition-colors">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/>
-                </svg>
-                Connect Square Account
-              </button>
-              <p className="text-xs text-neutral-600">
-                You'll be redirected to Square to authorize. Your access token is stored securely.
-              </p>
-            </div>
-          )}
+            ) : (
+              <div>
+                <p className="text-xs text-charcoal-500 mb-4">
+                  Connect your Square account to receive appointment payments directly. Payments will sync back to ChairOS and mark appointments as paid automatically.
+                </p>
+                <a
+                  href="/api/square/connect?role=barber"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-charcoal-900 text-white text-xs font-semibold hover:opacity-90 transition-opacity">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                  Connect Square Account
+                </a>
+                <p className="text-xs text-charcoal-400 mt-3">You'll be redirected to Square to authorize. Your access token is stored securely.</p>
+              </div>
+            )}
+          </div>
         </div>
 
         <button onClick={handleSave} disabled={saving}
