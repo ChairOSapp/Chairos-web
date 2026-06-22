@@ -7,7 +7,11 @@ export async function POST(req: NextRequest) {
   try {
     const { plan } = await req.json() as { plan: 'owner' | 'barber' }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: 'Stripe is not configured. Add STRIPE_SECRET_KEY to your environment variables.' }, { status: 500 })
+    }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: '2026-05-27.dahlia' as any,
     })
 
