@@ -5,6 +5,24 @@ import { useRouter } from 'next/navigation'
 import BarberNav from '@/components/BarberNav'
 import BarberMobileNav from '@/components/BarberMobileNav'
 
+function getWeekDays(): Date[] {
+  const now = new Date()
+  const day = now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d
+  })
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 export default function BarberDashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [shopBarber, setShopBarber] = useState<any>(null)
@@ -18,6 +36,8 @@ export default function BarberDashboard() {
   const [loading, setLoading] = useState(true)
   const [barberId, setBarberId] = useState<string | null>(null)
   const [shopId, setShopId] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string>('')
+  const [weekAppointments, setWeekAppointments] = useState<any[]>([])
   const [showBooking, setShowBooking] = useState(false)
   const [bookingName, setBookingName] = useState('')
   const [bookingPhone, setBookingPhone] = useState('')
@@ -41,6 +61,9 @@ export default function BarberDashboard() {
 
   const loadLiveData = useCallback(async (uid: string, sid: string) => {
     const today = getToday()
+    const days = getWeekDays()
+    const weekStart = toDateStr(days[0])
+    const weekEnd = toDateStr(days[6])
 
     const { data: appointments } = await supabase
       .from('appointments')
@@ -49,6 +72,15 @@ export default function BarberDashboard() {
       .eq('date', today)
       .order('time', { ascending: true })
     setAppointments(appointments || [])
+
+    const { data: weekAppts } = await supabase
+      .from('appointments')
+      .select('*, services(*)')
+      .eq('barber_id', uid)
+      .gte('date', weekStart)
+      .lte('date', weekEnd)
+      .order('date').order('time', { ascending: true })
+    setWeekAppointments(weekAppts || [])
 
     const { data: tips } = await supabase
       .from('tips')
@@ -121,6 +153,7 @@ export default function BarberDashboard() {
       setLoading(false)
     }
     load()
+    setSelectedDate(toDateStr(new Date()))
   }, [])
 
   useEffect(() => {
@@ -474,27 +507,73 @@ export default function BarberDashboard() {
         </div>
 
         {/* SCHEDULE */}
-        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+        <div className="bg-warm-100 border border-warm-200 rounded-2xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-warm-200 flex justify-between items-center">
-            <div>
-              <div className="font-serif text-charcoal-900">Today's Schedule</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">{appointments.length} appointments</div>
-            </div>
-            <span className="text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full">
+            <div className="font-serif text-charcoal-900">Schedule</div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-600">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               Live
-            </span>
-          </div>
-          {appointments.length === 0 ? (
-            <div className="p-6 text-center text-charcoal-500 text-sm">
-              No appointments today. Your schedule updates in real time.
             </div>
-          ) : (
-            <div className="divide-y divide-warm-200">
-              {appointments.map((a) => (
-                <div key={a.id} className={`px-5 py-4 border-b border-warm-200 last:border-0 ${a.status === 'confirmed' ? 'bg-blue-500/5' : a.status === 'done' ? 'bg-green-500/5' : ''}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-sm text-od-green font-semibold">{a.time?.slice(0,5)}</span>
+          </div>
+
+          {/* Week strip */}
+          <div className="px-4 pt-3 pb-3 border-b border-warm-200">
+            <div className="grid grid-cols-7 gap-1">
+              {getWeekDays().map((d, i) => {
+                const ds = toDateStr(d)
+                const todayStr = toDateStr(new Date())
+                const isToday = ds === todayStr
+                const isSelected = ds === selectedDate
+                const hasAppts = weekAppointments.some(a => a.date === ds)
+                return (
+                  <button
+                    key={ds}
+                    onClick={() => setSelectedDate(ds)}
+                    className={`flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${
+                      isSelected
+                        ? 'bg-od-green text-white'
+                        : isToday
+                          ? 'bg-od-green/10 text-od-green'
+                          : 'hover:bg-warm-200 text-charcoal-500'
+                    }`}
+                  >
+                    <span className="text-[10px] font-semibold tracking-wide uppercase">
+                      {DAY_LABELS[i]}
+                    </span>
+                    <span className={`text-sm font-bold leading-none ${isSelected ? 'text-white' : isToday ? 'text-od-green' : 'text-charcoal-900'}`}>
+                      {d.getDate()}
+                    </span>
+                    <div className={`w-1 h-1 rounded-full ${hasAppts ? isSelected ? 'bg-white/70' : 'bg-od-green' : 'bg-transparent'}`} />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Timeline for selected day */}
+          {(() => {
+            const dayAppts = weekAppointments.filter(a => a.date === selectedDate).sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+            const todayStr = toDateStr(new Date())
+            if (dayAppts.length === 0) return (
+              <div className="p-6 text-center text-charcoal-500 text-sm">
+                {selectedDate === todayStr ? 'No appointments today. Your schedule updates in real time.' : 'No appointments this day.'}
+              </div>
+            )
+            return (
+              <div className="divide-y divide-warm-200">
+                {dayAppts.map((a) => (
+                  <div key={a.id} className="px-5 py-4">
+                    <div className="flex items-start gap-4 mb-2">
+                      <div className="font-mono text-sm text-od-green font-bold w-12 flex-shrink-0 pt-0.5">
+                        {a.time?.slice(0,5) || '—'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-charcoal-900">{a.client_name}</div>
+                        <div className="text-xs text-charcoal-500 mt-0.5">{a.services?.name} · {a.client_phone}</div>
+                      </div>
+                      <div className="font-mono text-sm font-bold text-charcoal-900 flex-shrink-0">${a.price}</div>
+                    </div>
+                    <div className="flex items-center gap-2 pl-16 flex-wrap">
                       <select
                         value={a.status}
                         disabled={statusUpdating[a.id]}
@@ -502,8 +581,7 @@ export default function BarberDashboard() {
                         className={`bg-warm-200 border border-warm-300 rounded-lg px-2 py-1 text-xs font-semibold outline-none transition-colors ${
                           a.status === 'done' ? 'text-green-400 border-green-500/30' :
                           a.status === 'confirmed' ? 'text-blue-400 border-blue-500/30' :
-                          a.status === 'noshow' ? 'text-red-400' :
-                          'text-charcoal-400'
+                          a.status === 'noshow' ? 'text-red-400' : 'text-charcoal-400'
                         }`}>
                         <option value="pending">Pending</option>
                         <option value="confirmed">Confirmed</option>
@@ -511,40 +589,29 @@ export default function BarberDashboard() {
                         <option value="noshow">No Show</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
+                      {a.status === 'done' && !tippedAppointments.has(a.id) && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-charcoal-500">Tip $</span>
+                          <input
+                            type="number" inputMode="decimal" min="0" step="0.01" placeholder="0.00"
+                            value={barberTipInput[a.id] || ''}
+                            onChange={e => { const val = e.target.value; if (parseFloat(val) < 0) return; setBarberTipInput(prev => ({ ...prev, [a.id]: val })) }}
+                            className="w-20 bg-warm-200 border border-warm-300 rounded-lg px-3 py-1.5 text-sm text-charcoal-900 outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            onClick={() => addBarberTip(a.id)}
+                            disabled={addingTip[a.id] || !barberTipInput[a.id]}
+                            className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50">
+                            {addingTip[a.id] ? '...' : '+ Tip'}
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <span className="text-xs font-mono text-od-green font-semibold">${a.price}</span>
                   </div>
-                  <div className="text-sm font-semibold text-charcoal-900 mb-0.5">{a.client_name}</div>
-                  <div className="text-xs text-charcoal-500 mb-3">{a.services?.name} · {a.client_phone}</div>
-                  {a.status === 'done' && !tippedAppointments.has(a.id) && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-charcoal-500">Tip $</span>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={barberTipInput[a.id] || ''}
-                        onChange={e => {
-                          const val = e.target.value
-                          if (parseFloat(val) < 0) return
-                          setBarberTipInput(prev => ({ ...prev, [a.id]: val }))
-                        }}
-                        className="w-20 bg-warm-200 border border-warm-300 rounded-lg px-3 py-1.5 text-sm text-charcoal-900 outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                      <button
-                        onClick={() => addBarberTip(a.id)}
-                        disabled={addingTip[a.id] || !barberTipInput[a.id]}
-                        className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50">
-                        {addingTip[a.id] ? '...' : '+ Tip'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )
+          })()}
         </div>
 
         {/* EARNINGS TOGGLE */}

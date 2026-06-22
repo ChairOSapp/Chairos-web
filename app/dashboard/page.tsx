@@ -20,26 +20,12 @@ const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
     const amount = parseFloat(value)
     if (!amount || amount <= 0 || !barberId) return
     setSaving(true)
-
-    const { data: existing } = await supabase
-      .from('tips')
-      .select('id')
-      .eq('appointment_id', appointmentId)
-      .eq('barber_id', barberId)
-      .maybeSingle()
-
+    const { data: existing } = await supabase.from('tips').select('id').eq('appointment_id', appointmentId).eq('barber_id', barberId).maybeSingle()
     if (existing) {
       await supabase.from('tips').update({ amount }).eq('id', existing.id)
     } else {
-      await supabase.from('tips').insert({
-        appointment_id: appointmentId,
-        barber_id: barberId,
-        shop_id: shopId,
-        amount,
-        cashed_out: false
-      })
+      await supabase.from('tips').insert({ appointment_id: appointmentId, barber_id: barberId, shop_id: shopId, amount, cashed_out: false })
     }
-
     setValue('')
     setSaving(false)
     onTipAdded()
@@ -49,23 +35,13 @@ const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
     <div className="flex items-center gap-1">
       <span className="text-charcoal-500 text-xs">$</span>
       <input
-        type="number"
-        inputMode="decimal"
-        min="0"
-        step="0.01"
-        placeholder="0.00"
+        type="number" inputMode="decimal" min="0" step="0.01" placeholder="0.00"
         value={value}
-        onChange={e => {
-          const val = e.target.value
-          if (val !== '' && parseFloat(val) < 0) return
-          setValue(val)
-        }}
+        onChange={e => { const v = e.target.value; if (v !== '' && parseFloat(v) < 0) return; setValue(v) }}
         autoComplete="off"
-        className="w-14 bg-warm-200 border border-warm-300 rounded px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-14 bg-warm-200 border border-warm-300 rounded px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-od-green [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
-      <button
-        onClick={handleAddTip}
-        disabled={saving || !value}
+      <button onClick={handleAddTip} disabled={saving || !value}
         className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded px-2 py-1.5 text-xs transition-colors disabled:opacity-50">
         {saving ? '...' : '+ Tip'}
       </button>
@@ -74,58 +50,65 @@ const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
 })
 TipInput.displayName = 'TipInput'
 
+function getWeekDays(): Date[] {
+  const now = new Date()
+  const day = now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d
+  })
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
+  const [allBarbers, setAllBarbers] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
-  const [appointments, setAppointments] = useState<any[]>([])
-  const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([])
+  const [todayAppointments, setTodayAppointments] = useState<any[]>([])
+  const [weekAppointments, setWeekAppointments] = useState<any[]>([])
   const [tips, setTips] = useState<any[]>([])
   const [clientLocks, setClientLocks] = useState<any[]>([])
-  const [yesterdayAppointments, setYesterdayAppointments] = useState<any[]>([])
-  const [yesterdayTips, setYesterdayTips] = useState<any[]>([])
-  const [allBarbers, setAllBarbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [shopId, setShopId] = useState<string | null>(null)
-  const [apptTab, setApptTab] = useState<'today'|'upcoming'>('today')
-  const [toast, setToast] = useState<{msg: string, type: 'success'|'error'} | null>(null)
-  const [addingTip, setAddingTip] = useState<string | null>(null)
-  const [cashingOut, setCashingOut] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string>('')
+  const [toast, setToast] = useState<{msg: string; type: 'success'|'error'} | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  const todayStr = toDateStr(new Date())
+  const weekDays = getWeekDays()
 
   const showToast = (msg: string, type: 'success'|'error' = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
   }
 
-  const getToday = () => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
-  }
+  const loadSchedule = useCallback(async (sid: string) => {
+    const today = toDateStr(new Date())
+    const days = getWeekDays()
+    const weekStart = toDateStr(days[0])
+    const weekEnd = toDateStr(days[6])
 
-  const loadAppointmentsAndTips = useCallback(async (sid: string) => {
-    const today = getToday()
+    const [{ data: todayAppts }, { data: weekAppts }, { data: tipsData }] = await Promise.all([
+      supabase.from('appointments').select('*, services(*)').eq('shop_id', sid).eq('date', today).order('time', { ascending: true }),
+      supabase.from('appointments').select('*, services(*)').eq('shop_id', sid).gte('date', weekStart).lte('date', weekEnd).order('date').order('time', { ascending: true }),
+      supabase.from('tips').select('*').eq('shop_id', sid).gte('created_at', today),
+    ])
 
-    const { data: todayAppts } = await supabase
-      .from('appointments').select('*, services(*)')
-      .eq('shop_id', sid).eq('date', today)
-      .order('time', { ascending: true })
-    setAppointments(todayAppts || [])
-
-    const { data: upcoming } = await supabase
-      .from('appointments').select('*, services(*)')
-      .eq('shop_id', sid).gt('date', today)
-      .order('date', { ascending: true })
-      .order('time', { ascending: true })
-    setUpcomingAppointments(upcoming || [])
-
-    const { data: tips } = await supabase
-      .from('tips').select('*')
-      .eq('shop_id', sid).gte('created_at', today)
-    setTips(tips || [])
+    setTodayAppointments(todayAppts || [])
+    setWeekAppointments(weekAppts || [])
+    setTips(tipsData || [])
   }, [])
 
   useEffect(() => {
@@ -133,103 +116,47 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: profile } = await supabase
-        .from('profiles').select('*').eq('id', user.id).maybeSingle()
-      setProfile(profile)
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+      setProfile(prof)
+      if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
 
-      if (profile?.role === 'barber') { router.push('/dashboard/barber'); return }
+      if (prof?.role === 'owner') {
+        const { data: shops } = await supabase.from('shops').select('*').eq('owner_id', user.id).order('created_at', { ascending: true }).limit(1)
+        const shopData = shops?.[0] || null
+        if (!shopData) { router.push('/onboarding'); return }
+        setShop(shopData)
+        setShopId(shopData.id)
 
-      if (profile?.role === 'owner') {
-        const { data: shops } = await supabase
-          .from('shops').select('*').eq('owner_id', user.id)
-          .order('created_at', { ascending: true }).limit(1)
-        const shop = shops?.[0] || null
-        if (!shop) { router.push('/onboarding'); return }
-        setShop(shop)
-        setShopId(shop.id)
+        const [{ data: barbersData }, { data: allBarbersData }, { data: svcs }, { data: locks }] = await Promise.all([
+          supabase.from('shop_barbers').select('*').eq('shop_id', shopData.id).eq('active', true),
+          supabase.from('shop_barbers').select('*').eq('shop_id', shopData.id).order('joined_at', { ascending: true }),
+          supabase.from('services').select('*').eq('shop_id', shopData.id).eq('active', true),
+          supabase.from('client_locks').select('id, locked, barber_id, shop_id, last_booking_date, loyalty_protected, client_id').eq('shop_id', shopData.id),
+        ])
 
-        const { data: barbers } = await supabase
-          .from('shop_barbers').select('*')
-          .eq('shop_id', shop.id).eq('active', true)
-        setBarbers(barbers || [])
-
-        const { data: allBarbersData } = await supabase
-          .from('shop_barbers').select('*')
-          .eq('shop_id', shop.id)
-          .order('joined_at', { ascending: true })
+        setBarbers(barbersData || [])
         setAllBarbers(allBarbersData || [])
-
-        const { data: services } = await supabase
-          .from('services').select('*')
-          .eq('shop_id', shop.id).eq('active', true)
-        setServices(services || [])
-
-        const { data: locks } = await supabase
-          .from('client_locks')
-          .select('id, locked, barber_id, shop_id, booking_count, first_booking_date, last_booking_date, loyalty_protected, updated_at, client_id, clients(id, full_name, phone, email, total_visits, last_visit_date)')
-          .eq('shop_id', shop.id)
+        setServices(svcs || [])
         setClientLocks(locks || [])
-
-        await loadAppointmentsAndTips(shop.id)
-
-        // Yesterday's data
-        const yesterday = new Date()
-        yesterday.setDate(yesterday.getDate() - 1)
-        const yesterdayStr = yesterday.toISOString().split('T')[0]
-
-        const { data: yesterdayAppts } = await supabase
-          .from('appointments')
-          .select('price, status')
-          .eq('shop_id', shop.id)
-          .eq('date', yesterdayStr)
-        setYesterdayAppointments(yesterdayAppts || [])
-
-        const { data: yesterdayTipsData } = await supabase
-          .from('tips')
-          .select('amount')
-          .eq('shop_id', shop.id)
-          .gte('created_at', `${yesterdayStr}T00:00:00`)
-          .lte('created_at', `${yesterdayStr}T23:59:59`)
-        setYesterdayTips(yesterdayTipsData || [])
+        await loadSchedule(shopData.id)
       }
 
       setLoading(false)
     }
     load()
+    setSelectedDate(toDateStr(new Date()))
   }, [])
 
   useEffect(() => {
     if (!shopId) return
     const channel = supabase
       .channel(`shop-${shopId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'appointments',
-        filter: `shop_id=eq.${shopId}`
-      }, () => {
-        loadAppointmentsAndTips(shopId)
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'tips',
-        filter: `shop_id=eq.${shopId}`
-      }, () => {
-        loadAppointmentsAndTips(shopId)
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'shop_barbers',
-        filter: `shop_id=eq.${shopId}`
-      }, async () => {
-        const { data: updatedBarbers } = await supabase
-          .from('shop_barbers').select('*')
-          .eq('shop_id', shopId)
-          .order('joined_at', { ascending: true })
-        setAllBarbers(updatedBarbers || [])
-        setBarbers((updatedBarbers || []).filter((b: any) => b.active))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `shop_id=eq.${shopId}` }, () => loadSchedule(shopId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tips', filter: `shop_id=eq.${shopId}` }, () => loadSchedule(shopId))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shop_barbers', filter: `shop_id=eq.${shopId}` }, async () => {
+        const { data: updated } = await supabase.from('shop_barbers').select('*').eq('shop_id', shopId).order('joined_at', { ascending: true })
+        setAllBarbers(updated || [])
+        setBarbers((updated || []).filter((b: any) => b.active))
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -238,6 +165,7 @@ export default function Dashboard() {
   async function updateAppointmentStatus(id: string, status: string) {
     const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
     if (error) showToast(error.message, 'error')
+    else if (shopId) loadSchedule(shopId)
   }
 
   async function updateAppointmentBarber(id: string, barberId: string) {
@@ -245,378 +173,221 @@ export default function Dashboard() {
     if (error) showToast(error.message, 'error')
   }
 
-  async function cashOutTips(barberId: string) {
-    if (!shop) return
-    setCashingOut(barberId)
-    const { error } = await supabase.from('tips')
-      .update({ cashed_out: true, cashed_out_at: new Date().toISOString() })
-      .eq('barber_id', barberId).eq('shop_id', shop.id).eq('cashed_out', false)
-    if (error) showToast(error.message, 'error')
-    else showToast('Tips cashed out')
-    setCashingOut(null)
-  }
-
   if (loading) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-      <div className="text-od-green text-sm">Loading...</div>
+      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
     </div>
   )
 
-  const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
-  const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
-  const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const ownerName = profile?.full_name || shop?.name || 'Owner'
+  const initials = ownerName.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase()
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const firstName = profile?.full_name?.split(' ')[0] || shop?.name?.split(' ')[0] || 'Boss'
 
-  const todayRevenue = appointments.filter(a => a.status === 'done').reduce((sum, a) => sum + (parseFloat(a.price) || 0), 0)
-  const totalTips = tips.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
-  const doneCount = appointments.filter(a => a.status === 'done').length
-  const noShowCount = appointments.filter(a => a.status === 'noshow').length
-  const noShowRate = appointments.length > 0 ? Math.round((noShowCount / appointments.length) * 100) : null
+  const todayRevenue = todayAppointments.filter(a => a.status === 'done').reduce((s, a) => s + (parseFloat(a.price) || 0), 0)
+  const totalTips = tips.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
+  const doneCount = todayAppointments.filter(a => a.status === 'done').length
+  const noShowCount = todayAppointments.filter(a => a.status === 'noshow').length
+  const noShowRate = todayAppointments.length > 0 ? Math.round((noShowCount / todayAppointments.length) * 100) : 0
 
-  const tipsByBarber = barbers.map(b => ({
-    ...b,
-    tips: tips.filter(t => t.barber_id === b.barber_id),
-    pendingTips: tips.filter(t => t.barber_id === b.barber_id && !t.cashed_out)
-      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
-  }))
+  const scheduleAppts = weekAppointments.filter(a => a.date === selectedDate)
+    .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
 
-  const locksByBarber = barbers.map(b => {
-    const barberLocks = clientLocks.filter(l => l.barber_id === b.barber_id)
-    const locked = barberLocks.filter(l => l.locked)
-    const atRisk = locked.filter(l => {
-      if (!l.last_booking_date) return false
-      const daysSince = Math.floor((Date.now() - new Date(l.last_booking_date).getTime()) / (1000 * 60 * 60 * 24))
-      return l.loyalty_protected ? daysSince > 300 : daysSince > 60
-    })
-    return { ...b, locked: locked.length, atRisk: atRisk.length, loyaltyProtected: locked.filter(l => l.loyalty_protected).length }
-  })
+  const daysWithAppts = new Set(weekAppointments.map(a => a.date))
 
   const totalLocked = clientLocks.filter(l => l.locked).length
-  const totalAtRisk = locksByBarber.reduce((sum, b) => sum + b.atRisk, 0)
+  const totalAtRisk = clientLocks.filter(l => {
+    if (!l.locked || !l.last_booking_date) return false
+    const days = Math.floor((Date.now() - new Date(l.last_booking_date).getTime()) / 86400000)
+    return l.loyalty_protected ? days > 300 : days > 60
+  }).length
   const totalFloating = clientLocks.filter(l => !l.locked).length
-  const lockedCount = totalLocked
-  const atRiskCount = totalAtRisk
-  const floatingCount = totalFloating
 
-  const statusColor = (s: string) => {
-    if (s === 'done') return 'text-green-500'
-    if (s === 'confirmed') return 'text-blue-400'
-    if (s === 'noshow') return 'text-red-400'
-    return 'text-charcoal-500'
+  const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+    done: { label: 'Done', cls: 'text-od-green bg-od-green/10' },
+    confirmed: { label: 'Confirmed', cls: 'text-blue-500 bg-blue-50' },
+    pending: { label: 'Pending', cls: 'text-charcoal-500 bg-warm-200' },
+    noshow: { label: 'No-show', cls: 'text-red-500 bg-red-50' },
+    cancelled: { label: 'Cancelled', cls: 'text-charcoal-400 bg-warm-200' },
   }
-
-  const displayAppts = apptTab === 'today' ? appointments : upcomingAppointments
-
-  const ApptTable = React.memo(({ appts }: { appts: any[] }) => (
-    appts.length === 0 ? (
-      <div className="p-6 text-center text-charcoal-500 text-sm">
-        {apptTab === 'today'
-          ? <>No appointments today. Share <span className="text-od-green font-mono">chairos.cc/book/{shop?.shop_code}</span> to start taking bookings.</>
-          : 'No upcoming appointments scheduled.'}
-      </div>
-    ) : (
-      <div className="divide-y divide-warm-200">
-        {appts.map((a) => (
-          <div key={a.id} className="px-5 py-4">
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div className="flex items-center gap-3">
-                <div className="font-mono text-sm text-od-green font-semibold w-16 flex-shrink-0">
-                  {a.time?.slice(0,5)}
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-charcoal-900">{a.client_name}</div>
-                  <div className="text-xs text-charcoal-500">{a.client_phone}</div>
-                </div>
-              </div>
-              {apptTab === 'upcoming' && (
-                <div className="text-xs font-mono text-charcoal-400 flex-shrink-0">
-                  {new Date(a.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-3 ml-19 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-charcoal-900 font-medium truncate">{a.services?.name}</div>
-                <div className="text-xs text-charcoal-500">${a.price}</div>
-              </div>
-              <select
-                value={a.barber_id || ''}
-                onChange={e => updateAppointmentBarber(a.id, e.target.value)}
-                className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-od-green max-w-32">
-                <option value="">Unassigned</option>
-                {barbers.map(b => (
-                  <option key={b.id} value={b.barber_id || ''}>{b.barber_name || b.alias}</option>
-                ))}
-              </select>
-              <select
-                value={a.status}
-                onChange={e => updateAppointmentStatus(a.id, e.target.value)}
-                className={`bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-od-green ${statusColor(a.status)}`}>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="done">Done</option>
-                <option value="noshow">No Show</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              {a.status === 'done' && (
-                <TipInput
-                  appointmentId={a.id}
-                  barberId={a.barber_id}
-                  shopId={shop.id}
-                  onTipAdded={() => shopId && loadAppointmentsAndTips(shopId)}
-                />
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  ))
 
   return (
     <div className="min-h-screen bg-warm-50">
       {toast && (
         <div className={`fixed bottom-20 md:bottom-6 right-6 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg ${
-          toast.type === 'error' ? 'bg-red-900 border border-red-700 text-red-200' : 'bg-warm-200 border border-green-700 text-green-300'
+          toast.type === 'error' ? 'bg-red-50 border border-red-200 text-red-600' : 'bg-warm-200 border border-od-green/30 text-od-green'
         }`}>
           {toast.msg}
         </div>
       )}
 
-      <OwnerNav shopName={shop?.name || ''} ownerName={profile?.full_name || ''} initials={profile?.full_name?.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || shop?.name?.substring(0,2).toUpperCase() || 'OS'} userId={profile?.id} />
+      <OwnerNav shopName={shop?.name || ''} ownerName={ownerName} initials={initials} userId={profile?.id} />
 
-      <div className="p-5 max-w-2xl mx-auto pb-24">
+      <div className="p-5 max-w-2xl mx-auto pb-24 md:pb-8">
 
+        {/* 1. TRIAL BANNER */}
         <TrialCountdownBanner
           subscriptionStatus={profile?.subscription_status ?? null}
           trialEnd={profile?.trial_end ?? null}
         />
 
-        {/* GREETING */}
+        {/* 2. HEADER */}
         <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-0.5">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </div>
           <div className="font-serif text-2xl text-charcoal-900">
-            {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'},{' '}
-            {profile?.full_name?.split(' ')[0] || shop?.name?.split(' ')[0] || 'Boss'}.
+            {greeting}, {firstName}.
           </div>
         </div>
 
-        {/* HERO — MONEY */}
-        <div className="bg-warm-100 border border-warm-200 rounded-2xl p-5 mb-4">
-          <div className="flex items-start justify-between mb-4">
-            <button
-              onClick={() => router.push('/dashboard/revenue')}
-              className="text-left hover:opacity-80 transition-opacity">
-              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Today's revenue</div>
-              <div className="font-serif text-5xl text-charcoal-900 leading-none mb-1">
-                ${todayRevenue.toFixed(2)}
-              </div>
-              <div className="text-xs text-charcoal-500">{doneCount} completed · {appointments.length} total today</div>
-            </button>
-            <div className="flex flex-col items-end gap-2 flex-shrink-0 mt-1">
-              <button
-                onClick={() => router.push('/dashboard/appointments/history')}
-                className="text-xs font-semibold px-3 py-1 rounded-full bg-od-green text-white hover:bg-od-green-light transition-colors">
-                History →
+        {/* 3. TODAY AT A GLANCE */}
+        <div className="bg-warm-100 border border-warm-200 rounded-2xl p-5 mb-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Today at a glance</div>
+            <div className="flex gap-2">
+              <button onClick={() => router.push('/dashboard/revenue')}
+                className="text-xs font-semibold px-3 py-1 rounded-full bg-od-green text-white hover:opacity-90 transition-opacity">
+                Revenue →
               </button>
-              <button
-                onClick={() => router.push('/dashboard/analytics')}
+              <button onClick={() => router.push('/dashboard/analytics')}
                 className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
-                Analytics →
+                CRM →
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-warm-200">
-            <button
-              onClick={() => router.push('/dashboard/tips')}
-              className="text-center hover:bg-warm-200/50 rounded-lg py-2 transition-colors">
-              <div className="font-serif text-xl text-green-400">${totalTips.toFixed(0)}</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">Tips</div>
+          <div className="font-serif text-5xl text-charcoal-900 leading-none mb-4">
+            ${todayRevenue.toFixed(2)}
+          </div>
+          <div className="grid grid-cols-2 gap-3 pt-4 border-t border-warm-200">
+            <div className="bg-warm-50 rounded-xl p-3">
+              <div className="font-serif text-xl text-charcoal-900">{doneCount} / {todayAppointments.length}</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">Appointments done</div>
+            </div>
+            <button onClick={() => router.push('/dashboard/tips')}
+              className="bg-warm-50 rounded-xl p-3 text-left hover:bg-warm-200 transition-colors">
+              <div className="font-serif text-xl text-green-500">${totalTips.toFixed(0)}</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">Tips today</div>
             </button>
-            <button
-              onClick={() => setApptTab('upcoming')}
-              className="text-center border-x border-warm-200 hover:bg-warm-200/50 rounded-lg py-2 transition-colors">
-              <div className="font-serif text-xl text-charcoal-900">{upcomingAppointments.length}</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">Upcoming</div>
-            </button>
-            <button
-              onClick={() => router.push('/dashboard/appointments/history')}
-              className="text-center hover:bg-warm-200/50 rounded-lg py-2 transition-colors">
+            <div className="bg-warm-50 rounded-xl p-3">
               <div className={`font-serif text-xl ${noShowCount > 0 ? 'text-red-400' : 'text-charcoal-900'}`}>
-                {noShowRate !== null ? `${noShowRate}%` : '0%'}
+                {noShowRate}%
               </div>
               <div className="text-xs text-charcoal-500 mt-0.5">No-show rate</div>
+            </div>
+            <button onClick={() => router.push('/dashboard/appointments/history')}
+              className="bg-warm-50 rounded-xl p-3 text-left hover:bg-warm-200 transition-colors">
+              <div className="font-serif text-xl text-charcoal-900">History</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">View all →</div>
             </button>
           </div>
         </div>
 
-        {/* YESTERDAY RECAP */}
-        <button
-          onClick={() => router.push('/dashboard/appointments/history')}
-          className="w-full bg-warm-100 border border-warm-200 rounded-xl p-4 mb-5 text-left hover:border-warm-300 transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">
-              {new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('en-US', { weekday: 'long' })}'s recap
-            </div>
-            <div className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10">View →</div>
-          </div>
-          {yesterdayAppointments.length > 0 ? (
-            <div className="flex divide-x divide-warm-200">
-              {[
-                { label: 'Revenue', value: `$${yesterdayAppointments.filter(a => a.status === 'done').reduce((s: number, a: any) => s + (parseFloat(a.price) || 0), 0).toFixed(0)}`, color: 'text-od-green' },
-                { label: 'Apts', value: yesterdayAppointments.length.toString(), color: 'text-charcoal-900' },
-                { label: 'Tips', value: `$${yesterdayTips.reduce((s: number, t: any) => s + (parseFloat(t.amount) || 0), 0).toFixed(0)}`, color: 'text-green-400' },
-                { label: 'No-shows', value: yesterdayAppointments.filter((a: any) => a.status === 'noshow').length.toString(), color: yesterdayAppointments.filter((a: any) => a.status === 'noshow').length > 0 ? 'text-red-400' : 'text-charcoal-400' },
-              ].map((s, i) => (
-                <div key={i} className="flex-1 text-center px-2">
-                  <div className={`font-serif text-xl ${s.color}`}>{s.value}</div>
-                  <div className="text-xs text-charcoal-500 mt-0.5">{s.label}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-charcoal-600">No appointments yesterday</div>
-          )}
-        </button>
-
-        {/* THE FLOOR */}
-        <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">The floor</div>
-          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 flex items-center justify-between border-b border-warm-200">
-              <div className="text-xs text-charcoal-500">{allBarbers.filter((b: any) => b.on_floor && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} barbers in</div>
-              <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                Live
-              </div>
-            </div>
-            {allBarbers.map((b: any, i: number) => {
-              const color = b.color || COLORS[i % COLORS.length]
-              const isLinked = !!b.barber_id
-              const isOn = b.on_floor && isLinked
-              return (
-                <div key={b.id} className="flex items-center gap-3 px-4 py-3 border-b border-warm-200 last:border-0">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-serif text-sm font-bold flex-shrink-0 overflow-hidden"
-                    style={{
-                      background: color + '22',
-                      border: `1.5px solid ${color}44`,
-                      color
-                    }}>
-                    {b.photo_url
-                      ? <img src={b.photo_url} alt="" className="w-full h-full object-cover" />
-                      : (b.barber_name || b.alias || '?')[0].toUpperCase()
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-charcoal-900 truncate">{b.barber_name || b.alias}</div>
-                    <div className="text-xs text-charcoal-500 mt-0.5">
-                      {b.compensation_type === 'commission'
-                        ? `${Math.round((b.commission_rate || 0.7) * 100)}% commission`
-                        : `Booth rent $${b.booth_rent_amount}/wk`}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className={`w-2.5 h-2.5 rounded-full ${isOn ? 'bg-green-500' : isLinked ? 'bg-warm-400' : 'bg-od-green/50'}`} />
-                    <div className={`text-xs font-semibold ${isOn ? 'text-green-500' : isLinked ? 'text-charcoal-500' : 'text-od-green/70'}`}>
-                      {!isLinked ? 'Pending' : isOn ? 'On floor' : 'Off floor'}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-            <button onClick={() => router.push('/dashboard/barbers')}
-              className="w-full py-3 text-xs font-semibold text-od-green hover:bg-od-green/10 transition-colors border-t border-warm-200 text-center">
-              Manage barbers →
-            </button>
-          </div>
-        </div>
-
-        {/* SCHEDULE */}
+        {/* 4. SCHEDULE */}
         <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Schedule</div>
-          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-warm-200">
-              <div className="flex gap-1">
-                {(['today', 'upcoming'] as const).map(tab => (
-                  <button key={tab} onClick={() => setApptTab(tab)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                      apptTab === tab ? 'bg-warm-200 text-charcoal-900' : 'text-charcoal-500 hover:text-charcoal-900'
-                    }`}>
-                    {tab === 'today' ? `Today (${appointments.length})` : `Upcoming (${upcomingAppointments.length})`}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => router.push('/dashboard/appointments/history')}
-                className="text-xs font-semibold px-3 py-1 rounded-full border border-warm-300 text-charcoal-500 hover:border-od-green hover:text-od-green transition-colors">
-                History
-              </button>
-            </div>
-            <ApptTable appts={apptTab === 'today' ? appointments : upcomingAppointments} />
-          </div>
-        </div>
+          <div className="bg-warm-100 border border-warm-200 rounded-2xl overflow-hidden">
 
-        {/* CLIENT LOCK */}
-        <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Client lock</div>
-          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between">
-              <div>
-                <div className="font-serif text-charcoal-900 text-lg">Client Lock</div>
-                <div className="text-xs text-charcoal-500 mt-0.5">Retention intelligence — updates on every completed appointment</div>
-              </div>
-              <div className="text-xs font-semibold px-2.5 py-1 rounded-full border border-od-green/30 text-od-green bg-od-green/10">
-                Proprietary
-              </div>
-            </div>
-            <div className="grid grid-cols-3 divide-x divide-warm-200">
-              {[
-                { label: 'Locked', count: lockedCount, color: 'text-green-400', sub: 'Claimed by a barber', href: '/dashboard/clients' },
-                { label: 'At Risk', count: atRiskCount, color: 'text-od-green', sub: 'Approaching lapse window', href: '/dashboard/clients' },
-                { label: 'Floating', count: floatingCount, color: 'text-red-400', sub: 'Not assigned — revenue risk', href: '/dashboard/clients' },
-              ].map((stat, i) => (
-                <button key={i} onClick={() => router.push(stat.href)}
-                  className="p-5 text-center hover:bg-warm-200/50 transition-colors">
-                  <div className={`font-serif text-4xl mb-1 ${stat.color}`}>{stat.count}</div>
-                  <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400">{stat.label}</div>
-                  <div className="text-xs text-charcoal-600 mt-1 hidden sm:block">{stat.sub}</div>
-                </button>
-              ))}
-            </div>
-            {clientLocks.filter((l: any) => l.locked).length > 0 && (
-              <div className="px-5 py-3 border-t border-warm-200 divide-y divide-warm-200">
-                {barbers.map((b: any, i: number) => {
-                  const color = b.color || COLORS[i % COLORS.length]
-                  const locked = clientLocks.filter((l: any) => l.locked && l.barber_id === b.barber_id).length
-                  const atRisk = clientLocks.filter((l: any) => {
-                    if (!l.locked || l.barber_id !== b.barber_id) return false
-                    const days = l.last_booking_date ? Math.floor((Date.now() - new Date(l.last_booking_date).getTime()) / 86400000) : 0
-                    return l.loyalty_protected ? days > 300 : days > 60
-                  }).length
-                  const loyalty = clientLocks.filter((l: any) => l.locked && l.loyalty_protected && l.barber_id === b.barber_id).length
-                  if (!b.barber_id) return null
+            {/* Week strip */}
+            <div className="px-4 pt-4 pb-3 border-b border-warm-200">
+              <div className="grid grid-cols-7 gap-1">
+                {weekDays.map((d, i) => {
+                  const ds = toDateStr(d)
+                  const isToday = ds === todayStr
+                  const isSelected = ds === selectedDate
+                  const hasAppts = daysWithAppts.has(ds)
                   return (
-                    <div key={b.id} className="flex items-center gap-3 py-3">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center font-serif text-xs font-bold flex-shrink-0"
-                        style={{ background: color + '22', color, border: `1.5px solid ${color}44` }}>
-                        {(b.barber_name || b.alias || '?')[0].toUpperCase()}
+                    <button
+                      key={ds}
+                      onClick={() => setSelectedDate(ds)}
+                      className={`flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${
+                        isSelected
+                          ? 'bg-od-green text-white'
+                          : isToday
+                            ? 'bg-od-green/10 text-od-green'
+                            : 'hover:bg-warm-200 text-charcoal-500'
+                      }`}
+                    >
+                      <span className="text-[10px] font-semibold tracking-wide uppercase">
+                        {DAY_LABELS[i]}
+                      </span>
+                      <span className={`text-sm font-bold leading-none ${isSelected ? 'text-white' : isToday ? 'text-od-green' : 'text-charcoal-900'}`}>
+                        {d.getDate()}
+                      </span>
+                      <div className={`w-1 h-1 rounded-full ${
+                        hasAppts
+                          ? isSelected ? 'bg-white/70' : 'bg-od-green'
+                          : 'bg-transparent'
+                      }`} />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Timeline */}
+            {scheduleAppts.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="text-charcoal-400 text-sm">
+                  {selectedDate === todayStr
+                    ? <>No appointments today. Share <span className="text-od-green font-mono">chairos.cc/book/{shop?.shop_code}</span>.</>
+                    : 'No appointments this day.'}
+                </div>
+              </div>
+            ) : (
+              <div className="divide-y divide-warm-200">
+                {scheduleAppts.map((a) => {
+                  const barber = barbers.find(b => b.barber_id === a.barber_id)
+                  const badge = STATUS_BADGE[a.status] || { label: a.status, cls: 'text-charcoal-500 bg-warm-200' }
+                  return (
+                    <div key={a.id} className="px-5 py-4">
+                      {/* Row 1: time + client + amount */}
+                      <div className="flex items-start gap-4 mb-2">
+                        <div className="font-mono text-sm text-od-green font-bold w-12 flex-shrink-0 pt-0.5">
+                          {a.time?.slice(0,5) || '—'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-charcoal-900 leading-tight">{a.client_name}</div>
+                          <div className="text-xs text-charcoal-500 mt-0.5">
+                            {a.services?.name}
+                            {barber && <span> · {barber.barber_name || barber.alias}</span>}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                          <div className="font-mono text-sm font-bold text-charcoal-900">${parseFloat(a.price).toFixed(0)}</div>
+                          <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full ${badge.cls}`}>
+                            {badge.label}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex-1 text-sm font-medium text-charcoal-900">{b.barber_name || b.alias}</div>
-                      <div className="flex gap-3 text-right">
-                        <div className="text-center">
-                          <div className="text-sm font-semibold text-green-400">{locked}</div>
-                          <div className="text-xs text-charcoal-600">Locked</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-semibold text-charcoal-400">{atRisk}</div>
-                          <div className="text-xs text-charcoal-600">At Risk</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-semibold text-charcoal-400">{loyalty}</div>
-                          <div className="text-xs text-charcoal-600">Loyalty</div>
-                        </div>
+                      {/* Row 2: controls */}
+                      <div className="flex items-center gap-2 pl-16 flex-wrap">
+                        <select
+                          value={a.barber_id || ''}
+                          onChange={e => updateAppointmentBarber(a.id, e.target.value)}
+                          className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-od-green max-w-32">
+                          <option value="">Unassigned</option>
+                          {barbers.map(b => <option key={b.id} value={b.barber_id || ''}>{b.barber_name || b.alias}</option>)}
+                        </select>
+                        <select
+                          value={a.status}
+                          onChange={e => updateAppointmentStatus(a.id, e.target.value)}
+                          className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-od-green">
+                          <option value="pending">Pending</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="done">Done</option>
+                          <option value="noshow">No Show</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                        {a.status === 'done' && shopId && (
+                          <TipInput
+                            appointmentId={a.id}
+                            barberId={a.barber_id}
+                            shopId={shopId}
+                            onTipAdded={() => shopId && loadSchedule(shopId)}
+                          />
+                        )}
                       </div>
                     </div>
                   )
@@ -626,45 +397,102 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* SHOP INFO */}
+        {/* 5. THE FLOOR — compact pills */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">The floor</div>
+            <button onClick={() => router.push('/dashboard/barbers')}
+              className="text-xs font-semibold text-od-green hover:underline">
+              Manage →
+            </button>
+          </div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs text-charcoal-500">
+                {allBarbers.filter((b: any) => b.on_floor && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} barbers in
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {allBarbers.map((b: any) => {
+                const isLinked = !!b.barber_id
+                const isOn = b.on_floor && isLinked
+                return (
+                  <div key={b.id}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                      isOn
+                        ? 'bg-green-500/10 border-green-500/20 text-green-600'
+                        : isLinked
+                          ? 'bg-warm-200 border-warm-300 text-charcoal-500'
+                          : 'bg-warm-200 border-warm-300 text-charcoal-400'
+                    }`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isOn ? 'bg-green-500' : 'bg-warm-400'}`} />
+                    {b.barber_name || b.alias}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 6. CLIENT LOCK — compact */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Client lock</div>
+            <button onClick={() => router.push('/dashboard/analytics')}
+              className="text-xs font-semibold text-od-green hover:underline">
+              Analytics →
+            </button>
+          </div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+            <div className="grid grid-cols-3 divide-x divide-warm-200">
+              {[
+                { label: 'Locked', count: totalLocked, color: 'text-od-green', href: '/dashboard/analytics' },
+                { label: 'At Risk', count: totalAtRisk, color: 'text-amber-600', href: '/dashboard/analytics' },
+                { label: 'Floating', count: totalFloating, color: 'text-red-400', href: '/dashboard/analytics' },
+              ].map((s) => (
+                <button key={s.label} onClick={() => router.push(s.href)}
+                  className="p-4 text-center hover:bg-warm-200/50 transition-colors">
+                  <div className={`font-serif text-3xl mb-1 ${s.color}`}>{s.count}</div>
+                  <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{s.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 7. SHOP — compact */}
         <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Shop</div>
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
             <div className="divide-y divide-warm-200">
-              <div className="flex items-center justify-between px-5 py-4">
+              <div className="flex items-center justify-between px-5 py-3">
                 <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Booking link</div>
-                <div className="flex flex-col items-end gap-1">
-                  <div className="text-xs font-mono text-od-green">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-od-green">
                     {shop?.slug ? `chairos.cc/shop/${shop.slug}` : `chairos.cc/book/${shop?.shop_code}`}
-                  </div>
+                  </span>
                   <button
                     onClick={() => {
-                      const link = shop?.slug
-                        ? `https://chairos.cc/shop/${shop.slug}`
-                        : `https://chairos.cc/book/${shop?.shop_code}`
+                      const link = shop?.slug ? `https://chairos.cc/shop/${shop.slug}` : `https://chairos.cc/book/${shop?.shop_code}`
                       navigator.clipboard.writeText(link)
                       setLinkCopied(true)
                       setTimeout(() => setLinkCopied(false), 2000)
                     }}
-                    className="text-xs text-od-green hover:text-od-green-light transition-colors">
-                    {linkCopied ? '✓ Copied!' : 'Copy link'}
+                    className="text-xs font-semibold text-od-green hover:text-od-green-light transition-colors">
+                    {linkCopied ? '✓ Copied' : 'Copy'}
                   </button>
                 </div>
               </div>
-              <div className="flex items-center justify-between px-5 py-4">
+              <div className="flex items-center justify-between px-5 py-3">
                 <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Shop code</div>
                 <div className="font-mono text-sm text-charcoal-900">{shop?.shop_code}</div>
-              </div>
-              <div className="flex items-center justify-between px-5 py-4">
-                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Active barbers</div>
-                <div className="text-sm text-charcoal-900">{barbers.filter(b => b.active && b.barber_id).length} of {allBarbers.filter((b: any) => b.barber_id).length} on floor</div>
               </div>
             </div>
           </div>
         </div>
 
       </div>
-
       <MobileNav />
     </div>
   )
