@@ -26,6 +26,7 @@ export default function ShopSettings() {
   const [error, setError] = useState('')
   const [squareAccount, setSquareAccount] = useState<any>(null)
   const [disconnectingSquare, setDisconnectingSquare] = useState(false)
+  const [barbersCollectOwnPayments, setBarbersCollectOwnPayments] = useState(false)
 
   // Form state
   const [name, setName] = useState('')
@@ -72,6 +73,7 @@ export default function ShopSettings() {
     setLogoUrl(shop.logo_url || '')
     setHeroUrl(shop.hero_url || '')
     if (shop.hours) setHours(shop.hours)
+    setBarbersCollectOwnPayments(!!shop.barbers_collect_own_payments)
 
     const { data: sq } = await supabase
       .from('square_accounts').select('square_merchant_id, square_location_id, connected_at').eq('user_id', user.id).maybeSingle()
@@ -174,6 +176,7 @@ export default function ShopSettings() {
       logo_url: logoUrl,
       hero_url: heroUrl,
       hours,
+      barbers_collect_own_payments: barbersCollectOwnPayments,
     }).eq('id', shop.id)
 
     if (saveErr) { setError(saveErr.message); setSaving(false); return }
@@ -442,6 +445,19 @@ export default function ShopSettings() {
             )}
           </div>
           <div className="p-5">
+            {/* Payment mode toggle */}
+            <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
+              <div>
+                <div className="text-sm font-semibold text-charcoal-900 mb-0.5">Barbers collect their own tips & payments</div>
+                <div className="text-xs text-charcoal-500">When on, payments go to each barber's Square account and tips stay with them. Turn off if you collect everything and pay barbers out yourself.</div>
+              </div>
+              <button
+                onClick={() => setBarbersCollectOwnPayments(v => !v)}
+                className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${barbersCollectOwnPayments ? 'bg-od-green' : 'bg-warm-300'}`}>
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${barbersCollectOwnPayments ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+
             {squareAccount ? (
               <div>
                 {squareAccount.square_merchant_id && (
