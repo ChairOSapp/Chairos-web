@@ -34,10 +34,12 @@ interface ShopBarber {
 
 interface ClientLock {
   id: string
+  client_id: string | null
   locked: boolean
   barber_id: string
   last_booking_date: string | null
   loyalty_protected: boolean
+  clients: { id: string; full_name: string | null; phone: string | null } | null
 }
 
 function fmt(d: Date) {
@@ -215,7 +217,7 @@ export default function AnalyticsPage() {
           .eq('shop_id', shopData.id)
           .eq('active', true),
         supabase.from('client_locks')
-          .select('id, locked, barber_id, last_booking_date, loyalty_protected')
+          .select('id, client_id, locked, barber_id, last_booking_date, loyalty_protected, clients(id, full_name, phone)')
           .eq('shop_id', shopData.id),
       ])
 
@@ -288,7 +290,7 @@ export default function AnalyticsPage() {
         label: b.barber_name || b.alias || 'Barber',
         value: cut + bTips,
         sub: `$${cut.toFixed(0)} cuts + $${bTips.toFixed(0)} tips`,
-        color: b.color || '#4B5320',
+        color: (b.color && b.color !== '#b8861f') ? b.color : '#4B5320',
       }
     }).sort((a, b) => b.value - a.value)
   }, [periodAppts, periodTips, shopBarbers])
@@ -630,6 +632,58 @@ export default function AnalyticsPage() {
             </div>
           )}
         </div>
+
+        {/* CLIENTS LIST */}
+        {clientLocks.length > 0 && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
+            <div className="px-5 py-4 border-b border-warm-200">
+              <div className="font-serif text-charcoal-900">Clients</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">{clientLocks.length} clients — tap for full profile</div>
+            </div>
+            <div className="divide-y divide-warm-200">
+              {clientLocks.map(cl => {
+                const name = cl.clients?.full_name || 'Unknown Client'
+                const clientId = cl.clients?.id || cl.client_id
+                const daysSince = cl.last_booking_date
+                  ? Math.floor((Date.now() - new Date(cl.last_booking_date).getTime()) / (1000 * 60 * 60 * 24))
+                  : null
+                const isAtRisk = cl.locked && daysSince !== null &&
+                  (cl.loyalty_protected ? daysSince > 300 : daysSince > 60)
+                const statusLabel = !cl.locked ? 'Floating' : isAtRisk ? 'At Risk' : 'Locked'
+                const statusColor = !cl.locked
+                  ? 'text-charcoal-500 bg-warm-200'
+                  : isAtRisk
+                    ? 'text-red-500 bg-red-50'
+                    : 'text-od-green bg-od-green/10'
+                return (
+                  <button
+                    key={cl.id}
+                    onClick={() => clientId && router.push(`/dashboard/clients/${clientId}`)}
+                    disabled={!clientId}
+                    className="w-full px-5 py-3 flex items-center justify-between hover:bg-warm-200/50 transition-colors text-left"
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-charcoal-900">{name}</div>
+                      {cl.last_booking_date && (
+                        <div className="text-xs text-charcoal-500 mt-0.5">
+                          Last visit {daysSince === 0 ? 'today' : `${daysSince}d ago`}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full ${statusColor}`}>
+                        {statusLabel}
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-charcoal-400">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
       </div>
       <MobileNav />

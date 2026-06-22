@@ -116,6 +116,7 @@ export default function RevenuePage() {
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [noshowCount, setNoshowCount] = useState(0)
   const [tips, setTips] = useState<Tip[]>([])
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,7 +160,7 @@ export default function RevenuePage() {
     if (!shop) return
     const { start, end } = getPeriodRange(period)
 
-    const [{ data: appts }, { data: tipsData }] = await Promise.all([
+    const [{ data: appts }, { data: tipsData }, { count: noshow }] = await Promise.all([
       supabase
         .from('appointments')
         .select('id, date, time, price, client_name, status, barber_id, services(name)')
@@ -174,10 +175,18 @@ export default function RevenuePage() {
         .eq('shop_id', shop.id)
         .gte('created_at', start)
         .lte('created_at', end + 'T23:59:59'),
+      supabase
+        .from('appointments')
+        .select('id', { count: 'exact', head: true })
+        .eq('shop_id', shop.id)
+        .eq('status', 'noshow')
+        .gte('date', start)
+        .lte('date', end),
     ])
 
     setAppointments((appts || []) as unknown as Appointment[])
     setTips(tipsData || [])
+    setNoshowCount(noshow || 0)
   }
 
   const { start, end } = getPeriodRange(period)
@@ -284,7 +293,15 @@ export default function RevenuePage() {
             { label: 'Completed Apts', value: appointments.length.toString(), color: 'text-charcoal-900' },
             { label: 'Tips Total', value: `$${totalTips.toFixed(2)}`, color: 'text-green-400' },
             { label: 'Avg / Apt', value: `$${avgPerApt.toFixed(2)}`, color: 'text-od-green' },
-            { label: 'No-show Rate', value: '—', color: 'text-charcoal-500' },
+            {
+            label: 'No-show Rate',
+            value: (() => {
+              const total = appointments.length + noshowCount
+              if (total === 0) return '0%'
+              return `${Math.round((noshowCount / total) * 100)}%`
+            })(),
+            color: noshowCount > 0 ? 'text-red-400' : 'text-charcoal-500',
+          },
           ].map((s, i) => (
             <div key={i} className="bg-warm-100 border border-warm-200 rounded-xl p-4 text-center">
               <div className={`font-serif text-2xl mb-1 ${s.color}`}>{s.value}</div>
@@ -315,7 +332,7 @@ export default function RevenuePage() {
                     <tr key={i}>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: b.color }} />
+                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: (b.color && b.color !== '#b8861f') ? b.color : '#4B5320' }} />
                           <span className="text-charcoal-900 font-medium">{b.name}</span>
                           <span className="text-xs text-charcoal-500">({b.apptCount})</span>
                         </div>
