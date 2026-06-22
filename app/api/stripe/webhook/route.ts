@@ -86,47 +86,35 @@ export async function POST(req: NextRequest) {
         console.log('[stripe/webhook] session.customer:', session.customer, '| session.subscription:', session.subscription)
         console.log('[stripe/webhook] full session:', JSON.stringify(session, null, 2))
 
-        if (!userId) {
-          console.warn('[stripe/webhook] session.metadata.user_id is missing — skipping')
-          break
-        }
-        if (!session.subscription) {
-          console.warn('[stripe/webhook] session.subscription is null — one-time payment, not a subscription')
-          break
-        }
-        if (!session.customer) {
-          console.warn('[stripe/webhook] session.customer is null — skipping')
-          break
-        }
+      await supabase.from('profiles').update({
+        stripe_customer_id: session.customer as string,
+        stripe_subscription_id: session.subscription as string,
+        subscription_status: subscription.status,
+        subscription_end_date: new Date((subscription as any).current_period_end * 1000).toISOString(),
+      }).eq('id', userId)
 
-        console.log('[stripe/webhook] Retrieving subscription:', session.subscription)
-        const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
-
-        console.log('[stripe/webhook] full subscription:', JSON.stringify(subscription, null, 2))
-        console.log('[stripe/webhook] current_period_end:', (subscription as any).current_period_end)
-        console.log('[stripe/webhook] trial_end:', (subscription as any).trial_end)
-
-        const { error: dbErr } = await supabase.from('profiles').update({
-          stripe_customer_id: session.customer as string,
-          stripe_subscription_id: session.subscription as string,
-          subscription_status: subscription.status,
-          subscription_end_date: safeToISO((subscription as any).current_period_end),
-          trial_end: safeToISO((subscription as any).trial_end),
-        }).eq('id', userId)
-
-        if (dbErr) {
-          console.error('[stripe/webhook] DB update failed | code:', dbErr.code, '| message:', dbErr.message, '| details:', dbErr.details)
-        } else {
-          console.log('[stripe/webhook] Profile updated for userId:', userId)
-          const email = session.customer_email || (session.customer_details as any)?.email || 'unknown'
-          const planLabel = plan === 'owner' ? 'Shop Owner ($99/mo)' : plan === 'barber' ? 'Solo Barber ($25/mo)' : (plan || 'unknown')
-          await notifySlack(`*🎉 New subscriber!*\n*Plan:* ${planLabel}\n*Email:* ${email}\n*Status:* ${subscription.status}`)
-        }
-      } catch (err: any) {
-        console.error('[stripe/webhook] checkout.session.completed handler threw:', err.message)
-        console.error('[stripe/webhook] stack:', err.stack)
-        // Not re-throwing — Stripe gets 200 so it stops retrying.
-        // Read the stack above to find the root cause, then redeploy.
+      // Slack notification
+      if (process.env.SLACK_WEBHOOK_URL) {
+        const plan = session.metadata?.plan || 'unknown'
+        const email = session.customer_email || session.customer_details?.email || 'unknown'
+        const amount = session.amount_total ? `$${(session.amount_total / 100).toFixed(2)}` : ''
+        const planLabel = plan === 'owner' ? 'Shop Owner ($99/mo)' : plan === 'barber' ? 'Solo Barber ($25/mo)' : plan
+        await fetch(process.env.SLACK_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: `🎉 New ChairOS subscriber!`,
+            blocks: [
+              {
+                type: 'section',
+                text: {
+                  type: 'mrkdwn',
+                  text: `*🎉 New subscriber!*\n*Plan:* ${planLabel}\n*Email:* ${email}${amount ? `\n*Amount:* ${amount}` : ''}`,
+                },
+              },
+            ],
+          }),
+        }).catch(() => {})
       }
       break
     }
