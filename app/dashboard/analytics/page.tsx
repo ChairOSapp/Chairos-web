@@ -224,7 +224,7 @@ export default function AnalyticsPage() {
       setAppointments((appts || []) as unknown as Appointment[])
       setTips(tipsData || [])
       setShopBarbers(barbers || [])
-      setClientLocks(locks || [])
+      setClientLocks((locks || []) as unknown as ClientLock[])
       setLoading(false)
     }
     load()
