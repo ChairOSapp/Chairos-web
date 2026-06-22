@@ -1,11 +1,12 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import BarberNav from '@/components/BarberNav'
 import BarberMobileNav from '@/components/BarberMobileNav'
+import { Suspense } from 'react'
 
-export default function BarberSettings() {
+function BarberSettingsInner() {
   const [profile, setProfile] = useState<any>(null)
   const [shopBarber, setShopBarber] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
@@ -15,6 +16,8 @@ export default function BarberSettings() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
+  const [squareAccount, setSquareAccount] = useState<any>(null)
+  const [disconnectingSquare, setDisconnectingSquare] = useState(false)
 
   const [fullName, setFullName] = useState('')
   const [alias, setAlias] = useState('')
@@ -23,9 +26,20 @@ export default function BarberSettings() {
 
   const photoRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   useEffect(() => { loadData() }, [])
+
+  useEffect(() => {
+    if (searchParams.get('square_connected') === '1') {
+      setSuccess('Square account connected successfully.')
+      loadData()
+    }
+    if (searchParams.get('square_error')) {
+      setError(`Square connection failed: ${searchParams.get('square_error')}`)
+    }
+  }, [searchParams])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -53,6 +67,14 @@ export default function BarberSettings() {
     setAlias(shopBarber.alias || '')
     setBio(shopBarber.bio || '')
     setPhotoUrl(shopBarber.photo_url || '')
+
+    const { data: sq } = await supabase
+      .from('square_accounts')
+      .select('square_merchant_id, square_location_id, connected_at')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    setSquareAccount(sq || null)
+
     setLoading(false)
   }
 
@@ -98,6 +120,15 @@ export default function BarberSettings() {
 
     setSuccess('Profile updated.')
     setSaving(false)
+    setTimeout(() => setSuccess(''), 3000)
+  }
+
+  async function handleDisconnectSquare() {
+    setDisconnectingSquare(true)
+    await supabase.from('square_accounts').delete().eq('user_id', userId!)
+    setSquareAccount(null)
+    setDisconnectingSquare(false)
+    setSuccess('Square account disconnected.')
     setTimeout(() => setSuccess(''), 3000)
   }
 
@@ -221,6 +252,68 @@ export default function BarberSettings() {
           </div>
         </div>
 
+        {/* SQUARE PAYMENTS */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="text-xs font-semibold tracking-widest uppercase text-neutral-400">Square Payments</div>
+            {squareAccount && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                Connected
+              </span>
+            )}
+          </div>
+
+          {squareAccount ? (
+            <div className="space-y-3">
+              <div className="bg-neutral-800 rounded-lg px-4 py-3 space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-400">Merchant ID</span>
+                  <span className="text-white font-mono text-xs">{squareAccount.square_merchant_id}</span>
+                </div>
+                {squareAccount.square_location_id && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-neutral-400">Location ID</span>
+                    <span className="text-white font-mono text-xs">{squareAccount.square_location_id}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-400">Connected</span>
+                  <span className="text-neutral-400 text-xs">
+                    {new Date(squareAccount.connected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-neutral-500">
+                Appointment payments go directly to your Square account.
+              </p>
+              <button
+                onClick={handleDisconnectSquare}
+                disabled={disconnectingSquare}
+                className="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50">
+                {disconnectingSquare ? 'Disconnecting...' : 'Disconnect Square account'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-neutral-400">
+                Connect your Square account to receive appointment payments directly.
+              </p>
+              <button
+                onClick={() => { window.location.href = '/api/square/connect' }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm font-semibold text-white hover:border-amber-500 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/>
+                </svg>
+                Connect Square Account
+              </button>
+              <p className="text-xs text-neutral-600">
+                You'll be redirected to Square to authorize. Your access token is stored securely.
+              </p>
+            </div>
+          )}
+        </div>
+
         <button onClick={handleSave} disabled={saving}
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Profile'}
@@ -228,5 +321,17 @@ export default function BarberSettings() {
       </div>
       <BarberMobileNav />
     </div>
+  )
+}
+
+export default function BarberSettings() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+        <div className="text-amber-500 text-sm">Loading...</div>
+      </div>
+    }>
+      <BarberSettingsInner />
+    </Suspense>
   )
 }

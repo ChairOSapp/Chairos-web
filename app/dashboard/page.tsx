@@ -68,6 +68,17 @@ function toDateStr(d: Date): string {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+function PaymentBadge({ status }: { status?: string }) {
+  if (status === 'paid') return (
+    <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-green-500/10 text-green-500 border border-green-500/20">PAID</span>
+  )
+  if (status === 'failed') return (
+    <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">FAILED</span>
+  )
+  return (
+    <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-warm-200 text-charcoal-400 border border-warm-300">UNPAID</span>
+  )
+}
 export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
@@ -379,6 +390,7 @@ export default function Dashboard() {
                           <option value="noshow">No Show</option>
                           <option value="cancelled">Cancelled</option>
                         </select>
+                        <PaymentBadge status={a.payment_status} />
                         {a.status === 'done' && shopId && (
                           <TipInput
                             appointmentId={a.id}

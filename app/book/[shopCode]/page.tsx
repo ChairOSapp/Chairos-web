@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams, useSearchParams } from 'next/navigation'
 
@@ -36,6 +36,12 @@ function BookingPageInner() {
   const [error, setError] = useState('')
   const [returningClient, setReturningClient] = useState<any>(null)
 
+  // Square payment state
+  const squareCardRef = useRef<any>(null)
+  const [cardReady, setCardReady] = useState(false)
+  const [cardLoading, setCardLoading] = useState(false)
+  const [paymentError, setPaymentError] = useState('')
+
   useEffect(() => {
     async function load() {
       const { data: shop } = await supabase
@@ -68,6 +74,44 @@ function BookingPageInner() {
     load()
   }, [shopCode])
 
+  // Initialize Square Web Payments SDK when user reaches step 4
+  useEffect(() => {
+    if (step !== 4) return
+    if (squareCardRef.current) return // already initialized
+
+    const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
+    const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID
+    if (!appId || !locationId) return
+
+    setCardLoading(true)
+
+    async function initSquare() {
+      try {
+        const { payments } = await import('@square/web-sdk')
+        const paymentsInstance = await payments(appId!, locationId!)
+        if (!paymentsInstance) throw new Error('Square payments init returned null')
+        const card = await paymentsInstance.card()
+        await card.attach('#square-card-container')
+        squareCardRef.current = card
+        setCardReady(true)
+      } catch (e: any) {
+        console.error('Square init error:', e)
+        setPaymentError('Card form failed to load. You can still book and pay at the shop.')
+      } finally {
+        setCardLoading(false)
+      }
+    }
+    initSquare()
+
+    return () => {
+      if (squareCardRef.current) {
+        squareCardRef.current.destroy?.().catch(() => {})
+        squareCardRef.current = null
+        setCardReady(false)
+      }
+    }
+  }, [step])
+
   async function checkReturningClient(phone: string) {
     if (phone.replace(/\D/g, '').length < 10) return
     const { data: client } = await supabase
@@ -89,6 +133,21 @@ function BookingPageInner() {
     if (!clientName || !clientPhone) { setError('Name and phone are required'); return }
     setSubmitting(true)
     setError('')
+    setPaymentError('')
+
+    // Tokenize card first (before any DB writes) if Square is ready
+    let sourceId: string | null = null
+    if (squareCardRef.current) {
+      const result = await squareCardRef.current.tokenize()
+      if (result.status === 'OK') {
+        sourceId = result.token
+      } else {
+        const msg = result.errors?.[0]?.message || 'Card error'
+        setPaymentError(msg)
+        setSubmitting(false)
+        return
+      }
+    }
 
     const [time, period] = selectedTime.split(' ')
     const [hours, minutes] = time.split(':')
@@ -97,7 +156,7 @@ function BookingPageInner() {
     if (period === 'AM' && h === 12) h = 0
     const time24 = `${h.toString().padStart(2,'0')}:${minutes}:00`
 
-    const { error: bookErr } = await supabase.from('appointments').insert({
+    const { data: newAppt, error: bookErr } = await supabase.from('appointments').insert({
       shop_id: shop.id,
       barber_id: selectedBarber?.barber_id || null,
       service_id: selectedService.id,
@@ -108,10 +167,28 @@ function BookingPageInner() {
       time: time24,
       price: selectedService.price,
       status: 'pending',
-      notes: notes || null
-    })
+      notes: notes || null,
+      payment_status: sourceId ? 'unpaid' : 'unpaid',
+    }).select('id').single()
 
-    if (bookErr) { setError(bookErr.message); setSubmitting(false); return }
+    if (bookErr || !newAppt) { setError(bookErr?.message || 'Booking failed'); setSubmitting(false); return }
+
+    // Charge card if tokenized
+    if (sourceId) {
+      try {
+        const payRes = await fetch('/api/square/create-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceId, appointmentId: newAppt.id }),
+        })
+        const payData = await payRes.json()
+        if (!payRes.ok || payData.error) {
+          setPaymentError(payData.error || 'Payment failed. Your booking is confirmed — pay at the shop.')
+        }
+      } catch {
+        setPaymentError('Payment failed. Your booking is confirmed — pay at the shop.')
+      }
+    }
 
     // Notify owner
     const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || 'Any barber'
@@ -152,7 +229,7 @@ function BookingPageInner() {
         })
       })
     } catch {
-      // SMS failure is non-fatal — booking is already confirmed
+      // SMS failure is non-fatal
     }
 
     setSuccess(true)
@@ -204,6 +281,11 @@ function BookingPageInner() {
             {selectedService.name} with {selectedBarber?.barber_name || selectedBarber?.alias || 'any barber'} on{' '}
             {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at {selectedTime}.
           </p>
+          {paymentError && (
+            <div className="bg-amber-950/40 border border-amber-800 rounded-lg p-3 mb-4 text-left">
+              <p className="text-amber-400 text-xs">{paymentError}</p>
+            </div>
+          )}
           <div className="bg-warm-200 rounded-lg p-4 mb-6 text-left space-y-2">
             {[
               { label: 'Service', value: selectedService.name },
@@ -268,7 +350,7 @@ function BookingPageInner() {
 
       <div className="bg-warm-100 border-b border-warm-200 px-6 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
-          {['Barber', 'Service', 'Date & Time', 'Your Info'].map((label, i) => (
+          {['Barber', 'Service', 'Date & Time', 'Info & Pay'].map((label, i) => (
             <div key={i} className="flex items-center gap-2 flex-1 last:flex-none">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
                 style={{
@@ -408,8 +490,8 @@ function BookingPageInner() {
 
         {step === 4 && (
           <div>
-            <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your info</h2>
-            <p className="text-charcoal-500 text-sm mb-6">No account needed. Just your name and number.</p>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your info & payment</h2>
+            <p className="text-charcoal-500 text-sm mb-6">No account needed. Just your name, number, and card.</p>
             <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-6 space-y-2">
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Booking Summary</div>
               {[
@@ -455,12 +537,36 @@ function BookingPageInner() {
                 </div>
               ))}
             </div>
+
+            {/* SQUARE CARD FORM */}
+            <div className="mb-6">
+              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Payment</label>
+              <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4">
+                {cardLoading && (
+                  <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
+                    <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
+                    Loading card form...
+                  </div>
+                )}
+                <div id="square-card-container" className={cardLoading ? 'hidden' : ''} />
+                {!cardLoading && !cardReady && !paymentError && (
+                  <p className="text-neutral-500 text-xs py-2">Card form unavailable — you can pay at the shop.</p>
+                )}
+              </div>
+              {paymentError && (
+                <p className="text-amber-400 text-xs mt-2">{paymentError}</p>
+              )}
+              <p className="text-neutral-600 text-xs mt-2">
+                Your card is charged ${selectedService?.price} when you confirm. Secured by Square.
+              </p>
+            </div>
+
             <div className="flex gap-3 items-center">
               <button onClick={() => setStep(3)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
               <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone}
                 className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
                 style={{ background: brand }}>
-                {submitting ? 'Sending confirmation...' : 'Confirm Booking'}
+                {submitting ? 'Processing...' : `Confirm & Pay $${selectedService?.price}`}
               </button>
             </div>
             <p className="text-charcoal-600 text-xs text-center mt-6">Powered by ChairOS</p>

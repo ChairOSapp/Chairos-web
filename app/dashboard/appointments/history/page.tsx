@@ -58,6 +58,12 @@ export default function AppointmentHistory() {
 
   const totalRevenue = filtered.filter(a => a.status === 'done').reduce((sum, a) => sum + (parseFloat(a.price) || 0), 0)
 
+  const paymentBadge = (status?: string) => {
+    if (status === 'paid') return <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-green-500/10 text-green-500 border border-green-500/20">PAID</span>
+    if (status === 'failed') return <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">FAILED</span>
+    return <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-neutral-800 text-neutral-500 border border-neutral-700">UNPAID</span>
+  }
+
   const statusColor = (s: string) => {
     if (s === 'done') return 'bg-green-500/10 text-green-500'
     if (s === 'confirmed') return 'bg-blue-500/10 text-blue-400'
@@ -137,6 +143,7 @@ export default function AppointmentHistory() {
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor(a.status)}`}>
                         {a.status}
                       </span>
+                      {paymentBadge(a.payment_status)}
                     </div>
                     <span className="font-mono text-sm text-charcoal-900 font-semibold">${a.price}</span>
                   </div>
