@@ -3,18 +3,18 @@ import Stripe from 'stripe'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-05-27.dahlia' as any,
-})
-
-const PRICES: Record<string, string> = {
-  owner: process.env.STRIPE_PRICE_OWNER!,
-  barber: process.env.STRIPE_PRICE_BARBER!,
-}
-
 export async function POST(req: NextRequest) {
   try {
     const { plan } = await req.json() as { plan: 'owner' | 'barber' }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2026-05-27.dahlia' as any,
+    })
+
+    const PRICES: Record<string, string> = {
+      owner: process.env.STRIPE_PRICE_OWNER!,
+      barber: process.env.STRIPE_PRICE_BARBER!,
+    }
 
     if (!PRICES[plan]) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
