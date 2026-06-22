@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { getBillingStatus } from '@/lib/billing'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -12,15 +13,43 @@ export default function Login() {
   const router = useRouter()
   const supabase = createClient()
 
+  // If already signed in, route immediately
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) await routeUser(user.id)
+    })
+  }, [])
+
+  async function routeUser(userId: string) {
+    const params = new URLSearchParams(window.location.search)
+    const redirect = params.get('redirect')
+    if (redirect) { router.push(redirect); return }
+
+    const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+
+    if (prof?.role === 'barber') {
+      const { data: sb } = await supabase.from('shop_barbers').select('id').eq('barber_id', userId).eq('active', true).maybeSingle()
+      router.push(sb ? '/dashboard/barber' : '/join')
+      return
+    }
+
+    if (prof?.role === 'owner') {
+      if (getBillingStatus(prof) === 'blocked') { router.push('/subscribe'); return }
+      const { data: shops } = await supabase.from('shops').select('id').eq('owner_id', userId).limit(1)
+      router.push(shops?.length ? '/dashboard' : '/onboarding')
+      return
+    }
+
+    router.push('/dashboard')
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setError(error.message); setLoading(false); return }
-    const params = new URLSearchParams(window.location.search)
-    const redirect = params.get('redirect')
-    router.push(redirect || '/dashboard')
+    if (data.user) await routeUser(data.user.id)
   }
 
   return (
