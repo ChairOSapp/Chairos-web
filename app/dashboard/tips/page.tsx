@@ -107,21 +107,15 @@ export default function TipsPage() {
           <p className="text-charcoal-500 text-sm">{shop?.name}</p>
         </div>
 
-        {shop?.barbers_collect_own_payments ? (
-          <div className="bg-warm-100 border border-warm-200 rounded-xl p-8 text-center">
-            <div className="w-12 h-12 rounded-full bg-od-green/10 border border-od-green/20 flex items-center justify-center mx-auto mb-4">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="20" height="20" className="text-od-green">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-              </svg>
-            </div>
-            <div className="font-serif text-charcoal-900 text-lg mb-2">Barbers collect their own tips</div>
-            <p className="text-sm text-charcoal-500 mb-4">Your shop is set up so each barber receives tips directly through their own Square account. You don't handle tip payouts.</p>
-            <a href="/dashboard/settings" className="inline-flex items-center gap-1.5 text-xs font-semibold text-od-green hover:underline">
-              Change in Settings →
-            </a>
+        {shop?.barbers_collect_own_payments && (
+          <div className="bg-od-green/10 border border-od-green/20 rounded-xl px-4 py-3 mb-5 flex items-center gap-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" className="text-od-green flex-shrink-0">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+            </svg>
+            <p className="text-xs text-od-green">Barbers collect their own tips — no cashout needed. This is a read-only view of tips recorded in ChairOS.</p>
           </div>
-        ) : (
-        <>
+        )}
+
         {/* SUMMARY TILES */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
@@ -198,7 +192,7 @@ export default function TipsPage() {
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">
               {filtered.length} tips
             </div>
-            <div className="text-xs text-charcoal-500">Tap to mark paid out</div>
+            {!shop?.barbers_collect_own_payments && <div className="text-xs text-charcoal-500">Tap to mark paid out</div>}
           </div>
           {filtered.length === 0 ? (
             <div className="p-8 text-center text-charcoal-500 text-sm">No tips found.</div>
@@ -208,8 +202,8 @@ export default function TipsPage() {
                 const color = getBarberColor(t.barber_id)
                 return (
                   <div key={t.id}
-                    onClick={() => toggleCashout(t.id, t.cashed_out)}
-                    className="px-5 py-4 flex items-center gap-3 cursor-pointer hover:bg-warm-200/30 transition-colors">
+                    onClick={() => !shop?.barbers_collect_own_payments && toggleCashout(t.id, t.cashed_out)}
+                    className={`px-5 py-4 flex items-center gap-3 transition-colors ${!shop?.barbers_collect_own_payments ? 'cursor-pointer hover:bg-warm-200/30' : ''}`}>
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center font-serif text-xs font-bold flex-shrink-0"
                       style={{ background: color + '22', border: `1.5px solid ${color}44`, color }}>
                       {getBarberName(t.barber_id)[0]?.toUpperCase()}
@@ -238,8 +232,6 @@ export default function TipsPage() {
             </div>
           )}
         </div>
-        </>
-        )}
       </div>
       <MobileNav />
     </div>

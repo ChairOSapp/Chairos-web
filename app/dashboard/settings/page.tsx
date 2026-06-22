@@ -453,8 +453,11 @@ export default function ShopSettings() {
               </div>
               <button
                 onClick={() => setBarbersCollectOwnPayments(v => !v)}
-                className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${barbersCollectOwnPayments ? 'bg-od-green' : 'bg-warm-300'}`}>
-                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${barbersCollectOwnPayments ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                style={{ background: barbersCollectOwnPayments ? '#4B5320' : '#d4c9b8' }}
+                className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
+                <span
+                  style={{ transform: barbersCollectOwnPayments ? 'translateX(22px)' : 'translateX(2px)' }}
+                  className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
               </button>
             </div>
 
