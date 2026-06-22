@@ -154,7 +154,7 @@ export default function LandingPage() {
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <button onClick={() => router.push('/login')} style={{ fontSize: '13px', color: '#65655F', background: 'none', border: 'none', cursor: 'pointer' }}>Sign in</button>
-          <button onClick={() => scrollTo('waitlist')} style={{ background: '#4B5320', color: '#fff', fontSize: '13px', fontWeight: 700, padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => router.push('/signup')} style={{ background: '#4B5320', color: '#fff', fontSize: '13px', fontWeight: 700, padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>
             Get started
           </button>
         </div>
@@ -173,7 +173,7 @@ export default function LandingPage() {
           The operating system for barbershop owners. Bookings, barber comp, client retention, and analytics — built by someone who's been behind the chair.
         </div>
         <div data-anim style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' as const, marginBottom: '36px' }}>
-          <button onClick={() => scrollTo('waitlist')} style={{ background: '#4B5320', color: '#fff', fontSize: '15px', fontWeight: 700, padding: '15px 32px', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(75,83,32,0.3)' }}>
+          <button onClick={() => router.push('/signup')} style={{ background: '#4B5320', color: '#fff', fontSize: '15px', fontWeight: 700, padding: '15px 32px', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(75,83,32,0.3)' }}>
             Start free trial — 30 days
           </button>
           <button onClick={() => scrollTo('features')} style={{ background: '#FAFAF7', color: '#1A1A18', fontSize: '15px', fontWeight: 500, padding: '15px 28px', borderRadius: '10px', border: '1px solid #C0BDB0', cursor: 'pointer' }}>
@@ -473,6 +473,14 @@ export default function LandingPage() {
               </div>
               <div style={{ fontSize: '12px', color: emailError ? '#f87171' : '#9aa87a' }}>
                 {emailError ? 'Please enter a valid email.' : 'Join 47 shop owners already on the waitlist.'}
+              </div>
+              <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+                <button onClick={() => router.push('/signup')} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', color: '#FAFAF7', fontSize: '13px', fontWeight: 600, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>
+                  Create account →
+                </button>
+                <button onClick={() => router.push('/login')} style={{ background: 'none', border: 'none', color: '#B8C49A', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}>
+                  Already have an account? Sign in
+                </button>
               </div>
             </>
           )}
