@@ -219,7 +219,7 @@ export default function AnalyticsPage() {
           .eq('shop_id', shopData.id),
       ])
 
-      setAppointments((appts || []) as Appointment[])
+      setAppointments((appts || []) as unknown as Appointment[])
       setTips(tipsData || [])
       setShopBarbers(barbers || [])
       setClientLocks(locks || [])
