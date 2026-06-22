@@ -68,7 +68,7 @@ export default function Subscribe() {
         </div>
 
         {error && (
-          <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6 text-center">
+          <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3 mb-6 text-center">
             {error}
           </p>
         )}
@@ -93,7 +93,7 @@ export default function Subscribe() {
               <ul className="space-y-2.5 mb-8 flex-1">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2.5 text-sm text-charcoal-700">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5320" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                     {f}

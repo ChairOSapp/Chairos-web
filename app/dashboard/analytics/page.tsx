@@ -641,18 +641,29 @@ export default function AnalyticsPage() {
               <div className="text-xs text-charcoal-500 mt-0.5">{clientLocks.length} clients — tap for full profile</div>
             </div>
             <div className="divide-y divide-warm-200">
-              {clientLocks.map(cl => {
+              {[...clientLocks].sort((a, b) => {
+                const ds = (cl: typeof a) => cl.last_booking_date
+                  ? Math.floor((Date.now() - new Date(cl.last_booking_date).getTime()) / (1000 * 60 * 60 * 24))
+                  : null
+                const rank = (cl: typeof a) => {
+                  const d = ds(cl); if (d === null) return 1
+                  if (d >= 45) return 0
+                  if (d >= 30) return 1
+                  return 2
+                }
+                return rank(a) - rank(b)
+              }).map(cl => {
                 const name = cl.clients?.full_name || 'Unknown Client'
                 const clientId = cl.clients?.id || cl.client_id
                 const daysSince = cl.last_booking_date
                   ? Math.floor((Date.now() - new Date(cl.last_booking_date).getTime()) / (1000 * 60 * 60 * 24))
                   : null
-                const isAtRisk = cl.locked && daysSince !== null &&
-                  (cl.loyalty_protected ? daysSince > 300 : daysSince > 60)
-                const statusLabel = !cl.locked ? 'Floating' : isAtRisk ? 'At Risk' : 'Locked'
+                const isLapsed = daysSince !== null && daysSince >= 45
+                const isAtRisk = !isLapsed && daysSince !== null && daysSince >= 30
+                const statusLabel = !cl.locked ? 'Floating' : (cl.locked && daysSince !== null && (cl.loyalty_protected ? daysSince > 300 : daysSince > 60)) ? 'At Risk' : 'Locked'
                 const statusColor = !cl.locked
                   ? 'text-charcoal-500 bg-warm-200'
-                  : isAtRisk
+                  : statusLabel === 'At Risk'
                     ? 'text-red-500 bg-red-50'
                     : 'text-od-green bg-od-green/10'
                 return (
@@ -663,7 +674,15 @@ export default function AnalyticsPage() {
                     className="w-full px-5 py-3 flex items-center justify-between hover:bg-warm-200/50 transition-colors text-left"
                   >
                     <div>
-                      <div className="text-sm font-semibold text-charcoal-900">{name}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold text-charcoal-900">{name}</div>
+                        {isLapsed && (
+                          <span className="text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full text-red-600 bg-red-100">LAPSED</span>
+                        )}
+                        {isAtRisk && (
+                          <span className="text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full text-amber-700 bg-amber-100">AT RISK</span>
+                        )}
+                      </div>
                       {cl.last_booking_date && (
                         <div className="text-xs text-charcoal-500 mt-0.5">
                           Last visit {daysSince === 0 ? 'today' : `${daysSince}d ago`}

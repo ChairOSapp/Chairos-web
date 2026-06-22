@@ -416,15 +416,15 @@ export default function Dashboard() {
               </div>
               <div className="text-xs text-charcoal-500">{doneCount} completed · {appointments.length} total today</div>
             </button>
-            <div className="flex flex-col items-end gap-1 flex-shrink-0 mt-1">
+            <div className="flex flex-col items-end gap-2 flex-shrink-0 mt-1">
               <button
                 onClick={() => router.push('/dashboard/appointments/history')}
-                className="text-xs text-od-green hover:text-od-green-light transition-colors">
+                className="text-xs font-semibold px-3 py-1 rounded-full bg-od-green text-white hover:bg-od-green-light transition-colors">
                 History →
               </button>
               <button
                 onClick={() => router.push('/dashboard/analytics')}
-                className="text-xs text-charcoal-500 hover:text-od-green transition-colors">
+                className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
                 Analytics →
               </button>
             </div>
@@ -461,7 +461,7 @@ export default function Dashboard() {
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">
               {new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('en-US', { weekday: 'long' })}'s recap
             </div>
-            <div className="text-xs text-od-green">View →</div>
+            <div className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10">View →</div>
           </div>
           {yesterdayAppointments.length > 0 ? (
             <div className="flex divide-x divide-warm-200">
@@ -528,7 +528,7 @@ export default function Dashboard() {
               )
             })}
             <button onClick={() => router.push('/dashboard/barbers')}
-              className="w-full py-3 text-xs text-charcoal-500 hover:text-od-green transition-colors border-t border-warm-200 text-center">
+              className="w-full py-3 text-xs font-semibold text-od-green hover:bg-od-green/10 transition-colors border-t border-warm-200 text-center">
               Manage barbers →
             </button>
           </div>
@@ -550,7 +550,7 @@ export default function Dashboard() {
                 ))}
               </div>
               <button onClick={() => router.push('/dashboard/appointments/history')}
-                className="text-xs text-charcoal-500 hover:text-od-green transition-colors">
+                className="text-xs font-semibold px-3 py-1 rounded-full border border-warm-300 text-charcoal-500 hover:border-od-green hover:text-od-green transition-colors">
                 History
               </button>
             </div>
