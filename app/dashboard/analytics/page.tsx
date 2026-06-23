@@ -176,6 +176,7 @@ export default function AnalyticsPage() {
   const [tips, setTips] = useState<Tip[]>([])
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
   const [clientLocks, setClientLocks] = useState<ClientLock[]>([])
+  const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -206,6 +207,7 @@ export default function AnalyticsPage() {
         { data: tipsData },
         { data: barbers },
         { data: locks },
+        { data: reviewsData },
       ] = await Promise.all([
         supabase.from('appointments')
           .select('id, date, price, barber_id, status, services(name, id)')
@@ -223,12 +225,17 @@ export default function AnalyticsPage() {
         supabase.from('client_locks')
           .select('id, client_id, locked, barber_id, last_booking_date, loyalty_protected, clients(id, full_name, phone)')
           .eq('shop_id', shopData.id),
+        supabase.from('reviews')
+          .select('*')
+          .eq('shop_id', shopData.id)
+          .eq('visible', true),
       ])
 
       setAppointments((appts || []) as unknown as Appointment[])
       setTips(tipsData || [])
       setShopBarbers(barbers || [])
       setClientLocks((locks || []) as unknown as ClientLock[])
+      setReviews(reviewsData || [])
       setLoading(false)
     }
     load()
@@ -341,6 +348,19 @@ export default function AnalyticsPage() {
   }, [periodAppts])
 
   const busiestDay = busyDays.reduce((best, d) => d.count > best.count ? d : best, busyDays[0])
+
+  // I) Per-barber review stats
+  const barberReviewStats = useMemo(() => {
+    const stats: Record<string, { name: string; count: number; total: number; avg: number }> = {}
+    reviews.forEach(r => {
+      if (!r.barber_id) return
+      if (!stats[r.barber_id]) stats[r.barber_id] = { name: r.barber_id, count: 0, total: 0, avg: 0 }
+      stats[r.barber_id].count++
+      stats[r.barber_id].total += r.rating
+    })
+    Object.values(stats).forEach(s => { s.avg = s.total / s.count })
+    return stats
+  }, [reviews])
 
   // H) Service insights — stars vs drag
   const serviceInsights = useMemo(() => {
@@ -806,6 +826,63 @@ export default function AnalyticsPage() {
             </div>
           </div>
         )}
+
+        {/* REVIEWS SECTION */}
+        <div className="mb-8">
+          <h2 className="font-serif text-xl text-charcoal-900 mb-4">Reviews</h2>
+          {reviews.length === 0 ? (
+            <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm">
+              No reviews yet. Import from Google on the <a href="/dashboard/reviews" className="text-od-green font-semibold">Reviews page</a>.
+            </div>
+          ) : (
+            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+              {/* Shop average */}
+              <div className="px-5 py-4 border-b border-warm-200 flex items-center gap-4">
+                <span className="text-amber-500 text-2xl">★</span>
+                <div>
+                  <div className="font-serif text-2xl text-charcoal-900">
+                    {(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)}
+                  </div>
+                  <div className="text-xs text-charcoal-500">{reviews.length} total reviews</div>
+                </div>
+              </div>
+              {/* Per-barber breakdown */}
+              {Object.entries(barberReviewStats).length > 0 && (
+                <div className="divide-y divide-warm-200">
+                  {Object.entries(barberReviewStats)
+                    .sort(([, a], [, b]) => b.avg - a.avg)
+                    .map(([barberId, stat]) => {
+                      const barber = shopBarbers.find(b => b.barber_id === barberId)
+                      const name = barber?.barber_name || barber?.alias || 'Barber'
+                      return (
+                        <div key={barberId} className="px-5 py-3 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-charcoal-900">{name}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-amber-500 text-sm">★ {stat.avg.toFixed(1)}</span>
+                            <span className="text-xs text-charcoal-500">{stat.count} reviews</span>
+                          </div>
+                        </div>
+                      )
+                    })
+                  }
+                </div>
+              )}
+              {/* Top barber callout */}
+              {Object.entries(barberReviewStats).length > 0 && (() => {
+                const top = Object.entries(barberReviewStats).sort(([, a], [, b]) => b.avg - a.avg)[0]
+                if (!top) return null
+                const [topId, topStat] = top
+                const barber = shopBarbers.find(b => b.barber_id === topId)
+                const name = barber?.barber_name || barber?.alias || 'Top barber'
+                return (
+                  <div className="px-5 py-3 bg-od-green/5 border-t border-warm-200">
+                    <span className="text-xs text-od-green font-semibold">★ Top rated: {name} ({topStat.avg.toFixed(1)})</span>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </div>
 
       </div>
       <MobileNav />

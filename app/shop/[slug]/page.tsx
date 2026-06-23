@@ -14,7 +14,8 @@ export default function ShopProfile() {
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [activeTab, setActiveTab] = useState<'services'|'team'>('services')
+  const [activeTab, setActiveTab] = useState<'services'|'team'|'reviews'>('services')
+  const [reviews, setReviews] = useState<any[]>([])
 
   useEffect(() => {
     async function load() {
@@ -41,6 +42,15 @@ export default function ShopProfile() {
         .eq('active', true)
         .order('price', { ascending: true })
       setServices(services || [])
+
+      const { data: reviewsData } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('shop_id', shop.id)
+        .eq('visible', true)
+        .order('created_at', { ascending: false })
+        .limit(5)
+      setReviews(reviewsData || [])
 
       setLoading(false)
     }
@@ -167,14 +177,14 @@ export default function ShopProfile() {
 
         {/* TABS */}
         <div className="flex gap-1 bg-warm-100 border border-warm-200 rounded-xl p-1 mb-6 w-fit">
-          {(['services','team'] as const).map(tab => (
+          {(['services','team','reviews'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all"
               style={{
                 background: activeTab === tab ? brand : 'transparent',
                 color: activeTab === tab ? '#000' : '#6b7280'
               }}>
-              {tab === 'services' ? `Services (${services.length})` : `The Team (${barbers.length})`}
+              {tab === 'services' ? `Services (${services.length})` : tab === 'team' ? `The Team (${barbers.length})` : `Reviews (${reviews.length})`}
             </button>
           ))}
         </div>
@@ -244,6 +254,57 @@ export default function ShopProfile() {
                   </button>
                 </div>
               ))
+            )}
+          </div>
+        )}
+
+        {/* REVIEWS TAB */}
+        {activeTab === 'reviews' && (
+          <div>
+            {reviews.length === 0 ? (
+              <div className="text-center text-charcoal-500 text-sm py-8">No reviews yet.</div>
+            ) : (
+              <>
+                {/* Compact avg rating hero */}
+                <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-4 flex items-center gap-3">
+                  <span className="text-amber-400 text-xl">★</span>
+                  <span className="font-serif text-xl font-semibold text-charcoal-900">
+                    {(reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length).toFixed(1)}
+                  </span>
+                  <span className="text-charcoal-400 text-sm">· {reviews.length} review{reviews.length !== 1 ? 's' : ''}</span>
+                </div>
+                {/* Review cards (up to 5) */}
+                <div className="space-y-3 mb-4">
+                  {reviews.slice(0, 5).map(r => (
+                    <div key={r.id} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-sm font-semibold text-charcoal-900">{r.reviewer_name || 'Anonymous'}</span>
+                        <span className="text-xs text-charcoal-400">
+                          {r.review_date
+                            ? new Date(r.review_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                            : r.created_at
+                              ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              : ''}
+                        </span>
+                      </div>
+                      <div className="text-amber-500 text-sm mb-1">
+                        {'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}
+                      </div>
+                      {r.body && (
+                        <p className="text-xs text-charcoal-600 leading-relaxed line-clamp-2">{r.body}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* See all link */}
+                <a
+                  href={`/shop/${slug}/reviews`}
+                  className="block text-center text-sm font-semibold py-2"
+                  style={{ color: brand }}
+                >
+                  See all {reviews.length} reviews →
+                </a>
+              </>
             )}
           </div>
         )}

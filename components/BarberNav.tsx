@@ -30,6 +30,7 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
         {[
           { label: 'My Schedule', href: '/dashboard/barber' },
           { label: 'My Profile', href: '/dashboard/barber/settings' },
+          { label: 'My Reviews', href: '/dashboard/barber/reviews' },
         ].map(item => {
           const active = pathname === item.href
           return (

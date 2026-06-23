@@ -21,6 +21,7 @@ function BookingPageInner() {
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [shopReviews, setShopReviews] = useState<any[]>([])
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -68,6 +69,33 @@ function BookingPageInner() {
         .eq('shop_id', shop.id).eq('active', true)
         .order('price', { ascending: true })
       setServices(services || [])
+
+      // Fetch top reviews for the shop preview
+      let reviewsData: any[] | null = null
+      if (barberParam) {
+        const { data: barberReviews } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('shop_id', shop.id)
+          .eq('visible', true)
+          .eq('barber_id', barberParam)
+          .order('rating', { ascending: false })
+          .limit(3)
+        if (barberReviews && barberReviews.length > 0) {
+          reviewsData = barberReviews
+        }
+      }
+      if (!reviewsData || reviewsData.length === 0) {
+        const { data: shopLevelReviews } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('shop_id', shop.id)
+          .eq('visible', true)
+          .order('rating', { ascending: false })
+          .limit(3)
+        reviewsData = shopLevelReviews || []
+      }
+      setShopReviews(reviewsData || [])
 
       setLoading(false)
     }
@@ -405,6 +433,34 @@ function BookingPageInner() {
       </div>
 
       <div className="max-w-2xl mx-auto p-6">
+
+        {shopReviews.length > 0 && (
+          <div className="mb-6">
+            <div className="bg-warm-100 border border-warm-200 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-charcoal-900">
+                  ★ {(shopReviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / shopReviews.length).toFixed(1)} · {shopReviews.length} review{shopReviews.length !== 1 ? 's' : ''}
+                </div>
+                {shop?.slug && (
+                  <a href={`/shop/${shop.slug}/reviews`} className="text-xs text-od-green font-semibold">
+                    See all →
+                  </a>
+                )}
+              </div>
+              <div className="space-y-3">
+                {shopReviews.map((r: any) => (
+                  <div key={r.id} className="border-t border-warm-200 pt-3 first:border-0 first:pt-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-semibold text-charcoal-900">{r.reviewer_name || 'Anonymous'}</span>
+                      <span className="text-xs text-amber-500">{'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}</span>
+                    </div>
+                    {r.body && <p className="text-xs text-charcoal-600 line-clamp-2">{r.body}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
 
