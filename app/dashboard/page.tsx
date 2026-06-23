@@ -6,6 +6,7 @@ import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import TrialCountdownBanner from '@/components/TrialCountdownBanner'
 import PaywallBanner from '@/components/PaywallBanner'
+import BriefCard from '@/components/BriefCard'
 import { getBillingStatus } from '@/lib/billing'
 
 const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
@@ -260,6 +261,8 @@ export default function Dashboard() {
           subscriptionStatus={profile?.subscription_status ?? null}
           subscriptionEndDate={profile?.subscription_end_date ?? null}
         />
+
+        <BriefCard recipientName={ownerName} />
 
         {/* 2. HEADER */}
         <div className="mb-5">

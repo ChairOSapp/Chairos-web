@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import BarberNav from '@/components/BarberNav'
 import BarberMobileNav from '@/components/BarberMobileNav'
 import PaywallBanner from '@/components/PaywallBanner'
+import BriefCard from '@/components/BriefCard'
 import { getBillingStatus } from '@/lib/billing'
 
 function getWeekDays(): Date[] {
@@ -321,6 +322,8 @@ export default function BarberDashboard() {
           subscriptionStatus={profile?.subscription_status ?? null}
           subscriptionEndDate={profile?.subscription_end_date ?? null}
         />
+
+        <BriefCard recipientName={profile?.full_name} />
 
         <div className="mb-6">
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">{greeting}, {firstName}</h1>
