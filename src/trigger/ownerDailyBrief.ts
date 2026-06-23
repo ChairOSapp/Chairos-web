@@ -90,11 +90,15 @@ export const ownerDailyBrief = schedules.task({
         // Per-barber breakdown yesterday
         const barberRevMap: Record<string, number> = {}
         const barberTipMap: Record<string, number> = {}
+        const barberNoShowYestMap: Record<string, number> = {}
         for (const a of completed) {
           if (a.barber_id) barberRevMap[a.barber_id] = (barberRevMap[a.barber_id] ?? 0) + (a.price ?? 0)
         }
         for (const t of yesterdayTips ?? []) {
           if (t.barber_id) barberTipMap[t.barber_id] = (barberTipMap[t.barber_id] ?? 0) + (t.amount ?? 0)
+        }
+        for (const a of noShows) {
+          if (a.barber_id) barberNoShowYestMap[a.barber_id] = (barberNoShowYestMap[a.barber_id] ?? 0) + 1
         }
 
         // Busiest hour yesterday
@@ -133,12 +137,36 @@ export const ownerDailyBrief = schedules.task({
 
         const lastWeekRevenue = (lastWeekAppts ?? []).reduce((s, a) => s + (a.price ?? 0), 0)
 
-        // Top barber this week
+        // Top barber this week + per-barber week revenue
         const weekBarberRev: Record<string, number> = {}
+        const barberWeekClientMap: Record<string, Set<string>> = {}
         for (const a of thisWeekAppts ?? []) {
-          if (a.barber_id) weekBarberRev[a.barber_id] = (weekBarberRev[a.barber_id] ?? 0) + (a.price ?? 0)
+          if (a.barber_id) {
+            weekBarberRev[a.barber_id] = (weekBarberRev[a.barber_id] ?? 0) + (a.price ?? 0)
+            if (a.client_id) {
+              if (!barberWeekClientMap[a.barber_id]) barberWeekClientMap[a.barber_id] = new Set()
+              barberWeekClientMap[a.barber_id].add(a.client_id)
+            }
+          }
         }
         const topBarberId = Object.entries(weekBarberRev).sort((a, b) => b[1] - a[1])[0]?.[0]
+
+        // Future bookings in the next 4 weeks (rebook rate per barber)
+        const { data: futureAppts } = await supabase
+          .from('appointments')
+          .select('barber_id, client_id')
+          .eq('shop_id', shopId)
+          .gt('date', yesterdayStr)
+          .lte('date', dateStr(new Date(today.getTime() + 28 * 86400000)))
+          .neq('status', 'cancelled')
+
+        const barberFutureClientMap: Record<string, Set<string>> = {}
+        for (const a of futureAppts ?? []) {
+          if (a.barber_id && a.client_id) {
+            if (!barberFutureClientMap[a.barber_id]) barberFutureClientMap[a.barber_id] = new Set()
+            barberFutureClientMap[a.barber_id].add(a.client_id)
+          }
+        }
 
         // New vs returning clients this week
         const allPriorClientIds = new Set<string>()
@@ -213,39 +241,55 @@ export const ownerDailyBrief = schedules.task({
           (barbers ?? []).map(b => [b.barber_id, b.barber_name || b.alias || 'Unknown'])
         )
 
-        const barberBreakdown = Object.entries(barberRevMap).map(([id, rev]) => ({
-          name: barberNameMap[id] ?? id.slice(0, 8),
-          revenue: rev,
-          tips: barberTipMap[id] ?? 0,
-        }))
+        // Full per-barber rankings with flags — includes all active barbers even with 0 appts
+        const barberRankings = (barbers ?? []).map(b => {
+          const id = b.barber_id
+          const rev = barberRevMap[id] ?? 0
+          const tips = barberTipMap[id] ?? 0
+          const noShowsYest = barberNoShowYestMap[id] ?? 0
+          const weekClients = barberWeekClientMap[id] ?? new Set<string>()
+          const rebookedCount = [...weekClients].filter(cid => barberFutureClientMap[id]?.has(cid)).length
+          const rebookRate = weekClients.size > 0 ? Math.round((rebookedCount / weekClients.size) * 100) : null
+          const yesterdayApptCount = (yesterdayAppts ?? []).filter(a => a.barber_id === id).length
+          let flag: string | null = null
+          if (yesterdayApptCount === 0) flag = 'no_activity'
+          else if (noShowsYest >= 2) flag = 'needs_attention'
+          return {
+            name: barberNameMap[id] ?? id.slice(0, 8),
+            revenue: rev,
+            tips,
+            no_shows: noShowsYest,
+            rebook_rate_pct: rebookRate,
+            flag,
+          }
+        }).sort((a, b) => b.revenue - a.revenue)
+
+        const topEarner = barberRankings[0] ?? null
+
+        const weekRevChangePct = lastWeekRevenue > 0
+          ? Math.round(((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100)
+          : null
 
         const briefData = {
           shop: shop.name,
           date: yesterdayStr,
-          yesterday: {
-            revenue: yesterdayRevenue,
-            tips: yesterdayTipsTotal,
-            completed: completed.length,
-            cancelled: cancelled.length,
-            no_shows: noShows.length,
-            busiest_hour: busiestHour ? `${busiestHour}:00` : null,
-            barbers: barberBreakdown,
-          },
-          week: {
-            revenue: thisWeekRevenue,
+          barber_rankings: barberRankings,
+          top_earner: topEarner?.name ?? null,
+          shop_totals: {
+            yesterday_revenue: yesterdayRevenue,
+            yesterday_tips: yesterdayTipsTotal,
+            yesterday_completed: completed.length,
+            yesterday_cancelled: cancelled.length,
+            yesterday_no_shows: noShows.length,
+            yesterday_busiest_hour: busiestHour ? `${busiestHour}:00` : null,
+            week_revenue: thisWeekRevenue,
             last_week_revenue: lastWeekRevenue,
-            revenue_change_pct: lastWeekRevenue > 0 ? Math.round(((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100) : null,
-            top_barber: topBarberId ? barberNameMap[topBarberId] : null,
-            top_barber_revenue: topBarberId ? weekBarberRev[topBarberId] : null,
-            slowest_day: slowestDay,
-            new_clients: newClients,
-            returning_clients: returningClients,
-          },
-          month: {
-            revenue: thisMonthRevenue,
-            last_month_same_period_revenue: lastMonthRevenue,
-            retention_rate_pct: retentionRate,
-            avg_ticket: avgTicket,
+            week_revenue_change_pct: weekRevChangePct,
+            week_new_clients: newClients,
+            week_returning_clients: returningClients,
+            month_revenue: thisMonthRevenue,
+            month_retention_rate_pct: retentionRate,
+            month_avg_ticket: avgTicket,
           },
         }
 
@@ -255,7 +299,7 @@ export const ownerDailyBrief = schedules.task({
           const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 1000,
-            system: `You are ChairOS, a barbershop management assistant. You are writing a daily business brief for a shop owner. Be direct, data-driven, and specific. Always lead with the most important number. Give exactly 3 actionable suggestions tailored to the data — not generic advice. Each suggestion must reference a specific number from the data. Keep the total response under 300 words. Format as JSON with keys: headline, yesterday_summary, week_summary, month_summary, suggestions (array of 3 strings), one_thing (single most important action for today). Respond with only valid JSON, no markdown.`,
+            system: `You are ChairOS. Write a daily brief for a barbershop owner. The owner's primary job is managing and retaining their barbers. Frame every insight around the team. Highlight what the owner did that enabled barber performance — chair availability, scheduling decisions, client flow. This brief should make the owner feel like a leader whose decisions directly impact their barbers' income. Give 3 suggestions: one to help a struggling barber, one to reward or recognize a top performer, one operational move to drive more revenue to the floor today. Reference specific barber names and numbers. Under 300 words. Return JSON: headline, barber_rankings (array: name, revenue, tips, no_shows, flag), shop_totals, suggestions (array of 3), one_thing. Respond with only valid JSON, no markdown.`,
             messages: [{ role: 'user', content: JSON.stringify(briefData) }],
           })
 

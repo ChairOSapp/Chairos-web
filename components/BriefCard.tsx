@@ -102,7 +102,55 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
         </button>
       </div>
 
-      {/* Sections */}
+      {/* Barber Rankings — owner briefs, always visible */}
+      {c.barber_rankings?.length > 0 && (
+        <div className="mb-1">
+          {c.barber_rankings.map((b: any, i: number) => (
+            <div key={i} className="flex items-center justify-between py-2 border-b border-warm-200 last:border-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs text-charcoal-400 w-4 flex-shrink-0">{i + 1}</span>
+                <span className="text-sm font-medium text-charcoal-900 truncate">{b.name}</span>
+                {b.flag && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                    b.flag === 'needs_attention'
+                      ? 'bg-red-950 text-red-400 border border-red-900'
+                      : 'bg-warm-200 text-charcoal-500'
+                  }`}>
+                    {b.flag === 'needs_attention' ? 'Needs attention' : 'No activity'}
+                  </span>
+                )}
+              </div>
+              <div className="text-right flex-shrink-0 ml-3">
+                <div className="text-sm font-semibold text-charcoal-900">${b.revenue}</div>
+                {b.tips > 0 && <div className="text-xs text-charcoal-400">+${b.tips} tips</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Shop Totals — collapsed */}
+      {c.shop_totals && (
+        <Section title="Shop Totals">
+          <dl className="space-y-1.5">
+            {Object.entries(c.shop_totals as Record<string, any>).map(([k, v]) => (
+              v != null && (
+                <div key={k} className="flex justify-between text-sm">
+                  <dt className="text-charcoal-500">{k.replace(/_/g, ' ')}</dt>
+                  <dd className="font-medium text-charcoal-900">
+                    {typeof v === 'number' && k.includes('revenue') ? `$${v}` :
+                     typeof v === 'number' && k.includes('pct') ? `${v}%` :
+                     typeof v === 'number' && k.includes('ticket') ? `$${v}` :
+                     String(v)}
+                  </dd>
+                </div>
+              )
+            ))}
+          </dl>
+        </Section>
+      )}
+
+      {/* Yesterday / Week / Month summaries */}
       {c.yesterday_summary && (
         <Section title="Yesterday">
           <p>{c.yesterday_summary}</p>
@@ -118,6 +166,23 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
           <p>{c.month_summary}</p>
         </Section>
       )}
+
+      {/* Retention Pulse — weekly owner brief */}
+      {isWeekly && c.retention_pulse && (
+        <Section title="Retention Pulse">
+          {c.retention_pulse.best_week && (
+            <p className="mb-1"><span className="font-medium text-od-green">Best week:</span> {c.retention_pulse.best_week}</p>
+          )}
+          {c.retention_pulse.worst_week && (
+            <p className="mb-1"><span className="font-medium text-red-400">Needs support:</span> {c.retention_pulse.worst_week}</p>
+          )}
+          {c.retention_pulse.owner_action && (
+            <p className="mt-2 text-charcoal-900 font-medium">{c.retention_pulse.owner_action}</p>
+          )}
+        </Section>
+      )}
+
+      {/* Watch List */}
       {isWeekly && c.watch_list && (
         <Section title="Watch List">
           {c.watch_list.barbers?.length > 0 && (
@@ -142,6 +207,8 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
           )}
         </Section>
       )}
+
+      {/* Client Alerts — barber brief */}
       {c.client_alerts?.length > 0 && (
         <Section title="Client Alerts">
           <ul className="space-y-1">
@@ -158,7 +225,9 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
       {/* Suggestions */}
       {c.suggestions?.length > 0 && (
         <div className="border-t border-warm-200 pt-3 mt-0">
-          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-2">Suggestions</div>
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-2">
+            {c.barber_rankings?.length > 0 ? 'Your Team This Week' : 'Suggestions'}
+          </div>
           <ol className="space-y-2">
             {c.suggestions.map((s: string, i: number) => (
               <li key={i} className="flex gap-2.5 text-sm text-charcoal-700">

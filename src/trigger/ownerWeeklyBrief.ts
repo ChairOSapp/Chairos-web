@@ -81,16 +81,21 @@ export const ownerWeeklyBrief = schedules.task({
 
         const prevWeekRevenue = (prevWeekAppts ?? []).reduce((s, a) => s + (a.price ?? 0), 0)
 
-        // Per-barber revenue & no-show rate
+        // Per-barber revenue, no-show rate, and rebook rate
         const barberRevMap: Record<string, number> = {}
         const barberApptCount: Record<string, number> = {}
         const barberNoShowCount: Record<string, number> = {}
+        const barberWeekClientMap: Record<string, Set<string>> = {}
         const serviceRevMap: Record<string, number> = {}
 
         for (const a of lastWeekCompleted) {
           if (a.barber_id) {
             barberRevMap[a.barber_id] = (barberRevMap[a.barber_id] ?? 0) + (a.price ?? 0)
             barberApptCount[a.barber_id] = (barberApptCount[a.barber_id] ?? 0) + 1
+            if (a.client_id) {
+              if (!barberWeekClientMap[a.barber_id]) barberWeekClientMap[a.barber_id] = new Set()
+              barberWeekClientMap[a.barber_id].add(a.client_id)
+            }
           }
           const svcName = (a.services as any)?.name
           if (svcName) serviceRevMap[svcName] = (serviceRevMap[svcName] ?? 0) + (a.price ?? 0)
@@ -100,6 +105,23 @@ export const ownerWeeklyBrief = schedules.task({
         }
         for (const a of lastWeekCancelled) {
           if (a.barber_id) barberApptCount[a.barber_id] = (barberApptCount[a.barber_id] ?? 0) + 1
+        }
+
+        // Rebooking: did last week's clients book again in the following 4 weeks?
+        const { data: futureAppts } = await supabase
+          .from('appointments')
+          .select('barber_id, client_id')
+          .eq('shop_id', shopId)
+          .gt('date', dateStr(lastSunday))
+          .lte('date', dateStr(new Date(lastSunday.getTime() + 28 * 86400000)))
+          .neq('status', 'cancelled')
+
+        const barberFutureClientMap: Record<string, Set<string>> = {}
+        for (const a of futureAppts ?? []) {
+          if (a.barber_id && a.client_id) {
+            if (!barberFutureClientMap[a.barber_id]) barberFutureClientMap[a.barber_id] = new Set()
+            barberFutureClientMap[a.barber_id].add(a.client_id)
+          }
         }
 
         // Last week tips
@@ -164,10 +186,14 @@ export const ownerWeeklyBrief = schedules.task({
             const total = barberApptCount[id] ?? 0
             const noShows = barberNoShowCount[id] ?? 0
             const noShowRate = total > 0 ? Math.round((noShows / total) * 100) : 0
+            const weekClients = barberWeekClientMap[id] ?? new Set<string>()
+            const rebookedCount = [...weekClients].filter(cid => barberFutureClientMap[id]?.has(cid)).length
+            const rebookRate = weekClients.size > 0 ? Math.round((rebookedCount / weekClients.size) * 100) : null
             return {
               name: barberNameMap[id] ?? id.slice(0, 8),
               revenue: rev,
               no_show_rate_pct: noShowRate,
+              rebook_rate_pct: rebookRate,
               flag: noShowRate > 15 ? 'high_no_shows' : null,
             }
           })
@@ -202,7 +228,7 @@ export const ownerWeeklyBrief = schedules.task({
           const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 1000,
-            system: `You are ChairOS, a barbershop management assistant. You are writing a weekly business brief for a shop owner. Be direct, data-driven, and specific. Always lead with the most important number. Give exactly 3 actionable suggestions tailored to the data — not generic advice. Each suggestion must reference a specific number from the data. This is a weekly brief. Include a 'watch list' section: barbers who had a slow week and may need encouragement, and clients approaching lapse who should be contacted before ChairOS automation reaches them first. Keep the total response under 350 words. Format as JSON with keys: headline, week_recap, barber_rankings (array of objects with name and revenue), watch_list (object with keys barbers and clients, each an array of strings), suggestions (array of 3 strings), one_thing (single most important action for the week). Respond with only valid JSON, no markdown.`,
+            system: `You are ChairOS, a barbershop management assistant. You are writing a weekly business brief for a shop owner. Be direct, data-driven, and specific. Always lead with the most important number. Give exactly 3 actionable suggestions tailored to the data — not generic advice. Each suggestion must reference a specific number from the data. This is a weekly brief. Include a 'watch list' section: barbers who had a slow week and may need encouragement, and clients approaching lapse who should be contacted before ChairOS automation reaches them first. Include a 'retention_pulse' section: which barbers had their best week, which had their worst, and one specific thing the owner can do this week to strengthen the weakest relationship on their floor. Keep the total response under 400 words. Format as JSON with keys: headline, week_recap, barber_rankings (array of objects with name, revenue, rebook_rate_pct), watch_list (object with keys barbers and clients, each an array of strings), retention_pulse (object with keys best_week, worst_week, owner_action — each a string), suggestions (array of 3 strings), one_thing (single most important action for the week). Respond with only valid JSON, no markdown.`,
             messages: [{ role: 'user', content: JSON.stringify(briefData) }],
           })
 
