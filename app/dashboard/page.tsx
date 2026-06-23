@@ -432,7 +432,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">The floor</div>
             <button onClick={() => router.push('/dashboard/barbers')}
-              className="text-xs font-semibold text-od-green hover:underline">
+              className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
               Manage →
             </button>
           </div>
@@ -470,7 +470,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Client lock</div>
             <button onClick={() => router.push('/dashboard/analytics')}
-              className="text-xs font-semibold text-od-green hover:underline">
+              className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
               Analytics →
             </button>
           </div>
