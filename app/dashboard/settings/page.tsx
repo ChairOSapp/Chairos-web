@@ -27,6 +27,7 @@ export default function ShopSettings() {
   const [squareAccount, setSquareAccount] = useState<any>(null)
   const [disconnectingSquare, setDisconnectingSquare] = useState(false)
   const [barbersCollectOwnPayments, setBarbersCollectOwnPayments] = useState(false)
+  const [googlePlaceId, setGooglePlaceId] = useState('')
 
   // Form state
   const [name, setName] = useState('')
@@ -74,6 +75,7 @@ export default function ShopSettings() {
     setHeroUrl(shop.hero_url || '')
     if (shop.hours) setHours(shop.hours)
     setBarbersCollectOwnPayments(!!shop.barbers_collect_own_payments)
+    setGooglePlaceId(shop.google_place_id || '')
 
     const { data: sq } = await supabase
       .from('square_accounts').select('square_merchant_id, square_location_id, connected_at').eq('user_id', user.id).maybeSingle()
@@ -177,6 +179,7 @@ export default function ShopSettings() {
       hero_url: heroUrl,
       hours,
       barbers_collect_own_payments: barbersCollectOwnPayments,
+      google_place_id: googlePlaceId.trim() || null,
     }).eq('id', shop.id)
 
     if (saveErr) { setError(saveErr.message); setSaving(false); return }
@@ -493,6 +496,45 @@ export default function ShopSettings() {
                 </a>
                 <p className="text-xs text-charcoal-400 mt-3">You'll be redirected to Square to authorize. Your access token is stored securely.</p>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* REVIEWS */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-warm-200 border border-warm-300 flex items-center justify-center flex-shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" className="text-charcoal-500">
+                  <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+              </div>
+              <div>
+                <div className="font-serif text-charcoal-900 text-sm">Reviews</div>
+                <div className="text-xs text-charcoal-500">Import from Google, manage visibility, assign to barbers</div>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/dashboard/reviews')}
+              className="px-3 py-1.5 bg-od-green text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap">
+              Manage Reviews
+            </button>
+          </div>
+          <div className="p-5">
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Google Place ID</label>
+            <input
+              value={googlePlaceId}
+              onChange={e => setGooglePlaceId(e.target.value)}
+              placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
+              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm font-mono outline-none focus:border-od-green transition-colors"
+            />
+            <p className="text-xs text-charcoal-500 mt-2">
+              Save your Place ID here so you don't have to paste it each time you import. Find it at maps.google.com — search your shop, click Share, copy the ID from the URL (starts with "ChIJ").
+            </p>
+            {googlePlaceId && (
+              <p className="text-xs text-od-green mt-2 font-semibold">
+                ✓ Place ID saved — use "Import from Google" on the Reviews page to pull in new reviews.
+              </p>
             )}
           </div>
         </div>

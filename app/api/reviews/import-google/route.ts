@@ -32,15 +32,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { place_id } = body
-  if (!place_id) {
-    return NextResponse.json({ error: 'place_id is required' }, { status: 400 })
-  }
-
-  // Get owner's shop
+  // Get owner's shop (include google_place_id as fallback)
   const { data: shop, error: shopErr } = await supabase
     .from('shops')
-    .select('id')
+    .select('id, google_place_id')
     .eq('owner_id', user.id)
     .limit(1)
     .maybeSingle()
@@ -49,9 +44,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
   }
 
+  // Use provided place_id or fall back to the one saved in shop settings
+  const resolvedPlaceId = body.place_id?.trim() || shop.google_place_id
+  if (!resolvedPlaceId) {
+    return NextResponse.json({ error: 'place_id is required. Save your Google Place ID in Shop Settings or provide it here.' }, { status: 400 })
+  }
+
   // Call Google Places API
   const url = new URL('https://maps.googleapis.com/maps/api/place/details/json')
-  url.searchParams.set('place_id', place_id)
+  url.searchParams.set('place_id', resolvedPlaceId)
   url.searchParams.set('fields', 'reviews,rating,user_ratings_total')
   url.searchParams.set('key', process.env.GOOGLE_PLACES_API_KEY!)
 
