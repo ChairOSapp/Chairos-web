@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import MobileNav from '@/components/MobileNav'
@@ -12,7 +12,7 @@ export default function NotificationsPage() {
   const [profile, setProfile] = useState<any>(null)
   const [user, setUser] = useState<any>(null)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => { loadData() }, [])
 

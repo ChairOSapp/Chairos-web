@@ -72,7 +72,7 @@ export default function JoinPage() {
       .eq('id', user.id)
 
     setLoading(false)
-    router.push('/dashboard/barber')
+    setMode('success')
   }
 
   async function handleShopCode(e: React.FormEvent) {
@@ -87,59 +87,67 @@ export default function JoinPage() {
     }
 
     // Find shop by code
-    const { data: shop } = await supabase
+    const { data: shopData } = await supabase
       .from('shops')
       .select('*')
       .eq('shop_code', shopCode.toUpperCase().trim())
       .maybeSingle()
 
-    if (!shop) { setError('Shop code not found. Check the code and try again.'); setLoading(false); return }
+    if (!shopData) { setError('Shop code not found. Check the code and try again.'); setLoading(false); return }
 
-    // Find an unlinked barber slot for this user
-    const { data: existingLink } = await supabase
-      .from('shop_barbers')
-      .select('id')
-      .eq('shop_id', shop.id)
-      .eq('barber_id', user.id)
+    const ownerUserId = shopData.owner_id
+
+    // Check for existing pending_barbers row
+    const { data: existingRequest } = await supabase
+      .from('pending_barbers')
+      .select('id, status')
+      .eq('shop_id', shopData.id)
+      .eq('user_id', user.id)
       .maybeSingle()
 
-    if (existingLink) {
-      await supabase.from('shop_barbers').update({ active: true }).eq('id', existingLink.id)
-      await supabase.from('profiles').update({ role: 'barber' }).eq('id', user.id)
-      setLoading(false)
-      router.push('/dashboard/barber')
-      return
-    }
-
-    // Find first unlinked barber slot
-    const { data: unlinkedBarbers } = await supabase
-      .from('shop_barbers')
-      .select('*')
-      .eq('shop_id', shop.id)
-      .is('barber_id', null)
-      .limit(1)
-
-    if (!unlinkedBarbers || unlinkedBarbers.length === 0) {
-      setError('No open barber slots found. Ask your owner to add you first.')
+    if (existingRequest) {
+      if (existingRequest.status === 'approved') {
+        setError('Your request has already been approved. Check your dashboard.')
+      } else if (existingRequest.status === 'pending') {
+        setError('You already have a pending request for this shop. The owner will review it soon.')
+      } else {
+        setError('Your previous request was not approved. Contact the shop owner directly.')
+      }
       setLoading(false)
       return
     }
 
-    const slot = unlinkedBarbers[0]
-
-    const { error: linkErr } = await supabase
-      .from('shop_barbers')
-      .update({ barber_id: user.id, active: true })
-      .eq('id', slot.id)
-
-    if (linkErr) { setError(linkErr.message); setLoading(false); return }
-
-    await supabase.from('profiles')
-      .update({ role: 'barber' })
+    // Get barber's name from profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
       .eq('id', user.id)
+      .maybeSingle()
+    const barberName = profile?.full_name || 'A barber'
 
+    // Insert pending_barbers request
+    const { error: pendingErr } = await supabase
+      .from('pending_barbers')
+      .insert({
+        shop_id: shopData.id,
+        user_id: user.id,
+        name: barberName,
+        status: 'pending',
+      })
+
+    if (pendingErr) { setError(pendingErr.message); setLoading(false); return }
+
+    // Notify shop owner
+    await supabase.from('notifications').insert({
+      user_id: ownerUserId,
+      type: 'barber_join_request',
+      message: `${barberName} requested to join your shop. Review in your dashboard.`,
+      read: false,
+    })
+
+    setShop(shopData)
+    setMode('success')
     setLoading(false)
-    router.push('/dashboard/barber')
   }
 
   if (mode === 'loading') return (
@@ -171,17 +179,32 @@ export default function JoinPage() {
           <div className="w-14 h-14 bg-green-500/10 border border-green-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
-          <h2 className="font-serif text-xl text-charcoal-900 mb-2">You're in.</h2>
-          <p className="text-charcoal-400 text-sm mb-2">
-            You've been linked to <span className="text-charcoal-900 font-medium">{shop?.name}</span>.
-          </p>
-          <p className="text-charcoal-500 text-xs mb-6">
-            Your chair: <span className="text-charcoal-700">{barber?.barber_name || barber?.alias}</span>
-          </p>
-          <button onClick={() => router.push('/dashboard/barber')}
-            className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors">
-            Go to My Dashboard
-          </button>
+          {invite ? (
+            <>
+              <h2 className="font-serif text-xl text-charcoal-900 mb-2">You're in.</h2>
+              <p className="text-charcoal-400 text-sm mb-2">
+                You've been linked to <span className="text-charcoal-900 font-medium">{shop?.name}</span>.
+              </p>
+              <p className="text-charcoal-500 text-xs mb-6">
+                Your chair: <span className="text-charcoal-700">{barber?.barber_name || barber?.alias}</span>
+              </p>
+              <button onClick={() => router.push('/dashboard/barber')}
+                className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors">
+                Go to My Dashboard
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="font-serif text-xl text-charcoal-900 mb-2">Request sent!</h2>
+              <p className="text-charcoal-400 text-sm mb-6">
+                The shop owner will review your application for <span className="text-charcoal-900 font-medium">{shop?.name}</span>. You'll receive a notification when it's approved.
+              </p>
+              <button onClick={() => router.push('/')}
+                className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors">
+                Back to Home
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -124,9 +124,9 @@ export default function BarberClientsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-charcoal-900">
-                        {l.clients?.full_name || l.client_name || 'Guest Client'}
+                        {l.clients?.full_name || 'Guest Client'}
                       </div>
-                      <div className="text-xs text-charcoal-500">{l.clients?.phone || l.client_phone || ''}</div>
+                      <div className="text-xs text-charcoal-500">{l.clients?.phone || ''}</div>
                       <div className="text-xs text-charcoal-600 mt-0.5">
                         {l.booking_count} visits
                         {l.first_booking_date && ` · since ${new Date(l.first_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`}

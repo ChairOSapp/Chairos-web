@@ -1,8 +1,10 @@
 'use client'
+import { useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import NotificationBell from '@/components/NotificationBell'
 import NotificationToast from '@/components/NotificationToast'
+import { NotificationsProvider } from '@/src/context/NotificationsContext'
 
 export default function BarberNav({ shopName, barberName, color, initial, photoUrl, userId }: {
   shopName: string
@@ -14,7 +16,7 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -45,8 +47,12 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
           <div className="text-xs font-medium text-charcoal-900">{barberName}</div>
           <div className="text-xs text-charcoal-500">{shopName}</div>
         </div>
-        {userId && <NotificationBell userId={userId} />}
-        {userId && <NotificationToast userId={userId} />}
+        {userId && (
+          <NotificationsProvider>
+            <NotificationBell userId={userId} />
+            <NotificationToast userId={userId} />
+          </NotificationsProvider>
+        )}
         <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"
           style={{ background: color + '22', border: `2px solid ${color}`, color }}>
           {photoUrl

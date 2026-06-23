@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import BarberNav from '@/components/BarberNav'
@@ -54,7 +54,7 @@ export default function BarberDashboard() {
   const [addingTip, setAddingTip] = useState<{[key: string]: boolean}>({})
   const [tippedAppointments, setTippedAppointments] = useState<Set<string>>(new Set())
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const getToday = () => {
     const now = new Date()
@@ -63,6 +63,7 @@ export default function BarberDashboard() {
 
   const loadLiveData = useCallback(async (uid: string, sid: string) => {
     const today = getToday()
+    const todayUTC = new Date().toISOString().split('T')[0] + 'T00:00:00Z'
     const days = getWeekDays()
     const weekStart = toDateStr(days[0])
     const weekEnd = toDateStr(days[6])
@@ -88,27 +89,21 @@ export default function BarberDashboard() {
       .from('tips')
       .select('*')
       .eq('barber_id', uid)
-      .gte('created_at', today)
+      .gte('created_at', todayUTC)
     setTips(tips || [])
-
-    const { data: existingTips } = await supabase
-      .from('tips')
-      .select('appointment_id')
-      .eq('barber_id', uid)
-      .gte('created_at', today)
-    if (existingTips && existingTips.length > 0) {
-      setTippedAppointments(new Set(existingTips.map((t: any) => t.appointment_id)))
-    }
+    const tippedSet = new Set((tips || []).map((t: any) => t.appointment_id))
+    setTippedAppointments(tippedSet)
 
     const { data: locks } = await supabase
       .from('client_locks')
       .select('id, locked, barber_id, shop_id, booking_count, first_booking_date, last_booking_date, loyalty_protected, updated_at, client_id, clients(id, full_name, phone, email, total_visits, last_visit_date)')
       .eq('barber_id', uid)
     setClientLocks(locks || [])
-  }, [])
+  }, [supabase])
 
   useEffect(() => {
     async function load() {
+      setLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
@@ -156,7 +151,7 @@ export default function BarberDashboard() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [supabase])
 
   useEffect(() => {
     if (!barberId || !shopId) return
@@ -176,7 +171,7 @@ export default function BarberDashboard() {
       }, () => loadLiveData(barberId, shopId))
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [barberId, shopId])
+  }, [barberId, shopId, supabase, loadLiveData])
 
   async function toggleFloor() {
     const newStatus = !onFloor
@@ -237,7 +232,7 @@ export default function BarberDashboard() {
     const time24 = `${h.toString().padStart(2,'0')}:${minutes}:00`
     const svc = services.find(s => s.id === bookingService)
 
-    await supabase.from('appointments').insert({
+    const { error: insertError } = await supabase.from('appointments').insert({
       shop_id: shopId,
       barber_id: barberId,
       service_id: bookingService,
@@ -248,6 +243,12 @@ export default function BarberDashboard() {
       price: parseFloat(bookingPrice) || svc?.price || 0,
       status: 'confirmed',
     })
+
+    if (insertError) {
+      setBookingSuccess('')
+      setBookingSubmitting(false)
+      return
+    }
 
     // Notify owner
     const { data: shopData } = await supabase

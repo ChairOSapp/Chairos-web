@@ -14,6 +14,7 @@ export default function TipsPage() {
   const [filterMonth, setFilterMonth] = useState('')
   const [profile, setProfile] = useState<any>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [totalTipsCount, setTotalTipsCount] = useState(0)
   const router = useRouter()
   const supabase = createClient()
 
@@ -40,13 +41,13 @@ export default function TipsPage() {
       .eq('shop_id', shop.id)
     setBarbers(barbersData || [])
 
-    const { data: tipsData } = await supabase
+    const { data: tipsData, count: tipsCount } = await supabase
       .from('tips')
-      .select('*, appointments(client_name, date, time, services(name))')
+      .select('*, appointments(client_name, date, time, services(name))', { count: 'exact' })
       .eq('shop_id', shop.id)
       .order('created_at', { ascending: false })
-      .limit(200)
     setTips(tipsData || [])
+    setTotalTipsCount(tipsCount || 0)
 
     setLoading(false)
   }
@@ -106,6 +107,15 @@ export default function TipsPage() {
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Tips</h1>
           <p className="text-charcoal-500 text-sm">{shop?.name}</p>
         </div>
+
+        {totalTipsCount > 500 && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-5 flex items-center gap-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" className="text-amber-500 flex-shrink-0">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <p className="text-xs text-amber-700">Showing all {totalTipsCount} tips. For best performance, consider filtering by date.</p>
+          </div>
+        )}
 
         {shop?.barbers_collect_own_payments && (
           <div className="bg-od-green/10 border border-od-green/20 rounded-xl px-4 py-3 mb-5 flex items-center gap-3">

@@ -29,12 +29,10 @@ function BarberSettingsInner() {
   const searchParams = useSearchParams()
   const supabase = createClient()
 
-  useEffect(() => { loadData() }, [])
-
   useEffect(() => {
+    loadData()
     if (searchParams.get('square_connected') === '1') {
       setSuccess('Square account connected successfully.')
-      loadData()
     }
     if (searchParams.get('square_error')) {
       setError(`Square connection failed: ${searchParams.get('square_error')}`)
@@ -112,6 +110,7 @@ function BarberSettingsInner() {
   }
 
   async function handleSave() {
+    if (!profile) return
     setSaving(true)
     setError('')
     setSuccess('')

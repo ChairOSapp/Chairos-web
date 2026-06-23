@@ -84,7 +84,9 @@ export async function POST(req: NextRequest) {
 
         console.log('[stripe/webhook] checkout.session.completed | userId:', userId, '| plan:', plan)
         console.log('[stripe/webhook] session.customer:', session.customer, '| session.subscription:', session.subscription)
-        console.log('[stripe/webhook] full session:', JSON.stringify(session, null, 2))
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[stripe/webhook] full session:', JSON.stringify(session, null, 2))
+        }
 
         if (!userId) {
           console.warn('[stripe/webhook] session.metadata.user_id is missing — skipping')
@@ -102,7 +104,9 @@ export async function POST(req: NextRequest) {
         console.log('[stripe/webhook] Retrieving subscription:', session.subscription)
         const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
 
-        console.log('[stripe/webhook] full subscription:', JSON.stringify(subscription, null, 2))
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[stripe/webhook] full subscription:', JSON.stringify(subscription, null, 2))
+        }
         console.log('[stripe/webhook] current_period_end:', (subscription as any).current_period_end)
         console.log('[stripe/webhook] trial_end:', (subscription as any).trial_end)
 

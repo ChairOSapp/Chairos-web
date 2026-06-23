@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SquareClient, SquareEnvironment } from 'square'
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,13 +15,15 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get('state')
   const errorParam = searchParams.get('error')
 
-  // Decode role from state; fall back to barber for backward compat with old plain-userId state
+  // Decode role and nonce from state
   let userId = state || ''
   let role = 'barber'
+  let stateNonce: string | undefined
   try {
     const parsed = JSON.parse(Buffer.from(state || '', 'base64url').toString())
     userId = parsed.userId
     role = parsed.role || 'barber'
+    stateNonce = parsed.nonce
   } catch {
     // old-style state was just a raw user ID string — keep as-is, role stays 'barber'
     userId = state || ''
@@ -27,8 +31,43 @@ export async function GET(req: NextRequest) {
 
   const settingsPath = role === 'owner' ? '/dashboard/settings' : '/dashboard/barber/settings'
 
+  // Helper to build an error redirect that always clears the nonce cookie
+  function errorRedirect(param: string) {
+    const res = NextResponse.redirect(`${origin}${settingsPath}?square_error=${param}`)
+    res.cookies.set('sq_oauth_nonce', '', { maxAge: 0, path: '/' })
+    return res
+  }
+
+  const cookieStore = await cookies()
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cs) { cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) },
+      },
+    }
+  )
+
+  const { data: { user: authedUser } } = await supabaseAuth.auth.getUser()
+  if (!authedUser) {
+    return errorRedirect('unauthorized')
+  }
+
+  // Verify nonce matches the cookie to prevent CSRF
+  const cookieNonce = cookieStore.get('sq_oauth_nonce')?.value
+  if (!stateNonce || !cookieNonce || stateNonce !== cookieNonce) {
+    return errorRedirect('invalid_state')
+  }
+
+  // Verify the userId in state matches the authenticated user
+  if (userId !== authedUser.id) {
+    return errorRedirect('invalid_state')
+  }
+
   if (errorParam || !code || !userId) {
-    return NextResponse.redirect(`${origin}${settingsPath}?square_error=access_denied`)
+    return errorRedirect('access_denied')
   }
 
   try {
@@ -55,7 +94,7 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenRes.json()
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error('Square token exchange failed:', tokenData)
-      return NextResponse.redirect(`${origin}${settingsPath}?square_error=token_failed`)
+      return errorRedirect('token_failed')
     }
 
     const client = new SquareClient({
@@ -93,9 +132,11 @@ export async function GET(req: NextRequest) {
         { onConflict: 'user_id' }
       )
 
-    return NextResponse.redirect(`${origin}${settingsPath}?square_connected=1`)
+    const successRes = NextResponse.redirect(`${origin}${settingsPath}?square_connected=1`)
+    successRes.cookies.set('sq_oauth_nonce', '', { maxAge: 0, path: '/' })
+    return successRes
   } catch (err: any) {
     console.error('Square OAuth callback error:', err)
-    return NextResponse.redirect(`${origin}${settingsPath}?square_error=server_error`)
+    return errorRedirect('server_error')
   }
 }

@@ -133,7 +133,7 @@ export default function RevenuePage() {
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     async function load() {
@@ -201,8 +201,8 @@ export default function RevenuePage() {
     setNoshowCount(noshow || 0)
   }
 
-  const { start, end } = getPeriodRange(period)
-  const days = useMemo(() => getDaysBetween(start, end), [period])
+  const { start, end } = useMemo(() => getPeriodRange(period), [period])
+  const days = useMemo(() => getDaysBetween(start, end), [start, end])
 
   const revenueByDay = useMemo(() => {
     const map: Record<string, number> = {}

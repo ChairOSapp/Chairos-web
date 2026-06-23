@@ -1,6 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { useEffect, useRef, useState } from 'react'
+import { useNotifications } from '@/src/context/NotificationsContext'
 
 type Toast = {
   id: string
@@ -10,36 +10,30 @@ type Toast = {
 }
 
 export default function NotificationToast({ userId }: { userId: string }) {
+  const { notifications } = useNotifications()
   const [toasts, setToasts] = useState<Toast[]>([])
-  const supabase = createClient()
+  const seenIdsRef = useRef<Set<string>>(new Set())
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (!userId) return
-
-    const channel = supabase
-      .channel(`notifications-${userId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`
-      }, (payload) => {
-        const n = payload.new as any
-        const toast: Toast = {
-          id: n.id,
-          title: n.title,
-          body: n.body,
-          type: n.type,
-        }
-        setToasts(prev => [...prev, toast])
-        setTimeout(() => {
-          setToasts(prev => prev.filter(t => t.id !== toast.id))
-        }, 4000)
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [userId])
+    if (notifications.length === 0) return
+    const latest = notifications[0]
+    if (!latest.read && !seenIdsRef.current.has(latest.id)) {
+      seenIdsRef.current.add(latest.id)
+      const toast: Toast = {
+        id: latest.id,
+        title: latest.title,
+        body: latest.body,
+        type: latest.type,
+      }
+      setToasts(prev => [...prev, toast])
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== toast.id))
+      }, 4000)
+    }
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [notifications])
 
   if (toasts.length === 0) return null
 

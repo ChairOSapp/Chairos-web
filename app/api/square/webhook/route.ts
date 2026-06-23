@@ -17,13 +17,13 @@ function verifySignature(body: string, signature: string, key: string, url: stri
 export async function POST(req: NextRequest) {
   const body = await req.text()
   const signature = req.headers.get('x-square-hmacsha256-signature') || ''
-  const webhookKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY
 
-  if (webhookKey) {
-    const url = req.url
-    if (!verifySignature(body, signature, webhookKey, url)) {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    }
+  if (!process.env.SQUARE_WEBHOOK_SIGNATURE_KEY) {
+    console.error('[square/webhook] SQUARE_WEBHOOK_SIGNATURE_KEY not configured')
+    return NextResponse.json({ error: 'Webhook key not configured' }, { status: 500 })
+  }
+  if (!verifySignature(body, signature, process.env.SQUARE_WEBHOOK_SIGNATURE_KEY, req.url)) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
   let event: any

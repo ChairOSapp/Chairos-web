@@ -15,11 +15,11 @@ export default function BarberMobileNav() {
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-warm-100 border-t border-warm-200 px-2 py-2 flex justify-around z-50">
-      {ITEMS.map((item, i) => {
+      {ITEMS.map((item) => {
         const active = pathname === item.href
         return (
           <button
-            key={i}
+            key={item.href}
             onClick={() => router.push(item.href)}
             className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-od-green' : 'text-charcoal-500'}`}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

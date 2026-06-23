@@ -178,7 +178,7 @@ export default function AnalyticsPage() {
   const [clientLocks, setClientLocks] = useState<ClientLock[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     async function load() {
@@ -190,8 +190,9 @@ export default function AnalyticsPage() {
       setProfile(prof)
       if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
 
-      const { data: shopData } = await supabase
-        .from('shops').select('*').eq('owner_id', user.id).maybeSingle()
+      const { data: shopsData } = await supabase
+        .from('shops').select('*').eq('owner_id', user.id).limit(1)
+      const shopData = shopsData?.[0] || null
       if (!shopData) { setLoading(false); return }
       setShop(shopData)
 
@@ -238,9 +239,10 @@ export default function AnalyticsPage() {
 
   // Period start for selected period
   const periodStart = useMemo(() => {
-    if (analyticsPeriod === '30') return fmt(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
-    if (analyticsPeriod === '90') return fmt(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000))
-    return `${now.getFullYear()}-01-01`
+    const n = new Date()
+    if (analyticsPeriod === '30') return fmt(new Date(n.getTime() - 30 * 24 * 60 * 60 * 1000))
+    if (analyticsPeriod === '90') return fmt(new Date(n.getTime() - 90 * 24 * 60 * 60 * 1000))
+    return `${n.getFullYear()}-01-01`
   }, [analyticsPeriod])
 
   const periodAppts = useMemo(() =>
@@ -252,8 +254,8 @@ export default function AnalyticsPage() {
     [tips, periodStart])
 
   // A) Revenue trend — last 30 days always for line chart
-  const last30Start = fmt(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
-  const last30Days = useMemo(() => getDaysBetween(last30Start, today), [last30Start])
+  const last30Start = useMemo(() => fmt(new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000)), [])
+  const last30Days = useMemo(() => getDaysBetween(last30Start, fmt(new Date())), [last30Start])
   const revenueByDay30 = useMemo(() => {
     const map: Record<string, number> = {}
     appointments.filter(a => a.date >= last30Start && a.status === 'done')
