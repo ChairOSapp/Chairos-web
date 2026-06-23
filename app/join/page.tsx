@@ -21,7 +21,22 @@ export default function JoinPage() {
       const token = params.get('token')
 
       if (token) {
-        // Look up invite
+        // Check new generic shop_invites first
+        const { data: shopInvite } = await supabase
+          .from('shop_invites')
+          .select('*, shops(*)')
+          .eq('token', token)
+          .eq('used', false)
+          .maybeSingle()
+
+        if (shopInvite) {
+          setInvite({ ...shopInvite, _type: 'shop_invite' })
+          setShop(shopInvite.shops)
+          setMode('invite')
+          return
+        }
+
+        // Fall back to old per-slot invites
         const { data: invite } = await supabase
           .from('invites')
           .select('*, shops(*), shop_barbers(*)')
@@ -53,7 +68,28 @@ export default function JoinPage() {
       return
     }
 
-    // Link barber to their profile
+    if (invite._type === 'shop_invite') {
+      // Generic shop invite — create a new shop_barbers row for this barber
+      const { error: linkErr } = await supabase
+        .from('shop_barbers')
+        .insert({ shop_id: invite.shop_id, barber_id: user.id, active: true })
+
+      if (linkErr) { setError(linkErr.message); setLoading(false); return }
+
+      await supabase.from('shop_invites')
+        .update({ used: true, used_by: user.id })
+        .eq('id', invite.id)
+
+      await supabase.from('profiles')
+        .update({ role: 'barber', plan_type: 'shop', joined_via: 'invite_link' })
+        .eq('id', user.id)
+
+      setLoading(false)
+      router.push('/dashboard/barber')
+      return
+    }
+
+    // Per-slot invite (old invites table)
     const { error: linkErr } = await supabase
       .from('shop_barbers')
       .update({ barber_id: user.id, active: true })
@@ -61,18 +97,44 @@ export default function JoinPage() {
 
     if (linkErr) { setError(linkErr.message); setLoading(false); return }
 
-    // Mark invite accepted
     await supabase.from('invites')
       .update({ accepted: true, accepted_at: new Date().toISOString() })
       .eq('id', invite.id)
 
-    // Update profile role to barber
     await supabase.from('profiles')
-      .update({ role: 'barber' })
+      .update({ role: 'barber', plan_type: 'shop', joined_via: 'invite_link' })
       .eq('id', user.id)
 
     setLoading(false)
     router.push('/dashboard/barber')
+  }
+
+  async function handleGoSolo() {
+    setLoading(true)
+    setError('')
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/login?redirect=/join')
+      return
+    }
+
+    await supabase.from('profiles')
+      .update({ joined_via: 'solo' })
+      .eq('id', user.id)
+
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan: 'barber' }),
+    })
+    const data = await res.json()
+    if (data.url) {
+      window.location.href = data.url
+    } else {
+      setError(data.error || 'Failed to start checkout')
+      setLoading(false)
+    }
   }
 
   async function handleShopCode(e: React.FormEvent) {
@@ -86,12 +148,15 @@ export default function JoinPage() {
       return
     }
 
-    // Find shop by code
-    const { data: shop } = await supabase
-      .from('shops')
-      .select('*')
-      .eq('shop_code', shopCode.toUpperCase().trim())
-      .maybeSingle()
+    // Find shop by 9-char shop_code or 6-char invite_code
+    const code = shopCode.toUpperCase().trim()
+    let { data: shop } = await supabase
+      .from('shops').select('*').eq('shop_code', code).maybeSingle()
+    if (!shop && code.length === 6) {
+      const { data: byInvite } = await supabase
+        .from('shops').select('*').eq('invite_code', code).maybeSingle()
+      shop = byInvite
+    }
 
     if (!shop) { setError('Shop code not found. Check the code and try again.'); setLoading(false); return }
 
@@ -105,7 +170,7 @@ export default function JoinPage() {
 
     if (existingLink) {
       await supabase.from('shop_barbers').update({ active: true }).eq('id', existingLink.id)
-      await supabase.from('profiles').update({ role: 'barber' }).eq('id', user.id)
+      await supabase.from('profiles').update({ role: 'barber', plan_type: 'shop', joined_via: 'shop_code' }).eq('id', user.id)
       setLoading(false)
       router.push('/dashboard/barber')
       return
@@ -135,7 +200,7 @@ export default function JoinPage() {
     if (linkErr) { setError(linkErr.message); setLoading(false); return }
 
     await supabase.from('profiles')
-      .update({ role: 'barber' })
+      .update({ role: 'barber', plan_type: 'shop', joined_via: 'shop_code' })
       .eq('id', user.id)
 
     setLoading(false)
@@ -201,15 +266,17 @@ export default function JoinPage() {
             <div className="font-serif text-2xl text-charcoal-900 mb-1">{shop?.name}</div>
             <div className="text-charcoal-500 text-sm">{shop?.city}</div>
           </div>
-          <div className="bg-warm-200 rounded-lg p-4 mb-6">
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Your Chair</div>
-            <div className="text-charcoal-900 font-medium">{barber?.barber_name || barber?.alias}</div>
-            <div className="text-xs text-charcoal-500 mt-1">
-              {barber?.compensation_type === 'commission'
-                ? `${Math.round((barber?.commission_rate || 0.7) * 100)}% commission`
-                : `Booth rent $${barber?.booth_rent_amount}/wk`}
+          {barber && (
+            <div className="bg-warm-200 rounded-lg p-4 mb-6">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Your Chair</div>
+              <div className="text-charcoal-900 font-medium">{barber?.barber_name || barber?.alias}</div>
+              <div className="text-xs text-charcoal-500 mt-1">
+                {barber?.compensation_type === 'commission'
+                  ? `${Math.round((barber?.commission_rate || 0.7) * 100)}% commission`
+                  : `Booth rent $${barber?.booth_rent_amount}/wk`}
+              </div>
             </div>
-          </div>
+          )}
           <button onClick={handleAcceptInvite} disabled={loading}
             className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50 mb-3">
             {loading ? 'Linking your account...' : 'Accept Invite'}
@@ -238,19 +305,30 @@ export default function JoinPage() {
               type="text"
               value={shopCode}
               onChange={e => setShopCode(e.target.value.toUpperCase())}
-              placeholder="e.g. 3F31-5489"
+              placeholder="e.g. 3F31-5489 or ABC123"
               maxLength={9}
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors font-mono tracking-widest text-center text-lg"
             />
             <p className="text-charcoal-600 text-xs mt-2 text-center">Ask your shop owner for this code</p>
           </div>
-          <button type="submit" disabled={loading || shopCode.length < 9}
+          <button type="submit" disabled={loading || shopCode.length < 6}
             className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
             {loading ? 'Searching...' : 'Find My Shop'}
           </button>
           <p className="text-center text-charcoal-500 text-xs">
             Have an invite link? Check your email and click it directly.
           </p>
+          <div className="mt-4 pt-4 border-t border-warm-200 text-center">
+            <p className="text-charcoal-500 text-xs mb-3">No shop code? Work independently.</p>
+            <button
+              type="button"
+              onClick={handleGoSolo}
+              disabled={loading}
+              className="text-od-green text-sm font-semibold hover:underline disabled:opacity-50"
+            >
+              {loading ? 'Starting...' : 'Go Solo — $25/mo after free trial →'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

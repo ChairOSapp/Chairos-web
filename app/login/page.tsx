@@ -29,14 +29,24 @@ export default function Login() {
 
     if (prof?.role === 'barber') {
       const { data: sb } = await supabase.from('shop_barbers').select('id').eq('barber_id', userId).eq('active', true).maybeSingle()
-      router.push(sb ? '/dashboard/barber' : '/join')
+      if (sb) { router.push('/dashboard/barber'); return }
+      // Solo barbers with an active subscription go straight to their dashboard
+      const soloActive = prof?.plan_type === 'solo' &&
+        (prof?.subscription_status === 'active' || prof?.subscription_status === 'trialing')
+      router.push(soloActive ? '/dashboard/barber' : '/join')
       return
     }
 
     if (prof?.role === 'owner') {
       if (getBillingStatus(prof) === 'blocked') { router.push('/subscribe'); return }
       const { data: shops } = await supabase.from('shops').select('id').eq('owner_id', userId).limit(1)
-      router.push(shops?.length ? '/dashboard' : '/onboarding')
+      if (!shops?.length) { router.push('/onboarding'); return }
+      // New owner with shop but no subscription yet — send to subscribe
+      if (!prof?.stripe_customer_id && !prof?.subscription_status) {
+        router.push('/subscribe')
+        return
+      }
+      router.push('/dashboard')
       return
     }
 

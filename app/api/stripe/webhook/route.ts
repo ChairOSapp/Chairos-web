@@ -77,44 +77,52 @@ export async function POST(req: NextRequest) {
 
   switch (event.type) {
     case 'checkout.session.completed': {
+      const session = event.data.object as Stripe.Checkout.Session
+      const userId = session.metadata?.user_id
+      const plan = session.metadata?.plan
+
+      console.log('[stripe/webhook] checkout.session.completed | userId:', userId, '| plan:', plan)
+
       try {
-        const session = event.data.object as Stripe.Checkout.Session
-        const userId = session.metadata?.user_id
-        const plan = session.metadata?.plan
+        // Fetch subscription to get trial_end and current status
+        let trialEnd: string | null = null
+        let subStatus = 'trialing'
+        let periodEnd: string | null = null
 
-        console.log('[stripe/webhook] checkout.session.completed | userId:', userId, '| plan:', plan)
-        console.log('[stripe/webhook] session.customer:', session.customer, '| session.subscription:', session.subscription)
-        console.log('[stripe/webhook] full session:', JSON.stringify(session, null, 2))
+        if (session.subscription) {
+          const sub = await stripe.subscriptions.retrieve(session.subscription as string)
+          subStatus = sub.status === 'trialing' ? 'trialing' : sub.status
+          trialEnd = sub.trial_end ? safeToISO(sub.trial_end) : null
+          periodEnd = safeToISO((sub as any).current_period_end)
+        }
 
-      await supabase.from('profiles').update({
-        stripe_customer_id: session.customer as string,
-        stripe_subscription_id: session.subscription as string,
-        subscription_status: subscription.status,
-        subscription_end_date: new Date((subscription as any).current_period_end * 1000).toISOString(),
-      }).eq('id', userId)
+        const planType = plan === 'owner' ? 'shop' : 'solo'
 
-      // Slack notification
-      if (process.env.SLACK_WEBHOOK_URL) {
-        const plan = session.metadata?.plan || 'unknown'
+        const { error: dbErr } = await supabase.from('profiles').update({
+          stripe_customer_id: session.customer as string,
+          stripe_subscription_id: session.subscription as string,
+          subscription_status: subStatus,
+          subscription_end_date: periodEnd,
+          trial_end: trialEnd,
+          plan_type: planType,
+        }).eq('id', userId)
+
+        if (dbErr) console.error('[stripe/webhook] DB update failed:', dbErr.message)
+
+        // Log billing event
+        await supabase.from('billing_events').insert({
+          profile_id: userId,
+          stripe_event_id: event.id,
+          event_type: event.type,
+          payload: session as any,
+        }).select().maybeSingle()
+
+        // Slack notification
         const email = session.customer_email || session.customer_details?.email || 'unknown'
-        const amount = session.amount_total ? `$${(session.amount_total / 100).toFixed(2)}` : ''
-        const planLabel = plan === 'owner' ? 'Shop Owner ($99/mo)' : plan === 'barber' ? 'Solo Barber ($25/mo)' : plan
-        await fetch(process.env.SLACK_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: `🎉 New ChairOS subscriber!`,
-            blocks: [
-              {
-                type: 'section',
-                text: {
-                  type: 'mrkdwn',
-                  text: `*🎉 New subscriber!*\n*Plan:* ${planLabel}\n*Email:* ${email}${amount ? `\n*Amount:* ${amount}` : ''}`,
-                },
-              },
-            ],
-          }),
-        }).catch(() => {})
+        const planLabel = planType === 'shop' ? 'Shop Owner ($99/mo)' : 'Solo Barber ($25/mo)'
+        await notifySlack(`🎉 New ChairOS subscriber!\nPlan: ${planLabel}\nEmail: ${email}`)
+      } catch (err: any) {
+        console.error('[stripe/webhook] checkout.session.completed error:', err.message)
       }
       break
     }
@@ -125,14 +133,21 @@ export async function POST(req: NextRequest) {
       const newStatus = subscription.status === 'canceled' ? 'cancelled' : subscription.status
 
       console.log('[stripe/webhook] subscription.updated | customer:', customerId, '| status:', newStatus)
-      console.log('[stripe/webhook] current_period_end:', (subscription as any).current_period_end)
 
-      const { error: dbErr } = await supabase.from('profiles').update({
+      const updates: Record<string, any> = {
         subscription_status: newStatus,
         subscription_end_date: safeToISO((subscription as any).current_period_end),
-      }).eq('stripe_customer_id', customerId)
+      }
+      if (newStatus === 'active') updates.grace_period_ends_at = null
 
+      const { error: dbErr } = await supabase.from('profiles').update(updates).eq('stripe_customer_id', customerId)
       if (dbErr) console.error('[stripe/webhook] DB update failed:', dbErr.message)
+
+      await supabase.from('billing_events').insert({
+        stripe_event_id: event.id,
+        event_type: event.type,
+        payload: subscription as any,
+      })
       break
     }
 
@@ -171,13 +186,35 @@ export async function POST(req: NextRequest) {
           if (barberIds.length > 0) {
             await supabase
               .from('profiles')
-              .update({ subscription_status: 'grace_period', subscription_end_date: graceEnd })
+              .update({ subscription_status: 'grace_period', subscription_end_date: graceEnd, grace_period_ends_at: graceEnd })
               .in('id', barberIds)
           }
         }
       }
 
+      await supabase.from('billing_events').insert({
+        profile_id: ownerProfile?.id,
+        stripe_event_id: event.id,
+        event_type: event.type,
+        payload: subscription as any,
+      })
       await notifySlack(`⚠️ ChairOS subscription cancelled\nCustomer: ${customerId}`)
+      break
+    }
+
+    case 'invoice.payment_succeeded': {
+      const invoice = event.data.object as Stripe.Invoice
+      const customerId = invoice.customer as string
+      console.log('[stripe/webhook] invoice.payment_succeeded | customer:', customerId)
+      await supabase.from('profiles').update({
+        subscription_status: 'active',
+        grace_period_ends_at: null,
+      }).eq('stripe_customer_id', customerId)
+      await supabase.from('billing_events').insert({
+        stripe_event_id: event.id,
+        event_type: event.type,
+        payload: invoice as any,
+      })
       break
     }
 
@@ -193,7 +230,25 @@ export async function POST(req: NextRequest) {
 
       if (dbErr) console.error('[stripe/webhook] DB update failed:', dbErr.message)
 
+      await supabase.from('billing_events').insert({
+        stripe_event_id: event.id,
+        event_type: event.type,
+        payload: invoice as any,
+      })
       await notifySlack(`🚨 Payment failed\nCustomer: ${customerId}`)
+      break
+    }
+
+    case 'customer.subscription.trial_will_end': {
+      const subscription = event.data.object as Stripe.Subscription
+      const customerId = subscription.customer as string
+      console.log('[stripe/webhook] trial_will_end | customer:', customerId)
+      // No DB change — trial countdown banners read trial_end from profile
+      await supabase.from('billing_events').insert({
+        stripe_event_id: event.id,
+        event_type: event.type,
+        payload: subscription as any,
+      })
       break
     }
 

@@ -61,7 +61,8 @@ function BarberSettingsInner() {
       .eq('active', true)
       .maybeSingle()
 
-    if (!shopBarber) { router.push('/join'); return }
+    // Solo barbers (plan_type='solo') don't have a shop_barbers row — still allow access
+    if (!shopBarber && profile?.plan_type !== 'solo') { router.push('/join'); return }
     setShopBarber(shopBarber)
 
     // Fetch shop directly to ensure barbers_collect_own_payments is included
@@ -335,6 +336,59 @@ function BarberSettingsInner() {
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
+
+        {/* BILLING — only show for solo barbers */}
+        {profile?.plan_type === 'solo' ? (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">Billing</div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-charcoal-900">
+                  {profile?.subscription_status === 'active' && 'Solo Plan · $25/mo'}
+                  {profile?.subscription_status === 'trialing' && 'Solo Plan · Free Trial'}
+                  {profile?.subscription_status === 'past_due' && 'Solo Plan · Payment Failed'}
+                  {profile?.subscription_status === 'cancelled' && 'Solo Plan · Cancelled'}
+                  {!profile?.subscription_status && 'Solo Plan'}
+                </div>
+                <div className="text-xs text-charcoal-500 mt-0.5">
+                  {profile?.subscription_status === 'trialing' && profile?.trial_end &&
+                    `Trial ends in ${Math.max(0, Math.ceil((new Date(profile.trial_end).getTime() - Date.now()) / 86400000))} days`}
+                  {profile?.subscription_status === 'active' && profile?.subscription_end_date &&
+                    `Next charge ${new Date(profile.subscription_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                  {profile?.subscription_status === 'past_due' && 'Update your card to restore access'}
+                </div>
+              </div>
+              {profile?.stripe_customer_id ? (
+                <button
+                  onClick={() => router.push('/api/stripe/portal')}
+                  className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors whitespace-nowrap"
+                >
+                  Manage Billing
+                </button>
+              ) : (
+                <button
+                  onClick={() => router.push('/subscribe')}
+                  className="px-4 py-2 bg-od-green text-white rounded-lg text-xs font-semibold hover:opacity-80 transition-colors whitespace-nowrap"
+                >
+                  Subscribe
+                </button>
+              )}
+            </div>
+          </div>
+        ) : profile?.plan_type === 'shop' ? (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Billing</div>
+            <div className="flex items-center gap-3">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" className="text-od-green flex-shrink-0">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <div>
+                <div className="text-sm font-semibold text-charcoal-900">Covered by shop plan</div>
+                <div className="text-xs text-charcoal-500 mt-0.5">Your shop owner's subscription covers your account. No billing needed.</div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
       <BarberMobileNav />
     </div>
