@@ -83,8 +83,8 @@ export default function BarberReviewsPage() {
         {/* Back button */}
         <button
           onClick={() => router.push('/dashboard/barber')}
-          className="text-xs font-semibold text-charcoal-500 hover:text-od-green transition-colors mb-6 flex items-center gap-1">
-          ← My Dashboard
+          className="btn-chairos-outline mb-6">
+          My Dashboard
         </button>
 
         {/* Header */}

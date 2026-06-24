@@ -521,10 +521,7 @@ export default function BarberDashboard() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">My Schedule</div>
-            <button onClick={() => router.push('/dashboard/barber/calendar')}
-              className="text-xs font-semibold px-3 py-1 rounded-full bg-[#0d9488] text-white hover:opacity-90 transition-opacity">
-              Open Calendar →
-            </button>
+            <button onClick={() => router.push('/dashboard/barber/calendar')} className="btn-chairos">Open Calendar</button>
           </div>
           <button
             onClick={() => router.push('/dashboard/barber/calendar')}

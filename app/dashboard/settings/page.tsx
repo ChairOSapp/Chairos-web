@@ -591,12 +591,7 @@ export default function ShopSettings() {
               <div className="text-sm font-semibold text-charcoal-900">Barber Invites</div>
               <div className="text-xs text-charcoal-500 mt-0.5">All barbers in your shop are covered by your plan</div>
             </div>
-            <button
-              onClick={() => router.push('/dashboard/settings/invite')}
-              className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors whitespace-nowrap"
-            >
-              Invite Barbers →
-            </button>
+            <button onClick={() => router.push('/dashboard/settings/invite')} className="btn-chairos">Invite Barbers</button>
           </div>
         </div>
       </div>

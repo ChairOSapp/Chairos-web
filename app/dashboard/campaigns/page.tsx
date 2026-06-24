@@ -419,7 +419,7 @@ function CampaignsInner() {
                     disabled={!intent.trim() || generating}
                     className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm disabled:opacity-50 hover:bg-od-green-light transition-colors"
                   >
-                    {generating ? 'Generating...' : 'Generate Message →'}
+                    {generating ? 'Generating...' : 'Generate Message'}
                   </button>
                 </div>
               </div>
@@ -474,7 +474,7 @@ function CampaignsInner() {
                     {generating ? 'Regenerating...' : '↻ Regenerate'}
                   </button>
                   <button onClick={() => setBuilderStep(3)} className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
-                    Audience →
+                    Audience
                   </button>
                 </div>
               </div>
@@ -543,9 +543,9 @@ function CampaignsInner() {
                   )}
                 </div>
                 <div className="flex gap-3 justify-between mt-6">
-                  <button onClick={() => setBuilderStep(2)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
+                  <button onClick={() => setBuilderStep(2)} className="btn-chairos-outline">Back</button>
                   <button onClick={() => setBuilderStep(4)} className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
-                    Channel →
+                    Channel
                   </button>
                 </div>
               </div>
@@ -573,9 +573,9 @@ function CampaignsInner() {
                   </div>
                 )}
                 <div className="flex gap-3 justify-between mt-6">
-                  <button onClick={() => setBuilderStep(3)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
+                  <button onClick={() => setBuilderStep(3)} className="btn-chairos-outline">Back</button>
                   <button onClick={() => setBuilderStep(5)} className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
-                    Schedule →
+                    Schedule
                   </button>
                 </div>
               </div>
@@ -645,9 +645,9 @@ function CampaignsInner() {
                   </div>
                 )}
                 <div className="flex gap-3 justify-between mt-6">
-                  <button onClick={() => setBuilderStep(4)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
+                  <button onClick={() => setBuilderStep(4)} className="btn-chairos-outline">Back</button>
                   <button onClick={() => setBuilderStep(6)} className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
-                    Review →
+                    Review
                   </button>
                 </div>
               </div>
@@ -688,7 +688,7 @@ function CampaignsInner() {
                   </div>
                 )}
                 <div className="flex gap-3 justify-between mt-6">
-                  <button onClick={() => setBuilderStep(5)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
+                  <button onClick={() => setBuilderStep(5)} className="btn-chairos-outline">Back</button>
                   <div className="flex gap-2">
                     <button onClick={handleSaveDraft} disabled={saving}
                       className="border border-warm-300 text-charcoal-500 hover:text-charcoal-900 font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">

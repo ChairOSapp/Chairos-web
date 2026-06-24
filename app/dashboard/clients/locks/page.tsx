@@ -118,7 +118,7 @@ export default function ClientLocksPage() {
 
       <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-6">
         <div className="mb-6">
-          <button onClick={() => router.push('/dashboard/clients')} className="text-xs text-charcoal-500 hover:text-od-green transition-colors mb-3 block">← Clients</button>
+          <button onClick={() => router.push('/dashboard/clients')} className="btn-chairos-outline mb-3">Clients</button>
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Client Locks</h1>
           <p className="text-charcoal-500 text-sm">{shop?.name} · Owner override enabled</p>
         </div>

@@ -280,14 +280,8 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Today at a glance</div>
             <div className="flex gap-2">
-              <button onClick={() => router.push('/dashboard/revenue')}
-                className="text-xs font-semibold px-3 py-1 rounded-full bg-od-green text-white hover:opacity-90 transition-opacity">
-                Revenue →
-              </button>
-              <button onClick={() => router.push('/dashboard/analytics')}
-                className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
-                CRM →
-              </button>
+              <button onClick={() => router.push('/dashboard/revenue')} className="btn-chairos">Revenue</button>
+              <button onClick={() => router.push('/dashboard/analytics')} className="btn-chairos-outline">CRM</button>
             </div>
           </div>
           <div className="font-serif text-5xl text-charcoal-900 leading-none mb-4">
@@ -312,7 +306,7 @@ export default function Dashboard() {
             <button onClick={() => router.push('/dashboard/appointments/history')}
               className="bg-warm-50 rounded-xl p-3 text-left hover:bg-warm-200 transition-colors">
               <div className="font-serif text-xl text-charcoal-900">History</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">View all →</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">View all</div>
             </button>
           </div>
         </div>
@@ -321,10 +315,7 @@ export default function Dashboard() {
         <div className="mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Schedule</div>
-            <button onClick={() => router.push('/dashboard/calendar')}
-              className="text-xs font-semibold px-3 py-1 rounded-full bg-[#0d9488] text-white hover:opacity-90 transition-opacity">
-              Open Calendar →
-            </button>
+            <button onClick={() => router.push('/dashboard/calendar')} className="btn-chairos">Open Calendar</button>
           </div>
           <button
             onClick={() => router.push('/dashboard/calendar')}
@@ -365,10 +356,7 @@ export default function Dashboard() {
         <div className="mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">The floor</div>
-            <button onClick={() => router.push('/dashboard/barbers')}
-              className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
-              Manage →
-            </button>
+            <button onClick={() => router.push('/dashboard/barbers')} className="btn-chairos-outline">Manage</button>
           </div>
           <div className="bg-warm-100 border border-warm-200 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -403,10 +391,7 @@ export default function Dashboard() {
         <div className="mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Client lock</div>
-            <button onClick={() => router.push('/dashboard/analytics')}
-              className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
-              Analytics →
-            </button>
+            <button onClick={() => router.push('/dashboard/analytics')} className="btn-chairos-outline">Analytics</button>
           </div>
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
             <div className="grid grid-cols-3 divide-x divide-warm-200">

@@ -98,7 +98,7 @@ export default function BarberEarnings() {
             className="px-4 py-1.5 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-xs transition-colors">
             Print / Save PDF
           </button>
-          <button onClick={() => router.push('/dashboard/barbers')} className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">← Barbers</button>
+          <button onClick={() => router.push('/dashboard/barbers')} className="btn-chairos-outline">Barbers</button>
         </div>
       </header>
 

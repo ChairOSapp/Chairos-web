@@ -158,9 +158,9 @@ export default function BarberEarningsPage() {
       <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
         <span className="font-serif text-od-green text-lg">ChairOS</span>
         {drillMode ? (
-          <button onClick={() => setDrillMode(null)} className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">← Back</button>
+          <button onClick={() => setDrillMode(null)} className="btn-chairos-outline">Back</button>
         ) : (
-          <button onClick={() => router.push('/dashboard/barber')} className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">← Dashboard</button>
+          <button onClick={() => router.push('/dashboard/barber')} className="btn-chairos-outline">Dashboard</button>
         )}
       </header>
 

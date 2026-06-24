@@ -241,12 +241,7 @@ export default function ClientsPage() {
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Client Directory</div>
               <h1 className="font-serif text-2xl text-charcoal-900">{clients.length} Clients</h1>
             </div>
-            <button
-              onClick={() => router.push('/dashboard/clients/locks')}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-warm-300 text-charcoal-500 hover:text-charcoal-900 hover:border-warm-400 transition-colors"
-            >
-              Manage Locks →
-            </button>
+            <button onClick={() => router.push('/dashboard/clients/locks')} className="btn-chairos-outline">Manage Locks</button>
           </div>
 
           <div className="relative mb-4">

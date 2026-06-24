@@ -85,7 +85,7 @@ export default function CampaignDetail() {
       <div className="max-w-4xl mx-auto px-4 py-6 pb-24 md:pb-6">
         <div className="flex items-start justify-between mb-6">
           <div>
-            <button onClick={() => router.push('/dashboard/campaigns')} className="text-xs text-charcoal-500 hover:text-charcoal-900 mb-2 transition-colors">← Campaigns</button>
+            <button onClick={() => router.push('/dashboard/campaigns')} className="btn-chairos-outline mb-2">Campaigns</button>
             <h1 className="font-serif text-2xl text-charcoal-900">{campaign.name}</h1>
             <p className="text-charcoal-500 text-sm mt-1">{campaign.intent}</p>
           </div>

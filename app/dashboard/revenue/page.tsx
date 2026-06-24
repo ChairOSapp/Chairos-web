@@ -270,10 +270,7 @@ export default function RevenuePage() {
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Revenue</div>
             <h1 className="font-serif text-2xl text-charcoal-900">{shop?.name || 'Your Shop'}</h1>
           </div>
-          <button onClick={() => router.push('/dashboard')}
-            className="text-xs font-semibold px-3 py-1 rounded-full border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 transition-colors">
-            ← Dashboard
-          </button>
+          <button onClick={() => router.push('/dashboard')} className="btn-chairos-outline">Dashboard</button>
         </div>
 
         {/* PERIOD TABS */}
