@@ -104,11 +104,19 @@ export async function POST(req: NextRequest) {
     }
 
   } else if (campaign.audience_type === 'manual_list') {
-    const ids: string[] = filters.clientIds ?? []
-    if (ids.length > 0) {
-      const { data } = await admin.from('clients').select('id, full_name, phone, email, sms_consent, email_consent').in('id', ids)
-      clients = (data ?? []).filter(c => (!needsSms || c.sms_consent) && (!needsEmail || (c.email_consent && c.email)))
+    // Raw emails/phones entered by owner — no consent check, no client lookup
+    const emails: string[] = (filters.emails ?? []).filter(Boolean)
+    const phones: string[] = (filters.phones ?? []).filter(Boolean)
+    const emailSet = new Set(emails)
+    const phoneSet = new Set(phones)
+    // Merge: one entry per unique contact, pairing email+phone when both present
+    const allContacts = new Map<string, { id: null; email: string | null; phone: string | null; email_consent: true; sms_consent: true }>()
+    for (const e of emails) allContacts.set(`email:${e}`, { id: null, email: e, phone: null, email_consent: true, sms_consent: true })
+    for (const p of phones) {
+      // If there's already an email entry, skip; otherwise create phone-only entry
+      allContacts.set(`phone:${p}`, { id: null, email: null, phone: p, email_consent: true, sms_consent: true })
     }
+    clients = [...allContacts.values()]
   }
 
   if (clients.length === 0) {
@@ -118,7 +126,7 @@ export async function POST(req: NextRequest) {
   // Insert recipients
   const recipientRows = clients.map((c: any) => ({
     campaign_id: campaignId,
-    client_id: c.id,
+    client_id: c.id ?? null,
     phone: c.phone ?? null,
     email: c.email ?? null,
     sms_status: needsSms ? 'pending' : 'skipped',
@@ -138,7 +146,21 @@ export async function POST(req: NextRequest) {
   let totalSent = 0
   let totalFailed = 0
 
+  // Fetch inserted recipient rows so we have their generated IDs
+  const { data: insertedRows } = await admin
+    .from('campaign_recipients')
+    .select('id, client_id, email, phone')
+    .eq('campaign_id', campaignId)
+
   for (const client of clients) {
+    // Match by client_id (existing clients) or email/phone (manual entries)
+    const row = insertedRows?.find(r =>
+      (client.id && r.client_id === client.id) ||
+      (!client.id && client.email && r.email === client.email) ||
+      (!client.id && !client.email && client.phone && r.phone === client.phone)
+    )
+    const rowId = row?.id
+
     if (needsSms && client.phone && client.sms_consent && twilioClient) {
       try {
         await twilioClient.messages.create({
@@ -146,17 +168,17 @@ export async function POST(req: NextRequest) {
           from: process.env.TWILIO_PHONE_NUMBER!,
           to: client.phone,
         })
-        await admin.from('campaign_recipients').update({ sms_status: 'sent', sent_at: new Date().toISOString() }).eq('campaign_id', campaignId).eq('client_id', client.id)
+        if (rowId) await admin.from('campaign_recipients').update({ sms_status: 'sent', sent_at: new Date().toISOString() }).eq('id', rowId)
         totalSent++
       } catch (err: any) {
-        await admin.from('campaign_recipients').update({ sms_status: 'failed', error: err.message }).eq('campaign_id', campaignId).eq('client_id', client.id)
+        if (rowId) await admin.from('campaign_recipients').update({ sms_status: 'failed', error: err.message }).eq('id', rowId)
         totalFailed++
       }
     }
 
     if (needsEmail && client.email && client.email_consent) {
       try {
-        const unsubToken = generateUnsubscribeToken(client.id)
+        const unsubToken = client.id ? generateUnsubscribeToken(client.id) : generateUnsubscribeToken(client.email)
         const html = buildEmailTemplate(campaign.email_body ?? '', `${siteUrl}/api/email/unsubscribe?token=${unsubToken}`)
         const { error } = await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL!,
@@ -165,10 +187,10 @@ export async function POST(req: NextRequest) {
           html,
         })
         if (error) throw new Error(error.message)
-        await admin.from('campaign_recipients').update({ email_status: 'sent', sent_at: new Date().toISOString() }).eq('campaign_id', campaignId).eq('client_id', client.id)
+        if (rowId) await admin.from('campaign_recipients').update({ email_status: 'sent', sent_at: new Date().toISOString() }).eq('id', rowId)
         totalSent++
       } catch (err: any) {
-        await admin.from('campaign_recipients').update({ email_status: 'failed', error: err.message }).eq('campaign_id', campaignId).eq('client_id', client.id)
+        if (rowId) await admin.from('campaign_recipients').update({ email_status: 'failed', error: err.message }).eq('id', rowId)
         totalFailed++
       }
     }

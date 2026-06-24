@@ -21,7 +21,7 @@ const AUDIENCE_LABELS: Record<string, string> = {
   specific_barber: 'By Barber',
   specific_service: 'By Service',
   no_booking_since: 'No Booking Since',
-  manual_list: 'Manual List',
+  manual_list: 'Manual Entry (type emails/phones)',
 }
 
 type Campaign = {
@@ -72,6 +72,8 @@ function CampaignsInner() {
   const [selectedBarberId, setSelectedBarberId] = useState('')
   const [serviceFilter, setServiceFilter] = useState('')
   const [noBookingSinceDate, setNoBookingSinceDate] = useState('')
+  const [manualEmails, setManualEmails] = useState('')
+  const [manualPhones, setManualPhones] = useState('')
   const [channel, setChannel] = useState<'sms' | 'email' | 'both'>('sms')
   const [scheduleType, setScheduleType] = useState<'now' | 'once' | 'recurring'>('now')
   const [scheduledAt, setScheduledAt] = useState('')
@@ -136,6 +138,8 @@ function CampaignsInner() {
     setSelectedBarberId('')
     setServiceFilter('')
     setNoBookingSinceDate('')
+    setManualEmails('')
+    setManualPhones('')
     setChannel('sms')
     setScheduleType('now')
     setScheduledAt('')
@@ -162,6 +166,8 @@ function CampaignsInner() {
     setScheduleType((c.schedule_type as any) ?? 'now')
     setScheduledAt(c.scheduled_at ?? '')
     setRecurrenceRule(c.recurrence_rule ?? 'weekly')
+    setManualEmails((c.audience_filters?.emails ?? []).join('\n'))
+    setManualPhones((c.audience_filters?.phones ?? []).join('\n'))
     setAudiencePreview(null)
     setBuilderStep(1)
     setError('')
@@ -196,7 +202,10 @@ function CampaignsInner() {
     if (audienceType === 'specific_barber') return { barber_id: selectedBarberId }
     if (audienceType === 'specific_service') return { service: serviceFilter }
     if (audienceType === 'no_booking_since') return { date: noBookingSinceDate }
-    if (audienceType === 'manual_list') return { clientIds: [] }
+    if (audienceType === 'manual_list') return {
+      emails: manualEmails.split('\n').map(s => s.trim()).filter(Boolean),
+      phones: manualPhones.split('\n').map(s => s.trim()).filter(Boolean),
+    }
     if (aiCurate) return { custom_curate: true }
     return {}
   }
@@ -549,17 +558,67 @@ function CampaignsInner() {
                         className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
                     </div>
                   )}
-                  <button onClick={handlePreviewAudience} disabled={previewing}
-                    className="text-sm text-od-green hover:text-od-green-light transition-colors disabled:opacity-50">
-                    {previewing ? 'Loading...' : '↺ Preview Audience'}
-                  </button>
-                  {audiencePreview !== null && (
-                    <div className="bg-warm-200 border border-warm-300 rounded-lg p-3">
-                      <p className="text-sm font-semibold text-charcoal-900">{audiencePreview.count} clients will receive this campaign</p>
-                      {audiencePreview.count === 0 && (
-                        <p className="text-xs text-amber-400 mt-1">No eligible recipients — check consent settings or adjust filters.</p>
+                  {audienceType === 'manual_list' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
+                          Email Addresses <span className="text-charcoal-500 normal-case font-normal">(one per line)</span>
+                        </label>
+                        <textarea
+                          value={manualEmails}
+                          onChange={e => setManualEmails(e.target.value)}
+                          rows={4}
+                          placeholder={"john@example.com\njane@example.com"}
+                          className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors resize-none font-mono"
+                        />
+                        {manualEmails.trim() && (
+                          <p className="text-xs text-charcoal-500 mt-1">
+                            {manualEmails.split('\n').map(s => s.trim()).filter(Boolean).length} email{manualEmails.split('\n').map(s => s.trim()).filter(Boolean).length !== 1 ? 's' : ''}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
+                          Phone Numbers <span className="text-charcoal-500 normal-case font-normal">(one per line, include country code)</span>
+                        </label>
+                        <textarea
+                          value={manualPhones}
+                          onChange={e => setManualPhones(e.target.value)}
+                          rows={4}
+                          placeholder={"+12025550100\n+13055550199"}
+                          className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors resize-none font-mono"
+                        />
+                        {manualPhones.trim() && (
+                          <p className="text-xs text-charcoal-500 mt-1">
+                            {manualPhones.split('\n').map(s => s.trim()).filter(Boolean).length} phone{manualPhones.split('\n').map(s => s.trim()).filter(Boolean).length !== 1 ? 's' : ''}
+                          </p>
+                        )}
+                      </div>
+                      {(manualEmails.trim() || manualPhones.trim()) && (
+                        <div className="bg-warm-200 border border-warm-300 rounded-lg p-3">
+                          <p className="text-sm font-semibold text-charcoal-900">
+                            {manualEmails.split('\n').map(s => s.trim()).filter(Boolean).length + manualPhones.split('\n').map(s => s.trim()).filter(Boolean).length} recipients entered
+                          </p>
+                          <p className="text-xs text-charcoal-500 mt-0.5">Consent checks are skipped for manual entries.</p>
+                        </div>
                       )}
                     </div>
+                  )}
+                  {audienceType !== 'manual_list' && (
+                    <>
+                      <button onClick={handlePreviewAudience} disabled={previewing}
+                        className="text-sm text-od-green hover:text-od-green-light transition-colors disabled:opacity-50">
+                        {previewing ? 'Loading...' : '↺ Preview Audience'}
+                      </button>
+                      {audiencePreview !== null && (
+                        <div className="bg-warm-200 border border-warm-300 rounded-lg p-3">
+                          <p className="text-sm font-semibold text-charcoal-900">{audiencePreview.count} clients will receive this campaign</p>
+                          {audiencePreview.count === 0 && (
+                            <p className="text-xs text-amber-400 mt-1">No eligible recipients — check consent settings or adjust filters.</p>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="flex gap-3 justify-between mt-6">
