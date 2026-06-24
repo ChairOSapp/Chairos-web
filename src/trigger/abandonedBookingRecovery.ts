@@ -40,6 +40,18 @@ export const abandonedBookingRecovery = task({
       return { sent: false, reason: 'booking_completed' }
     }
 
+    // Check SMS consent before sending
+    const cleanPhone = payload.clientPhone.replace(/\D/g, '')
+    const { data: clientConsent } = await supabase
+      .from('clients')
+      .select('sms_consent')
+      .eq('phone', cleanPhone)
+      .maybeSingle()
+    if (!clientConsent?.sms_consent) {
+      console.log('[abandoned-booking-recovery] no SMS consent, skipping')
+      return { sent: false, reason: 'no_consent' }
+    }
+
     // Generate personalized recovery SMS via Claude
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
     const response = await anthropic.messages.create({

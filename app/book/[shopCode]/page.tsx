@@ -33,6 +33,8 @@ function BookingPageInner() {
   const [clientPhone, setClientPhone] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [notes, setNotes] = useState('')
+  const [smsConsent, setSmsConsent] = useState(false)
+  const [emailConsent, setEmailConsent] = useState(false)
   const [error, setError] = useState('')
   const [returningClient, setReturningClient] = useState<any>(null)
 
@@ -131,6 +133,7 @@ function BookingPageInner() {
 
   async function handleBook() {
     if (!clientName || !clientPhone) { setError('Name and phone are required'); return }
+    if (clientPhone && !smsConsent) { setError('Please consent to SMS messages to receive your booking confirmation'); return }
     setSubmitting(true)
     setError('')
     setPaymentError('')
@@ -155,6 +158,31 @@ function BookingPageInner() {
     if (period === 'PM' && h !== 12) h += 12
     if (period === 'AM' && h === 12) h = 0
     const time24 = `${h.toString().padStart(2,'0')}:${minutes}:00`
+
+    const consentNow = new Date().toISOString()
+
+    // Upsert client record with consent (never overwrite existing consent=true with false)
+    const cleanPhone = clientPhone.replace(/\D/g, '')
+    const { data: existingClient } = await supabase
+      .from('clients')
+      .select('id, sms_consent, email_consent')
+      .eq('phone', cleanPhone)
+      .maybeSingle()
+
+    const clientUpsert: Record<string, any> = {
+      phone: cleanPhone,
+      full_name: clientName,
+      email: clientEmail || null,
+    }
+    if (smsConsent && !existingClient?.sms_consent) {
+      clientUpsert.sms_consent = true
+      clientUpsert.sms_consent_at = consentNow
+    }
+    if (emailConsent && clientEmail && !existingClient?.email_consent) {
+      clientUpsert.email_consent = true
+      clientUpsert.email_consent_at = consentNow
+    }
+    await supabase.from('clients').upsert(clientUpsert, { onConflict: 'phone', ignoreDuplicates: false })
 
     const { data: newAppt, error: bookErr } = await supabase.from('appointments').insert({
       shop_id: shop.id,
@@ -214,22 +242,24 @@ function BookingPageInner() {
       })
     }
 
-    // SMS confirmation to client
-    const dateFormatted = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
-      weekday: 'long', month: 'long', day: 'numeric'
-    })
-    const barberName = selectedBarber?.barber_name || selectedBarber?.alias || 'your barber'
-    try {
-      await fetch('/api/sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: clientPhone,
-          message: `✂️ You're booked at ${shop.name}!\n\nService: ${selectedService.name}\nBarber: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to unsubscribe.`
-        })
+    // SMS confirmation to client (only if consented)
+    if (smsConsent) {
+      const dateFormatted = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric'
       })
-    } catch {
-      // SMS failure is non-fatal
+      const barberName = selectedBarber?.barber_name || selectedBarber?.alias || 'your barber'
+      try {
+        await fetch('/api/sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: clientPhone,
+            message: `✂️ You're booked at ${shop.name}!\n\nService: ${selectedService.name}\nBarber: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to opt out.`
+          })
+        })
+      } catch {
+        // SMS failure is non-fatal
+      }
     }
 
     setSuccess(true)
@@ -302,7 +332,7 @@ function BookingPageInner() {
             ))}
           </div>
           <p className="text-charcoal-600 text-xs">
-            Confirmation text sent to {clientPhone}. Powered by ChairOS.
+            {smsConsent ? `Confirmation text sent to ${clientPhone}.` : 'Booking confirmed.'} Powered by ChairOS.
           </p>
         </div>
       </div>
@@ -561,9 +591,36 @@ function BookingPageInner() {
               </p>
             </div>
 
+            {/* Consent checkboxes */}
+            <div className="space-y-3 mb-6">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={smsConsent}
+                  onChange={e => setSmsConsent(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-od-green"
+                />
+                <span className="text-xs text-charcoal-500 leading-relaxed">
+                  I consent to receive SMS appointment confirmations and reminders from {shop.name}. Message & data rates may apply. Reply STOP to opt out. View our{' '}
+                  <a href="/privacy" className="underline hover:text-charcoal-300">Privacy Policy</a>.
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={emailConsent}
+                  onChange={e => setEmailConsent(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-od-green"
+                />
+                <span className="text-xs text-charcoal-500 leading-relaxed">
+                  I'd like to receive email updates from {shop.name} (optional).
+                </span>
+              </label>
+            </div>
+
             <div className="flex gap-3 items-center">
               <button onClick={() => setStep(3)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
-              <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone}
+              <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (!!clientPhone && !smsConsent)}
                 className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
                 style={{ background: brand }}>
                 {submitting ? 'Processing...' : `Confirm & Pay $${selectedService?.price}`}

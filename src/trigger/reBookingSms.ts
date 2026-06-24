@@ -23,6 +23,19 @@ export const reBookingSms = task({
   id: "rebooking-sms",
 
   run: async (payload: Payload) => {
+    // Check SMS consent before sending
+    const supabase = getSupabase()
+    const cleanPhone = payload.clientPhone.replace(/\D/g, '')
+    const { data: clientConsent } = await supabase
+      .from('clients')
+      .select('sms_consent')
+      .eq('phone', cleanPhone)
+      .maybeSingle()
+    if (!clientConsent?.sms_consent) {
+      console.log('[rebooking-sms] no SMS consent, skipping')
+      return { sent: false, reason: 'no_consent' }
+    }
+
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
     const response = await anthropic.messages.create({
@@ -59,7 +72,6 @@ export const reBookingSms = task({
     }
 
     // Log outcome
-    const supabase = getSupabase()
     await supabase.from('automation_logs').insert({
       type: 'rebooking_sms',
       payload,

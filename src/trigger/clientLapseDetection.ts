@@ -152,6 +152,17 @@ export const clientLapseDetection = schedules.task({
         daysSince >= 60 && daysSince <= 75 &&
         client.client_phone
       ) {
+        // Check SMS consent before triggering
+        const cleanPhone = client.client_phone.replace(/\D/g, '')
+        const { data: clientConsent } = await supabase
+          .from('clients')
+          .select('sms_consent')
+          .eq('phone', cleanPhone)
+          .maybeSingle()
+        if (!clientConsent?.sms_consent) {
+          console.log(`[client-lapse-detection] no SMS consent for ${client.client_name}, skipping SMS`)
+          continue
+        }
         const barberName = client.last_barber_id
           ? (barberNameMap.get(`${client.shop_id}:${client.last_barber_id}`) ?? 'your barber')
           : 'your barber'

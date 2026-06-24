@@ -11,6 +11,7 @@ export default function Signup() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<'owner' | 'barber' | null>(null)
+  const [smsConsent, setSmsConsent] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
@@ -25,13 +26,23 @@ export default function Signup() {
     setLoading(true)
     setError('')
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name, role } },
     })
 
     if (signUpError) { setError(signUpError.message); setLoading(false); return }
+
+    // Save SMS consent if given (profile row may not exist yet if email confirmation required)
+    if (smsConsent && signUpData.user) {
+      const consentNow = new Date().toISOString()
+      await supabase.from('profiles').upsert({
+        id: signUpData.user.id,
+        sms_consent: true,
+        sms_consent_at: consentNow,
+      }, { onConflict: 'id', ignoreDuplicates: false })
+    }
 
     setStep('confirmed')
     setLoading(false)
@@ -115,6 +126,19 @@ export default function Signup() {
               </div>
             </button>
           </div>
+
+          <label className="flex items-start gap-3 cursor-pointer mb-4">
+            <input
+              type="checkbox"
+              checked={smsConsent}
+              onChange={e => setSmsConsent(e.target.checked)}
+              className="mt-0.5 w-4 h-4 flex-shrink-0 accent-od-green"
+            />
+            <span className="text-xs text-charcoal-500 leading-relaxed">
+              I consent to receive SMS notifications from ChairOS (booking alerts, reminders). Message & data rates may apply. Reply STOP to opt out. View our{' '}
+              <a href="/privacy" className="underline hover:text-charcoal-300">Privacy Policy</a>.
+            </span>
+          </label>
 
           <button
             onClick={handleRoleSubmit}
