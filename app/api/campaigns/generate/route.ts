@@ -44,9 +44,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const raw = (response.content[0] as Anthropic.TextBlock).text.trim()
-    const parsed = JSON.parse(raw)
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    const parsed = JSON.parse(cleaned)
     return NextResponse.json({ ...parsed, ai_generated: true })
   } catch {
-    return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 })
+    const raw = (response.content[0] as Anthropic.TextBlock)?.text ?? ''
+    return NextResponse.json({ error: 'Failed to parse AI response', raw }, { status: 500 })
   }
 }
