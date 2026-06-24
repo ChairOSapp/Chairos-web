@@ -1,6 +1,6 @@
 'use client'
 import dynamic from 'next/dynamic'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import BarberNav from '@/components/BarberNav'
@@ -18,7 +18,15 @@ const BarberCalendar = dynamic(
   }
 )
 
-export default function BarberCalendarPage() {
+function Spinner() {
+  return (
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-[#0d9488] border-t-transparent animate-spin" />
+    </div>
+  )
+}
+
+function BarberCalendarPageInner() {
   const [profile, setProfile] = useState<any>(null)
   const [shopBarber, setShopBarber] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -43,11 +51,7 @@ export default function BarberCalendarPage() {
     load()
   }, [supabase, router])
 
-  if (loading) return (
-    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-[#0d9488] border-t-transparent animate-spin" />
-    </div>
-  )
+  if (loading) return <Spinner />
 
   const barberName = shopBarber?.barber_name || shopBarber?.alias || profile?.full_name || 'Barber'
   const color = shopBarber?.color || '#0d9488'
@@ -75,5 +79,13 @@ export default function BarberCalendarPage() {
       </div>
       <BarberMobileNav />
     </div>
+  )
+}
+
+export default function BarberCalendarPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <BarberCalendarPageInner />
+    </Suspense>
   )
 }

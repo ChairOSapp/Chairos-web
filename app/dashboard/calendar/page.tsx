@@ -1,6 +1,6 @@
 'use client'
 import dynamic from 'next/dynamic'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
@@ -18,7 +18,15 @@ const OwnerCalendar = dynamic(
   }
 )
 
-export default function CalendarPage() {
+function Spinner() {
+  return (
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-[#0d9488] border-t-transparent animate-spin" />
+    </div>
+  )
+}
+
+function CalendarPageInner() {
   const [shop, setShop] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -44,11 +52,7 @@ export default function CalendarPage() {
     load()
   }, [supabase, router])
 
-  if (loading) return (
-    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-[#0d9488] border-t-transparent animate-spin" />
-    </div>
-  )
+  if (loading) return <Spinner />
 
   const ownerName = profile?.full_name || shop?.name || ''
   const initials = ownerName.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
@@ -66,5 +70,13 @@ export default function CalendarPage() {
       </div>
       <MobileNav />
     </div>
+  )
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <CalendarPageInner />
+    </Suspense>
   )
 }
