@@ -31,20 +31,15 @@ export async function POST(req: NextRequest) {
   const { data: shop } = await admin.from('shops').select('id').eq('owner_id', user.id).maybeSingle()
   if (!shop) return NextResponse.json({ error: 'No shop found' }, { status: 404 })
 
-  const { audienceType, audienceFilters, channel } = await req.json()
+  const { audienceType, audienceFilters } = await req.json()
   const shopId = shop.id
-  const needsSms = channel === 'sms' || channel === 'both'
-  const needsEmail = channel === 'email' || channel === 'both'
 
+  const clientSelect = 'id, full_name, phone, email, sms_consent, email_consent'
   let clients: any[] = []
 
   if (audienceType === 'all_clients') {
-    let q = admin.from('clients').select('id, full_name, phone, email, sms_consent, email_consent').eq('shop_id', shopId)
-    const { data } = await q
-    clients = (data ?? []).filter(c =>
-      (!needsSms || c.sms_consent) &&
-      (!needsEmail || (c.email_consent && c.email))
-    )
+    const { data } = await admin.from('clients').select(clientSelect).eq('shop_id', shopId)
+    clients = data ?? []
 
   } else if (audienceType === 'lapsed_clients') {
     const days = audienceFilters?.days ?? 60
@@ -52,7 +47,6 @@ export async function POST(req: NextRequest) {
     cutoff.setDate(cutoff.getDate() - days)
     const cutoffStr = cutoff.toISOString().split('T')[0]
 
-    // Get last appointment date per client for this shop
     const { data: appts } = await admin
       .from('appointments')
       .select('client_id, date')
@@ -66,21 +60,11 @@ export async function POST(req: NextRequest) {
         lastVisit[a.client_id] = a.date
       }
     }
-    const lapsedIds = Object.entries(lastVisit)
-      .filter(([, d]) => d < cutoffStr)
-      .map(([id]) => id)
-
+    const lapsedIds = Object.entries(lastVisit).filter(([, d]) => d < cutoffStr).map(([id]) => id)
     if (lapsedIds.length === 0) return NextResponse.json({ clients: [], count: 0 })
 
-    const { data } = await admin
-      .from('clients')
-      .select('id, full_name, phone, email, sms_consent, email_consent')
-      .in('id', lapsedIds)
-
-    clients = (data ?? []).filter(c =>
-      (!needsSms || c.sms_consent) &&
-      (!needsEmail || (c.email_consent && c.email))
-    )
+    const { data } = await admin.from('clients').select(clientSelect).in('id', lapsedIds)
+    clients = data ?? []
 
   } else if (audienceType === 'specific_barber') {
     const { data: appts } = await admin
@@ -94,15 +78,8 @@ export async function POST(req: NextRequest) {
     const clientIds = [...new Set((appts ?? []).map((a: any) => a.client_id))]
     if (clientIds.length === 0) return NextResponse.json({ clients: [], count: 0 })
 
-    const { data } = await admin
-      .from('clients')
-      .select('id, full_name, phone, email, sms_consent, email_consent')
-      .in('id', clientIds)
-
-    clients = (data ?? []).filter(c =>
-      (!needsSms || c.sms_consent) &&
-      (!needsEmail || (c.email_consent && c.email))
-    )
+    const { data } = await admin.from('clients').select(clientSelect).in('id', clientIds)
+    clients = data ?? []
 
   } else if (audienceType === 'specific_service') {
     const { data: appts } = await admin
@@ -117,23 +94,15 @@ export async function POST(req: NextRequest) {
         .filter((a: any) => (a.services as any)?.name?.toLowerCase().includes((audienceFilters?.service ?? '').toLowerCase()))
         .map((a: any) => a.client_id)
     )]
-
     if (matchingClientIds.length === 0) return NextResponse.json({ clients: [], count: 0 })
 
-    const { data } = await admin
-      .from('clients')
-      .select('id, full_name, phone, email, sms_consent, email_consent')
-      .in('id', matchingClientIds)
-
-    clients = (data ?? []).filter(c =>
-      (!needsSms || c.sms_consent) &&
-      (!needsEmail || (c.email_consent && c.email))
-    )
+    const { data } = await admin.from('clients').select(clientSelect).in('id', matchingClientIds)
+    clients = data ?? []
 
   } else if (audienceType === 'no_booking_since') {
     const sinceDateStr = audienceFilters?.date ?? new Date().toISOString().split('T')[0]
 
-    const { data: appts } = await admin
+    const { data: recentAppts } = await admin
       .from('appointments')
       .select('client_id')
       .eq('shop_id', shopId)
@@ -141,7 +110,7 @@ export async function POST(req: NextRequest) {
       .in('status', ['done', 'completed'])
       .not('client_id', 'is', null)
 
-    const recentIds = new Set((appts ?? []).map((a: any) => a.client_id))
+    const recentIds = new Set((recentAppts ?? []).map((a: any) => a.client_id))
 
     const { data: allAppts } = await admin
       .from('appointments')
@@ -153,29 +122,15 @@ export async function POST(req: NextRequest) {
     const allIds = [...new Set((allAppts ?? []).map((a: any) => a.client_id))].filter(id => !recentIds.has(id))
     if (allIds.length === 0) return NextResponse.json({ clients: [], count: 0 })
 
-    const { data } = await admin
-      .from('clients')
-      .select('id, full_name, phone, email, sms_consent, email_consent')
-      .in('id', allIds)
-
-    clients = (data ?? []).filter(c =>
-      (!needsSms || c.sms_consent) &&
-      (!needsEmail || (c.email_consent && c.email))
-    )
+    const { data } = await admin.from('clients').select(clientSelect).in('id', allIds)
+    clients = data ?? []
 
   } else if (audienceType === 'manual_list') {
     const clientIds: string[] = audienceFilters?.clientIds ?? []
     if (clientIds.length === 0) return NextResponse.json({ clients: [], count: 0 })
 
-    const { data } = await admin
-      .from('clients')
-      .select('id, full_name, phone, email, sms_consent, email_consent')
-      .in('id', clientIds)
-
-    clients = (data ?? []).filter(c =>
-      (!needsSms || c.sms_consent) &&
-      (!needsEmail || (c.email_consent && c.email))
-    )
+    const { data } = await admin.from('clients').select(clientSelect).in('id', clientIds)
+    clients = data ?? []
   }
 
   return NextResponse.json({ clients, count: clients.length })
