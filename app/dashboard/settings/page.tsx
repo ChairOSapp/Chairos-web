@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { daysUntil } from '@/lib/billing'
+import ServicesEditor from '@/components/ServicesEditor'
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 const DEFAULT_HOURS = DAYS.map(day => ({
@@ -596,6 +597,15 @@ export default function ShopSettings() {
             <button onClick={() => router.push('/dashboard/settings/invite')} className="btn-chairos">Invite Barbers</button>
           </div>
         </div>
+
+        {/* SERVICES */}
+        {shop && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Services</div>
+            <p className="text-xs text-charcoal-500 mb-4">Manage the services clients can book at your shop.</p>
+            <ServicesEditor shopId={shop.id} />
+          </div>
+        )}
 
         {/* APPEARANCE */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">

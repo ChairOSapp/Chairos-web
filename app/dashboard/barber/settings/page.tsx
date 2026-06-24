@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes'
 import BarberNav from '@/components/BarberNav'
 import BarberMobileNav from '@/components/BarberMobileNav'
 import { Suspense } from 'react'
+import ServicesEditor from '@/components/ServicesEditor'
 
 function BarberSettingsInner() {
   const [profile, setProfile] = useState<any>(null)
@@ -358,6 +359,15 @@ function BarberSettingsInner() {
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
+
+        {/* SERVICES */}
+        {shop && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Services</div>
+            <p className="text-xs text-charcoal-500 mb-4">Manage the services clients can book with you.</p>
+            <ServicesEditor shopId={shop.id} />
+          </div>
+        )}
 
         {/* APPEARANCE */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
