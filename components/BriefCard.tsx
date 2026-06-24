@@ -14,12 +14,12 @@ type Brief = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="border-t border-warm-200">
+    <div className="border-t border-warm-200 dark:border-[#2A2A26]">
       <button
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between py-3 text-left"
       >
-        <span className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{title}</span>
+        <span className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 dark:text-[#9B9B8F]">{title}</span>
         <svg
           width="14" height="14" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -67,9 +67,9 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
   }, [])
 
   if (loading) return (
-    <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-5 animate-pulse">
-      <div className="h-3 w-32 bg-warm-300 rounded mb-3" />
-      <div className="h-5 w-3/4 bg-warm-300 rounded" />
+    <div className="bg-warm-100 dark:bg-[#1E1E1B] border border-warm-200 dark:border-[#2A2A26] rounded-xl p-5 mb-5 animate-pulse">
+      <div className="h-3 w-32 bg-warm-300 dark:bg-[#2A2A26] rounded mb-3" />
+      <div className="h-5 w-3/4 bg-warm-300 dark:bg-[#2A2A26] rounded" />
     </div>
   )
 
@@ -82,7 +82,7 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
   const name = recipientName ? `, ${recipientName.split(' ')[0]}` : ''
 
   return (
-    <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-5">
+    <div className="bg-warm-100 dark:bg-[#1E1E1B] border border-warm-200 dark:border-[#2A2A26] rounded-xl p-5 mb-5">
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>

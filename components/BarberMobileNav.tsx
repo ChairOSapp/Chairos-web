@@ -14,14 +14,14 @@ export default function BarberMobileNav() {
   const pathname = usePathname()
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-warm-100 border-t border-warm-200 px-2 py-2 flex justify-around z-50">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] px-2 py-2 flex justify-around z-50">
       {ITEMS.map((item) => {
         const active = pathname === item.href || (item.href !== '/dashboard/barber' && pathname.startsWith(item.href))
         return (
           <button
             key={item.href}
             onClick={() => router.push(item.href)}
-            className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-od-green' : 'text-charcoal-500'}`}>
+            className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-od-green' : 'text-charcoal-500 dark:text-[#9B9B8F]'}`}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d={item.icon} />
             </svg>

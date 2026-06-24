@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import BarberNav from '@/components/BarberNav'
 import BarberMobileNav from '@/components/BarberMobileNav'
 import { Suspense } from 'react'
@@ -27,6 +28,7 @@ function BarberSettingsInner() {
   const photoRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { theme, setTheme } = useTheme()
   const supabase = createClient()
 
   useEffect(() => {
@@ -356,6 +358,23 @@ function BarberSettingsInner() {
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
+
+        {/* APPEARANCE */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">Appearance</div>
+          <div className="flex gap-3">
+            {(['light', 'dark', 'system'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTheme(t)}
+                className={theme === t ? 'btn-chairos' : 'btn-chairos-outline'}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-charcoal-500 mt-2">System follows your device setting. Default is System.</p>
+        </div>
       </div>
       <BarberMobileNav />
     </div>

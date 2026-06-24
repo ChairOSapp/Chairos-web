@@ -36,7 +36,7 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
   }
 
   return (
-    <header className="bg-warm-100 border-b border-warm-200 px-4 h-14 flex items-center justify-between sticky top-0 z-50">
+    <header className="bg-warm-100 dark:bg-[#1E1E1B] border-b border-warm-200 dark:border-[#2A2A26] px-4 h-14 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-1">
         <span className="font-serif text-od-green text-lg mr-4">ChairOS</span>
         {NAV_ITEMS.map(item => {
@@ -46,7 +46,7 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
               key={item.href}
               onClick={() => router.push(item.href)}
               className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                active ? 'bg-od-green/15 text-od-green' : 'text-charcoal-500 hover:text-white hover:bg-warm-200'
+                active ? 'bg-od-green/15 text-od-green' : 'text-charcoal-500 dark:text-[#9B9B8F] hover:text-charcoal-900 dark:hover:text-[#F0EFE8] hover:bg-warm-200 dark:hover:bg-[#2A2A26]'
               }`}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d={item.icon} />
@@ -58,8 +58,8 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
       </div>
       <div className="flex items-center gap-3">
         <div className="hidden sm:block text-right">
-          <div className="text-xs font-medium text-charcoal-900">{ownerName}</div>
-          <div className="text-xs text-charcoal-500">{shopName}</div>
+          <div className="text-xs font-medium text-charcoal-900 dark:text-[#F0EFE8]">{ownerName}</div>
+          <div className="text-xs text-charcoal-500 dark:text-[#9B9B8F]">{shopName}</div>
         </div>
         {userId && (
           <NotificationsProvider>
@@ -70,7 +70,7 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
         <div className="w-8 h-8 rounded-lg bg-od-green/10 border border-od-green/30 flex items-center justify-center font-serif text-od-green text-sm">
           {initials}
         </div>
-        <button onClick={handleSignOut} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">
+        <button onClick={handleSignOut} className="text-xs text-charcoal-500 dark:text-[#9B9B8F] hover:text-charcoal-900 dark:hover:text-[#F0EFE8] transition-colors">
           Sign out
         </button>
       </div>
