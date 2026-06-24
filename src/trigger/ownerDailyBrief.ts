@@ -50,14 +50,36 @@ export const ownerDailyBrief = schedules.task({
     const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
 
     // Fetch active shops
-    const { data: shops } = await supabase
+    const { data: shops, error: shopsError } = await supabase
       .from('shops')
-      .select('id, name, owner_id, profiles!shops_owner_id_fkey(full_name, subscription_status)')
+      .select('id, name, owner_id')
+
+    if (shopsError) {
+      console.error('[owner-daily-brief] shops query error:', shopsError)
+      return { briefsCreated: 0 }
+    }
+
+    console.log('[owner-daily-brief] shops found:', shops?.length ?? 0)
+
+    const ownerIds = (shops ?? []).map(s => s.owner_id)
+
+    const { data: ownerProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, subscription_status, plan_type')
+      .in('id', ownerIds)
+
+    const profileMap = Object.fromEntries(
+      (ownerProfiles ?? []).map(p => [p.id, p])
+    )
 
     const activeShops = (shops ?? []).filter(s => {
-      const status = (s.profiles as any)?.subscription_status
+      const profile = profileMap[s.owner_id]
+      const status = profile?.subscription_status
+      console.log(`[owner-daily-brief] shop ${s.name} status: ${status}`)
       return status === 'active' || status === 'trialing' || status == null
     })
+
+    console.log('[owner-daily-brief] active shops:', activeShops.length)
 
     let briefsCreated = 0
 
@@ -65,6 +87,7 @@ export const ownerDailyBrief = schedules.task({
       try {
         const shopId = shop.id
         const ownerId = shop.owner_id
+        const ownerProfile = profileMap[ownerId]
 
         // --- YESTERDAY ---
         const { data: yesterdayAppts } = await supabase
@@ -299,12 +322,13 @@ export const ownerDailyBrief = schedules.task({
           const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 1000,
-            system: `You are ChairOS. Write a daily brief for a barbershop owner. The owner's primary job is managing and retaining their barbers. Frame every insight around the team. Highlight what the owner did that enabled barber performance — chair availability, scheduling decisions, client flow. This brief should make the owner feel like a leader whose decisions directly impact their barbers' income. Give 3 suggestions: one to help a struggling barber, one to reward or recognize a top performer, one operational move to drive more revenue to the floor today. Reference specific barber names and numbers. Under 300 words. Return JSON: headline, barber_rankings (array: name, revenue, tips, no_shows, flag), shop_totals, suggestions (array of 3), one_thing. Respond with only valid JSON, no markdown.`,
+            system: `You are ChairOS. Write a daily brief for a barbershop owner. The owner's primary job is managing and retaining their barbers. Frame every insight around the team. Highlight what the owner did that enabled barber performance — chair availability, scheduling decisions, client flow. This brief should make the owner feel like a leader whose decisions directly impact their barbers' income. Give 3 suggestions: one to help a struggling barber, one to reward or recognize a top performer, one operational move to drive more revenue to the floor today. Reference specific barber names and numbers. Under 300 words. Return JSON with these exact keys: headline (string), one_thing (string), barber_rankings (array of objects: name, revenue, tips, no_shows, flag), shop_totals (object), suggestions (array of 3 plain strings — each string is the full action sentence, no nested objects). Respond with only valid JSON, no markdown fences.`,
             messages: [{ role: 'user', content: JSON.stringify(briefData) }],
           })
 
           const raw = (response.content[0] as Anthropic.TextBlock).text.trim()
-          parsed = JSON.parse(raw)
+          const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+          parsed = JSON.parse(cleaned)
         } catch (err: any) {
           await supabase.from('automation_logs').insert({
             type: 'owner_daily_brief_parse_error',

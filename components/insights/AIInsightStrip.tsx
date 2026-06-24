@@ -127,10 +127,10 @@ export default function AIInsightStrip({ userId }: Props) {
             <div>
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Suggestions</div>
               <ol className="space-y-1.5">
-                {c.suggestions.map((s: string, i: number) => (
+                {c.suggestions.map((s: any, i: number) => (
                   <li key={i} className="flex gap-2 text-sm text-charcoal-300">
                     <span className="text-od-green font-bold flex-shrink-0">{i + 1}.</span>
-                    <span>{s}</span>
+                    <span>{typeof s === 'string' ? s : s.action ?? s.text ?? JSON.stringify(s)}</span>
                   </li>
                 ))}
               </ol>

@@ -229,10 +229,10 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
             {c.barber_rankings?.length > 0 ? 'Your Team This Week' : 'Suggestions'}
           </div>
           <ol className="space-y-2">
-            {c.suggestions.map((s: string, i: number) => (
+            {c.suggestions.map((s: any, i: number) => (
               <li key={i} className="flex gap-2.5 text-sm text-charcoal-700">
                 <span className="text-od-green font-bold flex-shrink-0">{i + 1}.</span>
-                <span>{s}</span>
+                <span>{typeof s === 'string' ? s : s.action ?? s.text ?? JSON.stringify(s)}</span>
               </li>
             ))}
           </ol>
