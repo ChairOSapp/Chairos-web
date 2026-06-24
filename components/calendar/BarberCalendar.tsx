@@ -37,7 +37,7 @@ interface Props {
 const EVENT_COLOR = '#0d9488'
 
 export default function BarberCalendar({ shopId, barberId, barberName, shopCode, openBookOnLoad }: Props) {
-  const [view, setView] = useState<CalView>('timeGridDay')
+  const [view, setView] = useState<CalView>('dayGridMonth')
   const [viewStart, setViewStart] = useState(new Date())
   const [appointments, setAppointments] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
@@ -149,7 +149,7 @@ export default function BarberCalendar({ shopId, barberId, barberName, shopCode,
   const api = calRef.current?.getApi()
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col w-full" style={{ height: 'calc(100vh - 56px)' }}>
       {/* Header */}
       <div className="flex items-center justify-between gap-2 px-4 py-3 bg-warm-100 border-b border-warm-200 flex-shrink-0 flex-wrap gap-y-2">
 
@@ -195,13 +195,16 @@ export default function BarberCalendar({ shopId, barberId, barberName, shopCode,
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 overflow-auto">
         <FullCalendar
           ref={calRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="timeGridDay"
+          initialView="dayGridMonth"
           headerToolbar={false}
-          height="100%"
+          height="calc(100vh - 116px)"
+          expandRows={true}
+          stickyHeaderDates={true}
+          fixedWeekCount={false}
           events={fcEvents}
           slotMinTime="07:00:00"
           slotMaxTime="22:00:00"
