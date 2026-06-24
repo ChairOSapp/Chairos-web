@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
+const ADMIN_EMAILS = ['tbbryant07@gmail.com']
+
 const PUBLIC_PATHS = ['/', '/login', '/signup', '/join', '/subscribe', '/api/stripe/webhook']
 
 function isPublic(pathname: string) {
@@ -47,6 +49,14 @@ export async function middleware(req: NextRequest) {
     url.pathname = '/login'
     url.searchParams.set('redirect', pathname)
     return NextResponse.redirect(url)
+  }
+
+  // Admin routes — email allowlist only
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+    if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
+      return NextResponse.redirect(new URL('/dashboard', req.url))
+    }
+    return NextResponse.next()
   }
 
   // Fetch billing status from profile
