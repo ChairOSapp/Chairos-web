@@ -215,7 +215,7 @@ function BookingPageInner() {
     let clientId: string | null = null
     const { data: existingClient } = await supabase
       .from('clients')
-      .select('id')
+      .select('id, sms_consent, email_consent')
       .eq('phone', normalizedPhone)
       .eq('shop_id', shop.id)
       .maybeSingle()
@@ -240,16 +240,8 @@ function BookingPageInner() {
 
     const consentNow = new Date().toISOString()
 
-    // Upsert client record with consent (never overwrite existing consent=true with false)
-    const cleanPhone = clientPhone.replace(/\D/g, '')
-    const { data: existingClient } = await supabase
-      .from('clients')
-      .select('id, sms_consent, email_consent')
-      .eq('phone', cleanPhone)
-      .maybeSingle()
-
     const clientUpsert: Record<string, any> = {
-      phone: cleanPhone,
+      phone: normalizedPhone,
       full_name: clientName,
       email: clientEmail || null,
     }
