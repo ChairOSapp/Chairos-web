@@ -29,6 +29,7 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
         <span className="font-serif text-od-green text-lg mr-4">ChairOS</span>
         {[
           { label: 'My Schedule', href: '/dashboard/barber' },
+          { label: 'Calendar', href: '/dashboard/barber/calendar' },
           { label: 'My Profile', href: '/dashboard/barber/settings' },
           { label: 'My Reviews', href: '/dashboard/barber/reviews' },
         ].map(item => {

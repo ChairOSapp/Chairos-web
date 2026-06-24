@@ -317,118 +317,48 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 4. SCHEDULE */}
+        {/* 4. CALENDAR */}
         <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Schedule</div>
-          <div className="bg-warm-100 border border-warm-200 rounded-2xl overflow-hidden">
-
-            {/* Week strip */}
-            <div className="px-4 pt-4 pb-3 border-b border-warm-200">
-              <div className="grid grid-cols-7 gap-1">
-                {weekDays.map((d, i) => {
-                  const ds = toDateStr(d)
-                  const isToday = ds === todayStr
-                  const isSelected = ds === selectedDate
-                  const hasAppts = daysWithAppts.has(ds)
-                  return (
-                    <button
-                      key={ds}
-                      onClick={() => setSelectedDate(ds)}
-                      className={`flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${
-                        isSelected
-                          ? 'bg-od-green text-white'
-                          : isToday
-                            ? 'bg-od-green/10 text-od-green'
-                            : 'hover:bg-warm-200 text-charcoal-500'
-                      }`}
-                    >
-                      <span className="text-[10px] font-semibold tracking-wide uppercase">
-                        {DAY_LABELS[i]}
-                      </span>
-                      <span className={`text-sm font-bold leading-none ${isSelected ? 'text-white' : isToday ? 'text-od-green' : 'text-charcoal-900'}`}>
-                        {d.getDate()}
-                      </span>
-                      <div className={`w-1 h-1 rounded-full ${
-                        hasAppts
-                          ? isSelected ? 'bg-white/70' : 'bg-od-green'
-                          : 'bg-transparent'
-                      }`} />
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Timeline */}
-            {scheduleAppts.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="text-charcoal-400 text-sm">
-                  {selectedDate === todayStr
-                    ? <>No appointments today. Share <span className="text-od-green font-mono">chairos.cc/book/{shop?.shop_code}</span>.</>
-                    : 'No appointments this day.'}
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Schedule</div>
+            <button onClick={() => router.push('/dashboard/calendar')}
+              className="text-xs font-semibold px-3 py-1 rounded-full bg-[#0d9488] text-white hover:opacity-90 transition-opacity">
+              Open Calendar →
+            </button>
+          </div>
+          <button
+            onClick={() => router.push('/dashboard/calendar')}
+            className="w-full bg-warm-100 border border-warm-200 rounded-2xl p-5 text-left hover:bg-warm-200/60 transition-colors group">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Today</div>
+                <div className="font-serif text-2xl text-charcoal-900">
+                  {todayAppointments.length} <span className="text-charcoal-500 text-lg">appointments</span>
                 </div>
               </div>
-            ) : (
-              <div className="divide-y divide-warm-200">
-                {scheduleAppts.map((a) => {
-                  const barber = barbers.find(b => b.barber_id === a.barber_id)
-                  const badge = STATUS_BADGE[a.status] || { label: a.status, cls: 'text-charcoal-500 bg-warm-200' }
-                  return (
-                    <div key={a.id} className="px-5 py-4">
-                      {/* Row 1: time + client + amount */}
-                      <div className="flex items-start gap-4 mb-2">
-                        <div className="font-mono text-sm text-od-green font-bold w-12 flex-shrink-0 pt-0.5">
-                          {a.time?.slice(0,5) || '—'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold text-charcoal-900 leading-tight">{a.client_name}</div>
-                          <div className="text-xs text-charcoal-500 mt-0.5">
-                            {a.services?.name}
-                            {barber && <span> · {barber.barber_name || barber.alias}</span>}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                          <div className="font-mono text-sm font-bold text-charcoal-900">${parseFloat(a.price).toFixed(0)}</div>
-                          <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full ${badge.cls}`}>
-                            {badge.label}
-                          </span>
-                        </div>
-                      </div>
-                      {/* Row 2: controls */}
-                      <div className="flex items-center gap-2 pl-16 flex-wrap">
-                        <select
-                          value={a.barber_id || ''}
-                          onChange={e => updateAppointmentBarber(a.id, e.target.value)}
-                          className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-od-green max-w-32">
-                          <option value="">Unassigned</option>
-                          {barbers.map(b => <option key={b.id} value={b.barber_id || ''}>{b.barber_name || b.alias}</option>)}
-                        </select>
-                        <select
-                          value={a.status}
-                          onChange={e => updateAppointmentStatus(a.id, e.target.value)}
-                          className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-od-green">
-                          <option value="pending">Pending</option>
-                          <option value="confirmed">Confirmed</option>
-                          <option value="done">Done</option>
-                          <option value="noshow">No Show</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                        <PaymentBadge status={a.payment_status} />
-                        {a.status === 'done' && shopId && (
-                          <TipInput
-                            appointmentId={a.id}
-                            barberId={a.barber_id}
-                            shopId={shopId}
-                            onTipAdded={() => shopId && loadSchedule(shopId)}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="w-10 h-10 rounded-xl bg-[#0d9488]/10 border border-[#0d9488]/20 flex items-center justify-center group-hover:bg-[#0d9488]/20 transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
               </div>
+            </div>
+            {todayAppointments.slice(0, 3).map(a => {
+              const barber = barbers.find(b => b.barber_id === a.barber_id)
+              return (
+                <div key={a.id} className="flex items-center gap-3 py-1.5 border-t border-warm-200 first:border-0">
+                  <span className="font-mono text-xs text-[#0d9488] w-10 flex-shrink-0">{a.time?.slice(0,5) || '—'}</span>
+                  <span className="text-sm font-medium text-charcoal-900 flex-1 truncate">{a.client_name}</span>
+                  {barber && <span className="text-xs text-charcoal-400 flex-shrink-0">{barber.barber_name || barber.alias}</span>}
+                </div>
+              )
+            })}
+            {todayAppointments.length > 3 && (
+              <div className="text-xs text-charcoal-400 pt-2 border-t border-warm-200">+{todayAppointments.length - 3} more · tap to open calendar</div>
             )}
-          </div>
+            {todayAppointments.length === 0 && (
+              <div className="text-sm text-charcoal-400 pt-2 border-t border-warm-200">No appointments today · tap to open calendar</div>
+            )}
+          </button>
         </div>
 
         {/* 5. THE FLOOR — compact pills */}

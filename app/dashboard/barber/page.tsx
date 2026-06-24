@@ -517,112 +517,45 @@ export default function BarberDashboard() {
           )}
         </div>
 
-        {/* SCHEDULE */}
-        <div className="bg-warm-100 border border-warm-200 rounded-2xl overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-warm-200 flex justify-between items-center">
-            <div className="font-serif text-charcoal-900">Schedule</div>
-            <div className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-600">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              Live
-            </div>
+        {/* SCHEDULE → CALENDAR */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">My Schedule</div>
+            <button onClick={() => router.push('/dashboard/barber/calendar')}
+              className="text-xs font-semibold px-3 py-1 rounded-full bg-[#0d9488] text-white hover:opacity-90 transition-opacity">
+              Open Calendar →
+            </button>
           </div>
-
-          {/* Week strip */}
-          <div className="px-4 pt-3 pb-3 border-b border-warm-200">
-            <div className="grid grid-cols-7 gap-1">
-              {getWeekDays().map((d, i) => {
-                const ds = toDateStr(d)
-                const todayStr = toDateStr(new Date())
-                const isToday = ds === todayStr
-                const isSelected = ds === selectedDate
-                const hasAppts = weekAppointments.some(a => a.date === ds)
-                return (
-                  <button
-                    key={ds}
-                    onClick={() => setSelectedDate(ds)}
-                    className={`flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${
-                      isSelected
-                        ? 'bg-od-green text-white'
-                        : isToday
-                          ? 'bg-od-green/10 text-od-green'
-                          : 'hover:bg-warm-200 text-charcoal-500'
-                    }`}
-                  >
-                    <span className="text-[10px] font-semibold tracking-wide uppercase">
-                      {DAY_LABELS[i]}
-                    </span>
-                    <span className={`text-sm font-bold leading-none ${isSelected ? 'text-white' : isToday ? 'text-od-green' : 'text-charcoal-900'}`}>
-                      {d.getDate()}
-                    </span>
-                    <div className={`w-1 h-1 rounded-full ${hasAppts ? isSelected ? 'bg-white/70' : 'bg-od-green' : 'bg-transparent'}`} />
-                  </button>
-                )
-              })}
+          <button
+            onClick={() => router.push('/dashboard/barber/calendar')}
+            className="w-full bg-warm-100 border border-warm-200 rounded-2xl p-5 text-left hover:bg-warm-200/60 transition-colors group">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Today</div>
+                <div className="font-serif text-2xl text-charcoal-900">
+                  {appointments.length} <span className="text-charcoal-500 text-lg">appointments</span>
+                </div>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-[#0d9488]/10 border border-[#0d9488]/20 flex items-center justify-center group-hover:bg-[#0d9488]/20 transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
             </div>
-          </div>
-
-          {/* Timeline for selected day */}
-          {(() => {
-            const dayAppts = weekAppointments.filter(a => a.date === selectedDate).sort((a, b) => (a.time || '').localeCompare(b.time || ''))
-            const todayStr = toDateStr(new Date())
-            if (dayAppts.length === 0) return (
-              <div className="p-6 text-center text-charcoal-500 text-sm">
-                {selectedDate === todayStr ? 'No appointments today. Your schedule updates in real time.' : 'No appointments this day.'}
+            {appointments.slice(0, 3).map(a => (
+              <div key={a.id} className="flex items-center gap-3 py-1.5 border-t border-warm-200 first:border-0">
+                <span className="font-mono text-xs text-[#0d9488] w-10 flex-shrink-0">{a.time?.slice(0,5) || '—'}</span>
+                <span className="text-sm font-medium text-charcoal-900 flex-1 truncate">{a.client_name}</span>
+                <span className="text-xs text-charcoal-400 flex-shrink-0">{a.services?.name}</span>
               </div>
-            )
-            return (
-              <div className="divide-y divide-warm-200">
-                {dayAppts.map((a) => (
-                  <div key={a.id} className="px-5 py-4">
-                    <div className="flex items-start gap-4 mb-2">
-                      <div className="font-mono text-sm text-od-green font-bold w-12 flex-shrink-0 pt-0.5">
-                        {a.time?.slice(0,5) || '—'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-charcoal-900">{a.client_name}</div>
-                        <div className="text-xs text-charcoal-500 mt-0.5">{a.services?.name} · {a.client_phone}</div>
-                      </div>
-                      <div className="font-mono text-sm font-bold text-charcoal-900 flex-shrink-0">${a.price}</div>
-                    </div>
-                    <div className="flex items-center gap-2 pl-16 flex-wrap">
-                      <select
-                        value={a.status}
-                        disabled={statusUpdating[a.id]}
-                        onChange={e => updateStatus(a.id, e.target.value)}
-                        className={`bg-warm-200 border border-warm-300 rounded-lg px-2 py-1 text-xs font-semibold outline-none transition-colors ${
-                          a.status === 'done' ? 'text-green-400 border-green-500/30' :
-                          a.status === 'confirmed' ? 'text-blue-400 border-blue-500/30' :
-                          a.status === 'noshow' ? 'text-red-400' : 'text-charcoal-400'
-                        }`}>
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="done">Done</option>
-                        <option value="noshow">No Show</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                      {a.status === 'done' && !tippedAppointments.has(a.id) && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-charcoal-500">Tip $</span>
-                          <input
-                            type="number" inputMode="decimal" min="0" step="0.01" placeholder="0.00"
-                            value={barberTipInput[a.id] || ''}
-                            onChange={e => { const val = e.target.value; if (parseFloat(val) < 0) return; setBarberTipInput(prev => ({ ...prev, [a.id]: val })) }}
-                            className="w-20 bg-warm-200 border border-warm-300 rounded-lg px-3 py-1.5 text-sm text-charcoal-900 outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                          <button
-                            onClick={() => addBarberTip(a.id)}
-                            disabled={addingTip[a.id] || !barberTipInput[a.id]}
-                            className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50">
-                            {addingTip[a.id] ? '...' : '+ Tip'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
-          })()}
+            ))}
+            {appointments.length > 3 && (
+              <div className="text-xs text-charcoal-400 pt-2 border-t border-warm-200">+{appointments.length - 3} more · tap to open calendar</div>
+            )}
+            {appointments.length === 0 && (
+              <div className="text-sm text-charcoal-400 pt-2 border-t border-warm-200">No appointments today · tap to open calendar</div>
+            )}
+          </button>
         </div>
 
         {/* EARNINGS TOGGLE */}

@@ -1,0 +1,254 @@
+'use client'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import FullCalendar from '@fullcalendar/react'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import timeGridPlugin from '@fullcalendar/timegrid'
+import interactionPlugin from '@fullcalendar/interaction'
+import type { EventClickArg, DateSelectArg, DatesSetArg, EventContentArg } from '@fullcalendar/core'
+import { createClient } from '@/lib/supabase'
+import AppointmentPopover from './AppointmentPopover'
+import QuickBookModal from './QuickBookModal'
+
+type CalView = 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth'
+
+function addMins(time: string, mins: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const total = h * 60 + m + mins
+  return `${String(Math.floor(total / 60) % 24).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}:00`
+}
+
+function getDateLabel(view: CalView, d: Date): string {
+  if (view === 'timeGridDay') return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  if (view === 'timeGridWeek') {
+    const end = new Date(d); end.setDate(d.getDate() + 6)
+    return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  }
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
+interface Props {
+  shopId: string
+  barberId: string
+  barberName: string
+  shopCode?: string
+  openBookOnLoad?: boolean
+}
+
+const EVENT_COLOR = '#0d9488'
+
+export default function BarberCalendar({ shopId, barberId, barberName, shopCode, openBookOnLoad }: Props) {
+  const [view, setView] = useState<CalView>('timeGridDay')
+  const [viewStart, setViewStart] = useState(new Date())
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [services, setServices] = useState<any[]>([])
+  const [popover, setPopover] = useState<{ appt: any; x: number; y: number } | null>(null)
+  const [bookSlot, setBookSlot] = useState<{ date: string; time: string } | null>(null)
+  const [showBook, setShowBook] = useState(openBookOnLoad || false)
+  const calRef = useRef<FullCalendar>(null)
+  const supabase = useMemo(() => createClient(), [])
+
+  const loadAppointments = useCallback(async () => {
+    const now = new Date()
+    const past = new Date(now.getFullYear(), now.getMonth() - 3, 1)
+    const future = new Date(now.getFullYear(), now.getMonth() + 4, 0)
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    const { data } = await supabase
+      .from('appointments')
+      .select('*, services(name, price)')
+      .eq('barber_id', barberId)
+      .gte('date', fmt(past))
+      .lte('date', fmt(future))
+      .order('date').order('time', { ascending: true })
+    setAppointments(data || [])
+  }, [barberId, supabase])
+
+  useEffect(() => {
+    async function init() {
+      const { data: s } = await supabase.from('services').select('id, name, price').eq('shop_id', shopId).eq('active', true).order('price', { ascending: true })
+      setServices(s || [])
+      await loadAppointments()
+    }
+    init()
+  }, [shopId, barberId, supabase, loadAppointments])
+
+  useEffect(() => {
+    const channel = supabase.channel('barber-cal-appts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `barber_id=eq.${barberId}` }, loadAppointments)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [barberId, supabase, loadAppointments])
+
+  // Week revenue
+  const weekRevenue = useMemo(() => {
+    if (view !== 'timeGridWeek') return null
+    const start = new Date(viewStart)
+    const end = new Date(viewStart); end.setDate(end.getDate() + 7)
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    return appointments
+      .filter(a => a.date >= fmt(start) && a.date < fmt(end) && a.status === 'done')
+      .reduce((s, a) => s + (parseFloat(a.price) || 0), 0)
+  }, [appointments, view, viewStart])
+
+  const fcEvents = useMemo(() => appointments.map(a => {
+    const timeStr = a.time || '09:00:00'
+    return {
+      id: a.id,
+      title: a.client_name || 'Unknown',
+      start: `${a.date}T${timeStr}`,
+      end: `${a.date}T${addMins(timeStr, 30)}`,
+      backgroundColor: EVENT_COLOR,
+      borderColor: 'transparent',
+      textColor: '#ffffff',
+      extendedProps: {
+        ...a,
+        serviceName: a.services?.name || '',
+        servicePrice: a.services?.price || a.price,
+      },
+    }
+  }), [appointments])
+
+  function handleEventClick(info: EventClickArg) {
+    info.jsEvent.preventDefault()
+    setPopover({ appt: { ...info.event.extendedProps, id: info.event.id }, x: info.jsEvent.clientX, y: info.jsEvent.clientY })
+  }
+
+  function handleSelect(info: DateSelectArg) {
+    const dateStr = info.startStr.split('T')[0]
+    const timeStr = info.startStr.includes('T') ? info.startStr.split('T')[1].slice(0,8) : '09:00:00'
+    setBookSlot({ date: dateStr, time: timeStr })
+    setShowBook(true)
+    calRef.current?.getApi().unselect()
+  }
+
+  function changeView(v: CalView) {
+    setView(v)
+    calRef.current?.getApi().changeView(v)
+  }
+
+  function renderEventContent(arg: EventContentArg) {
+    const props = arg.event.extendedProps
+    const parts = (arg.event.title || '').split(' ')
+    const name = parts[0] + (parts[1] ? ` ${parts[1][0]}.` : '')
+    if (arg.view.type === 'dayGridMonth') {
+      return (
+        <div className="flex items-center gap-0.5 px-0.5 py-px overflow-hidden">
+          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#0d9488]" />
+          <span className="text-[9px] font-medium text-charcoal-900 truncate">{parts[0]}</span>
+        </div>
+      )
+    }
+    return (
+      <div className="px-1.5 py-1 h-full overflow-hidden flex flex-col gap-0.5">
+        <div className="font-semibold text-[11px] text-white leading-tight truncate">{name}</div>
+        {props.serviceName && <div className="text-[10px] text-white/75 leading-tight truncate">{props.serviceName}</div>}
+        <div className="text-[10px] text-white/60 font-mono">${parseFloat(props.price || 0).toFixed(0)}</div>
+      </div>
+    )
+  }
+
+  const api = calRef.current?.getApi()
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3 bg-warm-100 border-b border-warm-200 flex-shrink-0 flex-wrap gap-y-2">
+
+        {/* View Tabs */}
+        <div className="flex gap-1 bg-warm-200 rounded-lg p-0.5">
+          {([['timeGridDay','Day'],['timeGridWeek','Week'],['dayGridMonth','Month']] as [CalView,string][]).map(([v,label]) => (
+            <button key={v} onClick={() => changeView(v)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${view===v ? 'bg-warm-50 text-od-green shadow-sm' : 'text-charcoal-500 hover:text-charcoal-900'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Nav */}
+        <div className="flex items-center gap-1">
+          <button onClick={() => api?.today()}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-warm-200 text-charcoal-600 hover:bg-warm-300 transition-colors">
+            Today
+          </button>
+          <button onClick={() => api?.prev()}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-charcoal-500 hover:bg-warm-200 transition-colors">
+            ‹
+          </button>
+          <div className="min-w-[140px] text-center">
+            <div className="text-sm font-semibold text-charcoal-900">{getDateLabel(view, viewStart)}</div>
+            {weekRevenue !== null && (
+              <div className="text-[10px] text-od-green font-mono font-bold">Week revenue: ${weekRevenue.toFixed(0)}</div>
+            )}
+          </div>
+          <button onClick={() => api?.next()}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-charcoal-500 hover:bg-warm-200 transition-colors">
+            ›
+          </button>
+        </div>
+
+        {/* Book button */}
+        <button
+          onClick={() => { setBookSlot(null); setShowBook(true) }}
+          className="flex items-center gap-1.5 px-4 py-2 bg-[#0d9488] hover:opacity-90 text-white text-xs font-bold rounded-xl transition-opacity">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 4v16m8-8H4"/></svg>
+          Book Client
+        </button>
+      </div>
+
+      {/* Calendar */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <FullCalendar
+          ref={calRef}
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          initialView="timeGridDay"
+          headerToolbar={false}
+          height="100%"
+          events={fcEvents}
+          slotMinTime="07:00:00"
+          slotMaxTime="22:00:00"
+          slotDuration="00:15:00"
+          slotLabelInterval="01:00:00"
+          nowIndicator={true}
+          selectable={true}
+          selectMirror={true}
+          select={handleSelect}
+          eventClick={handleEventClick}
+          eventContent={renderEventContent}
+          datesSet={(info: DatesSetArg) => setViewStart(info.start)}
+          dayMaxEventRows={4}
+          dateClick={(info) => {
+            if (view === 'dayGridMonth') {
+              calRef.current?.getApi().gotoDate(info.date)
+              changeView('timeGridDay')
+            }
+          }}
+        />
+      </div>
+
+      {popover && (
+        <AppointmentPopover
+          appointment={popover.appt}
+          barberName={barberName}
+          x={popover.x}
+          y={popover.y}
+          isOwner={false}
+          onClose={() => setPopover(null)}
+          onUpdated={loadAppointments}
+        />
+      )}
+
+      {showBook && (
+        <QuickBookModal
+          shopId={shopId}
+          initialDate={bookSlot?.date}
+          initialTime={bookSlot?.time}
+          initialBarberId={barberId}
+          lockedBarberId={barberId}
+          barbers={[{ barber_id: barberId, barber_name: barberName }]}
+          services={services}
+          onCreated={loadAppointments}
+          onClose={() => { setShowBook(false); setBookSlot(null) }}
+        />
+      )}
+    </div>
+  )
+}

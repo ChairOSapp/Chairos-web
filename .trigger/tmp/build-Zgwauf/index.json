@@ -1,0 +1,42 @@
+{
+  "configPath": "C:\\Users\\tbbry\\Chairos-web\\.trigger\\tmp\\build-3jVrKu\\Chairos-web\\trigger.config.mjs",
+  "customConditions": [
+  ],
+  "prompts": [
+  ],
+  "queues": [
+  ],
+  "runtime": "node",
+  "runtimeVersion": "24.14.1",
+  "tasks": [
+    {
+      "entryPoint": "C:\\Users\\tbbry\\Chairos-web\\.trigger\\tmp\\build-3jVrKu\\Chairos-web\\src\\trigger\\abandonedBookingRecovery.mjs",
+      "filePath": "src/trigger/abandonedBookingRecovery.ts",
+      "id": "abandoned-booking-recovery",
+      "maxDuration": 300
+    },
+    {
+      "entryPoint": "C:\\Users\\tbbry\\Chairos-web\\.trigger\\tmp\\build-3jVrKu\\Chairos-web\\src\\trigger\\clientLapseDetection.mjs",
+      "filePath": "src/trigger/clientLapseDetection.ts",
+      "id": "client-lapse-detection",
+      "maxDuration": 300,
+      "schedule": {
+        "cron": "0 6 * * *",
+        "timezone": "UTC"
+      },
+      "triggerSource": "schedule"
+    },
+    {
+      "entryPoint": "C:\\Users\\tbbry\\Chairos-web\\.trigger\\tmp\\build-3jVrKu\\Chairos-web\\src\\trigger\\reBookingSms.mjs",
+      "filePath": "src/trigger/reBookingSms.ts",
+      "id": "rebooking-sms",
+      "maxDuration": 300
+    }
+  ],
+  "timings": {
+    "src/trigger/abandonedBookingRecovery.ts": 134.329,
+    "src/trigger/clientLapseDetection.ts": 1.695099999999968,
+    "src/trigger/reBookingSms.ts": 1.3102999999999838
+  },
+  "workerEntryPoint": "C:\\Users\\tbbry\\Chairos-web\\.trigger\\tmp\\build-3jVrKu\\AppData\\Local\\npm-cache\\_npx\\f51a09bd0abf5f10\\node_modules\\trigger.dev\\dist\\esm\\entryPoints\\dev-run-worker.mjs"
+}
