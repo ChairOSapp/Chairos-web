@@ -1,5 +1,6 @@
 'use client'
 import { useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface Appointment {
   id: string
@@ -38,6 +39,7 @@ interface InsightCard {
 }
 
 export default function OpportunitiesSection({ shopId: _shopId, appointments, barbers, isBarber = false }: Props) {
+  const router = useRouter()
   const cards = useMemo<InsightCard[]>(() => {
     const now = new Date()
     const today = fmt(now)
@@ -59,7 +61,7 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
       result.push({
         icon: 'Slowest Day',
         text: `Fill ${dayName} slots — only ${slowestDayEntry.count} cuts on ${dayName}s recently`,
-        action: `Boost ${dayName} bookings →`,
+        action: `Boost ${dayName} Bookings`,
         href: `/dashboard/campaigns?intent=${encodeURIComponent(`Boost ${dayName} bookings with a ${dayName} special`)}`,
       })
     }
@@ -76,7 +78,7 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
       result.push({
         icon: 'Gone Cold',
         text: `${coldCount} clients have gone cold since their last visit`,
-        action: 'Win them back →',
+        action: 'Win Them Back',
         href: `/dashboard/campaigns?intent=${encodeURIComponent(`Win back ${coldCount} gone-cold clients`)}`,
       })
     }
@@ -109,7 +111,7 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
       result.push({
         icon: 'Come-Back Rate',
         text: `${lowestBarber.name} has a ${(lowestBarber.rate * 100).toFixed(0)}% come-back rate — help clients rebook with them`,
-        action: `Boost rebooking →`,
+        action: `Boost Rebooking`,
         href: `/dashboard/campaigns?intent=${encodeURIComponent(`Boost rebooking rate for ${lowestBarber.name}`)}`,
       })
     }
@@ -129,7 +131,7 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
       result.push({
         icon: 'Light Day',
         text: `${lightestDay.label} has only ${upcomingCounts[lightestDay.date]} bookings — fill it now`,
-        action: 'Fill slots →',
+        action: 'Fill Slots',
         href: `/dashboard/campaigns?intent=${encodeURIComponent(`Fill ${lightestDay.label} appointment slots`)}`,
       })
     }
@@ -148,12 +150,9 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">{card.icon}</div>
             <p className="text-sm text-charcoal-900 mb-3">{card.text}</p>
             {!isBarber && (
-              <a
-                href={card.href}
-                className="text-xs font-semibold text-od-green hover:text-od-green-light transition-colors"
-              >
+              <button onClick={() => router.push(card.href)} className="btn-chairos">
                 {card.action}
-              </a>
+              </button>
             )}
           </div>
         ))}
