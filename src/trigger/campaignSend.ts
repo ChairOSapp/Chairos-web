@@ -1,7 +1,7 @@
 import { task, wait } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
 import twilio from "twilio"
-import { resend } from "@/lib/resend"
+import { getResend } from "@/lib/resend"
 import { buildEmailTemplate } from "@/lib/emailTemplates"
 import { generateUnsubscribeToken } from "@/lib/unsubscribeToken"
 
@@ -120,7 +120,7 @@ export const campaignSend = task({
             let errMsg: string | null = null
 
             try {
-              const { error } = await resend.emails.send({
+              const { error } = await getResend().emails.send({
                 from: process.env.RESEND_FROM_EMAIL!,
                 to: recipient.email,
                 subject: campaign.email_subject ?? '',
