@@ -10,6 +10,7 @@ export default function InvitePage() {
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [copied, setCopied] = useState<'link' | 'code' | null>(null)
+  const [generatingCode, setGeneratingCode] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
   const supabase = createClient()
@@ -24,6 +25,16 @@ export default function InvitePage() {
     }
     load()
   }, [])
+
+  async function generateShopCode() {
+    if (!shop) return
+    setGeneratingCode(true)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+    const { error } = await supabase.from('shops').update({ invite_code: code }).eq('id', shop.id)
+    if (!error) setShop((prev: any) => ({ ...prev, invite_code: code }))
+    setGeneratingCode(false)
+  }
 
   async function generateLink() {
     setGenerating(true)
@@ -46,7 +57,6 @@ export default function InvitePage() {
   }
 
   const shopCodeFormatted = shop?.invite_code || ''
-  const shopCode9 = shop?.shop_code || ''
   const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() || 'CH'
 
   return (
@@ -66,15 +76,24 @@ export default function InvitePage() {
           <p className="text-charcoal-500 text-xs mb-4">Barbers enter this code on the Join page. Works for anyone — share freely.</p>
           <div className="flex items-center gap-3">
             <div className="flex-1 bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 font-mono text-lg text-charcoal-900 tracking-widest text-center">
-              {shopCode9 || '—'}
+              {shopCodeFormatted || '—'}
             </div>
-            <button
-              onClick={() => shopCode9 && copy(shopCode9, 'code')}
-              disabled={!shopCode9}
-              className="px-4 py-3 bg-od-green/10 border border-od-green/30 text-od-green text-sm font-semibold rounded-lg hover:bg-od-green/20 transition-colors disabled:opacity-40"
-            >
-              {copied === 'code' ? 'Copied!' : 'Copy Code'}
-            </button>
+            {shopCodeFormatted ? (
+              <button
+                onClick={() => copy(shopCodeFormatted, 'code')}
+                className="px-4 py-3 bg-od-green/10 border border-od-green/30 text-od-green text-sm font-semibold rounded-lg hover:bg-od-green/20 transition-colors"
+              >
+                {copied === 'code' ? 'Copied!' : 'Copy Code'}
+              </button>
+            ) : (
+              <button
+                onClick={generateShopCode}
+                disabled={generatingCode}
+                className="px-4 py-3 bg-od-green text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {generatingCode ? 'Generating…' : 'Generate Code'}
+              </button>
+            )}
           </div>
         </div>
 
