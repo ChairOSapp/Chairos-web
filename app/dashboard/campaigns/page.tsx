@@ -259,16 +259,36 @@ function CampaignsInner() {
   }
 
   async function handleSend() {
-    if (!selected?.id && !name.trim()) { setError('Save draft first'); return }
+    if (!name.trim() || !intent.trim()) { setError('Name and intent are required'); return }
     setSending(true)
     setError('')
     setSuccess('')
     try {
-      // Save first if new
+      // Save first if new, then proceed with sending
       let campaignId = selected?.id
       if (!campaignId) {
-        await handleSaveDraft()
-        return // will re-run after save
+        const payload = {
+          shop_id: shop.id,
+          name,
+          intent,
+          channel,
+          audience_type: audienceType,
+          audience_filters: { ...buildAudienceFilters(), ...(aiCurate ? { custom_curate: true } : {}) },
+          sms_message: smsMessage || null,
+          email_subject: emailSubject || null,
+          email_body: emailBody || null,
+          ai_generated: aiGenerated,
+          status: 'draft',
+          schedule_type: scheduleType,
+          scheduled_at: scheduleType !== 'now' && scheduledAt ? scheduledAt : null,
+          recurrence_rule: scheduleType === 'recurring' ? recurrenceRule : null,
+          recurrence_end_at: scheduleType === 'recurring' && recurrenceEndType === 'date' ? recurrenceEndDate : null,
+          recurrence_count: scheduleType === 'recurring' && recurrenceEndType === 'count' ? parseInt(recurrenceCount) : null,
+        }
+        const { data: newC, error: saveErr } = await supabase.from('campaigns').insert(payload).select().maybeSingle()
+        if (saveErr) throw saveErr
+        campaignId = newC!.id
+        setSelected(newC)
       }
 
       // Update status to scheduled if not sending now
