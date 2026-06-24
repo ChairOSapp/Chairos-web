@@ -34,7 +34,7 @@ interface Props {
   openBookOnLoad?: boolean
 }
 
-const EVENT_COLOR = '#0d9488'
+const EVENT_COLOR = '#4B5320'
 
 export default function BarberCalendar({ shopId, barberId, barberName, shopCode, openBookOnLoad }: Props) {
   const [view, setView] = useState<CalView>('dayGridMonth')
@@ -132,7 +132,7 @@ export default function BarberCalendar({ shopId, barberId, barberName, shopCode,
     if (arg.view.type === 'dayGridMonth') {
       return (
         <div className="flex items-center gap-0.5 px-0.5 py-px overflow-hidden">
-          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#0d9488]" />
+          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-od-green" />
           <span className="text-[9px] font-medium text-charcoal-900 truncate">{parts[0]}</span>
         </div>
       )
@@ -188,7 +188,7 @@ export default function BarberCalendar({ shopId, barberId, barberName, shopCode,
         {/* Book button */}
         <button
           onClick={() => { setBookSlot(null); setShowBook(true) }}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[#0d9488] hover:opacity-90 text-white text-xs font-bold rounded-xl transition-opacity">
+          className="flex items-center gap-1.5 px-4 py-2 bg-od-green hover:opacity-90 text-white text-xs font-bold rounded-xl transition-opacity">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 4v16m8-8H4"/></svg>
           Book Client
         </button>

@@ -7,7 +7,7 @@ export function buildEmailTemplate(body: string, unsubscribeUrl: string): string
   <style>
     body { font-family: sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 0; }
     .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
-    .logo { color: #0d9488; font-size: 24px; font-weight: bold; margin-bottom: 32px; }
+    .logo { color: #4B5320; font-size: 24px; font-weight: bold; margin-bottom: 32px; }
     .body { font-size: 16px; line-height: 1.6; color: #e5e5e5; }
     .footer { margin-top: 48px; font-size: 12px; color: #666; }
     .unsubscribe { color: #666; text-decoration: underline; }

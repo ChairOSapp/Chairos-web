@@ -44,7 +44,7 @@ function confirmationHtml(message: string): string {
   <style>
     body { font-family: sans-serif; background: #0a0a0a; color: #e5e5e5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
     .card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 40px; max-width: 400px; text-align: center; }
-    h1 { color: #0d9488; font-size: 24px; margin-bottom: 16px; }
+    h1 { color: #4B5320; font-size: 24px; margin-bottom: 16px; }
     p { color: #9ca3af; line-height: 1.6; }
   </style>
 </head>

@@ -241,7 +241,7 @@ export default function QuickBookModal({
         {/* Footer */}
         <div className="px-5 py-4 border-t border-warm-200 flex-shrink-0">
           <button onClick={submit} disabled={submitting || !clientName || !phone}
-            className="w-full py-3 bg-[#0d9488] hover:opacity-90 text-white font-bold text-sm rounded-xl transition-opacity disabled:opacity-50">
+            className="w-full py-3 bg-od-green hover:opacity-90 text-white font-bold text-sm rounded-xl transition-opacity disabled:opacity-50">
             {submitting ? 'Booking…' : 'Book Appointment'}
           </button>
         </div>

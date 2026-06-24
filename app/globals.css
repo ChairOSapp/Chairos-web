@@ -45,6 +45,21 @@ body {
   animation: slide-in 0.2s ease-out;
 }
 
+/* ChairOS semantic color tokens */
+:root {
+  --color-primary: #4B5320;
+  --color-primary-hover: #3A4019;
+  --color-primary-light: rgba(75, 83, 32, 0.08);
+  --color-background: #FAFAF7;
+  --color-card: #ffffff;
+  --color-text-primary: #1A1A18;
+  --color-text-secondary: #65655F;
+  --color-success: #4B5320;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-border: #EAE8E0;
+}
+
 /* ChairOS button utility classes */
 .btn-chairos {
   display: inline-flex;
@@ -82,6 +97,60 @@ body {
 .btn-chairos-outline:hover { background-color: rgba(75, 83, 32, 0.18); }
 .btn-chairos-outline:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #fff;
+  background-color: var(--color-primary);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+}
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  background-color: transparent;
+  border: 1px solid var(--color-primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
+}
+.btn-secondary:hover { background-color: var(--color-primary-light); }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #fff;
+  background-color: var(--color-danger);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+}
+.btn-danger:hover { opacity: 0.9; }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* FullCalendar ChairOS theme */
 :root {
   --fc-border-color: #EAE8E0;
@@ -91,7 +160,7 @@ body {
   --fc-today-bg-color: rgba(75,83,32,0.05);
   --fc-non-business-color: rgba(234,232,224,0.3);
   --fc-event-text-color: #ffffff;
-  --fc-now-indicator-color: #0d9488;
+  --fc-now-indicator-color: #4B5320;
   --fc-small-font-size: 0.7rem;
   --fc-list-event-hover-bg-color: #EAE8E0;
 }
@@ -111,8 +180,8 @@ body {
 .fc .fc-toolbar { display: none; }
 .fc .fc-scrollgrid-sync-inner { background: #F4F2EC; }
 .fc .fc-col-header { background: #F4F2EC; }
-.fc .fc-now-indicator-line { border-top-width: 2px; border-color: #0d9488; }
-.fc .fc-now-indicator-arrow { border-left-color: #0d9488; border-right-color: #0d9488; }
-.fc .fc-highlight { background: rgba(13,148,136,0.08); }
+.fc .fc-now-indicator-line { border-top-width: 2px; border-color: #4B5320; }
+.fc .fc-now-indicator-arrow { border-left-color: #4B5320; border-right-color: #4B5320; }
+.fc .fc-highlight { background: rgba(75,83,32,0.08); }
 .fc-direction-ltr .fc-timegrid-col-events { margin: 0 2px; }
 .fc .fc-resource-timeline-divider { border-color: #EAE8E0; }

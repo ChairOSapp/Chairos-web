@@ -327,8 +327,8 @@ export default function Dashboard() {
                   {todayAppointments.length} <span className="text-charcoal-500 text-lg">appointments</span>
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-[#0d9488]/10 border border-[#0d9488]/20 flex items-center justify-center group-hover:bg-[#0d9488]/20 transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <div className="w-10 h-10 rounded-xl bg-od-green/10 border border-od-green/20 flex items-center justify-center group-hover:bg-od-green/20 transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4B5320" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                 </svg>
               </div>
@@ -337,7 +337,7 @@ export default function Dashboard() {
               const barber = barbers.find(b => b.barber_id === a.barber_id)
               return (
                 <div key={a.id} className="flex items-center gap-3 py-1.5 border-t border-warm-200 first:border-0">
-                  <span className="font-mono text-xs text-[#0d9488] w-10 flex-shrink-0">{a.time?.slice(0,5) || '—'}</span>
+                  <span className="font-mono text-xs text-od-green w-10 flex-shrink-0">{a.time?.slice(0,5) || '—'}</span>
                   <span className="text-sm font-medium text-charcoal-900 flex-1 truncate">{a.client_name}</span>
                   {barber && <span className="text-xs text-charcoal-400 flex-shrink-0">{barber.barber_name || barber.alias}</span>}
                 </div>

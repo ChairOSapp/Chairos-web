@@ -69,8 +69,8 @@ function MiniLineChart({ weeks, data }: { weeks: string[]; data: Record<string, 
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
-      <polygon points={areaPoints} fill="#0d9488" opacity="0.08" />
-      <polyline points={points} fill="none" stroke="#0d9488" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <polygon points={areaPoints} fill="#4B5320" opacity="0.08" />
+      <polyline points={points} fill="none" stroke="#4B5320" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

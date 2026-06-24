@@ -12,7 +12,7 @@ const BarberCalendar = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex-1 flex items-center justify-center">
-        <div className="w-6 h-6 rounded-full border-2 border-[#0d9488] border-t-transparent animate-spin" />
+        <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
       </div>
     ),
   }
@@ -21,7 +21,7 @@ const BarberCalendar = dynamic(
 function Spinner() {
   return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-[#0d9488] border-t-transparent animate-spin" />
+      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
     </div>
   )
 }
@@ -54,7 +54,7 @@ function BarberCalendarPageInner() {
   if (loading) return <Spinner />
 
   const barberName = shopBarber?.barber_name || shopBarber?.alias || profile?.full_name || 'Barber'
-  const color = shopBarber?.color || '#0d9488'
+  const color = shopBarber?.color || '#4B5320'
   const initial = barberName[0].toUpperCase()
   const shop = shopBarber?.shops
 

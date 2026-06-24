@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase'
 import AppointmentPopover from './AppointmentPopover'
 import QuickBookModal from './QuickBookModal'
 
-const BARBER_COLORS = ['#0d9488','#0369a1','#7c3aed','#b45309','#be123c','#15803d','#c2410c','#1d4ed8']
+const BARBER_COLORS = ['#4B5320','#0369a1','#7c3aed','#b45309','#be123c','#15803d','#c2410c','#1d4ed8']
 
 type CalView = 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth'
 
@@ -140,7 +140,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
     if (arg.view.type === 'dayGridMonth') {
       return (
         <div className="flex items-center gap-0.5 px-0.5 py-px overflow-hidden">
-          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: arg.event.backgroundColor || '#0d9488' }} />
+          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: arg.event.backgroundColor || '#4B5320' }} />
           <span className="text-[9px] font-medium text-charcoal-900 truncate">{firstName}</span>
         </div>
       )
@@ -192,7 +192,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
         {/* New Booking */}
         <button
           onClick={() => { setBookSlot(null); setShowBook(true) }}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[#0d9488] hover:opacity-90 text-white text-xs font-bold rounded-xl transition-opacity">
+          className="flex items-center gap-1.5 px-4 py-2 bg-od-green hover:opacity-90 text-white text-xs font-bold rounded-xl transition-opacity">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 4v16m8-8H4"/></svg>
           New Booking
         </button>
