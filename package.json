@@ -12,10 +12,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
     "@square/web-sdk": "^2.2.0",
+    "@stripe/stripe-js": "^9.8.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
     "@trigger.dev/sdk": "4.4.6",
-    "@types/jsonwebtoken": "^9.0.10",
     "jsonwebtoken": "^9.0.3",
     "next": "16.2.4",
     "react": "19.2.4",
@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

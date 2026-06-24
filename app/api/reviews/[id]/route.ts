@@ -37,7 +37,7 @@ async function getOwnerShop(userId: string) {
 
 export async function PATCH(
   req: NextRequest,
-  ctx: RouteContext<'/api/reviews/[id]'>
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getAuthenticatedUser(req)
   if (!user) {
@@ -49,7 +49,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
   }
 
-  const { id } = await ctx.params
+  const { id } = await params
 
   let body: { visible?: boolean; barber_id?: string | null }
   try {
@@ -83,7 +83,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  ctx: RouteContext<'/api/reviews/[id]'>
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getAuthenticatedUser(req)
   if (!user) {
@@ -95,7 +95,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
   }
 
-  const { id } = await ctx.params
+  const { id } = await params
 
   const { data: deleted, error: deleteErr } = await supabase
     .from('reviews')
