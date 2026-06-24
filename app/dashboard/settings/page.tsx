@@ -108,7 +108,8 @@ export default function ShopSettings() {
       .upload(path, file, { upsert: true })
     if (error) { setError(error.message); return null }
     const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-    return data.publicUrl
+    // Append timestamp to bust CDN/browser cache on re-upload of same path
+    return `${data.publicUrl}?t=${Date.now()}`
   }
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {

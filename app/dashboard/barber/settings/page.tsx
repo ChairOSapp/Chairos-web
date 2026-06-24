@@ -106,9 +106,10 @@ function BarberSettingsInner() {
     if (uploadErr) { setError(uploadErr.message); setUploadingPhoto(false); return }
 
     const { data } = supabase.storage.from('shop-assets').getPublicUrl(path)
-    const { error: updateErr } = await supabase.from('shop_barbers').update({ photo_url: data.publicUrl }).eq('id', shopBarber.id)
+    const photoUrlWithBust = `${data.publicUrl}?t=${Date.now()}`
+    const { error: updateErr } = await supabase.from('shop_barbers').update({ photo_url: photoUrlWithBust }).eq('id', shopBarber.id)
     if (updateErr) { setError(updateErr.message); setUploadingPhoto(false); return }
-    setPhotoUrl(data.publicUrl)
+    setPhotoUrl(photoUrlWithBust)
     setUploadingPhoto(false)
   }
 
