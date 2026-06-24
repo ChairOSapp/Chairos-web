@@ -194,9 +194,10 @@ export default function AnalyticsPage() {
   const [brief, setBrief] = useState<Brief | null>(null)
   const [isBarber, setIsBarber] = useState(false)
   const [myBarberId, setMyBarberId] = useState<string | null>(null)
+  const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     async function load() {
@@ -268,6 +269,7 @@ export default function AnalyticsPage() {
         { data: barbers },
         { data: locks },
         { data: briefs },
+        { data: reviewsData },
       ] = await Promise.all([
         supabase.from('appointments')
           .select('id, date, time, price, barber_id, status, client_id, services(name, id)')
@@ -290,6 +292,10 @@ export default function AnalyticsPage() {
           .eq('shop_id', shopData.id)
           .order('created_at', { ascending: false })
           .limit(1),
+        supabase.from('reviews')
+          .select('*')
+          .eq('shop_id', shopData.id)
+          .eq('visible', true),
       ])
 
       setAppointments((appts || []) as unknown as Appointment[])
@@ -297,6 +303,7 @@ export default function AnalyticsPage() {
       setShopBarbers(barbers || [])
       setClientLocks((locks || []) as unknown as ClientLock[])
       setBrief(briefs?.[0] ?? null)
+      setReviews(reviewsData || [])
       setLoading(false)
     }
     load()
@@ -307,9 +314,10 @@ export default function AnalyticsPage() {
 
   // Period start for selected period
   const periodStart = useMemo(() => {
-    if (analyticsPeriod === '30') return fmt(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
-    if (analyticsPeriod === '90') return fmt(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000))
-    return `${now.getFullYear()}-01-01`
+    const n = new Date()
+    if (analyticsPeriod === '30') return fmt(new Date(n.getTime() - 30 * 24 * 60 * 60 * 1000))
+    if (analyticsPeriod === '90') return fmt(new Date(n.getTime() - 90 * 24 * 60 * 60 * 1000))
+    return `${n.getFullYear()}-01-01`
   }, [analyticsPeriod])
 
   const periodAppts = useMemo(() =>
@@ -321,8 +329,8 @@ export default function AnalyticsPage() {
     [tips, periodStart])
 
   // A) Revenue trend — last 30 days always for line chart
-  const last30Start = fmt(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
-  const last30Days = useMemo(() => getDaysBetween(last30Start, today), [last30Start])
+  const last30Start = useMemo(() => fmt(new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000)), [])
+  const last30Days = useMemo(() => getDaysBetween(last30Start, fmt(new Date())), [last30Start])
   const revenueByDay30 = useMemo(() => {
     const map: Record<string, number> = {}
     appointments.filter(a => a.date >= last30Start && a.status === 'done')
@@ -408,6 +416,19 @@ export default function AnalyticsPage() {
   }, [periodAppts])
 
   const busiestDay = busyDays.reduce((best, d) => d.count > best.count ? d : best, busyDays[0])
+
+  // I) Per-barber review stats
+  const barberReviewStats = useMemo(() => {
+    const stats: Record<string, { name: string; count: number; total: number; avg: number }> = {}
+    reviews.forEach(r => {
+      if (!r.barber_id) return
+      if (!stats[r.barber_id]) stats[r.barber_id] = { name: r.barber_id, count: 0, total: 0, avg: 0 }
+      stats[r.barber_id].count++
+      stats[r.barber_id].total += r.rating
+    })
+    Object.values(stats).forEach(s => { s.avg = s.total / s.count })
+    return stats
+  }, [reviews])
 
   // H) Service insights — stars vs drag
   const serviceInsights = useMemo(() => {
@@ -866,6 +887,62 @@ export default function AnalyticsPage() {
             shopBarbers={shopBarbers}
             today={today}
           />
+        )}
+
+        {/* REVIEWS SECTION */}
+        {!isBarber && (
+          <div className="mb-8">
+            <h2 className="font-serif text-xl text-charcoal-900 mb-4">Reviews</h2>
+            {reviews.length === 0 ? (
+              <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm">
+                No reviews yet. Import from Google on the <a href="/dashboard/reviews" className="text-od-green font-semibold">Reviews page</a>.
+              </div>
+            ) : (
+              <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-warm-200 flex items-center gap-4">
+                  <span className="text-amber-500 text-2xl">★</span>
+                  <div>
+                    <div className="font-serif text-2xl text-charcoal-900">
+                      {(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)}
+                    </div>
+                    <div className="text-xs text-charcoal-500">{reviews.length} total reviews</div>
+                  </div>
+                </div>
+                {Object.entries(barberReviewStats).length > 0 && (
+                  <div className="divide-y divide-warm-200">
+                    {Object.entries(barberReviewStats)
+                      .sort(([, a], [, b]) => (b as any).avg - (a as any).avg)
+                      .map(([barberId, stat]) => {
+                        const barber = shopBarbers.find(b => b.barber_id === barberId)
+                        const name = barber?.barber_name || barber?.alias || 'Barber'
+                        return (
+                          <div key={barberId} className="px-5 py-3 flex items-center justify-between">
+                            <span className="text-sm font-semibold text-charcoal-900">{name}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-amber-500 text-sm">★ {(stat as any).avg.toFixed(1)}</span>
+                              <span className="text-xs text-charcoal-500">{(stat as any).count} reviews</span>
+                            </div>
+                          </div>
+                        )
+                      })
+                    }
+                  </div>
+                )}
+                {Object.entries(barberReviewStats).length > 0 && (() => {
+                  const top = Object.entries(barberReviewStats).sort(([, a], [, b]) => (b as any).avg - (a as any).avg)[0]
+                  if (!top) return null
+                  const [topId, topStat] = top
+                  const barber = shopBarbers.find(b => b.barber_id === topId)
+                  const name = barber?.barber_name || barber?.alias || 'Top barber'
+                  return (
+                    <div className="px-5 py-3 bg-od-green/5 border-t border-warm-200">
+                      <span className="text-xs text-od-green font-semibold">★ Top rated: {name} ({(topStat as any).avg.toFixed(1)})</span>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+          </div>
         )}
 
       </div>

@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
@@ -98,7 +98,7 @@ export default function Dashboard() {
   const [toast, setToast] = useState<{msg: string; type: 'success'|'error'} | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const todayStr = toDateStr(new Date())
   const weekDays = getWeekDays()
@@ -110,6 +110,7 @@ export default function Dashboard() {
 
   const loadSchedule = useCallback(async (sid: string) => {
     const today = toDateStr(new Date())
+    const todayUTC = new Date().toISOString().split('T')[0] + 'T00:00:00Z'
     const days = getWeekDays()
     const weekStart = toDateStr(days[0])
     const weekEnd = toDateStr(days[6])
@@ -117,7 +118,7 @@ export default function Dashboard() {
     const [{ data: todayAppts }, { data: weekAppts }, { data: tipsData }] = await Promise.all([
       supabase.from('appointments').select('*, services(*)').eq('shop_id', sid).eq('date', today).order('time', { ascending: true }),
       supabase.from('appointments').select('*, services(*)').eq('shop_id', sid).gte('date', weekStart).lte('date', weekEnd).order('date').order('time', { ascending: true }),
-      supabase.from('tips').select('*').eq('shop_id', sid).gte('created_at', today),
+      supabase.from('tips').select('*').eq('shop_id', sid).gte('created_at', todayUTC),
     ])
 
     setTodayAppointments(todayAppts || [])
@@ -480,9 +481,9 @@ export default function Dashboard() {
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
             <div className="grid grid-cols-3 divide-x divide-warm-200">
               {[
-                { label: 'Locked', count: totalLocked, color: 'text-od-green', href: '/dashboard/analytics' },
-                { label: 'At Risk', count: totalAtRisk, color: 'text-amber-600', href: '/dashboard/analytics' },
-                { label: 'Floating', count: totalFloating, color: 'text-red-400', href: '/dashboard/analytics' },
+                { label: 'Locked', count: totalLocked, color: 'text-od-green', href: '/dashboard/clients' },
+                { label: 'At Risk', count: totalAtRisk, color: 'text-amber-600', href: '/dashboard/clients' },
+                { label: 'Floating', count: totalFloating, color: 'text-red-400', href: '/dashboard/clients' },
               ].map((s) => (
                 <button key={s.label} onClick={() => router.push(s.href)}
                   className="p-4 text-center hover:bg-warm-200/50 transition-colors">

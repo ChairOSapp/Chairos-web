@@ -12,9 +12,8 @@ export default function TrialCountdownBanner({
 }) {
   const router = useRouter()
 
-  // Already subscribed (card on file) — trial is running, auto-charges when it ends
-  if (stripeCustomerId) return null
-  if (subscriptionStatus !== 'trialing' || !trialEnd) return null
+  // Show only when a payment method is on file and the subscription is actively trialing
+  if (!stripeCustomerId || subscriptionStatus !== 'trialing' || !trialEnd) return null
 
   const daysLeft = Math.max(
     0,

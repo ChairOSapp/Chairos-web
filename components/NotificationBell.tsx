@@ -1,44 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useNotifications } from '@/src/context/NotificationsContext'
 
 export default function NotificationBell({ userId }: { userId: string }) {
-  const [unreadCount, setUnreadCount] = useState(0)
+  const { unreadCount } = useNotifications()
   const router = useRouter()
-  const supabase = createClient()
-
-  useEffect(() => {
-    if (!userId) return
-    loadUnread()
-
-    const channel = supabase
-      .channel(`notif-bell-${userId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`
-      }, () => { loadUnread() })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`
-      }, () => { loadUnread() })
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [userId])
-
-  async function loadUnread() {
-    const { count } = await supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('read', false)
-    setUnreadCount(count || 0)
-  }
 
   return (
     <button

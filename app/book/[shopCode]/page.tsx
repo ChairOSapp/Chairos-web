@@ -21,6 +21,7 @@ function BookingPageInner() {
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [shopReviews, setShopReviews] = useState<any[]>([])
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -71,6 +72,33 @@ function BookingPageInner() {
         .order('price', { ascending: true })
       setServices(services || [])
 
+      // Fetch top reviews for the shop preview
+      let reviewsData: any[] | null = null
+      if (barberParam) {
+        const { data: barberReviews } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('shop_id', shop.id)
+          .eq('visible', true)
+          .eq('barber_id', barberParam)
+          .order('rating', { ascending: false })
+          .limit(3)
+        if (barberReviews && barberReviews.length > 0) {
+          reviewsData = barberReviews
+        }
+      }
+      if (!reviewsData || reviewsData.length === 0) {
+        const { data: shopLevelReviews } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('shop_id', shop.id)
+          .eq('visible', true)
+          .order('rating', { ascending: false })
+          .limit(3)
+        reviewsData = shopLevelReviews || []
+      }
+      setShopReviews(reviewsData || [])
+
       setLoading(false)
     }
     load()
@@ -86,26 +114,33 @@ function BookingPageInner() {
     if (!appId || !locationId) return
 
     setCardLoading(true)
+    let isMounted = true
 
     async function initSquare() {
       try {
         const { payments } = await import('@square/web-sdk')
+        if (!isMounted) return
         const paymentsInstance = await payments(appId!, locationId!)
+        if (!isMounted) return
         if (!paymentsInstance) throw new Error('Square payments init returned null')
         const card = await paymentsInstance.card()
+        if (!isMounted) return
         await card.attach('#square-card-container')
+        if (!isMounted) return
         squareCardRef.current = card
         setCardReady(true)
       } catch (e: any) {
+        if (!isMounted) return
         console.error('Square init error:', e)
         setPaymentError('Card form failed to load. You can still book and pay at the shop.')
       } finally {
-        setCardLoading(false)
+        if (isMounted) setCardLoading(false)
       }
     }
     initSquare()
 
     return () => {
+      isMounted = false
       if (squareCardRef.current) {
         squareCardRef.current.destroy?.().catch(() => {})
         squareCardRef.current = null
@@ -152,6 +187,50 @@ function BookingPageInner() {
       }
     }
 
+    // Charge card BEFORE inserting appointment — if payment fails, abort
+    let paymentSucceeded = false
+    if (sourceId) {
+      try {
+        const payRes = await fetch('/api/square/create-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceId }),
+        })
+        const payData = await payRes.json()
+        if (!payRes.ok || payData.error) {
+          setPaymentError(payData.error || 'Payment failed. Please try again or pay at the shop.')
+          setSubmitting(false)
+          return
+        }
+        paymentSucceeded = true
+      } catch {
+        setPaymentError('Payment failed. Please try again or pay at the shop.')
+        setSubmitting(false)
+        return
+      }
+    }
+
+    // Look up or create client record
+    const normalizedPhone = clientPhone.replace(/\D/g, '')
+    let clientId: string | null = null
+    const { data: existingClient } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('phone', normalizedPhone)
+      .eq('shop_id', shop.id)
+      .maybeSingle()
+
+    if (existingClient) {
+      clientId = existingClient.id
+    } else {
+      const { data: newClient } = await supabase
+        .from('clients')
+        .insert({ full_name: clientName, phone: normalizedPhone, shop_id: shop.id })
+        .select('id')
+        .single()
+      if (newClient) clientId = newClient.id
+    }
+
     const [time, period] = selectedTime.split(' ')
     const [hours, minutes] = time.split(':')
     let h = parseInt(hours)
@@ -188,6 +267,7 @@ function BookingPageInner() {
       shop_id: shop.id,
       barber_id: selectedBarber?.barber_id || null,
       service_id: selectedService.id,
+      client_id: clientId,
       client_name: clientName,
       client_phone: clientPhone,
       client_email: clientEmail || null,
@@ -196,27 +276,10 @@ function BookingPageInner() {
       price: selectedService.price,
       status: 'pending',
       notes: notes || null,
-      payment_status: sourceId ? 'unpaid' : 'unpaid',
+      payment_status: paymentSucceeded ? 'paid' : 'unpaid',
     }).select('id').single()
 
     if (bookErr || !newAppt) { setError(bookErr?.message || 'Booking failed'); setSubmitting(false); return }
-
-    // Charge card if tokenized
-    if (sourceId) {
-      try {
-        const payRes = await fetch('/api/square/create-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceId, appointmentId: newAppt.id }),
-        })
-        const payData = await payRes.json()
-        if (!payRes.ok || payData.error) {
-          setPaymentError(payData.error || 'Payment failed. Your booking is confirmed — pay at the shop.')
-        }
-      } catch {
-        setPaymentError('Payment failed. Your booking is confirmed — pay at the shop.')
-      }
-    }
 
     // Notify owner
     const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || 'Any barber'
@@ -400,6 +463,34 @@ function BookingPageInner() {
       </div>
 
       <div className="max-w-2xl mx-auto p-6">
+
+        {shopReviews.length > 0 && (
+          <div className="mb-6">
+            <div className="bg-warm-100 border border-warm-200 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-charcoal-900">
+                  ★ {(shopReviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / shopReviews.length).toFixed(1)} · {shopReviews.length} review{shopReviews.length !== 1 ? 's' : ''}
+                </div>
+                {shop?.slug && (
+                  <a href={`/shop/${shop.slug}/reviews`} className="text-xs text-od-green font-semibold">
+                    See all →
+                  </a>
+                )}
+              </div>
+              <div className="space-y-3">
+                {shopReviews.map((r: any) => (
+                  <div key={r.id} className="border-t border-warm-200 pt-3 first:border-0 first:pt-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-semibold text-charcoal-900">{r.reviewer_name || 'Anonymous'}</span>
+                      <span className="text-xs text-amber-500">{'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}</span>
+                    </div>
+                    {r.body && <p className="text-xs text-charcoal-600 line-clamp-2">{r.body}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
 

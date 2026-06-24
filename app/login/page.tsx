@@ -41,7 +41,6 @@ export default function Login() {
       if (getBillingStatus(prof) === 'blocked') { router.push('/subscribe'); return }
       const { data: shops } = await supabase.from('shops').select('id').eq('owner_id', userId).limit(1)
       if (!shops?.length) { router.push('/onboarding'); return }
-      // New owner with shop but no subscription yet — send to subscribe
       if (!prof?.stripe_customer_id && !prof?.subscription_status) {
         router.push('/subscribe')
         return

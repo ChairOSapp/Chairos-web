@@ -89,12 +89,36 @@ export async function POST(req: NextRequest) {
         let subStatus = 'trialing'
         let periodEnd: string | null = null
 
-        if (session.subscription) {
-          const sub = await stripe.subscriptions.retrieve(session.subscription as string)
-          subStatus = sub.status === 'trialing' ? 'trialing' : sub.status
-          trialEnd = sub.trial_end ? safeToISO(sub.trial_end) : null
-          periodEnd = safeToISO((sub as any).current_period_end)
+        console.log('[stripe/webhook] session.customer:', session.customer, '| session.subscription:', session.subscription)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[stripe/webhook] full session:', JSON.stringify(session, null, 2))
         }
+
+        if (!userId) {
+          console.warn('[stripe/webhook] session.metadata.user_id is missing — skipping')
+          break
+        }
+        if (!session.subscription) {
+          console.warn('[stripe/webhook] session.subscription is null — one-time payment, not a subscription')
+          break
+        }
+        if (!session.customer) {
+          console.warn('[stripe/webhook] session.customer is null — skipping')
+          break
+        }
+
+        console.log('[stripe/webhook] Retrieving subscription:', session.subscription)
+        const sub = await stripe.subscriptions.retrieve(session.subscription as string)
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[stripe/webhook] full subscription:', JSON.stringify(sub, null, 2))
+        }
+        console.log('[stripe/webhook] current_period_end:', (sub as any).current_period_end)
+        console.log('[stripe/webhook] trial_end:', (sub as any).trial_end)
+
+        subStatus = sub.status === 'trialing' ? 'trialing' : sub.status
+        trialEnd = sub.trial_end ? safeToISO(sub.trial_end) : null
+        periodEnd = safeToISO((sub as any).current_period_end)
 
         const planType = plan === 'owner' ? 'shop' : 'solo'
 

@@ -35,11 +35,12 @@ export const clientLapseDetection = schedules.task({
     if (shopsErr) throw new Error(`shops query failed: ${shopsErr.message}`)
     const shopMap = new Map((shops ?? []).map(s => [s.id, s]))
 
-    // 2. Load all completed appointments
+    // 2. Load completed appointments from the last 180 days only
     const { data: appointments, error: apptErr } = await supabase
       .from('appointments')
       .select('shop_id, barber_id, client_id, client_name, client_phone, date, services(name)')
       .eq('status', 'done')
+      .gte('date', new Date(Date.now() - 180 * 86400 * 1000).toISOString().slice(0, 10))
 
     if (apptErr) throw new Error(`appointments query failed: ${apptErr.message}`)
 
@@ -94,8 +95,25 @@ export const clientLapseDetection = schedules.task({
     const sixtyDaysAgo = new Date(today.getTime() - 60 * MS_PER_DAY)
     const ninetyDaysAgo = new Date(today.getTime() - 90 * MS_PER_DAY)
 
+    // Bulk-fetch all unresolved lapse_alerts for relevant shops
+    const shopIds = [...shopMap.keys()]
+    const { data: unresolvedAlerts } = await supabase
+      .from('lapse_alerts')
+      .select('shop_id, client_phone')
+      .in('shop_id', shopIds)
+      .is('resolved_at', null)
+
+    // Build a Set of "shop_id:client_phone" keys for O(1) lookup
+    const alertedSet = new Set<string>(
+      (unresolvedAlerts ?? []).map(a => `${a.shop_id}:${a.client_phone}`)
+    )
+
     let alertsCreated = 0
     let smsTriggered = 0
+
+    const newLapseAlerts: object[] = []
+    const newNotifications: object[] = []
+    const smsPayloads: object[] = []
 
     for (const [, client] of clientMap) {
       const lastVisit = new Date(client.last_visit_date)
@@ -111,18 +129,11 @@ export const clientLapseDetection = schedules.task({
         lastVisit < ninetyDaysAgo && visitsWithLastBarber >= 12 ? 'loyalty' : 'standard'
 
       // Skip if an unresolved alert already exists for this client at this shop
-      const { data: existingAlert } = await supabase
-        .from('lapse_alerts')
-        .select('id')
-        .eq('shop_id', client.shop_id)
-        .eq('client_phone', client.client_phone)
-        .is('resolved_at', null)
-        .maybeSingle()
+      const alertKey = `${client.shop_id}:${client.client_phone}`
+      if (alertedSet.has(alertKey)) continue
 
-      if (existingAlert) continue
-
-      // Insert lapse_alerts record
-      await supabase.from('lapse_alerts').insert({
+      // Collect lapse_alerts record
+      newLapseAlerts.push({
         shop_id: client.shop_id,
         barber_id: client.last_barber_id,
         client_id: client.client_id,
@@ -133,10 +144,10 @@ export const clientLapseDetection = schedules.task({
       })
       alertsCreated++
 
-      // Notify shop owner via the notifications bell
+      // Collect notification for shop owner
       const shop = shopMap.get(client.shop_id)
       if (shop?.owner_id) {
-        await supabase.from('notifications').insert({
+        newNotifications.push({
           user_id: shop.owner_id,
           shop_id: client.shop_id,
           type: 'lapse_alert',
@@ -146,7 +157,7 @@ export const clientLapseDetection = schedules.task({
         })
       }
 
-      // Trigger personalized rebooking SMS for standard lapse in first outreach window (60–75 days)
+      // Collect rebooking SMS trigger for standard lapse in first outreach window (60–75 days)
       if (
         lapseType === 'standard' &&
         daysSince >= 60 && daysSince <= 75 &&
@@ -167,7 +178,7 @@ export const clientLapseDetection = schedules.task({
           ? (barberNameMap.get(`${client.shop_id}:${client.last_barber_id}`) ?? 'your barber')
           : 'your barber'
 
-        await tasks.trigger('rebooking-sms', {
+        smsPayloads.push({
           clientPhone: client.client_phone,
           clientName: client.client_name,
           barberName,
@@ -177,6 +188,21 @@ export const clientLapseDetection = schedules.task({
         })
         smsTriggered++
       }
+    }
+
+    // Batch insert lapse_alerts
+    if (newLapseAlerts.length > 0) {
+      await supabase.from('lapse_alerts').insert(newLapseAlerts)
+    }
+
+    // Batch insert notifications
+    if (newNotifications.length > 0) {
+      await supabase.from('notifications').insert(newNotifications)
+    }
+
+    // Trigger SMS tasks
+    for (const payload of smsPayloads) {
+      await tasks.trigger('rebooking-sms', payload)
     }
 
     console.log(`[client-lapse-detection] alerts created: ${alertsCreated}, SMS triggered: ${smsTriggered}`)

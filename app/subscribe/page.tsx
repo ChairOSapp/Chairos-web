@@ -1,6 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 
 const PLANS = [
   {
@@ -38,7 +39,27 @@ const PLANS = [
 export default function Subscribe() {
   const [loading, setLoading] = useState<'owner' | 'barber' | null>(null)
   const [error, setError] = useState('')
+  const [authChecked, setAuthChecked] = useState(false)
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
+
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/login?redirect=/subscribe')
+        return
+      }
+      setAuthChecked(true)
+    }
+    checkAuth()
+  }, [supabase, router])
+
+  if (!authChecked) return (
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
+    </div>
+  )
 
   async function handleSelect(plan: 'owner' | 'barber') {
     setLoading(plan)

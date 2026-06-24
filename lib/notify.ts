@@ -1,4 +1,9 @@
-import { createClient } from '@/lib/supabase'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+
+const supabase = createSupabaseClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function sendNotification({
   userId,
@@ -13,7 +18,6 @@ export async function sendNotification({
   title: string
   body: string
 }) {
-  const supabase = createClient()
   await supabase.from('notifications').insert({
     user_id: userId,
     shop_id: shopId || null,

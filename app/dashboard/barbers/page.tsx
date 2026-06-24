@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
@@ -20,6 +20,9 @@ export default function ManageBarbers() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [inviteResult, setInviteResult] = useState<{name: string, link: string} | null>(null)
 
+  const [inviteModal, setInviteModal] = useState<{ open: boolean; barber: any | null; value: string }>({ open: false, barber: null, value: '' })
+  const [linkModal, setLinkModal] = useState<{ open: boolean; id: string; barberName: string; value: string }>({ open: false, id: '', barberName: '', value: '' })
+
   const [barberName, setBarberName] = useState('')
   const [barberAlias, setBarberAlias] = useState('')
   const [barberEmail, setBarberEmail] = useState('')
@@ -35,7 +38,7 @@ export default function ManageBarbers() {
 
   const photoRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => { loadData() }, [])
 
@@ -141,7 +144,8 @@ export default function ManageBarbers() {
         token,
         accepted: false
       })
-      const inviteLink = `https://chairos.cc/join?token=${token}`
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://chairos.cc'
+      const inviteLink = `${siteUrl}/join?token=${token}`
       setInviteResult({ name: barberName.trim(), link: inviteLink })
     } else {
       setSuccess(editingId ? 'Barber updated.' : 'Barber added.')
@@ -154,21 +158,26 @@ export default function ManageBarbers() {
     setSaving(false)
   }
 
-  async function sendInviteToExisting(b: any) {
+  async function handleInviteSubmit() {
+    const b = inviteModal.barber
+    const email = inviteModal.value.trim()
+    if (!email || !b) return
     const token = crypto.randomUUID()
-    const email = prompt(`Enter ${b.barber_name || b.alias}'s email address:`)
-    if (!email) return
-
     await supabase.from('invites').insert({
       shop_id: shop.id,
       shop_barber_id: b.id,
-      email: email.trim(),
+      email,
       token,
       accepted: false
     })
-
-    const inviteLink = `https://chairos.cc/join?token=${token}`
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://chairos.cc'
+    const inviteLink = `${siteUrl}/join?token=${token}`
     setInviteResult({ name: b.barber_name || b.alias, link: inviteLink })
+    setInviteModal({ open: false, barber: null, value: '' })
+  }
+
+  function sendInviteToExisting(b: any) {
+    setInviteModal({ open: true, barber: b, value: '' })
   }
 
   async function toggleActive(id: string, current: boolean) {
@@ -178,30 +187,36 @@ export default function ManageBarbers() {
     await loadData()
   }
 
-  async function markAsLinked(id: string, barberName: string) {
-    const email = prompt(`Enter the Supabase account email for ${barberName} to link them manually:`)
-    if (!email) return
+  async function handleLinkSubmit() {
+    const { id, barberName: bName, value: email } = linkModal
+    if (!email.trim()) return
 
-    const { data: profile } = await supabase
+    const { data: prof } = await supabase
       .from('profiles')
       .select('id')
       .eq('email', email.trim().toLowerCase())
       .maybeSingle()
 
-    if (!profile) {
-      setError(`No account found for ${email}. The barber must sign up first at chairos.cc.`)
+    if (!prof) {
+      setError(`No account found for ${email.trim()}. The barber must sign up first at chairos.cc.`)
+      setLinkModal(m => ({ ...m, open: false }))
       return
     }
 
     const { error } = await supabase
       .from('shop_barbers')
-      .update({ barber_id: profile.id })
+      .update({ barber_id: prof.id })
       .eq('id', id)
 
-    if (error) { setError(error.message); return }
-    setSuccess(`${barberName} linked successfully.`)
+    if (error) { setError(error.message); setLinkModal(m => ({ ...m, open: false })); return }
+    setSuccess(`${bName} linked successfully.`)
     setTimeout(() => setSuccess(''), 3000)
+    setLinkModal({ open: false, id: '', barberName: '', value: '' })
     await loadData()
+  }
+
+  function markAsLinked(id: string, bName: string) {
+    setLinkModal({ open: true, id, barberName: bName, value: '' })
   }
 
   if (loading) return (
@@ -222,11 +237,18 @@ export default function ManageBarbers() {
             <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Manage Barbers</h1>
             <p className="text-charcoal-500 text-sm">{shop?.name} · {barbers.filter(b => b.active).length} active</p>
           </div>
-          <button
-            onClick={() => { resetForm(); setInviteResult(null); setShowForm(!showForm) }}
-            className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
-            + Add Barber
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/dashboard/barbers/requests')}
+              className="border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+              Review Join Requests
+            </button>
+            <button
+              onClick={() => { resetForm(); setInviteResult(null); setShowForm(!showForm) }}
+              className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+              + Add Barber
+            </button>
+          </div>
         </div>
 
         {error && !showForm && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
@@ -484,6 +506,73 @@ export default function ManageBarbers() {
       </div>
 
       <MobileNav />
+
+      {/* Invite Modal */}
+      {inviteModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">
+              Invite {inviteModal.barber?.barber_name || inviteModal.barber?.alias}
+            </div>
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Email Address</label>
+            <input
+              type="email"
+              value={inviteModal.value}
+              onChange={e => setInviteModal(m => ({ ...m, value: e.target.value }))}
+              placeholder="barber@email.com"
+              autoFocus
+              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setInviteModal({ open: false, barber: null, value: '' })}
+                className="flex-1 px-4 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={handleInviteSubmit}
+                disabled={!inviteModal.value.trim()}
+                className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                Send Invite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link Modal */}
+      {linkModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">
+              Link {linkModal.barberName}
+            </div>
+            <p className="text-xs text-charcoal-500 mb-4">Enter the account email for {linkModal.barberName} to link them manually.</p>
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Account Email</label>
+            <input
+              type="email"
+              value={linkModal.value}
+              onChange={e => setLinkModal(m => ({ ...m, value: e.target.value }))}
+              placeholder="barber@email.com"
+              autoFocus
+              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLinkModal({ open: false, id: '', barberName: '', value: '' })}
+                className="flex-1 px-4 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={handleLinkSubmit}
+                disabled={!linkModal.value.trim()}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                Link Barber
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

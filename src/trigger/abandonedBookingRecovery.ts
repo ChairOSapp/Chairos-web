@@ -69,6 +69,20 @@ export const abandonedBookingRecovery = task({
 
     const smsText = (response.content[0] as Anthropic.TextBlock).text
 
+    // Normalize phone number before calling Twilio
+    const phone = payload.clientPhone
+    const digitsOnly = (phone || '').replace(/\D/g, '')
+    const normalized = digitsOnly.length === 10 ? `+1${digitsOnly}` : `+${digitsOnly}`
+    if (!/^\+1\d{10}$/.test(normalized)) {
+      console.warn('[abandonedBookingRecovery] Invalid phone, skipping:', phone)
+      await supabase.from('automation_logs').insert({
+        type: 'abandoned_booking_recovery',
+        payload,
+        result: `skipped:invalid_phone:${phone}`,
+      })
+      return { sent: false, reason: 'invalid_phone' }
+    }
+
     // Send via Twilio
     const twilioClient = twilio(
       process.env.TWILIO_ACCOUNT_SID!,
@@ -80,7 +94,7 @@ export const abandonedBookingRecovery = task({
       const msg = await twilioClient.messages.create({
         body: smsText,
         from: process.env.TWILIO_PHONE_NUMBER!,
-        to: payload.clientPhone,
+        to: normalized,
       })
       result = `sent:${msg.sid}`
     } catch (err: any) {

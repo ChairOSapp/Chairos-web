@@ -1,13 +1,18 @@
+import twilio from 'twilio'
+
+const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+
 export async function sendSMS(to: string, message: string) {
   try {
-    const res = await fetch('/api/sms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, message })
+    const digitsOnly = (to || '').replace(/\D/g, '')
+    const normalized = digitsOnly.length === 10 ? `+1${digitsOnly}` : `+${digitsOnly}`
+
+    await twilioClient.messages.create({
+      body: message,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: normalized,
     })
-    const data = await res.json()
-    if (!data.success) console.error('SMS failed:', data.error)
-    return data.success
+    return true
   } catch (err) {
     console.error('SMS error:', err)
     return false

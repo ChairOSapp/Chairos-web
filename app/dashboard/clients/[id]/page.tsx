@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
@@ -42,7 +42,7 @@ interface ShopBarber {
 export default function ClientProfilePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
@@ -98,7 +98,8 @@ export default function ClientProfilePage() {
     if (!client?.phone || !shop) return
     setSmsSending(true)
     setSmsResult(null)
-    const bookingLink = shop.slug ? `chairos.cc/book/${shop.slug}` : 'your shop'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://chairos.cc'
+    const bookingLink = `${appUrl}/book/${shop.shop_code}`
     const message = `Hey ${client.full_name?.split(' ')[0] || 'there'}, it's been a while! Book your next appointment at ${bookingLink} — we'd love to see you again.`
     try {
       const res = await fetch('/api/sms', {
@@ -222,7 +223,7 @@ export default function ClientProfilePage() {
           <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-6">
             <div className="font-serif text-charcoal-900 mb-1">Send Rebooking SMS</div>
             <div className="text-xs text-charcoal-500 mb-4">
-              Sends to {client.phone}: "Hey {client.full_name?.split(' ')[0] || 'there'}, it's been a while! Book your next appointment at {shop?.slug ? `chairos.cc/book/${shop.slug}` : 'your shop'} — we'd love to see you again."
+              Sends to {client.phone}: "Hey {client.full_name?.split(' ')[0] || 'there'}, it's been a while! Book your next appointment at {`${process.env.NEXT_PUBLIC_APP_URL || 'https://chairos.cc'}/book/${shop?.shop_code}`} — we'd love to see you again."
             </div>
             <button
               onClick={sendRebookingSMS}

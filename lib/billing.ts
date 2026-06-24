@@ -25,13 +25,19 @@ export function getBillingStatus(profile: {
 
   // Payment failed, Stripe is retrying — give access during retry window
   if (subscription_status === 'past_due') return 'grace'
+  if (subscription_status === 'unpaid') return 'grace'
+  if (subscription_status === 'paused') return 'grace'
 
   if (subscription_status === 'cancelled') {
     const expired = !subscription_end_date || new Date(subscription_end_date) < new Date()
     return expired ? 'blocked' : 'grace'
   }
 
-  return 'active'
+  // Stripe incomplete states — never grant active access
+  if (subscription_status === 'incomplete') return 'grace'
+  if (subscription_status === 'incomplete_expired') return 'blocked'
+
+  return 'blocked'
 }
 
 export function daysUntil(dateStr: string | null | undefined): number {
