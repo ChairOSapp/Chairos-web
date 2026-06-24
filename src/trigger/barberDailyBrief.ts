@@ -244,7 +244,8 @@ export const barberDailyBrief = schedules.task({
           })
 
           const raw = (response.content[0] as Anthropic.TextBlock).text.trim()
-          parsed = JSON.parse(raw)
+          const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+          parsed = JSON.parse(cleaned)
         } catch (err: any) {
           await supabase.from('automation_logs').insert({
             type: 'barber_daily_brief_parse_error',

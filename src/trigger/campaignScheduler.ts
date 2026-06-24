@@ -77,7 +77,8 @@ export const campaignScheduler = schedules.task({
             }],
           })
           const raw = (response.content[0] as Anthropic.TextBlock).text.trim()
-          const parsed = JSON.parse(raw)
+          const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+          const parsed = JSON.parse(cleaned)
           await supabase.from('campaigns').update({
             sms_message: parsed.sms_message,
             email_subject: parsed.email_subject,
