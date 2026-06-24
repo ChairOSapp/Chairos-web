@@ -3,17 +3,32 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import BarberNav from '@/components/BarberNav'
 import MobileNav from '@/components/MobileNav'
+import AIInsightStrip from '@/components/insights/AIInsightStrip'
+import PeakHoursHeatmap from '@/components/insights/PeakHoursHeatmap'
+import BarberPerformanceTable from '@/components/insights/BarberPerformanceTable'
+import ClientHealthDashboard from '@/components/insights/ClientHealthDashboard'
+import RevenueIntelligence from '@/components/insights/RevenueIntelligence'
+import OpportunitiesSection from '@/components/insights/OpportunitiesSection'
 
 type AnalyticsPeriod = '30' | '90' | 'year'
 
 interface Appointment {
   id: string
   date: string
+  time?: string | null
   price: number
   barber_id: string
   status: string
+  client_id?: string | null
   services: { name: string; id: string } | null
+}
+
+interface Brief {
+  id: string
+  headline: string
+  one_thing: string
 }
 
 interface Tip {
@@ -176,6 +191,9 @@ export default function AnalyticsPage() {
   const [tips, setTips] = useState<Tip[]>([])
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
   const [clientLocks, setClientLocks] = useState<ClientLock[]>([])
+  const [brief, setBrief] = useState<Brief | null>(null)
+  const [isBarber, setIsBarber] = useState(false)
+  const [myBarberId, setMyBarberId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClient()
@@ -188,26 +206,71 @@ export default function AnalyticsPage() {
       const { data: prof } = await supabase
         .from('profiles').select('*').eq('id', user.id).maybeSingle()
       setProfile(prof)
-      if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
 
-      const { data: shopData } = await supabase
-        .from('shops').select('*').eq('owner_id', user.id).maybeSingle()
-      if (!shopData) { setLoading(false); return }
-      setShop(shopData)
+      const barberRole = prof?.role === 'barber'
+      setIsBarber(barberRole)
 
       const now = new Date()
       const start90 = fmt(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000))
       const yearStart = `${now.getFullYear()}-01-01`
       const dataStart = yearStart < start90 ? yearStart : start90
 
+      if (barberRole) {
+        // Barber self-view: find their shop via shop_barbers
+        const { data: myEntry } = await supabase
+          .from('shop_barbers')
+          .select('shop_id, barber_id, barber_name, alias, commission_rate, compensation_type, color')
+          .eq('barber_id', user.id)
+          .eq('active', true)
+          .maybeSingle()
+
+        if (!myEntry) { setLoading(false); return }
+        setMyBarberId(myEntry.barber_id)
+
+        const { data: shopData } = await supabase
+          .from('shops').select('*').eq('id', myEntry.shop_id).maybeSingle()
+        setShop(shopData)
+
+        const [{ data: appts }, { data: tipsData }, { data: allBarbers }] = await Promise.all([
+          supabase.from('appointments')
+            .select('id, date, time, price, barber_id, status, client_id, services(name, id)')
+            .eq('shop_id', myEntry.shop_id)
+            .eq('barber_id', myEntry.barber_id)
+            .gte('date', dataStart)
+            .order('date', { ascending: true }),
+          supabase.from('tips')
+            .select('id, amount, created_at, barber_id')
+            .eq('shop_id', myEntry.shop_id)
+            .eq('barber_id', myEntry.barber_id)
+            .gte('created_at', dataStart),
+          supabase.from('shop_barbers')
+            .select('barber_id, barber_name, alias, commission_rate, compensation_type, color')
+            .eq('shop_id', myEntry.shop_id)
+            .eq('active', true),
+        ])
+
+        setAppointments((appts || []) as unknown as Appointment[])
+        setTips(tipsData || [])
+        setShopBarbers([myEntry] as ShopBarber[])
+        setLoading(false)
+        return
+      }
+
+      // Owner view
+      const { data: shopData } = await supabase
+        .from('shops').select('*').eq('owner_id', user.id).maybeSingle()
+      if (!shopData) { setLoading(false); return }
+      setShop(shopData)
+
       const [
         { data: appts },
         { data: tipsData },
         { data: barbers },
         { data: locks },
+        { data: briefs },
       ] = await Promise.all([
         supabase.from('appointments')
-          .select('id, date, price, barber_id, status, services(name, id)')
+          .select('id, date, time, price, barber_id, status, client_id, services(name, id)')
           .eq('shop_id', shopData.id)
           .gte('date', dataStart)
           .order('date', { ascending: true }),
@@ -222,12 +285,18 @@ export default function AnalyticsPage() {
         supabase.from('client_locks')
           .select('id, client_id, locked, barber_id, last_booking_date, loyalty_protected, clients(id, full_name, phone)')
           .eq('shop_id', shopData.id),
+        supabase.from('briefs')
+          .select('id, headline, one_thing')
+          .eq('shop_id', shopData.id)
+          .order('created_at', { ascending: false })
+          .limit(1),
       ])
 
       setAppointments((appts || []) as unknown as Appointment[])
       setTips(tipsData || [])
       setShopBarbers(barbers || [])
       setClientLocks((locks || []) as unknown as ClientLock[])
+      setBrief(briefs?.[0] ?? null)
       setLoading(false)
     }
     load()
@@ -386,6 +455,11 @@ export default function AnalyticsPage() {
   const ownerName = profile?.full_name || shop?.name || 'Owner'
   const initials = ownerName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
 
+  const myBarberEntry = isBarber ? shopBarbers[0] : null
+  const periodApptsByBarber = isBarber && myBarberId
+    ? periodAppts.filter(a => a.barber_id === myBarberId)
+    : periodAppts
+
   const PERIODS: { key: AnalyticsPeriod; label: string }[] = [
     { key: '30', label: '30 Days' },
     { key: '90', label: '90 Days' },
@@ -400,12 +474,22 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <OwnerNav
-        shopName={shop?.name || ''}
-        ownerName={ownerName}
-        initials={initials}
-        userId={profile?.id}
-      />
+      {isBarber ? (
+        <BarberNav
+          shopName={shop?.name || ''}
+          barberName={ownerName}
+          color={myBarberEntry?.color || '#4B5320'}
+          initial={initials[0] || 'B'}
+          userId={profile?.id}
+        />
+      ) : (
+        <OwnerNav
+          shopName={shop?.name || ''}
+          ownerName={ownerName}
+          initials={initials}
+          userId={profile?.id}
+        />
+      )}
 
       <div className="p-6 max-w-3xl mx-auto pb-24 md:pb-8">
 
@@ -433,6 +517,17 @@ export default function AnalyticsPage() {
           ))}
         </div>
 
+        {/* AI INSIGHT STRIP — owner only */}
+        {!isBarber && <AIInsightStrip brief={brief} />}
+
+        {/* REVENUE INTELLIGENCE */}
+        <RevenueIntelligence
+          appointments={appointments}
+          shopBarbers={shopBarbers}
+          periodStart={periodStart}
+          today={today}
+        />
+
         {/* A) REVENUE TREND — last 30 days line chart */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
           <div className="px-5 py-4 border-b border-warm-200">
@@ -454,6 +549,9 @@ export default function AnalyticsPage() {
             <MonthlyBarsChart year={now.getFullYear()} appointments={yearAppts} />
           </div>
         </div>
+
+        {/* PEAK HOURS HEATMAP */}
+        <PeakHoursHeatmap appointments={appointments} />
 
         {/* F) BOOKING VOLUME */}
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -527,65 +625,13 @@ export default function AnalyticsPage() {
           )
         })()}
 
-        {/* D) BARBER PERFORMANCE */}
-        {barberPerf.length > 0 && (() => {
-          const shopTotal = barberPerf.reduce((s, b) => s + b.value, 0)
-          return (
-            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
-              <div className="px-5 py-4 border-b border-warm-200">
-                <div className="font-serif text-charcoal-900">Barber Performance</div>
-                <div className="text-xs text-charcoal-500 mt-0.5">Cuts + tips for selected period · ranked by total earnings</div>
-              </div>
-              <div className="divide-y divide-warm-200">
-                {barberPerf.map((b, i) => {
-                  const cuts = b.cutsTotal ?? 0
-                  const tips = b.tipsTotal ?? 0
-                  const avgTicket = b.avgTicket ?? 0
-                  const share = shopTotal > 0 ? b.value / shopTotal : 0
-                  const initials = b.label.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
-                  const rankColors = ['text-od-green', 'text-charcoal-500', 'text-charcoal-400']
-                  return (
-                    <div key={i} className="px-5 py-4">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className={`text-xs font-bold w-4 text-right ${rankColors[i] || 'text-charcoal-400'}`}>#{i + 1}</span>
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                            style={{ background: b.color || '#4B5320' }}>
-                            {initials}
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold text-charcoal-900 mb-0.5">{b.label}</div>
-                          <div className="text-xs text-charcoal-500">{b.apptCount ?? 0} cuts · ${avgTicket.toFixed(0)}/avg ticket</div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <div className="font-mono text-sm font-bold text-od-green">${b.value.toFixed(0)}</div>
-                          <div className="text-xs text-charcoal-400">total</div>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        <div className="bg-warm-200/60 rounded-lg px-3 py-2 text-center">
-                          <div className="font-mono text-sm font-semibold text-charcoal-900">${cuts.toFixed(0)}</div>
-                          <div className="text-[10px] font-semibold tracking-widest uppercase text-charcoal-500">Cuts</div>
-                        </div>
-                        <div className="bg-warm-200/60 rounded-lg px-3 py-2 text-center">
-                          <div className="font-mono text-sm font-semibold text-green-500">${tips.toFixed(0)}</div>
-                          <div className="text-[10px] font-semibold tracking-widest uppercase text-charcoal-500">Tips</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-warm-200 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-od-green" style={{ width: `${Math.max(2, share * 100)}%` }} />
-                        </div>
-                        <span className="text-xs text-charcoal-400 flex-shrink-0">{Math.round(share * 100)}% of shop</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })()}
+        {/* D) BARBER PERFORMANCE TABLE */}
+        {!isBarber && (
+          <BarberPerformanceTable
+            appointments={appointments as any[]}
+            shopBarbers={shopBarbers}
+          />
+        )}
 
         {/* G) BUSIEST DAYS */}
         {totalBookings > 0 && (
@@ -703,6 +749,14 @@ export default function AnalyticsPage() {
           </div>
         )}
 
+        {/* CLIENT HEALTH DASHBOARD */}
+        <ClientHealthDashboard
+          appointments={appointments as any[]}
+          periodStart={periodStart}
+          today={today}
+          isBarber={isBarber}
+        />
+
         {/* E) CLIENT LOCK HEALTH */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
           <div className="px-5 py-4 border-b border-warm-200">
@@ -806,7 +860,13 @@ export default function AnalyticsPage() {
         )}
 
         {/* CAMPAIGN OPPORTUNITIES */}
-        <CampaignOpportunities appointments={appointments as any[]} />
+        {!isBarber && (
+          <OpportunitiesSection
+            appointments={appointments as any[]}
+            shopBarbers={shopBarbers}
+            today={today}
+          />
+        )}
 
       </div>
       <MobileNav />
@@ -814,74 +874,3 @@ export default function AnalyticsPage() {
   )
 }
 
-function CampaignOpportunities({ appointments }: { appointments: any[] }) {
-  const router = useRouter()
-  const today = new Date()
-
-  // Slowest day this month by revenue
-  const dayRevMap: Record<string, { rev: number; dayName: string }> = {}
-  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-  const monthAppts = appointments.filter(a => a.date >= thisMonthStart && (a.status === 'done' || a.status === 'completed'))
-  for (const a of monthAppts) {
-    const d = new Date(a.date + 'T12:00:00')
-    const key = d.toLocaleDateString('en-US', { weekday: 'long' })
-    if (!dayRevMap[key]) dayRevMap[key] = { rev: 0, dayName: key }
-    dayRevMap[key].rev += a.price ?? 0
-  }
-  const sortedDays = Object.values(dayRevMap).sort((a, b) => a.rev - b.rev)
-  const slowestDay = sortedDays[0]
-
-  // Clients approaching lapse (45–75 days since last visit)
-  const MS = 86400000
-  const clientLast: Record<string, number> = {}
-  for (const a of appointments) {
-    if (!a.client_id || (a.status !== 'done' && a.status !== 'completed')) continue
-    const t = new Date(a.date + 'T12:00:00').getTime()
-    if (!clientLast[a.client_id] || t > clientLast[a.client_id]) clientLast[a.client_id] = t
-  }
-  const approachingLapse = Object.values(clientLast).filter(t => {
-    const days = (today.getTime() - t) / MS
-    return days >= 45 && days <= 75
-  }).length
-
-  if (!slowestDay && approachingLapse === 0) return null
-
-  return (
-    <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
-      <div className="px-5 py-4 border-b border-warm-200">
-        <div className="font-serif text-charcoal-900">Campaign Opportunities</div>
-        <div className="text-xs text-charcoal-500 mt-0.5">Turn these insights into revenue</div>
-      </div>
-      <div className="divide-y divide-warm-200">
-        {slowestDay && (
-          <div className="px-5 py-4 flex items-center justify-between gap-4">
-            <div>
-              <div className="text-sm font-semibold text-charcoal-900">Slowest day: {slowestDay.dayName}</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">${slowestDay.rev} this month — consider filling these slots</div>
-            </div>
-            <button
-              onClick={() => router.push(`/dashboard/campaigns?intent=${encodeURIComponent(`Fill slow ${slowestDay.dayName} slots`)}`)}
-              className="flex-shrink-0 bg-od-green/10 border border-od-green/30 text-od-green text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-od-green/20 transition-colors"
-            >
-              Create Campaign
-            </button>
-          </div>
-        )}
-        {approachingLapse > 0 && (
-          <div className="px-5 py-4 flex items-center justify-between gap-4">
-            <div>
-              <div className="text-sm font-semibold text-charcoal-900">{approachingLapse} clients approaching 60-day lapse</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">Reach them before ChairOS automation kicks in</div>
-            </div>
-            <button
-              onClick={() => router.push(`/dashboard/campaigns?intent=${encodeURIComponent(`Reactivate clients who haven't booked in 60 days`)}`)}
-              className="flex-shrink-0 bg-od-green/10 border border-od-green/30 text-od-green text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-od-green/20 transition-colors"
-            >
-              Create Campaign
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
