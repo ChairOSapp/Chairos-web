@@ -142,7 +142,7 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
   return (
     <div className="mb-4">
       <div className="font-serif text-2xl text-charcoal-900 mb-4">Money Left on the Table</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {cards.map((card, i) => (
           <div key={i} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">{card.icon}</div>

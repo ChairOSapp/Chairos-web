@@ -182,7 +182,7 @@ export default function BarberPerformanceTable({
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto lg:overflow-visible">
         <table className="w-full text-sm" style={{ minWidth: '560px' }}>
           <thead>
             <tr className="border-b border-warm-200 bg-warm-200/30">

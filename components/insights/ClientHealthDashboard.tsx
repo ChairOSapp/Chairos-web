@@ -223,7 +223,7 @@ export default function ClientHealthDashboard({
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-warm-200 border-b border-warm-200">
+      <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-warm-200 border-b border-warm-200">
         {kpis.map((kpi, i) => (
           <div key={i} className="p-4 text-center">
             <div className={`font-serif text-2xl mb-1 ${kpi.color}`}>{kpi.value}</div>
@@ -233,12 +233,12 @@ export default function ClientHealthDashboard({
       </div>
 
       {/* Lapse Pipeline */}
-      <div className="grid grid-cols-3 divide-x divide-warm-200">
+      <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-warm-200">
         {bucketCols.map(col => (
           <button
             key={String(col.key)}
             onClick={() => setDrawerOpen(drawerOpen === col.key ? null : col.key)}
-            className={`p-4 text-left hover:bg-warm-200/50 transition-colors ${drawerOpen === col.key ? 'bg-warm-200/60' : ''}`}
+            className={`w-full lg:flex-1 p-4 text-left hover:bg-warm-200/50 transition-colors ${drawerOpen === col.key ? 'bg-warm-200/60' : ''}`}
           >
             <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2 ${col.badgeBg}`}>
               {col.count}

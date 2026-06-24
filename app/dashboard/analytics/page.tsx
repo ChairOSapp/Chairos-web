@@ -498,7 +498,8 @@ export default function AnalyticsPage() {
         />
       )}
 
-      <div className="p-6 max-w-3xl mx-auto pb-24 md:pb-8">
+      <div className="lg:ml-64">
+      <div className="w-full max-w-7xl mx-auto px-4 lg:px-8 pb-24 lg:pb-8">
 
         {/* HEADER */}
         <div className="mb-6 flex items-center justify-between">
@@ -513,7 +514,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* PERIOD SELECTOR */}
-        <div className="flex gap-1 mb-6 bg-warm-100 border border-warm-200 rounded-xl p-1">
+        <div className="flex gap-1 mb-6 bg-warm-100 border border-warm-200 rounded-xl p-1 lg:w-fit">
           {PERIODS.map(p => (
             <button key={p.key} onClick={() => setAnalyticsPeriod(p.key)}
               className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
@@ -527,13 +528,23 @@ export default function AnalyticsPage() {
         {/* AI INSIGHT STRIP — owner only */}
         {!isBarber && profile?.id && <AIInsightStrip userId={profile.id} />}
 
-        {/* REVENUE INTELLIGENCE */}
-        <RevenueIntelligence
-          shopId={shop?.id || ''}
-          period={analyticsPeriod === '30' ? 'month' : analyticsPeriod === '90' ? 'quarter' : 'year'}
-          appointments={appointments as any[]}
-          tips={tips}
-        />
+        {/* REVENUE INTELLIGENCE + PEAK HOURS — side by side on desktop */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="lg:w-3/5">
+            <RevenueIntelligence
+              shopId={shop?.id || ''}
+              period={analyticsPeriod === '30' ? 'month' : analyticsPeriod === '90' ? 'quarter' : 'year'}
+              appointments={appointments as any[]}
+              tips={tips}
+            />
+          </div>
+          <div className="lg:w-2/5">
+            <PeakHoursHeatmap
+              shopId={shop?.id || ''}
+              period={analyticsPeriod === '30' ? 'month' : analyticsPeriod === '90' ? 'quarter' : 'year'}
+            />
+          </div>
+        </div>
 
         {/* A) REVENUE TREND — last 30 days line chart */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
@@ -556,12 +567,6 @@ export default function AnalyticsPage() {
             <MonthlyBarsChart year={now.getFullYear()} appointments={yearAppts} />
           </div>
         </div>
-
-        {/* PEAK HOURS HEATMAP */}
-        <PeakHoursHeatmap
-          shopId={shop?.id || ''}
-          period={analyticsPeriod === '30' ? 'month' : analyticsPeriod === '90' ? 'quarter' : 'year'}
-        />
 
         {/* F) BOOKING VOLUME */}
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -939,6 +944,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
+      </div>
       </div>
       <MobileNav />
     </div>

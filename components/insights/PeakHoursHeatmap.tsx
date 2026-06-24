@@ -105,7 +105,7 @@ export default function PeakHoursHeatmap({ shopId, period }: Props) {
         <div className="font-serif text-charcoal-900">Peak Hours</div>
         <div className="text-xs text-charcoal-500 mt-0.5">When your chair is busiest — darker = more cuts</div>
       </div>
-      <div className="p-4 overflow-x-auto">
+      <div className="p-4 overflow-x-auto lg:overflow-visible">
         {loading ? (
           <div className="flex items-center justify-center h-20">
             <div className="w-5 h-5 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
