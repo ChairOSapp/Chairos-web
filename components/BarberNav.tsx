@@ -37,7 +37,7 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
           return (
             <button key={item.href} onClick={() => router.push(item.href)}
               className={`hidden md:flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                active ? 'bg-od-green/15 text-od-green' : 'text-charcoal-500 dark:text-[#9B9B8F] hover:text-charcoal-900 dark:hover:text-[#F0EFE8] hover:bg-warm-200 dark:hover:bg-[#2A2A26]'
+                active ? 'bg-od-green/15 dark:bg-[rgba(122,140,58,0.2)] text-od-green' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-[#EDECEA] hover:bg-warm-200 dark:hover:bg-[#252521]'
               }`}>
               {item.label}
             </button>
@@ -46,8 +46,8 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
       </div>
       <div className="flex items-center gap-3">
         <div className="hidden sm:block text-right">
-          <div className="text-xs font-medium text-charcoal-900 dark:text-[#F0EFE8]">{barberName}</div>
-          <div className="text-xs text-charcoal-500 dark:text-[#9B9B8F]">{shopName}</div>
+          <div className="text-xs font-medium text-charcoal-900 dark:text-[#EDECEA]">{barberName}</div>
+          <div className="text-xs text-charcoal-500 dark:text-[#A8A89E]">{shopName}</div>
         </div>
         {userId && (
           <NotificationsProvider>
@@ -61,7 +61,7 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
             ? <img src={photoUrl} alt="" className="w-full h-full object-cover" />
             : initial}
         </div>
-        <button onClick={handleSignOut} className="text-xs text-charcoal-500 dark:text-[#9B9B8F] hover:text-charcoal-900 dark:hover:text-[#F0EFE8] transition-colors">
+        <button onClick={handleSignOut} className="text-xs text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-[#EDECEA] transition-colors">
           Sign out
         </button>
       </div>

@@ -21,7 +21,7 @@ export default function BarberMobileNav() {
           <button
             key={item.href}
             onClick={() => router.push(item.href)}
-            className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-od-green' : 'text-charcoal-500 dark:text-[#9B9B8F]'}`}>
+            className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-od-green dark:text-[#7A8C3A]' : 'text-charcoal-500 dark:text-[#A8A89E]'}`}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d={item.icon} />
             </svg>

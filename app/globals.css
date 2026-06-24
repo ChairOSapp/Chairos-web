@@ -8,19 +8,30 @@
 }
 
 .dark {
+  /* Backgrounds — layered dark, never pure black */
   --background: #141412;
-  --foreground: #F0EFE8;
-  --color-primary: #6B7A3A;
-  --color-primary-hover: #7D8F45;
-  --color-primary-light: rgba(107,122,58,0.15);
+  --foreground: #EDECEA;
   --color-background: #141412;
   --color-card: #1E1E1B;
-  --color-text-primary: #F0EFE8;
-  --color-text-secondary: #9B9B8F;
-  --color-success: #6B7A3A;
+  --color-card-elevated: #252521;
+
+  /* Primary olive — lightened for dark bg contrast */
+  --color-primary: #7A8C3A;
+  --color-primary-hover: #8FA043;
+  --color-primary-light: rgba(122,140,58,0.15);
+
+  /* Text — off-white, never pure white */
+  --color-text-primary: #EDECEA;
+  --color-text-secondary: #A8A89E;
+
+  /* Borders — subtle visible separation */
+  --color-border: rgba(255,255,255,0.08);
+
+  /* Semantic */
+  --color-success: #7A8C3A;
   --color-warning: #d97706;
   --color-danger: #ef4444;
-  --color-border: #2A2A26;
+  --color-surface-tint: rgba(122,140,58,0.05);
 }
 
 @theme inline {
@@ -50,8 +61,8 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
   font-family: var(--font-dm-sans), Arial, Helvetica, sans-serif;
 }
 
@@ -203,3 +214,110 @@ body {
 .fc .fc-highlight { background: rgba(75,83,32,0.08); }
 .fc-direction-ltr .fc-timegrid-col-events { margin: 0 2px; }
 .fc .fc-resource-timeline-divider { border-color: #EAE8E0; }
+
+/* =============================================================
+   DARK MODE — global Tailwind utility overrides
+   Targeting .dark context so every page switches without
+   touching individual component files.
+   ============================================================= */
+
+/* --- Backgrounds --- */
+.dark .bg-warm-50  { background-color: #141412; }
+.dark .bg-warm-100 { background-color: #1E1E1B; }
+.dark .bg-warm-200 { background-color: #252521; }
+.dark .bg-warm-300 { background-color: #2A2A26; }
+.dark .bg-warm-400 { background-color: #333330; }
+.dark .bg-white    { background-color: #1E1E1B; }
+.dark .bg-charcoal-900 { background-color: #252521; }
+.dark .bg-charcoal-800 { background-color: #2A2A26; }
+
+/* Opacity variants used on hover/selected states */
+.dark .bg-warm-200\/30 { background-color: rgba(37,37,33,0.3); }
+.dark .bg-warm-200\/50 { background-color: rgba(37,37,33,0.5); }
+.dark .bg-warm-200\/60 { background-color: rgba(37,37,33,0.6); }
+
+/* --- Text --- */
+.dark .text-charcoal-900 { color: #EDECEA; }
+.dark .text-charcoal-800 { color: #E2E1DE; }
+.dark .text-charcoal-700 { color: #D0CFC8; }
+.dark .text-charcoal-600 { color: #C0BFB7; }
+.dark .text-charcoal-500 { color: #A8A89E; }
+.dark .text-charcoal-400 { color: #8A8A82; }
+
+/* --- Borders --- */
+.dark .border-warm-200 { border-color: rgba(255,255,255,0.08); }
+.dark .border-warm-300 { border-color: rgba(255,255,255,0.10); }
+.dark .border-warm-400 { border-color: rgba(255,255,255,0.12); }
+
+/* divide-y / divide-x utilities */
+.dark .divide-warm-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255,255,255,0.08);
+}
+.dark .divide-x.divide-warm-200 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-warm-200.lg\:divide-x > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255,255,255,0.08);
+}
+
+/* --- Hover states --- */
+.dark .hover\:bg-warm-200:hover  { background-color: rgba(255,255,255,0.06); }
+.dark .hover\:bg-warm-300:hover  { background-color: rgba(255,255,255,0.08); }
+.dark .hover\:text-charcoal-900:hover { color: #EDECEA; }
+.dark .hover\:bg-warm-200\/50:hover   { background-color: rgba(37,37,33,0.5); }
+
+/* group-hover */
+.dark .group:hover .group-hover\:bg-warm-200  { background-color: rgba(255,255,255,0.06); }
+.dark .group:hover .group-hover\:bg-od-green\/20 { background-color: rgba(122,140,58,0.20); }
+
+/* --- Forms (global) --- */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #252521;
+  color: #EDECEA;
+  border-color: rgba(255,255,255,0.08);
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #A8A89E;
+}
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #7A8C3A;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(122,140,58,0.2);
+}
+/* color-type inputs (brand color picker) keep their own rendering */
+.dark input[type="color"] { background-color: #252521; }
+
+/* --- Tables (global) --- */
+.dark table { background-color: #1E1E1B; }
+.dark th {
+  background-color: #252521;
+  color: #A8A89E;
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+.dark td {
+  color: #EDECEA;
+  border-bottom-color: rgba(255,255,255,0.06);
+}
+.dark tr:hover td { background-color: rgba(122,140,58,0.05); }
+
+/* --- FullCalendar dark overrides --- */
+.dark .fc-theme-standard td,
+.dark .fc-theme-standard th {
+  border-color: rgba(255,255,255,0.08);
+}
+.dark .fc .fc-scrollgrid-sync-inner { background: #1E1E1B; }
+.dark .fc .fc-col-header { background: #252521; }
+.dark .fc .fc-col-header-cell-cushion { color: #A8A89E; }
+.dark .fc .fc-timegrid-slot-label-cushion { color: #8A8A82; }
+.dark .fc .fc-daygrid-day-number { color: #EDECEA; }
+.dark .fc .fc-day-today .fc-daygrid-day-number { color: #8FA043; }
+.dark :root { --fc-page-bg-color: #141412; --fc-border-color: rgba(255,255,255,0.08); --fc-neutral-bg-color: #1E1E1B; --fc-neutral-text-color: #A8A89E; --fc-today-bg-color: rgba(122,140,58,0.07); --fc-list-event-hover-bg-color: #252521; }
+
+/* --- Calendar header buttons (custom, not FC) --- */
+.dark .bg-warm-200.rounded-lg { background-color: #252521; }
+
+/* --- Misc explicit hardcoded hex in JSX stroke attributes --- */
+/* These are handled individually in components where needed */

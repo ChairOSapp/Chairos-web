@@ -21,7 +21,7 @@ export default function MobileNav() {
           : (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)))
         return (
           <button key={item.href} onClick={() => router.push(item.href)}
-            className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-od-green' : 'text-charcoal-500 dark:text-[#9B9B8F] hover:text-charcoal-900 dark:hover:text-[#F0EFE8]'}`}>
+            className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-od-green' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-[#EDECEA]'}`}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d={item.icon} />
             </svg>

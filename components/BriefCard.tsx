@@ -241,9 +241,9 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
 
       {/* One Thing */}
       {c.one_thing && (
-        <div className="mt-4 bg-od-green/8 border border-od-green/20 rounded-lg px-4 py-3">
-          <div className="text-xs font-semibold tracking-widest uppercase text-od-green mb-1">Your one thing today</div>
-          <div className="text-sm font-semibold text-charcoal-900">{c.one_thing}</div>
+        <div className="mt-4 rounded-lg px-4 py-3" style={{ background: 'var(--color-primary-light)', border: '1px solid var(--color-primary)' }}>
+          <div className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: 'var(--color-primary)' }}>Your one thing today</div>
+          <div className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{c.one_thing}</div>
         </div>
       )}
     </div>

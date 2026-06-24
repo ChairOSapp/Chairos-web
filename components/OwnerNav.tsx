@@ -46,7 +46,7 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
               key={item.href}
               onClick={() => router.push(item.href)}
               className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                active ? 'bg-od-green/15 text-od-green' : 'text-charcoal-500 dark:text-[#9B9B8F] hover:text-charcoal-900 dark:hover:text-[#F0EFE8] hover:bg-warm-200 dark:hover:bg-[#2A2A26]'
+                active ? 'bg-od-green/15 dark:bg-[rgba(122,140,58,0.2)] text-od-green' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-[#EDECEA] hover:bg-warm-200 dark:hover:bg-[#252521]'
               }`}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d={item.icon} />
@@ -58,8 +58,8 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
       </div>
       <div className="flex items-center gap-3">
         <div className="hidden sm:block text-right">
-          <div className="text-xs font-medium text-charcoal-900 dark:text-[#F0EFE8]">{ownerName}</div>
-          <div className="text-xs text-charcoal-500 dark:text-[#9B9B8F]">{shopName}</div>
+          <div className="text-xs font-medium text-charcoal-900 dark:text-[#EDECEA]">{ownerName}</div>
+          <div className="text-xs text-charcoal-500 dark:text-[#A8A89E]">{shopName}</div>
         </div>
         {userId && (
           <NotificationsProvider>
@@ -70,7 +70,7 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
         <div className="w-8 h-8 rounded-lg bg-od-green/10 border border-od-green/30 flex items-center justify-center font-serif text-od-green text-sm">
           {initials}
         </div>
-        <button onClick={handleSignOut} className="text-xs text-charcoal-500 dark:text-[#9B9B8F] hover:text-charcoal-900 dark:hover:text-[#F0EFE8] transition-colors">
+        <button onClick={handleSignOut} className="text-xs text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-[#EDECEA] transition-colors">
           Sign out
         </button>
       </div>
