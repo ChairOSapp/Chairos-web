@@ -805,8 +805,83 @@ export default function AnalyticsPage() {
           </div>
         )}
 
+        {/* CAMPAIGN OPPORTUNITIES */}
+        <CampaignOpportunities appointments={appointments as any[]} />
+
       </div>
       <MobileNav />
+    </div>
+  )
+}
+
+function CampaignOpportunities({ appointments }: { appointments: any[] }) {
+  const router = useRouter()
+  const today = new Date()
+
+  // Slowest day this month by revenue
+  const dayRevMap: Record<string, { rev: number; dayName: string }> = {}
+  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
+  const monthAppts = appointments.filter(a => a.date >= thisMonthStart && (a.status === 'done' || a.status === 'completed'))
+  for (const a of monthAppts) {
+    const d = new Date(a.date + 'T12:00:00')
+    const key = d.toLocaleDateString('en-US', { weekday: 'long' })
+    if (!dayRevMap[key]) dayRevMap[key] = { rev: 0, dayName: key }
+    dayRevMap[key].rev += a.price ?? 0
+  }
+  const sortedDays = Object.values(dayRevMap).sort((a, b) => a.rev - b.rev)
+  const slowestDay = sortedDays[0]
+
+  // Clients approaching lapse (45–75 days since last visit)
+  const MS = 86400000
+  const clientLast: Record<string, number> = {}
+  for (const a of appointments) {
+    if (!a.client_id || (a.status !== 'done' && a.status !== 'completed')) continue
+    const t = new Date(a.date + 'T12:00:00').getTime()
+    if (!clientLast[a.client_id] || t > clientLast[a.client_id]) clientLast[a.client_id] = t
+  }
+  const approachingLapse = Object.values(clientLast).filter(t => {
+    const days = (today.getTime() - t) / MS
+    return days >= 45 && days <= 75
+  }).length
+
+  if (!slowestDay && approachingLapse === 0) return null
+
+  return (
+    <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
+      <div className="px-5 py-4 border-b border-warm-200">
+        <div className="font-serif text-charcoal-900">Campaign Opportunities</div>
+        <div className="text-xs text-charcoal-500 mt-0.5">Turn these insights into revenue</div>
+      </div>
+      <div className="divide-y divide-warm-200">
+        {slowestDay && (
+          <div className="px-5 py-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-charcoal-900">Slowest day: {slowestDay.dayName}</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">${slowestDay.rev} this month — consider filling these slots</div>
+            </div>
+            <button
+              onClick={() => router.push(`/dashboard/campaigns?intent=${encodeURIComponent(`Fill slow ${slowestDay.dayName} slots`)}`)}
+              className="flex-shrink-0 bg-od-green/10 border border-od-green/30 text-od-green text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-od-green/20 transition-colors"
+            >
+              Create Campaign
+            </button>
+          </div>
+        )}
+        {approachingLapse > 0 && (
+          <div className="px-5 py-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-charcoal-900">{approachingLapse} clients approaching 60-day lapse</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">Reach them before ChairOS automation kicks in</div>
+            </div>
+            <button
+              onClick={() => router.push(`/dashboard/campaigns?intent=${encodeURIComponent(`Reactivate clients who haven't booked in 60 days`)}`)}
+              className="flex-shrink-0 bg-od-green/10 border border-od-green/30 text-od-green text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-od-green/20 transition-colors"
+            >
+              Create Campaign
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
