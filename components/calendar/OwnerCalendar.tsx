@@ -3,7 +3,6 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
-import resourceTimeGridPlugin from '@fullcalendar/resource-timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { EventClickArg, DateSelectArg, DatesSetArg, EventContentArg } from '@fullcalendar/core'
 import { createClient } from '@/lib/supabase'
@@ -12,7 +11,7 @@ import QuickBookModal from './QuickBookModal'
 
 const BARBER_COLORS = ['#0d9488','#0369a1','#7c3aed','#b45309','#be123c','#15803d','#c2410c','#1d4ed8']
 
-type CalView = 'resourceTimeGridDay' | 'timeGridWeek' | 'dayGridMonth'
+type CalView = 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth'
 
 function addMins(time: string, mins: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -21,7 +20,7 @@ function addMins(time: string, mins: number): string {
 }
 
 function getDateLabel(view: CalView, d: Date): string {
-  if (view === 'resourceTimeGridDay') return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  if (view === 'timeGridDay') return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   if (view === 'timeGridWeek') {
     const end = new Date(d); end.setDate(d.getDate() + 6)
     const s = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -39,7 +38,7 @@ interface Props {
 }
 
 export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Props) {
-  const [view, setView] = useState<CalView>('resourceTimeGridDay')
+  const [view, setView] = useState<CalView>('timeGridDay')
   const [viewStart, setViewStart] = useState(new Date())
   const [appointments, setAppointments] = useState<any[]>([])
   const [barbers, setBarbers] = useState<any[]>([])
@@ -91,12 +90,6 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
     return m
   }, [barbers])
 
-  const resources = useMemo(() => barbers.map((b, i) => ({
-    id: b.barber_id,
-    title: b.barber_name || b.alias || 'Barber',
-    eventColor: BARBER_COLORS[i % BARBER_COLORS.length],
-  })), [barbers])
-
   const fcEvents = useMemo(() => appointments.map(a => {
     const timeStr = a.time || '09:00:00'
     const color = barberColorMap[a.barber_id] || '#65655F'
@@ -105,7 +98,6 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
       title: a.client_name || 'Unknown',
       start: `${a.date}T${timeStr}`,
       end: `${a.date}T${addMins(timeStr, 30)}`,
-      resourceId: a.barber_id,
       backgroundColor: color,
       borderColor: 'transparent',
       textColor: '#ffffff',
@@ -128,8 +120,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
   function handleSelect(info: DateSelectArg) {
     const dateStr = info.startStr.split('T')[0]
     const timeStr = info.startStr.includes('T') ? info.startStr.split('T')[1].slice(0,8) : '09:00:00'
-    const barberId = (info as any).resource?.id
-    setBookSlot({ date: dateStr, time: timeStr, barberId })
+    setBookSlot({ date: dateStr, time: timeStr })
     setShowBook(true)
     calRef.current?.getApi().unselect()
   }
@@ -171,7 +162,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
 
         {/* View Tabs */}
         <div className="flex gap-1 bg-warm-200 rounded-lg p-0.5">
-          {([['resourceTimeGridDay','Day'],['timeGridWeek','Week'],['dayGridMonth','Month']] as [CalView,string][]).map(([v,label]) => (
+          {([['timeGridDay','Day'],['timeGridWeek','Week'],['dayGridMonth','Month']] as [CalView,string][]).map(([v,label]) => (
             <button key={v} onClick={() => changeView(v)}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${view===v ? 'bg-warm-50 text-od-green shadow-sm' : 'text-charcoal-500 hover:text-charcoal-900'}`}>
               {label}
@@ -211,12 +202,10 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
       <div className="flex-1 min-h-0 overflow-hidden">
         <FullCalendar
           ref={calRef}
-          plugins={[dayGridPlugin, timeGridPlugin, resourceTimeGridPlugin, interactionPlugin]}
-          schedulerLicenseKey={process.env.NEXT_PUBLIC_FULLCALENDAR_LICENSE || 'CC-Attribution-NonCommercial-NoDerivatives'}
-          initialView="resourceTimeGridDay"
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          initialView="timeGridDay"
           headerToolbar={false}
           height="100%"
-          resources={resources}
           events={fcEvents}
           slotMinTime="07:00:00"
           slotMaxTime="22:00:00"
@@ -229,14 +218,12 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
           eventClick={handleEventClick}
           eventContent={renderEventContent}
           datesSet={handleDatesSet}
-          resourceAreaWidth="12%"
-          resourceAreaHeaderContent=""
           eventMinHeight={28}
           dayMaxEventRows={4}
           dateClick={(info) => {
             if (view === 'dayGridMonth') {
               calRef.current?.getApi().gotoDate(info.date)
-              changeView('resourceTimeGridDay')
+              changeView('timeGridDay')
             }
           }}
         />
