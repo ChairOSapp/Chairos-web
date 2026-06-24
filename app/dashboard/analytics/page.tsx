@@ -25,12 +25,6 @@ interface Appointment {
   services: { name: string; id: string } | null
 }
 
-interface Brief {
-  id: string
-  headline: string
-  one_thing: string
-}
-
 interface Tip {
   id: string
   amount: number
@@ -191,7 +185,6 @@ export default function AnalyticsPage() {
   const [tips, setTips] = useState<Tip[]>([])
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
   const [clientLocks, setClientLocks] = useState<ClientLock[]>([])
-  const [brief, setBrief] = useState<Brief | null>(null)
   const [isBarber, setIsBarber] = useState(false)
   const [myBarberId, setMyBarberId] = useState<string | null>(null)
   const [reviews, setReviews] = useState<any[]>([])
@@ -268,7 +261,6 @@ export default function AnalyticsPage() {
         { data: tipsData },
         { data: barbers },
         { data: locks },
-        { data: briefs },
         { data: reviewsData },
       ] = await Promise.all([
         supabase.from('appointments')
@@ -287,11 +279,6 @@ export default function AnalyticsPage() {
         supabase.from('client_locks')
           .select('id, client_id, locked, barber_id, last_booking_date, loyalty_protected, clients(id, full_name, phone)')
           .eq('shop_id', shopData.id),
-        supabase.from('briefs')
-          .select('id, headline, one_thing')
-          .eq('shop_id', shopData.id)
-          .order('created_at', { ascending: false })
-          .limit(1),
         supabase.from('reviews')
           .select('*')
           .eq('shop_id', shopData.id)
@@ -302,7 +289,6 @@ export default function AnalyticsPage() {
       setTips(tipsData || [])
       setShopBarbers(barbers || [])
       setClientLocks((locks || []) as unknown as ClientLock[])
-      setBrief(briefs?.[0] ?? null)
       setReviews(reviewsData || [])
       setLoading(false)
     }
