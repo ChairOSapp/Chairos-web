@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
 interface Appointment {
@@ -47,6 +48,7 @@ export default function ClientHealthDashboard({
   const [drawerOpen, setDrawerOpen] = useState<DrawerBucket>(null)
   const [alertSent, setAlertSent] = useState(false)
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
 
   // Filter to barber scope if barber view
   const scopedAppts = useMemo(() => {
@@ -194,7 +196,7 @@ export default function ClientHealthDashboard({
       color: 'text-amber-400',
       badgeBg: 'bg-amber-100 text-amber-700',
       sub: '30–59 days away',
-      cta: { label: 'Create Campaign →', href: `/dashboard/campaigns?intent=${encodeURIComponent('Re-engage fading clients before they go cold')}`, cls: 'text-amber-700 hover:text-amber-900' },
+      cta: { label: 'Create Campaign', href: `/dashboard/campaigns?intent=${encodeURIComponent('Re-engage fading clients before they go cold')}` },
     },
     {
       key: 'cold' as DrawerBucket,
@@ -203,7 +205,7 @@ export default function ClientHealthDashboard({
       color: 'text-red-400',
       badgeBg: 'bg-red-100 text-red-700',
       sub: '60+ days — act now',
-      cta: { label: 'Create Campaign →', href: `/dashboard/campaigns?intent=${encodeURIComponent('Win back gone-cold clients')}`, cls: 'text-red-600 hover:text-red-800' },
+      cta: { label: 'Create Campaign', href: `/dashboard/campaigns?intent=${encodeURIComponent('Win back gone-cold clients')}` },
     },
   ]
 
@@ -246,13 +248,12 @@ export default function ClientHealthDashboard({
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-600 mb-0.5">{col.label}</div>
             <div className="text-[10px] text-charcoal-400">{col.sub}</div>
             {col.cta && col.count > 0 && !isBarber && (
-              <a
-                href={col.cta.href}
-                onClick={e => e.stopPropagation()}
-                className={`mt-2 block text-[10px] font-semibold ${col.cta.cls}`}
+              <button
+                onClick={e => { e.stopPropagation(); router.push(col.cta!.href) }}
+                className="btn-chairos mt-2 text-[10px] px-2 py-1"
               >
                 {col.cta.label}
-              </a>
+              </button>
             )}
           </button>
         ))}

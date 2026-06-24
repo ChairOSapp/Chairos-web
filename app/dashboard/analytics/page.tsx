@@ -809,8 +809,11 @@ export default function AnalyticsPage() {
         {clientLocks.length > 0 && (
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
             <div className="px-5 py-4 border-b border-warm-200">
-              <div className="font-serif text-charcoal-900">Clients</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">{clientLocks.length} clients — tap for full profile</div>
+              <div className="flex items-center justify-between">
+                <div className="font-serif text-charcoal-900">Clients</div>
+                <button onClick={() => router.push('/dashboard/clients')} className="btn-chairos-outline">View Profiles</button>
+              </div>
+              <div className="text-xs text-charcoal-500 mt-0.5">{clientLocks.length} clients</div>
             </div>
             <div className="divide-y divide-warm-200">
               {[...clientLocks].sort((a, b) => {
