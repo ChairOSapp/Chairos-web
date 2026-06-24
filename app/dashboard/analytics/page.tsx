@@ -539,14 +539,14 @@ export default function AnalyticsPage() {
         </div>
 
         {/* AI INSIGHT STRIP — owner only */}
-        {!isBarber && <AIInsightStrip brief={brief} />}
+        {!isBarber && profile?.id && <AIInsightStrip userId={profile.id} />}
 
         {/* REVENUE INTELLIGENCE */}
         <RevenueIntelligence
-          appointments={appointments}
-          shopBarbers={shopBarbers}
-          periodStart={periodStart}
-          today={today}
+          shopId={shop?.id || ''}
+          period={analyticsPeriod === '30' ? 'month' : analyticsPeriod === '90' ? 'quarter' : 'year'}
+          appointments={appointments as any[]}
+          tips={tips}
         />
 
         {/* A) REVENUE TREND — last 30 days line chart */}
@@ -572,7 +572,10 @@ export default function AnalyticsPage() {
         </div>
 
         {/* PEAK HOURS HEATMAP */}
-        <PeakHoursHeatmap appointments={appointments} />
+        <PeakHoursHeatmap
+          shopId={shop?.id || ''}
+          period={analyticsPeriod === '30' ? 'month' : analyticsPeriod === '90' ? 'quarter' : 'year'}
+        />
 
         {/* F) BOOKING VOLUME */}
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -649,8 +652,11 @@ export default function AnalyticsPage() {
         {/* D) BARBER PERFORMANCE TABLE */}
         {!isBarber && (
           <BarberPerformanceTable
+            shopId={shop?.id || ''}
+            period={analyticsPeriod === '30' ? 'month' : analyticsPeriod === '90' ? 'quarter' : 'year'}
+            barbers={shopBarbers}
             appointments={appointments as any[]}
-            shopBarbers={shopBarbers}
+            tips={tips}
           />
         )}
 
@@ -772,10 +778,12 @@ export default function AnalyticsPage() {
 
         {/* CLIENT HEALTH DASHBOARD */}
         <ClientHealthDashboard
+          shopId={shop?.id || ''}
+          period={analyticsPeriod === '30' ? 'month' : analyticsPeriod === '90' ? 'quarter' : 'year'}
           appointments={appointments as any[]}
-          periodStart={periodStart}
-          today={today}
           isBarber={isBarber}
+          barberId={myBarberId || undefined}
+          shopOwnerId={isBarber ? shop?.owner_id || '' : profile?.id || ''}
         />
 
         {/* E) CLIENT LOCK HEALTH */}
@@ -883,9 +891,9 @@ export default function AnalyticsPage() {
         {/* CAMPAIGN OPPORTUNITIES */}
         {!isBarber && (
           <OpportunitiesSection
+            shopId={shop?.id || ''}
             appointments={appointments as any[]}
-            shopBarbers={shopBarbers}
-            today={today}
+            barbers={shopBarbers}
           />
         )}
 

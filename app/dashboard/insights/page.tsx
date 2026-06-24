@@ -4,11 +4,19 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import BriefCard from '@/components/BriefCard'
+import AIInsightStrip from '@/components/insights/AIInsightStrip'
+import PeakHoursHeatmap from '@/components/insights/PeakHoursHeatmap'
+import BarberPerformanceTable from '@/components/insights/BarberPerformanceTable'
+import ClientHealthDashboard from '@/components/insights/ClientHealthDashboard'
+import RevenueIntelligence from '@/components/insights/RevenueIntelligence'
+import OpportunitiesSection from '@/components/insights/OpportunitiesSection'
 
 // ---- Shared types ----
 
 type RevPeriod = 'today' | 'week' | 'month' | 'year'
 type AnalyticsPeriod = '30' | '90' | 'year'
+type TabId = 'revenue' | 'analytics' | 'ai'
 
 // Superset of both pages' Appointment interfaces
 interface RevAppointment {
@@ -19,6 +27,7 @@ interface RevAppointment {
   client_name: string
   status: string
   barber_id: string
+  client_id?: string | null
   services: { name: string } | null
 }
 
@@ -28,6 +37,7 @@ interface AnaAppointment {
   price: number
   barber_id: string
   status: string
+  client_id?: string | null
   services: { name: string; id: string } | null
 }
 
@@ -265,10 +275,14 @@ function MonthlyBarsChart({ year, appointments }: { year: number; appointments: 
 // ---- Main page ----
 
 export default function InsightsPage() {
-  const [tab, setTab] = useState<'revenue' | 'analytics'>('revenue')
+  const [tab, setTab] = useState<TabId>('revenue')
   const analyticsLoaded = useRef(false)
 
-  // Shared state
+  // Auth/profile state
+  const [userId, setUserId] = useState<string>('')
+  const [role, setRole] = useState<'owner' | 'barber' | null>(null)
+  const [barberId, setBarberId] = useState<string>('')          // barber's own barber_id
+  const [shopOwnerId, setShopOwnerId] = useState<string>('')    // owner's profile id (for barber view alerts)
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
@@ -281,7 +295,7 @@ export default function InsightsPage() {
   const [rev_tips, rev_setTips] = useState<Tip[]>([])
   const [rev_loading, rev_setLoading] = useState(true)
 
-  // Analytics-specific state
+  // Analytics-specific state (original analytics tab)
   const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>('30')
   const [ana_appointments, ana_setAppointments] = useState<AnaAppointment[]>([])
   const [ana_tips, ana_setTips] = useState<Tip[]>([])
@@ -295,28 +309,62 @@ export default function InsightsPage() {
   // Auth + shared setup — runs once
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { router.push('/login'); return }
+        setUserId(user.id)
 
-      const { data: prof } = await supabase
-        .from('profiles').select('*').eq('id', user.id).maybeSingle()
-      setProfile(prof)
+        const { data: prof } = await supabase
+          .from('profiles').select('*').eq('id', user.id).maybeSingle()
+        setProfile(prof)
 
-      if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
+        const userRole: 'owner' | 'barber' = prof?.role === 'barber' ? 'barber' : 'owner'
+        setRole(userRole)
 
-      const { data: shopData } = await supabase
-        .from('shops').select('*').eq('owner_id', user.id).maybeSingle()
-      if (!shopData) { setAuthLoading(false); rev_setLoading(false); ana_setLoading(false); return }
-      setShop(shopData)
+        if (userRole === 'barber') {
+          // Barber: find their shop entry
+          const { data: myEntry } = await supabase
+            .from('shop_barbers')
+            .select('shop_id, barber_id, barber_name, alias, commission_rate, compensation_type, color')
+            .eq('barber_id', user.id)
+            .eq('active', true)
+            .maybeSingle()
 
-      const { data: barbers } = await supabase
-        .from('shop_barbers')
-        .select('barber_id, barber_name, alias, commission_rate, compensation_type, color')
-        .eq('shop_id', shopData.id)
-        .eq('active', true)
-      setShopBarbers(barbers || [])
+          if (!myEntry) { setAuthLoading(false); rev_setLoading(false); ana_setLoading(false); return }
+          setBarberId(myEntry.barber_id)
 
-      setAuthLoading(false)
+          const { data: shopData } = await supabase
+            .from('shops').select('*').eq('id', myEntry.shop_id).maybeSingle()
+          setShop(shopData)
+          // Find the shop owner's profile id
+          if (shopData?.owner_id) setShopOwnerId(shopData.owner_id)
+
+          const { data: allBarbers } = await supabase
+            .from('shop_barbers')
+            .select('barber_id, barber_name, alias, commission_rate, compensation_type, color')
+            .eq('shop_id', myEntry.shop_id)
+            .eq('active', true)
+          setShopBarbers(allBarbers || [])
+        } else {
+          // Owner
+          const { data: shopData } = await supabase
+            .from('shops').select('*').eq('owner_id', user.id).maybeSingle()
+          if (!shopData) { setAuthLoading(false); rev_setLoading(false); ana_setLoading(false); return }
+          setShop(shopData)
+          setShopOwnerId(user.id)
+
+          const { data: barbers } = await supabase
+            .from('shop_barbers')
+            .select('barber_id, barber_name, alias, commission_rate, compensation_type, color')
+            .eq('shop_id', shopData.id)
+            .eq('active', true)
+          setShopBarbers(barbers || [])
+        }
+
+        setAuthLoading(false)
+      } catch {
+        setAuthLoading(false)
+      }
     }
     load()
   }, [])
@@ -330,36 +378,50 @@ export default function InsightsPage() {
   async function fetchRevenueData() {
     if (!shop) return
     rev_setLoading(true)
-    const { start, end } = getPeriodRange(rev_period)
+    try {
+      const { start, end } = getPeriodRange(rev_period)
 
-    const [{ data: appts }, { data: tipsData }, { count: noshow }] = await Promise.all([
-      supabase
-        .from('appointments')
-        .select('id, date, time, price, client_name, status, barber_id, services(name)')
-        .eq('shop_id', shop.id)
-        .eq('status', 'done')
-        .gte('date', start)
-        .lte('date', end)
-        .order('date', { ascending: false }),
-      supabase
-        .from('tips')
-        .select('id, amount, created_at, barber_id')
-        .eq('shop_id', shop.id)
-        .gte('created_at', start)
-        .lte('created_at', end + 'T23:59:59'),
-      supabase
-        .from('appointments')
-        .select('id', { count: 'exact', head: true })
-        .eq('shop_id', shop.id)
-        .eq('status', 'noshow')
-        .gte('date', start)
-        .lte('date', end),
-    ])
+      const baseQuery = role === 'barber' && barberId
+        ? supabase
+            .from('appointments')
+            .select('id, date, time, price, client_name, status, barber_id, client_id, services(name)')
+            .eq('shop_id', shop.id)
+            .eq('status', 'done')
+            .eq('barber_id', barberId)
+            .gte('date', start)
+            .lte('date', end)
+            .order('date', { ascending: false })
+        : supabase
+            .from('appointments')
+            .select('id, date, time, price, client_name, status, barber_id, client_id, services(name)')
+            .eq('shop_id', shop.id)
+            .eq('status', 'done')
+            .gte('date', start)
+            .lte('date', end)
+            .order('date', { ascending: false })
 
-    rev_setAppointments((appts || []) as unknown as RevAppointment[])
-    rev_setTips(tipsData || [])
-    rev_setNoshowCount(noshow || 0)
-    rev_setLoading(false)
+      const tipsQuery = role === 'barber' && barberId
+        ? supabase.from('tips').select('id, amount, created_at, barber_id').eq('shop_id', shop.id).eq('barber_id', barberId).gte('created_at', start).lte('created_at', end + 'T23:59:59')
+        : supabase.from('tips').select('id, amount, created_at, barber_id').eq('shop_id', shop.id).gte('created_at', start).lte('created_at', end + 'T23:59:59')
+
+      const noshowQuery = role === 'barber' && barberId
+        ? supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'noshow').eq('barber_id', barberId).gte('date', start).lte('date', end)
+        : supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'noshow').gte('date', start).lte('date', end)
+
+      const [{ data: appts }, { data: tipsData }, { count: noshow }] = await Promise.all([
+        baseQuery,
+        tipsQuery,
+        noshowQuery,
+      ])
+
+      rev_setAppointments((appts || []) as unknown as RevAppointment[])
+      rev_setTips(tipsData || [])
+      rev_setNoshowCount(noshow || 0)
+    } catch {
+      // swallow
+    } finally {
+      rev_setLoading(false)
+    }
   }
 
   // Analytics data — load lazily on first switch to analytics tab
@@ -372,40 +434,36 @@ export default function InsightsPage() {
   async function fetchAnalyticsData() {
     if (!shop) return
     ana_setLoading(true)
-    const now = new Date()
-    const start90 = fmt(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000))
-    const yearStart = `${now.getFullYear()}-01-01`
-    const dataStart = yearStart < start90 ? yearStart : start90
+    try {
+      const now = new Date()
+      const start90 = fmt(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000))
+      const yearStart = `${now.getFullYear()}-01-01`
+      const dataStart = yearStart < start90 ? yearStart : start90
 
-    const [
-      { data: appts },
-      { data: tipsData },
-      { data: locks },
-      { data: reviewsData },
-    ] = await Promise.all([
-      supabase.from('appointments')
-        .select('id, date, price, barber_id, status, services(name, id)')
-        .eq('shop_id', shop.id)
-        .gte('date', dataStart)
-        .order('date', { ascending: true }),
-      supabase.from('tips')
-        .select('id, amount, created_at, barber_id')
-        .eq('shop_id', shop.id)
-        .gte('created_at', dataStart),
-      supabase.from('client_locks')
-        .select('id, client_id, locked, barber_id, last_booking_date, loyalty_protected, clients(id, full_name, phone)')
-        .eq('shop_id', shop.id),
-      supabase.from('reviews')
-        .select('*')
-        .eq('shop_id', shop.id)
-        .eq('visible', true),
-    ])
+      const apptQuery = role === 'barber' && barberId
+        ? supabase.from('appointments').select('id, date, price, barber_id, status, client_id, services(name, id)').eq('shop_id', shop.id).eq('barber_id', barberId).gte('date', dataStart).order('date', { ascending: true })
+        : supabase.from('appointments').select('id, date, price, barber_id, status, client_id, services(name, id)').eq('shop_id', shop.id).gte('date', dataStart).order('date', { ascending: true })
 
-    ana_setAppointments((appts || []) as unknown as AnaAppointment[])
-    ana_setTips(tipsData || [])
-    ana_setClientLocks((locks || []) as unknown as ClientLock[])
-    ana_setReviews(reviewsData || [])
-    ana_setLoading(false)
+      const tipsQuery = role === 'barber' && barberId
+        ? supabase.from('tips').select('id, amount, created_at, barber_id').eq('shop_id', shop.id).eq('barber_id', barberId).gte('created_at', dataStart)
+        : supabase.from('tips').select('id, amount, created_at, barber_id').eq('shop_id', shop.id).gte('created_at', dataStart)
+
+      const [{ data: appts }, { data: tipsData }, { data: locks }, { data: reviewsData }] = await Promise.all([
+        apptQuery,
+        tipsQuery,
+        supabase.from('client_locks').select('id, client_id, locked, barber_id, last_booking_date, loyalty_protected, clients(id, full_name, phone)').eq('shop_id', shop.id),
+        supabase.from('reviews').select('*').eq('shop_id', shop.id).eq('visible', true),
+      ])
+
+      ana_setAppointments((appts || []) as unknown as AnaAppointment[])
+      ana_setTips(tipsData || [])
+      ana_setClientLocks((locks || []) as unknown as ClientLock[])
+      ana_setReviews(reviewsData || [])
+    } catch {
+      // swallow
+    } finally {
+      ana_setLoading(false)
+    }
   }
 
   // ---- Revenue computed values ----
@@ -649,18 +707,21 @@ export default function InsightsPage() {
 
         {/* TAB SWITCHER */}
         <div className="flex gap-2 mb-6">
-          <button onClick={() => setTab('revenue')}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              tab === 'revenue' ? 'bg-od-green text-white' : 'bg-warm-100 border border-warm-200 text-charcoal-500 hover:text-charcoal-900'
-            }`}>
-            Revenue
-          </button>
-          <button onClick={() => setTab('analytics')}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              tab === 'analytics' ? 'bg-od-green text-white' : 'bg-warm-100 border border-warm-200 text-charcoal-500 hover:text-charcoal-900'
-            }`}>
-            Analytics
-          </button>
+          {([
+            { key: 'revenue', label: 'Revenue' },
+            { key: 'analytics', label: 'Analytics' },
+            { key: 'ai', label: 'AI Insights' },
+          ] as { key: TabId; label: string }[]).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                tab === t.key ? 'bg-od-green text-white' : 'bg-warm-100 border border-warm-200 text-charcoal-500 hover:text-charcoal-900'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {/* ---- REVENUE TAB ---- */}
@@ -804,8 +865,66 @@ export default function InsightsPage() {
               </div>
             ) : (
               <>
+                {/* AI INSIGHT STRIP — always above content */}
+                {userId && <AIInsightStrip userId={userId} />}
+
+                {role === 'owner' ? (
+                  <>
+                    <RevenueIntelligence
+                      shopId={shop?.id || ''}
+                      period={rev_period}
+                      appointments={rev_appointments as any[]}
+                      tips={rev_tips}
+                    />
+                    <PeakHoursHeatmap shopId={shop?.id || ''} period={rev_period} />
+                    <BarberPerformanceTable
+                      shopId={shop?.id || ''}
+                      period={rev_period}
+                      barbers={shopBarbers}
+                      appointments={rev_appointments as any[]}
+                      tips={rev_tips}
+                    />
+                    <ClientHealthDashboard
+                      shopId={shop?.id || ''}
+                      period={rev_period}
+                      appointments={rev_appointments as any[]}
+                      shopOwnerId={userId}
+                    />
+                    <OpportunitiesSection
+                      shopId={shop?.id || ''}
+                      appointments={rev_appointments as any[]}
+                      barbers={shopBarbers}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <BarberPerformanceTable
+                      shopId={shop?.id || ''}
+                      period={rev_period}
+                      barbers={shopBarbers}
+                      appointments={rev_appointments as any[]}
+                      tips={rev_tips}
+                      selfBarberId={barberId}
+                    />
+                    <ClientHealthDashboard
+                      shopId={shop?.id || ''}
+                      period={rev_period}
+                      appointments={rev_appointments as any[]}
+                      shopOwnerId={shopOwnerId}
+                      isBarber
+                      barberId={barberId}
+                    />
+                    <OpportunitiesSection
+                      shopId={shop?.id || ''}
+                      appointments={rev_appointments as any[]}
+                      barbers={shopBarbers}
+                      isBarber
+                    />
+                  </>
+                )}
+
                 {/* PERIOD SELECTOR */}
-                <div className="flex gap-1 mb-6 bg-warm-100 border border-warm-200 rounded-xl p-1">
+                <div className="flex gap-1 mb-6 bg-warm-100 border border-warm-200 rounded-xl p-1 mt-6">
                   {ANA_PERIODS.map(p => (
                     <button key={p.key} onClick={() => setAnalyticsPeriod(p.key)}
                       className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
@@ -910,8 +1029,8 @@ export default function InsightsPage() {
                   )
                 })()}
 
-                {/* D) BARBER PERFORMANCE */}
-                {ana_barberPerf.length > 0 && (() => {
+                {/* D) BARBER PERFORMANCE (Analytics native) */}
+                {role === 'owner' && ana_barberPerf.length > 0 && (() => {
                   const shopTotal = ana_barberPerf.reduce((s, b) => s + b.value, 0)
                   return (
                     <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
@@ -1029,7 +1148,7 @@ export default function InsightsPage() {
                   <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
                     <div className="px-5 py-4 border-b border-warm-200">
                       <div className="font-serif text-charcoal-900">Service Insights</div>
-                      <div className="text-xs text-charcoal-500 mt-0.5">What's driving revenue — and what's not</div>
+                      <div className="text-xs text-charcoal-500 mt-0.5">What&apos;s driving revenue — and what&apos;s not</div>
                     </div>
 
                     {ana_stars.length > 0 && (
@@ -1247,6 +1366,14 @@ export default function InsightsPage() {
               </>
             )}
           </>
+        )}
+
+        {/* ---- AI INSIGHTS TAB ---- */}
+        {tab === 'ai' && (
+          <div className="space-y-4">
+            <BriefCard recipientName={profile?.full_name} />
+            <p className="text-xs text-charcoal-400 text-center">Daily briefs generate at 7am ET from the previous day&apos;s data.</p>
+          </div>
         )}
 
       </div>
