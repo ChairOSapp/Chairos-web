@@ -47,10 +47,11 @@ export default function InvitePage() {
 
   const shopCodeFormatted = shop?.invite_code || ''
   const shopCode9 = shop?.shop_code || ''
+  const initials = shop?.name?.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() || 'CH'
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <OwnerNav />
+      <OwnerNav shopName={shop?.name || ''} ownerName={''} initials={initials} />
       <div className="max-w-2xl mx-auto px-4 py-8 pb-24">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => router.back()} className="text-charcoal-500 hover:text-od-green text-sm transition-colors">← Back</button>
