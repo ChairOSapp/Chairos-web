@@ -3,7 +3,10 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-const ADMIN_EMAILS = process.env.ADMIN_EMAIL ? [process.env.ADMIN_EMAIL] : []
+const ADMIN_EMAILS = [
+  ...(process.env.ADMIN_EMAIL ? [process.env.ADMIN_EMAIL] : []),
+  'tbbryant07@gmail.com',
+]
 
 function getAdminSupabase() {
   return createClient(
@@ -41,6 +44,7 @@ export interface AdminUser {
   created_at: string
   shop_id: string | null
   shop_name: string | null
+  shop_code: string | null
   health: HealthStatus
   health_reasons: string[]
 }
@@ -64,7 +68,7 @@ export async function GET(req: NextRequest) {
   // Fetch all shops (owner_id → shop)
   const { data: shops } = await supabase
     .from('shops')
-    .select('id, name, owner_id')
+    .select('id, name, owner_id, shop_code')
 
   // Fetch all shop_barbers (barber_id → shop_id)
   const { data: shopBarbers } = await supabase
@@ -82,19 +86,19 @@ export async function GET(req: NextRequest) {
 
   const hasRecentAutomation = (recentLogs?.length ?? 0) > 0
 
-  const shopByOwner: Record<string, { id: string; name: string }> = {}
+  const shopByOwner: Record<string, { id: string; name: string; code: string | null }> = {}
   for (const s of shops ?? []) {
-    shopByOwner[s.owner_id] = { id: s.id, name: s.name }
+    shopByOwner[s.owner_id] = { id: s.id, name: s.name, code: s.shop_code ?? null }
   }
 
   const shopByBarber: Record<string, string> = {}
   for (const sb of shopBarbers ?? []) {
-    shopByBarber[sb.barber_id] = sb.shop_id
+    if (sb.barber_id) shopByBarber[sb.barber_id] = sb.shop_id
   }
 
-  const shopById: Record<string, { id: string; name: string }> = {}
+  const shopById: Record<string, { id: string; name: string; code: string | null }> = {}
   for (const s of shops ?? []) {
-    shopById[s.id] = { id: s.id, name: s.name }
+    shopById[s.id] = { id: s.id, name: s.name, code: s.shop_code ?? null }
   }
 
   const users: AdminUser[] = (profiles ?? []).map(p => {
@@ -164,6 +168,7 @@ export async function GET(req: NextRequest) {
       created_at: p.created_at,
       shop_id: shopInfo?.id ?? null,
       shop_name: shopInfo?.name ?? null,
+      shop_code: shopInfo?.code ?? null,
       health,
       health_reasons: reasons,
     }

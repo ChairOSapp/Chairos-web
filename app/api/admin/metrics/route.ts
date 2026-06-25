@@ -4,7 +4,10 @@ import Stripe from 'stripe'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-const ADMIN_EMAILS = process.env.ADMIN_EMAIL ? [process.env.ADMIN_EMAIL] : []
+const ADMIN_EMAILS = [
+  ...(process.env.ADMIN_EMAIL ? [process.env.ADMIN_EMAIL] : []),
+  'tbbryant07@gmail.com',
+]
 
 function getAdminSupabase() {
   return createClient(
