@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
 interface Appointment {
   id: string
@@ -10,6 +11,7 @@ interface Appointment {
   time: string
   price: number
   status: string
+  payment_status?: string
   barber_id?: string
   notes?: string
   serviceName?: string
@@ -50,6 +52,10 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
   const [newTime, setNewTime] = useState(appointment.time.slice(0, 5))
   const ref = useRef<HTMLDivElement>(null)
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
+
+  const notDone = appointment.status !== 'done'
+  const unpaid = appointment.payment_status !== 'paid'
 
   // position popover so it stays on screen
   const [pos, setPos] = useState({ left: x, top: y })
@@ -170,10 +176,19 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
       {/* Actions */}
       {!rescheduling && (
         <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
+          {/* POS Checkout — primary CTA for unpaid/not-done appointments */}
+          {notDone && unpaid && (
+            <button
+              onClick={() => { onClose(); router.push(`/dashboard/pos/${appointment.id}`) }}
+              className="w-full py-2 rounded-lg text-[12px] font-bold bg-od-green text-black hover:bg-od-green-light transition-colors mb-0.5"
+            >
+              Checkout — ${Number(appointment.price).toFixed(2)}
+            </button>
+          )}
           {appointment.status !== 'done' && (
             <button onClick={() => updateStatus('done')} disabled={saving}
               className="flex-1 min-w-[100px] py-1.5 rounded-lg text-[11px] font-semibold bg-od-green/10 text-od-green border border-od-green/30 hover:bg-od-green/20 disabled:opacity-50 transition-colors">
-              ✓ Mark Done
+              ✓ Mark Done (no charge)
             </button>
           )}
           {appointment.status !== 'noshow' && (

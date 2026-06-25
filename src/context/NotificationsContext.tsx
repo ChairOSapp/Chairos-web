@@ -7,10 +7,11 @@ type NotificationsContextType = {
   notifications: Notification[]
   unreadCount: number
   markAllRead: () => Promise<void>
+  markRead: (id: string) => Promise<void>
   loading: boolean
 }
 const NotificationsContext = createContext<NotificationsContextType>({
-  notifications: [], unreadCount: 0, markAllRead: async () => {}, loading: true
+  notifications: [], unreadCount: 0, markAllRead: async () => {}, markRead: async () => {}, loading: true
 })
 export function useNotifications() { return useContext(NotificationsContext) }
 
@@ -56,9 +57,14 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   }
 
+  async function markRead(id: string) {
+    await supabase.from('notifications').update({ read: true }).eq('id', id)
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }
+
   const unreadCount = notifications.filter(n => !n.read).length
   return (
-    <NotificationsContext.Provider value={{ notifications, unreadCount, markAllRead, loading }}>
+    <NotificationsContext.Provider value={{ notifications, unreadCount, markAllRead, markRead, loading }}>
       {children}
     </NotificationsContext.Provider>
   )

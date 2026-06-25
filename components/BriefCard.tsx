@@ -37,6 +37,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function BriefCard({ recipientName }: { recipientName?: string }) {
   const [brief, setBrief] = useState<Brief | null>(null)
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState('')
   const [dismissed, setDismissed] = useState(false)
   const supabase = createClient()
 
@@ -66,6 +68,21 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
     load()
   }, [])
 
+  async function generateBrief() {
+    setGenerating(true)
+    setGenError('')
+    try {
+      const res = await fetch('/api/briefs/generate', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to generate')
+      setBrief(json.brief)
+    } catch (err: any) {
+      setGenError(err.message)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   if (loading) return (
     <div className="bg-warm-100 dark:bg-[#1E1E1B] border border-warm-200 dark:border-[#2A2A26] rounded-xl p-5 mb-5 animate-pulse">
       <div className="h-3 w-32 bg-warm-300 dark:bg-[#2A2A26] rounded mb-3" />
@@ -73,7 +90,24 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
     </div>
   )
 
-  if (!brief || dismissed) return null
+  if (!brief || dismissed) {
+    if (dismissed) return null
+    return (
+      <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-5">
+        <div className="text-sm text-charcoal-700 mb-3">
+          No brief generated today yet. Daily briefs run automatically at 7am ET, or you can generate one now.
+        </div>
+        {genError && <p className="text-xs text-red-400 mb-3">{genError}</p>}
+        <button
+          onClick={generateBrief}
+          disabled={generating}
+          className="bg-od-green text-black font-semibold px-4 py-2 rounded-lg text-sm hover:bg-od-green-light transition-colors disabled:opacity-50"
+        >
+          {generating ? 'Generating…' : 'Generate My Brief'}
+        </button>
+      </div>
+    )
+  }
 
   const c = brief.content ?? {}
   const isWeekly = brief.brief_type === 'weekly'

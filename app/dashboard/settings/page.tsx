@@ -29,6 +29,7 @@ export default function ShopSettings() {
   const [squareAccount, setSquareAccount] = useState<any>(null)
   const [disconnectingSquare, setDisconnectingSquare] = useState(false)
   const [barbersCollectOwnPayments, setBarbersCollectOwnPayments] = useState(false)
+  const [requireCardToBook, setRequireCardToBook] = useState(false)
   const [googlePlaceId, setGooglePlaceId] = useState('')
 
   // Form state
@@ -78,6 +79,7 @@ export default function ShopSettings() {
     setHeroUrl(shop.hero_url || '')
     if (shop.hours) setHours(shop.hours)
     setBarbersCollectOwnPayments(!!shop.barbers_collect_own_payments)
+    setRequireCardToBook(!!shop.require_card_to_book)
     setGooglePlaceId(shop.google_place_id || '')
 
     const { data: sq } = await supabase
@@ -183,6 +185,7 @@ export default function ShopSettings() {
       hero_url: heroUrl,
       hours,
       barbers_collect_own_payments: barbersCollectOwnPayments,
+      require_card_to_book: requireCardToBook,
       google_place_id: googlePlaceId.trim() || null,
     }).eq('id', shop.id)
 
@@ -464,6 +467,22 @@ export default function ShopSettings() {
                 className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
                 <span
                   style={{ transform: barbersCollectOwnPayments ? 'translateX(22px)' : 'translateX(2px)' }}
+                  className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
+              </button>
+            </div>
+
+            {/* Require card to book toggle */}
+            <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
+              <div>
+                <div className="text-sm font-semibold text-charcoal-900 mb-0.5">Require card to book</div>
+                <div className="text-xs text-charcoal-500">Clients must enter a card when booking online. They choose whether to save it for future visits or process it as one-time. Turn off to allow bookings without a card.</div>
+              </div>
+              <button
+                onClick={() => setRequireCardToBook(v => !v)}
+                style={{ background: requireCardToBook ? '#4B5320' : '#d4c9b8' }}
+                className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
+                <span
+                  style={{ transform: requireCardToBook ? 'translateX(22px)' : 'translateX(2px)' }}
                   className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
               </button>
             </div>

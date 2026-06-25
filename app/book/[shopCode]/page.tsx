@@ -44,6 +44,8 @@ function BookingPageInner() {
   const [cardReady, setCardReady] = useState(false)
   const [cardLoading, setCardLoading] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+  // 'save' = store card for later checkout, 'charge' = one-time charge now
+  const [cardMode, setCardMode] = useState<'save' | 'charge'>('save')
 
   useEffect(() => {
     async function load() {
@@ -104,9 +106,10 @@ function BookingPageInner() {
     load()
   }, [shopCode])
 
-  // Initialize Square Web Payments SDK when user reaches step 4
+  // Initialize Square Web Payments SDK when user reaches step 4 and shop requires card
   useEffect(() => {
     if (step !== 4) return
+    if (!shop?.require_card_to_book) return
     if (squareCardRef.current) return // already initialized
 
     const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
@@ -174,9 +177,9 @@ function BookingPageInner() {
     setError('')
     setPaymentError('')
 
-    // Tokenize card first (before any DB writes) if Square is ready
+    // Tokenize card if shop requires it
     let sourceId: string | null = null
-    if (squareCardRef.current) {
+    if (shop?.require_card_to_book && squareCardRef.current) {
       const result = await squareCardRef.current.tokenize()
       if (result.status === 'OK') {
         sourceId = result.token
@@ -186,6 +189,13 @@ function BookingPageInner() {
         setSubmitting(false)
         return
       }
+    }
+
+    // If shop requires card but SDK not ready, fail
+    if (shop?.require_card_to_book && !sourceId) {
+      setPaymentError('Card form not ready. Please refresh and try again.')
+      setSubmitting(false)
+      return
     }
 
     let paymentSucceeded = false
@@ -254,8 +264,8 @@ function BookingPageInner() {
 
     if (bookErr || !newAppt) { setError(bookErr?.message || 'Booking failed'); setSubmitting(false); return }
 
-    // Charge card after appointment exists (need appointmentId for Square)
-    if (sourceId && newAppt?.id) {
+    // Charge card immediately if one-time mode (need appointmentId for Square)
+    if (sourceId && cardMode === 'charge' && newAppt?.id) {
       try {
         const payRes = await fetch('/api/square/create-payment', {
           method: 'POST',
@@ -265,12 +275,24 @@ function BookingPageInner() {
         const payData = await payRes.json()
         if (!payRes.ok || payData.error) {
           setPaymentError(payData.error || 'Payment failed. Please pay at the shop.')
-          // Appointment already created — booking stands, just unpaid
         } else {
           paymentSucceeded = true
         }
       } catch {
         setPaymentError('Payment failed. Please pay at the shop.')
+      }
+    }
+
+    // Save card on file if client chose save mode (non-blocking)
+    if (sourceId && cardMode === 'save' && clientId) {
+      try {
+        await fetch('/api/square/save-card', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceId, clientId, shopId: shop.id }),
+        })
+      } catch {
+        // Card save failure is non-fatal — appointment is already created
       }
     }
 
@@ -652,28 +674,56 @@ function BookingPageInner() {
               ))}
             </div>
 
-            {/* SQUARE CARD FORM */}
-            <div className="mb-6">
-              <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Payment</label>
-              <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4">
-                {cardLoading && (
-                  <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
-                    <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
-                    Loading card form...
-                  </div>
+            {/* SQUARE CARD FORM — only shown when shop requires card */}
+            {shop?.require_card_to_book && (
+              <div className="mb-6">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Card</label>
+
+                {/* Save vs. charge toggle */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {[
+                    { key: 'save', label: 'Save for later', sub: 'Pay at checkout' },
+                    { key: 'charge', label: 'Charge now', sub: `$${selectedService?.price} today` },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setCardMode(opt.key as 'save' | 'charge')}
+                      className={`p-3 rounded-xl border text-left text-sm transition-colors ${
+                        cardMode === opt.key
+                          ? 'border-od-green bg-od-green/10 text-charcoal-900'
+                          : 'border-warm-300 bg-warm-100 text-charcoal-500 hover:border-warm-400'
+                      }`}
+                    >
+                      <div className="font-semibold">{opt.label}</div>
+                      <div className="text-xs opacity-70 mt-0.5">{opt.sub}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4">
+                  {cardLoading && (
+                    <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
+                      <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
+                      Loading card form...
+                    </div>
+                  )}
+                  <div id="square-card-container" className={cardLoading ? 'hidden' : ''} />
+                  {!cardLoading && !cardReady && !paymentError && (
+                    <p className="text-neutral-500 text-xs py-2">Card form unavailable — you can pay at the shop.</p>
+                  )}
+                </div>
+                {paymentError && (
+                  <p className="text-amber-400 text-xs mt-2">{paymentError}</p>
                 )}
-                <div id="square-card-container" className={cardLoading ? 'hidden' : ''} />
-                {!cardLoading && !cardReady && !paymentError && (
-                  <p className="text-neutral-500 text-xs py-2">Card form unavailable — you can pay at the shop.</p>
-                )}
+                <p className="text-neutral-600 text-xs mt-2">
+                  {cardMode === 'save'
+                    ? 'Your card is saved securely by Square and charged at checkout.'
+                    : `Your card is charged $${selectedService?.price} now. Tip is added at the shop.`}
+                  {' '}We do not store your full card number.
+                </p>
               </div>
-              {paymentError && (
-                <p className="text-amber-400 text-xs mt-2">{paymentError}</p>
-              )}
-              <p className="text-neutral-600 text-xs mt-2">
-                Your card is charged ${selectedService?.price} when you confirm. Secured by Square.
-              </p>
-            </div>
+            )}
 
             {/* Consent checkboxes */}
             <div className="space-y-3 mb-6">

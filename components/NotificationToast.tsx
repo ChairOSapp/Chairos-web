@@ -9,17 +9,43 @@ type Toast = {
   type: string
 }
 
+const SEEN_KEY = 'chairos_toasted_notification_ids'
+
+function getSeenIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY)
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
+  } catch { return new Set() }
+}
+
+function persistSeenId(id: string) {
+  try {
+    const seen = getSeenIds()
+    seen.add(id)
+    // Cap at 500 entries to avoid unbounded growth
+    const arr = [...seen].slice(-500)
+    localStorage.setItem(SEEN_KEY, JSON.stringify(arr))
+  } catch {}
+}
+
 export default function NotificationToast({ userId }: { userId: string }) {
-  const { notifications } = useNotifications()
+  const { notifications, markRead } = useNotifications()
   const [toasts, setToasts] = useState<Toast[]>([])
   const seenIdsRef = useRef<Set<string>>(new Set())
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  // Initialise from localStorage so re-mounts (route changes) don't re-show old toasts
+  useEffect(() => {
+    seenIdsRef.current = getSeenIds()
+  }, [])
 
   useEffect(() => {
     if (notifications.length === 0) return
     const latest = notifications[0]
     if (!latest.read && !seenIdsRef.current.has(latest.id)) {
       seenIdsRef.current.add(latest.id)
+      persistSeenId(latest.id)
+
       const toast: Toast = {
         id: latest.id,
         title: latest.title,
@@ -27,13 +53,26 @@ export default function NotificationToast({ userId }: { userId: string }) {
         type: latest.type,
       }
       setToasts(prev => [...prev, toast])
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => {
+
+      const timer = setTimeout(() => {
         setToasts(prev => prev.filter(t => t.id !== toast.id))
+        timersRef.current.delete(toast.id)
+        markRead(toast.id)
       }, 4000)
+      timersRef.current.set(toast.id, timer)
     }
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [notifications])
+
+  function dismiss(id: string) {
+    const timer = timersRef.current.get(id)
+    if (timer) { clearTimeout(timer); timersRef.current.delete(id) }
+    setToasts(prev => prev.filter(t => t.id !== id))
+    markRead(id)
+  }
+
+  useEffect(() => {
+    return () => { timersRef.current.forEach(t => clearTimeout(t)) }
+  }, [])
 
   if (toasts.length === 0) return null
 
@@ -42,8 +81,8 @@ export default function NotificationToast({ userId }: { userId: string }) {
       {toasts.map(toast => (
         <div
           key={toast.id}
-          onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-          className="bg-warm-100 border border-warm-300 rounded-xl p-4 shadow-lg cursor-pointer hover:border-od-green/50 transition-all animate-slide-in">
+          className="bg-warm-100 border border-warm-300 rounded-xl p-4 shadow-lg cursor-pointer hover:border-od-green/50 transition-all animate-slide-in"
+        >
           <div className="flex items-start gap-3">
             <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
               toast.type === 'booking' ? 'bg-od-green' :
@@ -51,11 +90,16 @@ export default function NotificationToast({ userId }: { userId: string }) {
               toast.type === 'floor' ? 'bg-blue-500' :
               'bg-warm-500'
             }`} />
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0" onClick={() => dismiss(toast.id)}>
               <div className="text-sm font-semibold text-charcoal-900">{toast.title}</div>
               <div className="text-xs text-charcoal-400 mt-0.5">{toast.body}</div>
             </div>
-            <button className="text-charcoal-600 hover:text-charcoal-900 text-lg leading-none flex-shrink-0">×</button>
+            <button
+              onClick={() => dismiss(toast.id)}
+              className="text-charcoal-600 hover:text-charcoal-900 text-lg leading-none flex-shrink-0"
+            >
+              ×
+            </button>
           </div>
         </div>
       ))}
