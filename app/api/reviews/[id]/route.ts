@@ -3,10 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getAdminSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 async function getAuthenticatedUser(req: NextRequest) {
   const cookieStore = await cookies()
@@ -25,7 +27,7 @@ async function getAuthenticatedUser(req: NextRequest) {
 }
 
 async function getOwnerShop(userId: string) {
-  const { data: shop, error } = await supabase
+  const { data: shop, error } = await getAdminSupabase()
     .from('shops')
     .select('id')
     .eq('owner_id', userId)
@@ -66,7 +68,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
-  const { data: review, error: updateErr } = await supabase
+  const { data: review, error: updateErr } = await getAdminSupabase()
     .from('reviews')
     .update(updates)
     .eq('id', id)
@@ -97,7 +99,7 @@ export async function DELETE(
 
   const { id } = await params
 
-  const { data: deleted, error: deleteErr } = await supabase
+  const { data: deleted, error: deleteErr } = await getAdminSupabase()
     .from('reviews')
     .delete()
     .eq('id', id)
