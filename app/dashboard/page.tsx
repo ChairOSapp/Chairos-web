@@ -311,45 +311,58 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 4. CALENDAR */}
+        {/* 4. TODAY'S APPOINTMENTS */}
         <div className="mb-5">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Schedule</div>
-            <button onClick={() => router.push('/dashboard/calendar')} className="btn-chairos">Open Calendar</button>
-          </div>
-          <button
-            onClick={() => router.push('/dashboard/calendar')}
-            className="w-full bg-warm-100 border border-warm-200 rounded-2xl p-5 text-left hover:bg-warm-200/60 transition-colors group">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Today</div>
-                <div className="font-serif text-2xl text-charcoal-900">
-                  {todayAppointments.length} <span className="text-charcoal-500 text-lg">appointments</span>
-                </div>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-od-green/10 border border-od-green/20 flex items-center justify-center group-hover:bg-od-green/20 transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4B5320" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-              </div>
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">
+              Today's appointments
+              {todayAppointments.length > 0 && (
+                <span className="ml-2 font-normal normal-case tracking-normal text-charcoal-400">{todayAppointments.length}</span>
+              )}
             </div>
-            {todayAppointments.slice(0, 3).map(a => {
-              const barber = barbers.find(b => b.barber_id === a.barber_id)
-              return (
-                <div key={a.id} className="flex items-center gap-3 py-1.5 border-t border-warm-200 first:border-0">
-                  <span className="font-mono text-xs text-od-green w-10 flex-shrink-0">{a.time?.slice(0,5) || '—'}</span>
-                  <span className="text-sm font-medium text-charcoal-900 flex-1 truncate">{a.client_name}</span>
-                  {barber && <span className="text-xs text-charcoal-400 flex-shrink-0">{barber.barber_name || barber.alias}</span>}
-                </div>
-              )
-            })}
-            {todayAppointments.length > 3 && (
-              <div className="text-xs text-charcoal-400 pt-2 border-t border-warm-200">+{todayAppointments.length - 3} more · tap to open calendar</div>
+            <button onClick={() => router.push('/dashboard/calendar')} className="btn-chairos">Calendar</button>
+          </div>
+          <div className="bg-warm-100 border border-warm-200 rounded-2xl overflow-hidden">
+            {todayAppointments.length === 0 ? (
+              <div className="px-5 py-8 text-center text-sm text-charcoal-400">No appointments today</div>
+            ) : (
+              <div className="divide-y divide-warm-200">
+                {todayAppointments.map(a => {
+                  const barber = barbers.find(b => b.barber_id === a.barber_id)
+                  const badge = STATUS_BADGE[a.status] || STATUS_BADGE.pending
+                  const checkable = (a.status === 'confirmed' || a.status === 'pending' || a.status === 'in_progress')
+                    && a.payment_status !== 'paid'
+                    && a.status !== 'cancelled'
+                    && a.status !== 'noshow'
+                  return (
+                    <div key={a.id} className="px-4 py-3 flex items-center gap-3">
+                      <span className="font-mono text-xs text-od-green w-10 flex-shrink-0">{a.time?.slice(0,5) || '—'}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-charcoal-900 truncate">{a.client_name}</div>
+                        <div className="text-xs text-charcoal-500 truncate mt-0.5">
+                          {a.services?.name || '—'}
+                          {barber ? ` · ${barber.barber_name || barber.alias}` : ''}
+                        </div>
+                      </div>
+                      <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full flex-shrink-0 ${badge.cls}`}>
+                        {badge.label}
+                      </span>
+                      {checkable ? (
+                        <button
+                          onClick={() => router.push(`/dashboard/pos/${a.id}`)}
+                          className="flex-shrink-0 text-xs font-bold px-2.5 py-1.5 rounded-lg bg-od-green text-white hover:opacity-90 transition-opacity whitespace-nowrap"
+                        >
+                          Check Out
+                        </button>
+                      ) : a.payment_status === 'paid' ? (
+                        <span className="flex-shrink-0 text-[10px] font-bold text-green-500 px-2">PAID</span>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
             )}
-            {todayAppointments.length === 0 && (
-              <div className="text-sm text-charcoal-400 pt-2 border-t border-warm-200">No appointments today · tap to open calendar</div>
-            )}
-          </button>
+          </div>
         </div>
 
         {/* 5. THE FLOOR — compact pills */}
