@@ -32,7 +32,8 @@ export default function InvitePage() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
     const { error } = await supabase.from('shops').update({ invite_code: code }).eq('id', shop.id)
-    if (!error) setShop((prev: any) => ({ ...prev, invite_code: code }))
+    if (error) setError(error.message)
+    else setShop((prev: any) => ({ ...prev, invite_code: code }))
     setGeneratingCode(false)
   }
 

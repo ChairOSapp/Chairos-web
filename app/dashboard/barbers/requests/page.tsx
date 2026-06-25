@@ -100,7 +100,12 @@ export default function BarberRequestsPage() {
     setActionLoading(request.id)
     setError('')
 
-    await supabase.from('pending_barbers').update({ status: 'denied' }).eq('id', request.id)
+    const { error: denyErr } = await supabase.from('pending_barbers').update({ status: 'denied' }).eq('id', request.id)
+    if (denyErr) {
+      setError(denyErr.message)
+      setActionLoading(null)
+      return
+    }
 
     // Notify barber
     await supabase.from('notifications').insert({

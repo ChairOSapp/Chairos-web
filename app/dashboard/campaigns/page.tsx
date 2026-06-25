@@ -92,24 +92,28 @@ function CampaignsInner() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { router.push('/login'); return }
 
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
-      setProfile(prof)
+        const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+        setProfile(prof)
 
-      const { data: s } = await supabase.from('shops').select('*').eq('owner_id', user.id).maybeSingle()
-      setShop(s)
+        const { data: s } = await supabase.from('shops').select('*').eq('owner_id', user.id).maybeSingle()
+        setShop(s)
 
-      if (s) {
-        const { data: b } = await supabase.from('shop_barbers').select('*').eq('shop_id', s.id).eq('active', true)
-        setBarbers(b ?? [])
+        if (s) {
+          const { data: b } = await supabase.from('shop_barbers').select('*').eq('shop_id', s.id).eq('active', true)
+          setBarbers(b ?? [])
 
-        const { data: c } = await supabase.from('campaigns').select('*').eq('shop_id', s.id).order('created_at', { ascending: false })
-        setCampaigns(c ?? [])
+          const { data: c } = await supabase.from('campaigns').select('*').eq('shop_id', s.id).order('created_at', { ascending: false })
+          setCampaigns(c ?? [])
+        }
+
+        setLoading(false)
+      } catch {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
     load()
   }, [])

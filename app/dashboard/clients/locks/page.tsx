@@ -71,10 +71,14 @@ export default function ClientLocksPage() {
 
   async function releaseClient(lockId: string) {
     if (!confirm('Release this client lock? They will become floating and available to any barber.')) return
-    await supabase.from('client_locks').update({
+    const { error } = await supabase.from('client_locks').update({
       locked: false,
       updated_at: new Date().toISOString()
     }).eq('id', lockId)
+    if (error) {
+      alert(`Failed to release lock: ${error.message}`)
+      return
+    }
     setSuccess('Client lock released.')
     setTimeout(() => setSuccess(''), 3000)
     await loadData()

@@ -132,8 +132,9 @@ export default function Onboarding() {
         .from('shops')
         .insert({ name: shopName, address: shopAddress, city: shopCity, phone: shopPhone, owner_id: user.id })
         .select()
-        .single()
+        .maybeSingle()
       if (shopErr) throw shopErr
+      if (!shop) throw new Error('Failed to create shop — please try again.')
 
       if (services.length > 0) {
         const { error: svcErr } = await supabase.from('services').insert(

@@ -22,14 +22,11 @@ export async function POST(req: NextRequest) {
     }
   )
   const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   let appointmentId = ''
   try {
-    const body = await req.json() as { sourceId: string; appointmentId: string }
-    const { sourceId } = body
+    const body = await req.json() as { sourceId: string; appointmentId: string; publicShopCode?: string }
+    const { sourceId, publicShopCode } = body
     appointmentId = body.appointmentId
 
     if (!sourceId || !appointmentId) {
@@ -47,6 +44,35 @@ export async function POST(req: NextRequest) {
     }
     if (appointment.payment_status === 'paid') {
       return NextResponse.json({ error: 'Appointment already paid' }, { status: 409 })
+    }
+
+    // Authorization: either the user owns/works at this shop, OR a valid publicShopCode was provided
+    // (public booking flow — client is not logged in but knows the shop code)
+    if (!user) {
+      if (!publicShopCode) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      const { data: shopCheck } = await supabase
+        .from('shops')
+        .select('id')
+        .eq('id', appointment.shop_id)
+        .eq('shop_code', publicShopCode.toUpperCase())
+        .maybeSingle()
+      if (!shopCheck) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      }
+    } else {
+      // Authenticated: verify user is the shop owner or assigned barber
+      const { data: shopCheck } = await supabase
+        .from('shops')
+        .select('id, owner_id')
+        .eq('id', appointment.shop_id)
+        .maybeSingle()
+      const isOwner = shopCheck?.owner_id === user.id
+      const isBarber = appointment.barber_id === user.id
+      if (!isOwner && !isBarber) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
 
     // Determine payment routing based on shop setting

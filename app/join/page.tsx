@@ -16,28 +16,32 @@ export default function JoinPage() {
 
   useEffect(() => {
     async function init() {
-      // Check for invite token in URL
-      const params = new URLSearchParams(window.location.search)
-      const token = params.get('token')
+      try {
+        // Check for invite token in URL
+        const params = new URLSearchParams(window.location.search)
+        const token = params.get('token')
 
-      if (token) {
-        // Look up invite
-        const { data: invite } = await supabase
-          .from('invites')
-          .select('*, shops(*), shop_barbers(*)')
-          .eq('token', token)
-          .eq('accepted', false)
-          .maybeSingle()
+        if (token) {
+          // Look up invite
+          const { data: invite } = await supabase
+            .from('invites')
+            .select('*, shops(*), shop_barbers(*)')
+            .eq('token', token)
+            .eq('accepted', false)
+            .maybeSingle()
 
-        if (!invite) { setMode('error'); return }
-        setInvite(invite)
-        setShop(invite.shops)
-        setBarber(invite.shop_barbers)
-        setMode('invite')
-      } else {
-        const code = params.get('code')
-        if (code) setShopCode(code.toUpperCase())
-        setMode('code')
+          if (!invite) { setMode('error'); return }
+          setInvite(invite)
+          setShop(invite.shops)
+          setBarber(invite.shop_barbers)
+          setMode('invite')
+        } else {
+          const code = params.get('code')
+          if (code) setShopCode(code.toUpperCase())
+          setMode('code')
+        }
+      } catch {
+        setMode('error')
       }
     }
     init()

@@ -153,8 +153,9 @@ function BookingPageInner() {
     if (phone.replace(/\D/g, '').length < 10) return
     const { data: client } = await supabase
       .from('clients')
-      .select('*, client_locks(*, shop_barbers(*))')
+      .select('*, client_locks!inner(*, shop_barbers(*))')
       .eq('phone', phone.replace(/\D/g, ''))
+      .eq('client_locks.shop_id', shop.id)
       .maybeSingle()
     if (!client) return
     setReturningClient(client)
@@ -187,28 +188,7 @@ function BookingPageInner() {
       }
     }
 
-    // Charge card BEFORE inserting appointment — if payment fails, abort
     let paymentSucceeded = false
-    if (sourceId) {
-      try {
-        const payRes = await fetch('/api/square/create-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceId }),
-        })
-        const payData = await payRes.json()
-        if (!payRes.ok || payData.error) {
-          setPaymentError(payData.error || 'Payment failed. Please try again or pay at the shop.')
-          setSubmitting(false)
-          return
-        }
-        paymentSucceeded = true
-      } catch {
-        setPaymentError('Payment failed. Please try again or pay at the shop.')
-        setSubmitting(false)
-        return
-      }
-    }
 
     // Look up or create client record
     const normalizedPhone = clientPhone.replace(/\D/g, '')
@@ -217,17 +197,17 @@ function BookingPageInner() {
       .from('clients')
       .select('id, sms_consent, email_consent')
       .eq('phone', normalizedPhone)
-      .eq('shop_id', shop.id)
       .maybeSingle()
 
     if (existingClient) {
       clientId = existingClient.id
     } else {
-      const { data: newClient } = await supabase
+      const { data: newClient, error: newClientErr } = await supabase
         .from('clients')
-        .insert({ full_name: clientName, phone: normalizedPhone, shop_id: shop.id })
+        .insert({ full_name: clientName, phone: normalizedPhone })
         .select('id')
-        .single()
+        .maybeSingle()
+      if (newClientErr) { setError('Failed to create client record. Please try again.'); setSubmitting(false); return }
       if (newClient) clientId = newClient.id
     }
 
@@ -255,6 +235,7 @@ function BookingPageInner() {
     }
     await supabase.from('clients').upsert(clientUpsert, { onConflict: 'phone', ignoreDuplicates: false })
 
+    // Create appointment first so we have an ID for Square payment
     const { data: newAppt, error: bookErr } = await supabase.from('appointments').insert({
       shop_id: shop.id,
       barber_id: selectedBarber?.barber_id || null,
@@ -268,10 +249,30 @@ function BookingPageInner() {
       price: selectedService.price,
       status: 'pending',
       notes: notes || null,
-      payment_status: paymentSucceeded ? 'paid' : 'unpaid',
-    }).select('id').single()
+      payment_status: 'unpaid',
+    }).select('id').maybeSingle()
 
     if (bookErr || !newAppt) { setError(bookErr?.message || 'Booking failed'); setSubmitting(false); return }
+
+    // Charge card after appointment exists (need appointmentId for Square)
+    if (sourceId && newAppt?.id) {
+      try {
+        const payRes = await fetch('/api/square/create-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceId, appointmentId: newAppt.id, publicShopCode: shop.shop_code }),
+        })
+        const payData = await payRes.json()
+        if (!payRes.ok || payData.error) {
+          setPaymentError(payData.error || 'Payment failed. Please pay at the shop.')
+          // Appointment already created — booking stands, just unpaid
+        } else {
+          paymentSucceeded = true
+        }
+      } catch {
+        setPaymentError('Payment failed. Please pay at the shop.')
+      }
+    }
 
     // Notify owner
     const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || 'Any barber'
