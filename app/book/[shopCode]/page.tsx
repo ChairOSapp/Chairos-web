@@ -221,6 +221,15 @@ function BookingPageInner() {
       if (newClient) clientId = newClient.id
     }
 
+    // Record shop membership for this client (new or returning) — non-fatal
+    if (clientId && shop?.id) {
+      fetch('/api/book/membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, shopId: shop.id }),
+      }).catch(() => {})
+    }
+
     const [time, period] = selectedTime.split(' ')
     const [hours, minutes] = time.split(':')
     let h = parseInt(hours)
