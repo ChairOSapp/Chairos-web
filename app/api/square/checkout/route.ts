@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
     const paymentPayload: any = {
       sourceId: finalSourceId,
-      idempotencyKey: `${appointmentId}-${Date.now()}`,
+      idempotencyKey: appointmentId,
       amountMoney: { amount: totalCents, currency: 'USD' },
       locationId,
       note: `ChairOS POS — ${serviceName} ($${servicePrice.toFixed(2)}) + tip ($${tipDollars.toFixed(2)}) — ${appt.client_name}`,
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
 
       if (customerId) {
         const { card } = await squareClient.cards.create({
-          idempotencyKey: `card-${appt.client_id}-${Date.now()}`,
+          idempotencyKey: crypto.randomUUID(),
           sourceId: sourceId,
           card: { customerId },
         })
