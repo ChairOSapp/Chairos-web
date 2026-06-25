@@ -30,13 +30,14 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json() as {
     appointmentId: string
-    tipAmount: number      // dollars, e.g. 5.00
-    sourceId?: string      // card nonce (manual entry or one-time)
-    saveCard?: boolean     // store card on file
+    tipAmount: number       // dollars, e.g. 5.00
+    discount?: number       // dollar amount off service price, e.g. 10.00
+    sourceId?: string       // card nonce (manual entry or one-time)
+    saveCard?: boolean      // store card on file
     useCardOnFile?: boolean // charge stored card_id
   }
 
-  const { appointmentId, tipAmount = 0, sourceId, saveCard = false, useCardOnFile = false } = body
+  const { appointmentId, tipAmount = 0, discount = 0, sourceId, saveCard = false, useCardOnFile = false } = body
 
   if (!appointmentId) return NextResponse.json({ error: 'appointmentId required' }, { status: 400 })
   if (!sourceId && !useCardOnFile) return NextResponse.json({ error: 'sourceId or useCardOnFile required' }, { status: 400 })
@@ -81,7 +82,9 @@ export async function POST(req: NextRequest) {
 
   const servicePrice = parseFloat(String(appt.price)) || 0
   const tipDollars = Math.max(0, parseFloat(String(tipAmount)) || 0)
-  const totalCents = BigInt(Math.round((servicePrice + tipDollars) * 100))
+  const discountDollars = Math.max(0, Math.min(servicePrice, parseFloat(String(discount)) || 0))
+  const chargeBase = servicePrice - discountDollars
+  const totalCents = BigInt(Math.round((chargeBase + tipDollars) * 100))
   const serviceName = (appt as any).services?.name || 'Service'
 
   try {
@@ -107,7 +110,7 @@ export async function POST(req: NextRequest) {
       idempotencyKey: appointmentId,
       amountMoney: { amount: totalCents, currency: 'USD' },
       locationId,
-      note: `ChairOS POS — ${serviceName} ($${servicePrice.toFixed(2)}) + tip ($${tipDollars.toFixed(2)}) — ${appt.client_name}`,
+      note: `ChairOS POS — ${serviceName} ($${servicePrice.toFixed(2)})${discountDollars > 0 ? ` − discount ($${discountDollars.toFixed(2)})` : ''} + tip ($${tipDollars.toFixed(2)}) — ${appt.client_name}`,
       referenceId: appointmentId,
     }
 
@@ -173,7 +176,7 @@ export async function POST(req: NextRequest) {
       status: 'done',
       payment_status: paid ? 'paid' : 'failed',
       square_payment_id: payment?.id ?? null,
-      amount_paid: paid ? servicePrice + tipDollars : null,
+      amount_paid: paid ? chargeBase + tipDollars : null,
       tip_amount: paid ? tipDollars : 0,
     }).eq('id', appointmentId)
 
@@ -199,7 +202,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       paymentId: payment?.id,
       status: payment?.status,
-      total: servicePrice + tipDollars,
+      total: chargeBase + tipDollars,
       cardSaved: paid && saveCard && !!newCardId,
     })
   } catch (err: any) {

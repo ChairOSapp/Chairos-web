@@ -38,6 +38,9 @@ export default function POSCheckout() {
   // Save card toggle (when mode = manual)
   const [saveCard, setSaveCard] = useState(false)
 
+  // Discount (dollar amount off service price)
+  const [discount, setDiscount] = useState('')
+
   // Processing
   const [processing, setProcessing] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -128,15 +131,20 @@ export default function POSCheckout() {
   }, [mode])
 
   const servicePrice = parseFloat(String(appt?.price || 0)) || 0
-
+  const discountAmount = Math.max(0, parseFloat(discount) || 0)
+  const discountInvalid = discountAmount > servicePrice
   const tipAmount = useCustomTip
-    ? (parseFloat(customTip) || 0)
+    ? Math.max(0, parseFloat(customTip) || 0)
     : (tipPreset !== null ? Math.round(servicePrice * tipPreset * 100) / 100 : 0)
-
-  const total = servicePrice + tipAmount
+  const chargeBase = Math.max(0, servicePrice - Math.min(discountAmount, servicePrice))
+  const total = chargeBase + tipAmount
 
   async function handleCheckout() {
     setError('')
+    if (discountInvalid) {
+      setError(`Discount cannot exceed the service price ($${servicePrice.toFixed(2)})`)
+      return
+    }
     setProcessing(true)
 
     let sourceId: string | undefined
@@ -159,6 +167,7 @@ export default function POSCheckout() {
         body: JSON.stringify({
           appointmentId,
           tipAmount,
+          discount: Math.min(discountAmount, servicePrice),
           sourceId: mode === 'manual' ? sourceId : undefined,
           useCardOnFile: mode === 'card-on-file',
           saveCard: mode === 'manual' ? saveCard : false,
@@ -167,7 +176,7 @@ export default function POSCheckout() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Checkout failed')
 
-      setReceiptData({ total: json.total, tip: tipAmount, service: servicePrice, cardSaved: json.cardSaved })
+      setReceiptData({ total: json.total, tip: tipAmount, service: servicePrice, discount: Math.min(discountAmount, servicePrice), cardSaved: json.cardSaved })
       setSuccess(true)
     } catch (err: any) {
       setError(err.message)
@@ -209,6 +218,12 @@ export default function POSCheckout() {
             <span className="text-charcoal-400">Service</span>
             <span className="text-white font-mono">${receiptData.service.toFixed(2)}</span>
           </div>
+          {receiptData.discount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-charcoal-400">Discount</span>
+              <span className="text-red-400 font-mono">−${receiptData.discount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-charcoal-400">Tip</span>
             <span className="text-white font-mono">${receiptData.tip.toFixed(2)}</span>
@@ -320,11 +335,42 @@ export default function POSCheckout() {
           </div>
         </div>
 
-        {/* Total */}
+        {/* Discount */}
+        <div className="mb-5">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Discount</div>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-400 text-sm">$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={discount}
+              onChange={e => {
+                const v = e.target.value
+                if (v !== '' && parseFloat(v) < 0) return
+                setDiscount(v)
+              }}
+              placeholder="0.00"
+              className={`w-full bg-charcoal-800 border rounded-xl pl-7 pr-3 py-2.5 text-sm text-white outline-none transition-colors ${
+                discountInvalid ? 'border-red-500 focus:border-red-400' : 'border-charcoal-600 focus:border-od-green'
+              }`}
+            />
+          </div>
+          {discountInvalid && (
+            <p className="text-red-400 text-xs mt-2">Discount cannot exceed service price (${servicePrice.toFixed(2)})</p>
+          )}
+        </div>
+
+        {/* Total breakdown */}
         <div className="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 mb-5">
           <div className="flex justify-between items-center mb-2 text-sm text-charcoal-400">
             <span>Service</span><span className="font-mono">${servicePrice.toFixed(2)}</span>
           </div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between items-center mb-2 text-sm text-red-400">
+              <span>Discount</span><span className="font-mono">−${Math.min(discountAmount, servicePrice).toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between items-center mb-3 text-sm text-charcoal-400">
             <span>Tip</span><span className="font-mono">${tipAmount.toFixed(2)}</span>
           </div>
@@ -418,7 +464,7 @@ export default function POSCheckout() {
         {/* Charge button */}
         <button
           onClick={handleCheckout}
-          disabled={processing || (mode === 'manual' && !cardReady)}
+          disabled={processing || discountInvalid || (mode === 'manual' && !cardReady)}
           className="w-full bg-od-green text-black font-bold py-4 rounded-2xl text-base hover:bg-od-green-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {processing ? (
