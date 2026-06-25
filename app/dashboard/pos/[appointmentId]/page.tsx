@@ -101,6 +101,7 @@ export default function POSCheckout() {
         if (!mounted) return
         const p = await payments(appId!, locationId!)
         if (!mounted) return
+        if (!p) throw new Error('Square payments SDK failed to initialize')
         const card = await p.card()
         if (!mounted) return
         await card.attach('#pos-card-container')
