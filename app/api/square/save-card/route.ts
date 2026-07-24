@@ -4,12 +4,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { SquareClient, SquareEnvironment } from 'square'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 
-const admin = createAdmin(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(req: NextRequest) {
+  const admin = createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
   const body = await req.json() as {
     sourceId: string
     clientId: string
@@ -27,6 +27,29 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+  // Authorization: confirm the client actually belongs to this shop before
+  // creating/overwriting any Square card data. Clients have no shop_id column,
+  // so the association is proven via a shop membership or an appointment at the
+  // shop (the public booking flow creates the appointment before calling this).
+  const [{ data: membership }, { data: appt }] = await Promise.all([
+    admin
+      .from('client_shop_memberships')
+      .select('client_id')
+      .eq('client_id', clientId)
+      .eq('shop_id', shopId)
+      .maybeSingle(),
+    admin
+      .from('appointments')
+      .select('id')
+      .eq('client_id', clientId)
+      .eq('shop_id', shopId)
+      .limit(1)
+      .maybeSingle(),
+  ])
+  if (!membership && !appt) {
+    return NextResponse.json({ error: 'Client does not belong to this shop' }, { status: 403 })
+  }
 
   // Resolve Square account for this shop
   const { data: shop } = await admin.from('shops').select('owner_id').eq('id', shopId).maybeSingle()

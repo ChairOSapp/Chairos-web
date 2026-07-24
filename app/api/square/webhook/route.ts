@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createHmac } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 function verifySignature(body: string, signature: string, key: string, url: string): boolean {
   const hash = createHmac('sha256', key)
     .update(url + body)
@@ -15,6 +10,10 @@ function verifySignature(body: string, signature: string, key: string, url: stri
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
   const body = await req.text()
   const signature = req.headers.get('x-square-hmacsha256-signature') || ''
 

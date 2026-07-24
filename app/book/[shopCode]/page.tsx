@@ -221,15 +221,6 @@ function BookingPageInner() {
       if (newClient) clientId = newClient.id
     }
 
-    // Record shop membership for this client (new or returning) — non-fatal
-    if (clientId && shop?.id) {
-      fetch('/api/book/membership', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, shopId: shop.id }),
-      }).catch(() => {})
-    }
-
     const [time, period] = selectedTime.split(' ')
     const [hours, minutes] = time.split(':')
     let h = parseInt(hours)
@@ -272,6 +263,17 @@ function BookingPageInner() {
     }).select('id').maybeSingle()
 
     if (bookErr || !newAppt) { setError(bookErr?.message || 'Booking failed'); setSubmitting(false); return }
+
+    // Record shop membership for this client (new or returning) — non-fatal.
+    // Done after the appointment exists so the API can verify the client
+    // legitimately belongs to this shop.
+    if (clientId && shop?.id) {
+      fetch('/api/book/membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, shopId: shop.id }),
+      }).catch(() => {})
+    }
 
     // Charge card immediately if one-time mode (need appointmentId for Square)
     if (sourceId && cardMode === 'charge' && newAppt?.id) {
