@@ -164,10 +164,16 @@ export async function POST(req: NextRequest) {
       }
       if (newStatus === 'active') updates.grace_period_ends_at = null
 
-      const { error: dbErr } = await supabase.from('profiles').update(updates).eq('stripe_customer_id', customerId)
+      const { data: updatedProfile, error: dbErr } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('stripe_customer_id', customerId)
+        .select('id')
+        .maybeSingle()
       if (dbErr) console.error('[stripe/webhook] DB update failed:', dbErr.message)
 
       await supabase.from('billing_events').insert({
+        profile_id: updatedProfile?.id ?? null,
         stripe_event_id: event.id,
         event_type: event.type,
         payload: subscription as any,
@@ -230,11 +236,14 @@ export async function POST(req: NextRequest) {
       const invoice = event.data.object as Stripe.Invoice
       const customerId = invoice.customer as string
       console.log('[stripe/webhook] invoice.payment_succeeded | customer:', customerId)
-      await supabase.from('profiles').update({
-        subscription_status: 'active',
-        grace_period_ends_at: null,
-      }).eq('stripe_customer_id', customerId)
+      const { data: invProfile } = await supabase
+        .from('profiles')
+        .update({ subscription_status: 'active', grace_period_ends_at: null })
+        .eq('stripe_customer_id', customerId)
+        .select('id')
+        .maybeSingle()
       await supabase.from('billing_events').insert({
+        profile_id: invProfile?.id ?? null,
         stripe_event_id: event.id,
         event_type: event.type,
         payload: invoice as any,
@@ -248,13 +257,17 @@ export async function POST(req: NextRequest) {
 
       console.log('[stripe/webhook] invoice.payment_failed | customer:', customerId)
 
-      const { error: dbErr } = await supabase.from('profiles').update({
-        subscription_status: 'past_due',
-      }).eq('stripe_customer_id', customerId)
+      const { data: failProfile, error: dbErr } = await supabase
+        .from('profiles')
+        .update({ subscription_status: 'past_due' })
+        .eq('stripe_customer_id', customerId)
+        .select('id')
+        .maybeSingle()
 
       if (dbErr) console.error('[stripe/webhook] DB update failed:', dbErr.message)
 
       await supabase.from('billing_events').insert({
+        profile_id: failProfile?.id ?? null,
         stripe_event_id: event.id,
         event_type: event.type,
         payload: invoice as any,
