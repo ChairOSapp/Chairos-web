@@ -54,6 +54,7 @@ export default function BarberDashboard() {
   const [barberTipInput, setBarberTipInput] = useState<{[key: string]: string}>({})
   const [addingTip, setAddingTip] = useState<{[key: string]: boolean}>({})
   const [tippedAppointments, setTippedAppointments] = useState<Set<string>>(new Set())
+  const [myAppts30, setMyAppts30] = useState<any[]>([])
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 
@@ -100,6 +101,17 @@ export default function BarberDashboard() {
       .select('id, locked, barber_id, shop_id, booking_count, first_booking_date, last_booking_date, loyalty_protected, updated_at, client_id, clients(id, full_name, phone, email, total_visits, last_visit_date)')
       .eq('barber_id', uid)
     setClientLocks(locks || [])
+
+    // 30-day history for performance stats
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000)
+    const thirtyDaysAgoStr = `${thirtyDaysAgo.getFullYear()}-${String(thirtyDaysAgo.getMonth()+1).padStart(2,'0')}-${String(thirtyDaysAgo.getDate()).padStart(2,'0')}`
+    const { data: appts30 } = await supabase
+      .from('appointments')
+      .select('id, client_id, date, price')
+      .eq('barber_id', uid)
+      .gte('date', thirtyDaysAgoStr)
+      .in('status', ['done', 'completed'])
+    setMyAppts30(appts30 || [])
   }, [supabase])
 
   useEffect(() => {
@@ -233,10 +245,38 @@ export default function BarberDashboard() {
     const time24 = `${h.toString().padStart(2,'0')}:${minutes}:00`
     const svc = services.find(s => s.id === bookingService)
 
+    // Look up or create client record so client_id is never null
+    const normalizedPhone = bookingPhone.replace(/\D/g, '')
+    let walkinClientId: string | null = null
+    const { data: existingWalkInClient } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('phone', normalizedPhone)
+      .maybeSingle()
+    if (existingWalkInClient) {
+      walkinClientId = existingWalkInClient.id
+    } else {
+      const { data: newWalkInClient } = await supabase
+        .from('clients')
+        .insert({ full_name: bookingName, phone: normalizedPhone })
+        .select('id')
+        .maybeSingle()
+      walkinClientId = newWalkInClient?.id ?? null
+    }
+
+    if (walkinClientId && shopId) {
+      fetch('/api/book/membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: walkinClientId, shopId }),
+      }).catch(() => {})
+    }
+
     const { error: insertError } = await supabase.from('appointments').insert({
       shop_id: shopId,
       barber_id: barberId,
       service_id: bookingService,
+      client_id: walkinClientId,
       client_name: bookingName,
       client_phone: bookingPhone,
       date: today,
@@ -298,12 +338,21 @@ export default function BarberDashboard() {
 
   // Client Lock metrics
   const lockedClients = clientLocks.filter(l => l.locked)
-  const atRiskClients = lockedClients.filter(l => {
+  const atRiskClients = lockedClients.filter((l: any) => {
     if (!l.last_booking_date) return false
     const daysSince = Math.floor((Date.now() - new Date(l.last_booking_date).getTime()) / (1000 * 60 * 60 * 24))
     return l.loyalty_protected ? daysSince > 300 : daysSince > 60
   })
-  const loyaltyClients = lockedClients.filter(l => l.loyalty_protected)
+  const loyaltyClients = lockedClients.filter((l: any) => l.loyalty_protected)
+
+  // My 30-day performance stats
+  const uniqueClients30 = new Set(myAppts30.filter(a => a.client_id).map(a => a.client_id))
+  const clientVisitCount30: Record<string, number> = {}
+  for (const a of myAppts30) {
+    if (a.client_id) clientVisitCount30[a.client_id] = (clientVisitCount30[a.client_id] ?? 0) + 1
+  }
+  const repeatClients30 = Object.values(clientVisitCount30).filter(c => c > 1).length
+  const repeatRate30 = uniqueClients30.size > 0 ? Math.round((repeatClients30 / uniqueClients30.size) * 100) : 0
 
   return (
     <div className="min-h-screen bg-warm-50">
@@ -446,6 +495,30 @@ export default function BarberDashboard() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* MY PERFORMANCE — scoped to this barber only */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200">
+            <div className="font-serif text-charcoal-900">My Performance</div>
+            <div className="text-xs text-charcoal-500 mt-0.5">Last 30 days</div>
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-warm-200">
+            <div className="p-4 text-center">
+              <div className="font-serif text-2xl text-charcoal-900 mb-1">{myAppts30.length}</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Appointments</div>
+            </div>
+            <div className="p-4 text-center">
+              <div className="font-serif text-2xl text-charcoal-900 mb-1">{uniqueClients30.size}</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Clients Served</div>
+            </div>
+            <div className="p-4 text-center">
+              <div className={`font-serif text-2xl mb-1 ${repeatRate30 >= 40 ? 'text-od-green' : repeatRate30 >= 20 ? 'text-amber-500' : 'text-charcoal-500'}`}>
+                {repeatRate30}%
+              </div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Repeat Rate</div>
+            </div>
+          </div>
         </div>
 
         {/* WALK-IN BOOKING */}
