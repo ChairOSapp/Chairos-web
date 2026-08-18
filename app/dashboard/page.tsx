@@ -92,6 +92,10 @@ export default function Dashboard() {
   const [weekAppointments, setWeekAppointments] = useState<any[]>([])
   const [tips, setTips] = useState<any[]>([])
   const [clientLocks, setClientLocks] = useState<any[]>([])
+  const [retentionRevenue, setRetentionRevenue] = useState(0)
+  const [savedClientsCount, setSavedClientsCount] = useState(0)
+  const [barberRiskMap, setBarberRiskMap] = useState<Record<string, boolean>>({})
+  const [barberStats30, setBarberStats30] = useState<Record<string, { appts: number; clients: number; repeatClients: number }>>({})
   const [loading, setLoading] = useState(true)
   const [shopId, setShopId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string>(() => toDateStr(new Date()))
@@ -166,6 +170,80 @@ export default function Dashboard() {
         setServices(svcs || [])
         setClientLocks(locks || [])
         await loadSchedule(shopData.id)
+
+        // Retention Value: sum revenue from locked-client appointments in last 30 days
+        const lockedClientIds = (locks ?? []).filter(l => l.locked && l.client_id).map(l => l.client_id as string)
+        const thirtyDaysAgoStr = toDateStr(new Date(Date.now() - 30 * 86400000))
+        if (lockedClientIds.length > 0) {
+          const [{ data: retAppts }, { data: retTips }] = await Promise.all([
+            supabase.from('appointments').select('id, price')
+              .eq('shop_id', shopData.id)
+              .in('client_id', lockedClientIds)
+              .gte('date', thirtyDaysAgoStr)
+              .in('status', ['done', 'completed']),
+            supabase.from('tips').select('amount, appointment_id')
+              .eq('shop_id', shopData.id)
+              .gte('created_at', `${thirtyDaysAgoStr}T00:00:00`),
+          ])
+          const retApptIds = new Set((retAppts ?? []).map((a: any) => a.id))
+          const rev = (retAppts ?? []).reduce((s: number, a: any) => s + (a.price ?? 0), 0)
+            + (retTips ?? []).filter((t: any) => retApptIds.has(t.appointment_id)).reduce((s: number, t: any) => s + (t.amount ?? 0), 0)
+          setRetentionRevenue(rev)
+        }
+
+        // Barber Risk Score: compare last 30 days vs prior 30 days appointment volume
+        const sixtyDaysAgoStr = toDateStr(new Date(Date.now() - 60 * 86400000))
+        const { data: hist } = await supabase
+          .from('appointments')
+          .select('barber_id, date, client_id')
+          .eq('shop_id', shopData.id)
+          .gte('date', sixtyDaysAgoStr)
+          .in('status', ['done', 'completed'])
+
+        const counts30: Record<string, number> = {}
+        const countsPrior: Record<string, number> = {}
+        const clients30Map: Record<string, Set<string>> = {}
+        const clientsPriorMap: Record<string, Set<string>> = {}
+        for (const a of hist ?? []) {
+          const bid = a.barber_id
+          if (!bid) continue
+          if (a.date >= thirtyDaysAgoStr) {
+            counts30[bid] = (counts30[bid] ?? 0) + 1
+            if (a.client_id) {
+              if (!clients30Map[bid]) clients30Map[bid] = new Set()
+              clients30Map[bid].add(a.client_id)
+            }
+          } else {
+            countsPrior[bid] = (countsPrior[bid] ?? 0) + 1
+            if (a.client_id) {
+              if (!clientsPriorMap[bid]) clientsPriorMap[bid] = new Set()
+              clientsPriorMap[bid].add(a.client_id)
+            }
+          }
+        }
+        const riskMap: Record<string, boolean> = {}
+        for (const bid of Object.keys(countsPrior)) {
+          const last30 = counts30[bid] ?? 0
+          const prior30 = countsPrior[bid] ?? 1
+          if (last30 < prior30 * 0.7) riskMap[bid] = true
+        }
+        setBarberRiskMap(riskMap)
+
+        // Per-barber 30d stats for comparison table
+        const stats30: Record<string, { appts: number; clients: number; repeatClients: number }> = {}
+        for (const bid of new Set([...Object.keys(counts30), ...Object.keys(countsPrior)])) {
+          const clients = clients30Map[bid] ?? new Set()
+          const priorClients = clientsPriorMap[bid] ?? new Set()
+          const repeatClients = [...clients].filter(cid => priorClients.has(cid)).length
+          stats30[bid] = { appts: counts30[bid] ?? 0, clients: clients.size, repeatClients }
+        }
+        setBarberStats30(stats30)
+
+        // Clients saved this month (lapse_alerts requires service role — use API)
+        fetch('/api/insights/lapse-saves')
+          .then(r => r.json())
+          .then(d => setSavedClientsCount(d.count ?? 0))
+          .catch(() => {})
       }
 
       setLoading(false)
@@ -382,17 +460,21 @@ export default function Dashboard() {
               {allBarbers.map((b: any) => {
                 const isLinked = !!b.barber_id
                 const isOn = b.on_floor && isLinked
+                const isAtRisk = isLinked && !!barberRiskMap[b.barber_id]
                 return (
                   <div key={b.id}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                      isOn
-                        ? 'bg-green-500/10 border-green-500/20 text-green-600'
-                        : isLinked
-                          ? 'bg-warm-200 border-warm-300 text-charcoal-500'
-                          : 'bg-warm-200 border-warm-300 text-charcoal-400'
+                      isAtRisk
+                        ? 'bg-red-500/10 border-red-500/20 text-red-500'
+                        : isOn
+                          ? 'bg-green-500/10 border-green-500/20 text-green-600'
+                          : isLinked
+                            ? 'bg-warm-200 border-warm-300 text-charcoal-500'
+                            : 'bg-warm-200 border-warm-300 text-charcoal-400'
                     }`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${isOn ? 'bg-green-500' : 'bg-warm-400'}`} />
+                    <div className={`w-1.5 h-1.5 rounded-full ${isAtRisk ? 'bg-red-500' : isOn ? 'bg-green-500' : 'bg-warm-400'}`} />
                     {b.barber_name || b.alias}
+                    {isAtRisk && <span className="ml-0.5 text-red-400" title="Booking volume declining">↓</span>}
                   </div>
                 )
               })}
@@ -423,7 +505,80 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 7. SHOP — compact */}
+        {/* 7b. RETENTION VALUE — top priority sales surface */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Retention Value</div>
+            {savedClientsCount > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-od-green font-semibold">
+                <div className="w-1.5 h-1.5 rounded-full bg-od-green" />
+                {savedClientsCount} saved this month
+              </div>
+            )}
+          </div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+            <div className="p-5">
+              <div className="text-xs text-charcoal-500 mb-1">Revenue From Locked Clients This Month</div>
+              <div className="font-serif text-5xl text-od-green leading-none">
+                ${retentionRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              </div>
+              <div className="text-xs text-charcoal-500 mt-2">
+                {totalLocked} locked client{totalLocked !== 1 ? 's' : ''} · last 30 days · appointments + tips
+              </div>
+            </div>
+            {savedClientsCount > 0 && (
+              <div className="border-t border-warm-200 px-5 py-3 bg-od-green/5">
+                <div className="text-xs text-charcoal-700">
+                  <span className="font-semibold text-od-green">{savedClientsCount} client{savedClientsCount !== 1 ? 's' : ''}</span> re-engaged via lapse alerts this month — revenue that would have walked out
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 7c. BARBER PERFORMANCE TABLE */}
+        {allBarbers.filter(b => b.barber_id).length > 0 && (
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Barber Performance</div>
+              <button onClick={() => router.push('/dashboard/analytics')} className="btn-chairos-outline">Full Analytics</button>
+            </div>
+            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+              <div className="grid grid-cols-4 px-4 py-2 border-b border-warm-200 text-[10px] font-semibold tracking-widest uppercase text-charcoal-400">
+                <div>Barber</div>
+                <div className="text-center">Locked</div>
+                <div className="text-center">Appts / 30d</div>
+                <div className="text-center">Repeat Rate</div>
+              </div>
+              {allBarbers.filter(b => b.barber_id).map((b: any) => {
+                const stats = barberStats30[b.barber_id] ?? { appts: 0, clients: 0, repeatClients: 0 }
+                const lockedCount = clientLocks.filter(l => l.locked && l.barber_id === b.barber_id).length
+                const repeatRate = stats.clients > 0 ? Math.round((stats.repeatClients / stats.clients) * 100) : 0
+                const isRisk = !!barberRiskMap[b.barber_id]
+                return (
+                  <div key={b.id} className={`grid grid-cols-4 px-4 py-3 border-b border-warm-200 last:border-0 items-center ${isRisk ? 'bg-red-500/5' : ''}`}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: b.color || '#b8861f' }} />
+                      <span className="text-sm font-medium text-charcoal-900 truncate">{b.barber_name || b.alias}</span>
+                      {isRisk && <span className="text-[10px] text-red-400 font-semibold flex-shrink-0">↓risk</span>}
+                    </div>
+                    <div className="text-center">
+                      <span className={`text-sm font-semibold ${lockedCount > 0 ? 'text-od-green' : 'text-charcoal-500'}`}>{lockedCount}</span>
+                    </div>
+                    <div className="text-center text-sm text-charcoal-700">{stats.appts}</div>
+                    <div className="text-center">
+                      <span className={`text-sm font-semibold ${repeatRate >= 40 ? 'text-od-green' : repeatRate >= 20 ? 'text-amber-500' : 'text-charcoal-500'}`}>
+                        {repeatRate}%
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 8. SHOP — compact */}
         <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Shop</div>
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
