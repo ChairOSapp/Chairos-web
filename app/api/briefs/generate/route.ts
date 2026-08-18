@@ -250,8 +250,8 @@ export async function POST() {
 
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1000,
-        system: `You are ChairOS. Write a daily brief for a barbershop owner. Frame every insight around the team. Give 3 suggestions: one to help a struggling barber, one to reward a top performer, one operational move to drive more revenue today. Reference specific barber names and numbers. Under 300 words. Return JSON with keys: headline (string), one_thing (string), barber_rankings (array: name, revenue, tips, no_shows, flag), shop_totals (object), suggestions (array of 3 plain strings). Respond with only valid JSON, no markdown fences.`,
+        max_tokens: 1200,
+        system: `You are ChairOS. Write a daily brief for a barbershop owner. Frame every insight around the team. Give 3 suggestions: one to help a struggling barber, one to reward a top performer, one operational move to drive more revenue today. Reference specific barber names and numbers. Under 300 words. Return JSON with keys: headline (string), one_thing (string), yesterday_summary (1-2 sentences summarizing yesterday's shop performance), week_summary (1-2 sentences on this week's revenue trend vs last week), barber_rankings (array: name, revenue, tips, no_shows, flag), shop_totals (object), suggestions (array of 3 plain strings). Respond with only valid JSON, no markdown fences.`,
         messages: [{ role: 'user', content: JSON.stringify(briefData) }],
       })
 
@@ -270,6 +270,10 @@ export async function POST() {
       shopId = myEntry?.shop_id ?? null
       const barberName = myEntry?.barber_name || myEntry?.alias || profile?.full_name || 'Barber'
 
+      const thisMonday = getMondayOfWeek(today)
+      const lastMonday = subtractDays(thisMonday, 7)
+      const periodDays = Math.max(1, Math.ceil((yesterday.getTime() - thisMonday.getTime()) / 86400000) + 1)
+
       let apptBase = admin.from('appointments').select('id, price, status, client_id, time, services(name), client_name').eq('barber_id', user.id)
       if (shopId) apptBase = apptBase.eq('shop_id', shopId)
 
@@ -283,6 +287,20 @@ export async function POST() {
         .lt('created_at', `${dateStr(today)}T00:00:00`)
       const { data: yesterdayTips } = await tipQuery
       const yesterdayTipsTotal = (yesterdayTips ?? []).reduce((s: number, t: any) => s + (t.amount ?? 0), 0)
+
+      // Week data for trend
+      let weekApptQuery = admin.from('appointments').select('id, price, status').eq('barber_id', user.id)
+      if (shopId) weekApptQuery = weekApptQuery.eq('shop_id', shopId)
+      const [{ data: thisWeekAppts }, { data: lastWeekAppts }] = await Promise.all([
+        weekApptQuery.gte('date', dateStr(thisMonday)).lte('date', yesterdayStr).in('status', ['done', 'completed']),
+        admin.from('appointments').select('id, price, status').eq('barber_id', user.id)
+          .gte('date', dateStr(lastMonday))
+          .lte('date', dateStr(subtractDays(new Date(lastMonday.getTime() + periodDays * 86400000), 1)))
+          .in('status', ['done', 'completed']),
+      ])
+      const thisWeekRevenue = (thisWeekAppts ?? []).reduce((s: number, a: any) => s + (a.price ?? 0), 0)
+      const lastWeekRevenue = (lastWeekAppts ?? []).reduce((s: number, a: any) => s + (a.price ?? 0), 0)
+      const weekRevChangePct = lastWeekRevenue > 0 ? Math.round(((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100) : null
 
       // Client health
       const { data: allClientAppts } = await admin
@@ -313,13 +331,19 @@ export async function POST() {
           clients: completed.length,
           no_shows: noShows.length,
         },
+        week: {
+          revenue: thisWeekRevenue,
+          last_week_revenue: lastWeekRevenue,
+          revenue_change_pct: weekRevChangePct,
+          appointments: (thisWeekAppts ?? []).length,
+        },
         client_alerts: clientAlerts,
       }
 
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 800,
-        system: `You are ChairOS, writing a daily brief for a barber. Be specific to their numbers. Give 2 suggestions: one to increase revenue today, one to protect a client relationship. Under 200 words. Return JSON with keys: headline, yesterday_summary, client_alerts (array of objects with name and days_since), suggestions (array of 2 strings), one_thing. Respond with only valid JSON, no markdown.`,
+        max_tokens: 900,
+        system: `You are ChairOS, writing a daily brief for a barber. Be specific to their numbers. Give 2 suggestions: one to increase revenue today, one to protect a client relationship. Under 200 words. Return JSON with keys: headline, yesterday_summary (1-2 sentences on yesterday), week_summary (1-2 sentences on this week's revenue trend vs last week), client_alerts (array of objects with name and days_since), suggestions (array of 2 strings), one_thing. Respond with only valid JSON, no markdown.`,
         messages: [{ role: 'user', content: JSON.stringify(briefData) }],
       })
 
