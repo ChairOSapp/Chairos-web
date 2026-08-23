@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const CATALOG = [
   { name: 'Precision Haircut', price: 55, duration_minutes: 30, description: 'Clean lines, sharp edges' },
@@ -17,6 +18,8 @@ const CATALOG = [
 ]
 
 export default function ManageServices() {
+  const { vertical } = useVerticalLabels()
+  const depositsApplicable = vertical === 'tattoo' || vertical === 'salon'
   const [shop, setShop] = useState<any>(null)
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,6 +35,7 @@ export default function ManageServices() {
   const [svcPrice, setSvcPrice] = useState('')
   const [svcDuration, setSvcDuration] = useState('30')
   const [svcDesc, setSvcDesc] = useState('')
+  const [svcDepositRequired, setSvcDepositRequired] = useState(true)
 
   const router = useRouter()
   const supabase = createClient()
@@ -58,7 +62,7 @@ export default function ManageServices() {
   }
 
   function resetForm() {
-    setSvcName(''); setSvcPrice(''); setSvcDuration('30'); setSvcDesc('')
+    setSvcName(''); setSvcPrice(''); setSvcDuration('30'); setSvcDesc(''); setSvcDepositRequired(true)
     setEditingId(null); setError('')
   }
 
@@ -68,6 +72,7 @@ export default function ManageServices() {
     setSvcPrice(String(s.price))
     setSvcDuration(String(s.duration_minutes))
     setSvcDesc(s.description || '')
+    setSvcDepositRequired(!!s.deposit_required)
     setMode('custom')
     setShowForm(true)
   }
@@ -97,7 +102,8 @@ export default function ManageServices() {
       name: svcName.trim(),
       price: parseFloat(svcPrice),
       duration_minutes: parseInt(svcDuration),
-      description: svcDesc.trim()
+      description: svcDesc.trim(),
+      deposit_required: svcDepositRequired,
     }
 
     let saveError = null
@@ -212,6 +218,13 @@ export default function ManageServices() {
                       className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                   </div>
                 </div>
+                {depositsApplicable && (
+                  <label className="flex items-center gap-2 cursor-pointer mb-4">
+                    <input type="checkbox" checked={svcDepositRequired} onChange={e => setSvcDepositRequired(e.target.checked)}
+                      className="w-4 h-4 accent-od-green" />
+                    <span className="text-sm text-charcoal-500">Require a deposit to book this service</span>
+                  </label>
+                )}
                 <div className="flex gap-3">
                   <button onClick={() => { resetForm(); setShowForm(false) }}
                     className="px-6 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
@@ -235,7 +248,10 @@ export default function ManageServices() {
               {services.map((s) => (
                 <div key={s.id} className={`px-5 py-4 flex items-center gap-4 ${!s.active ? 'opacity-50' : ''}`}>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-charcoal-900">{s.name}</div>
+                    <div className="text-sm font-semibold text-charcoal-900 flex items-center gap-2">
+                      {s.name}
+                      {depositsApplicable && s.deposit_required && <span className="text-xs text-od-green bg-od-green/10 px-1.5 py-0.5 rounded">Deposit</span>}
+                    </div>
                     <div className="text-xs text-charcoal-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
                   </div>
                   <div className="font-mono text-lg text-od-green font-semibold">${s.price}</div>

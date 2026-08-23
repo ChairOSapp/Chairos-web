@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 interface Service {
   id: string
@@ -9,12 +10,15 @@ interface Service {
   duration_minutes: number
   description: string | null
   active: boolean
+  deposit_required: boolean
 }
 
-const BLANK: Omit<Service, 'id'> = { name: '', price: 0, duration_minutes: 30, description: '', active: true }
+const BLANK: Omit<Service, 'id'> = { name: '', price: 0, duration_minutes: 30, description: '', active: true, deposit_required: true }
 
 export default function ServicesEditor({ shopId }: { shopId: string }) {
   const supabase = createClient()
+  const { vertical } = useVerticalLabels()
+  const depositsApplicable = vertical === 'tattoo' || vertical === 'salon'
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<string | null>(null) // service id or 'new'
@@ -27,7 +31,7 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
   async function load() {
     const { data } = await supabase
       .from('services')
-      .select('id, name, price, duration_minutes, description, active')
+      .select('id, name, price, duration_minutes, description, active, deposit_required')
       .eq('shop_id', shopId)
       .order('name')
     setServices(data ?? [])
@@ -41,7 +45,7 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
   }
 
   function startEdit(s: Service) {
-    setForm({ name: s.name, price: s.price, duration_minutes: s.duration_minutes, description: s.description ?? '', active: s.active })
+    setForm({ name: s.name, price: s.price, duration_minutes: s.duration_minutes, description: s.description ?? '', active: s.active, deposit_required: s.deposit_required })
     setEditing(s.id)
     setError('')
   }
@@ -62,6 +66,7 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
       duration_minutes: Number(form.duration_minutes),
       description: form.description?.trim() || null,
       active: form.active,
+      deposit_required: form.deposit_required,
     }
 
     if (editing === 'new') {
@@ -105,6 +110,7 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-charcoal-900 truncate">{s.name}</span>
                 {!s.active && <span className="text-xs text-charcoal-400 bg-warm-300 px-1.5 py-0.5 rounded">Hidden</span>}
+                {depositsApplicable && s.deposit_required && <span className="text-xs text-od-green bg-od-green/10 px-1.5 py-0.5 rounded">Deposit</span>}
               </div>
               <div className="text-xs text-charcoal-500 mt-0.5">
                 ${Number(s.price).toFixed(2)} · {s.duration_minutes} min
@@ -198,6 +204,18 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
             />
             <span className="text-sm text-charcoal-500">Visible to clients during booking</span>
           </label>
+
+          {depositsApplicable && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.deposit_required}
+                onChange={e => setForm(f => ({ ...f, deposit_required: e.target.checked }))}
+                className="w-4 h-4 accent-od-green"
+              />
+              <span className="text-sm text-charcoal-500">Require a deposit to book this service</span>
+            </label>
+          )}
 
           <div className="flex gap-2 pt-1">
             <button

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 interface Appointment {
   id: string
@@ -46,6 +47,7 @@ function fmtTime(t: string) {
 }
 
 export default function AppointmentPopover({ appointment, barberName, x, y, isOwner, onClose, onUpdated }: Props) {
+  const { staffLabel } = useVerticalLabels()
   const [saving, setSaving] = useState(false)
   const [rescheduling, setRescheduling] = useState(false)
   const [newDate, setNewDate] = useState(appointment.date)
@@ -103,7 +105,17 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
 
   async function cancel() {
     if (!confirm('Cancel this appointment?')) return
-    await updateStatus('cancelled')
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/appointments/${appointment.id}/cancel`, { method: 'POST' })
+      const result = await res.json()
+      if (!res.ok) { alert(result.error || 'Failed to cancel appointment'); return }
+      if (result.refunded) alert('Appointment cancelled and deposit refunded.')
+    } finally {
+      setSaving(false)
+      onUpdated()
+      onClose()
+    }
   }
 
   const badge = STATUS_LABELS[appointment.status] || STATUS_LABELS.pending
@@ -136,7 +148,7 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
           <span className="font-mono font-semibold text-charcoal-900">${Number(appointment.price).toFixed(0)}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-charcoal-400">Barber</span>
+          <span className="text-charcoal-400">{staffLabel}</span>
           <span className="font-medium text-charcoal-900">{barberName}</span>
         </div>
         <div className="flex items-center justify-between">

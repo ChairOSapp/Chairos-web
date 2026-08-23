@@ -47,6 +47,17 @@ function BookingPageInner() {
   // 'save' = store card for later checkout, 'charge' = one-time charge now
   const [cardMode, setCardMode] = useState<'save' | 'charge'>('save')
 
+  // Mirrors the gate computed server-side in /api/square/create-deposit —
+  // tattoo shops always require a deposit, salon shops only if the owner
+  // enabled it, and Consultation (or any service with deposit_required off)
+  // is always exempt.
+  const requiresDeposit = !!shop && !!selectedService &&
+    (shop.vertical === 'tattoo' || (shop.vertical === 'salon' && shop.deposits_enabled)) &&
+    selectedService.deposit_required === true
+  const depositAmountEstimate = requiresDeposit && selectedService?.price != null
+    ? (shop.deposit_type === 'flat' ? Number(shop.deposit_amount) : Math.round(selectedService.price * (Number(shop.deposit_amount) / 100) * 100) / 100)
+    : null
+
   useEffect(() => {
     async function load() {
       const { data: shop } = await supabase
@@ -109,7 +120,7 @@ function BookingPageInner() {
   // Initialize Square Web Payments SDK when user reaches step 4 and shop requires card
   useEffect(() => {
     if (step !== 4) return
-    if (!shop?.require_card_to_book) return
+    if (!shop?.require_card_to_book && !requiresDeposit) return
     if (squareCardRef.current) return // already initialized
 
     const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
@@ -177,9 +188,9 @@ function BookingPageInner() {
     setError('')
     setPaymentError('')
 
-    // Tokenize card if shop requires it
+    // Tokenize card if the shop requires it, or a deposit must be collected
     let sourceId: string | null = null
-    if (shop?.require_card_to_book && squareCardRef.current) {
+    if ((shop?.require_card_to_book || requiresDeposit) && squareCardRef.current) {
       const result = await squareCardRef.current.tokenize()
       if (result.status === 'OK') {
         sourceId = result.token
@@ -191,8 +202,8 @@ function BookingPageInner() {
       }
     }
 
-    // If shop requires card but SDK not ready, fail
-    if (shop?.require_card_to_book && !sourceId) {
+    // If a card was required but the SDK never produced a token, fail
+    if ((shop?.require_card_to_book || requiresDeposit) && !sourceId) {
       setPaymentError('Card form not ready. Please refresh and try again.')
       setSubmitting(false)
       return
@@ -273,8 +284,29 @@ function BookingPageInner() {
 
     if (bookErr || !newAppt) { setError(bookErr?.message || 'Booking failed'); setSubmitting(false); return }
 
-    // Charge card immediately if one-time mode (need appointmentId for Square)
-    if (sourceId && cardMode === 'charge' && newAppt?.id) {
+    if (sourceId && requiresDeposit && newAppt?.id) {
+      // Deposit path: charges the deposit amount (not the full price) and,
+      // on success, the server flips the appointment straight to
+      // 'confirmed'. On failure the appointment stays 'pending' with its
+      // 15-minute hold — the client can retry, or the hold expires on its
+      // own via the scheduled job.
+      try {
+        const depRes = await fetch('/api/square/create-deposit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceId, appointmentId: newAppt.id, publicShopCode: shop.shop_code }),
+        })
+        const depData = await depRes.json()
+        if (!depRes.ok || depData.error) {
+          setPaymentError(depData.error || 'Deposit payment failed. Your slot is held for 15 minutes — try again or contact the shop.')
+        } else {
+          paymentSucceeded = true
+        }
+      } catch {
+        setPaymentError('Deposit payment failed. Your slot is held for 15 minutes — try again or contact the shop.')
+      }
+    } else if (sourceId && cardMode === 'charge' && newAppt?.id) {
+      // Charge card immediately if one-time mode (need appointmentId for Square)
       try {
         const payRes = await fetch('/api/square/create-payment', {
           method: 'POST',
@@ -290,10 +322,8 @@ function BookingPageInner() {
       } catch {
         setPaymentError('Payment failed. Please pay at the shop.')
       }
-    }
-
-    // Save card on file if client chose save mode (non-blocking)
-    if (sourceId && cardMode === 'save' && clientId) {
+    } else if (sourceId && cardMode === 'save' && clientId) {
+      // Save card on file if client chose save mode (non-blocking)
       try {
         await fetch('/api/square/save-card', {
           method: 'POST',
@@ -654,6 +684,12 @@ function BookingPageInner() {
                 <span className="text-charcoal-400">Total</span>
                 <span className="font-mono font-semibold" style={{ color: brand }}>${selectedService?.price}</span>
               </div>
+              {requiresDeposit && depositAmountEstimate != null && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-charcoal-400">Deposit due now</span>
+                  <span className="font-mono font-semibold" style={{ color: brand }}>${depositAmountEstimate}</span>
+                </div>
+              )}
             </div>
             <div className="space-y-4 mb-6">
               {[
@@ -683,32 +719,36 @@ function BookingPageInner() {
               ))}
             </div>
 
-            {/* SQUARE CARD FORM — only shown when shop requires card */}
-            {shop?.require_card_to_book && (
+            {/* SQUARE CARD FORM — shown when the shop requires a card, or this booking requires a deposit */}
+            {(shop?.require_card_to_book || requiresDeposit) && (
               <div className="mb-6">
-                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Card</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">
+                  {requiresDeposit ? 'Deposit — required to hold your slot' : 'Card'}
+                </label>
 
-                {/* Save vs. charge toggle */}
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  {[
-                    { key: 'save', label: 'Save for later', sub: 'Pay at checkout' },
-                    { key: 'charge', label: 'Charge now', sub: `$${selectedService?.price} today` },
-                  ].map(opt => (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      onClick={() => setCardMode(opt.key as 'save' | 'charge')}
-                      className={`p-3 rounded-xl border text-left text-sm transition-colors ${
-                        cardMode === opt.key
-                          ? 'border-od-green bg-od-green/10 text-charcoal-900'
-                          : 'border-warm-300 bg-warm-100 text-charcoal-500 hover:border-warm-400'
-                      }`}
-                    >
-                      <div className="font-semibold">{opt.label}</div>
-                      <div className="text-xs opacity-70 mt-0.5">{opt.sub}</div>
-                    </button>
-                  ))}
-                </div>
+                {/* Save vs. charge toggle — not shown for deposit bookings, which always charge the deposit now */}
+                {!requiresDeposit && (
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {[
+                      { key: 'save', label: 'Save for later', sub: 'Pay at checkout' },
+                      { key: 'charge', label: 'Charge now', sub: `$${selectedService?.price} today` },
+                    ].map(opt => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setCardMode(opt.key as 'save' | 'charge')}
+                        className={`p-3 rounded-xl border text-left text-sm transition-colors ${
+                          cardMode === opt.key
+                            ? 'border-od-green bg-od-green/10 text-charcoal-900'
+                            : 'border-warm-300 bg-warm-100 text-charcoal-500 hover:border-warm-400'
+                        }`}
+                      >
+                        <div className="font-semibold">{opt.label}</div>
+                        <div className="text-xs opacity-70 mt-0.5">{opt.sub}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4">
                   {cardLoading && (
@@ -726,7 +766,9 @@ function BookingPageInner() {
                   <p className="text-amber-400 text-xs mt-2">{paymentError}</p>
                 )}
                 <p className="text-neutral-600 text-xs mt-2">
-                  {cardMode === 'save'
+                  {requiresDeposit
+                    ? `A $${depositAmountEstimate} deposit is charged now to hold this slot. Your slot is held for 15 minutes — if payment doesn't go through in that window, it's released. The rest is due at the shop.`
+                    : cardMode === 'save'
                     ? 'Your card is saved securely by Square and charged at checkout.'
                     : `Your card is charged $${selectedService?.price} now. Tip is added at the shop.`}
                   {' '}We do not store your full card number.
@@ -766,7 +808,7 @@ function BookingPageInner() {
               <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (!!clientPhone && !smsConsent)}
                 className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
                 style={{ background: brand }}>
-                {submitting ? 'Processing...' : `Confirm & Pay $${selectedService?.price}`}
+                {submitting ? 'Processing...' : requiresDeposit ? `Confirm & Pay Deposit $${depositAmountEstimate}` : `Confirm & Pay $${selectedService?.price}`}
               </button>
             </div>
             <p className="text-charcoal-600 text-xs text-center mt-6">Powered by ChairOS</p>

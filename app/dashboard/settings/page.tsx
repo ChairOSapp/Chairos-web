@@ -7,6 +7,7 @@ import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { daysUntil } from '@/lib/billing'
 import ServicesEditor from '@/components/ServicesEditor'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 const DEFAULT_HOURS = DAYS.map(day => ({
@@ -17,6 +18,7 @@ const DEFAULT_HOURS = DAYS.map(day => ({
 }))
 
 export default function ShopSettings() {
+  const { staffLabel, staffLabelPlural, vertical } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -30,6 +32,10 @@ export default function ShopSettings() {
   const [disconnectingSquare, setDisconnectingSquare] = useState(false)
   const [barbersCollectOwnPayments, setBarbersCollectOwnPayments] = useState(false)
   const [requireCardToBook, setRequireCardToBook] = useState(false)
+  const [depositsEnabled, setDepositsEnabled] = useState(false)
+  const [depositType, setDepositType] = useState<'flat' | 'percent'>('percent')
+  const [depositAmount, setDepositAmount] = useState('20')
+  const [depositRefundWindowHours, setDepositRefundWindowHours] = useState('48')
   const [googlePlaceId, setGooglePlaceId] = useState('')
 
   // Form state
@@ -80,6 +86,10 @@ export default function ShopSettings() {
     if (shop.hours) setHours(shop.hours)
     setBarbersCollectOwnPayments(!!shop.barbers_collect_own_payments)
     setRequireCardToBook(!!shop.require_card_to_book)
+    setDepositsEnabled(!!shop.deposits_enabled)
+    setDepositType(shop.deposit_type || 'percent')
+    setDepositAmount(String(shop.deposit_amount ?? 20))
+    setDepositRefundWindowHours(String(shop.deposit_refund_window_hours ?? 48))
     setGooglePlaceId(shop.google_place_id || '')
 
     const { data: sq } = await supabase
@@ -187,6 +197,10 @@ export default function ShopSettings() {
       barbers_collect_own_payments: barbersCollectOwnPayments,
       require_card_to_book: requireCardToBook,
       google_place_id: googlePlaceId.trim() || null,
+      deposits_enabled: depositsEnabled,
+      deposit_type: depositType,
+      deposit_amount: parseFloat(depositAmount) || 0,
+      deposit_refund_window_hours: parseInt(depositRefundWindowHours) || 0,
     }).eq('id', shop.id)
 
     if (saveErr) { setError(saveErr.message); setSaving(false); return }
@@ -458,8 +472,8 @@ export default function ShopSettings() {
             {/* Payment mode toggle */}
             <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
               <div>
-                <div className="text-sm font-semibold text-charcoal-900 mb-0.5">Barbers collect their own tips & payments</div>
-                <div className="text-xs text-charcoal-500">When on, payments go to each barber's Square account and tips stay with them. Turn off if you collect everything and pay barbers out yourself.</div>
+                <div className="text-sm font-semibold text-charcoal-900 mb-0.5">{staffLabelPlural} collect their own tips & payments</div>
+                <div className="text-xs text-charcoal-500">When on, payments go to each {staffLabel.toLowerCase()}'s Square account and tips stay with them. Turn off if you collect everything and pay {staffLabelPlural.toLowerCase()} out yourself.</div>
               </div>
               <button
                 onClick={() => setBarbersCollectOwnPayments(v => !v)}
@@ -523,6 +537,64 @@ export default function ShopSettings() {
           </div>
         </div>
 
+        {/* DEPOSITS */}
+        {(vertical === 'tattoo' || vertical === 'salon') && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+            <div className="px-5 py-4 border-b border-warm-200">
+              <div className="font-serif text-charcoal-900 text-sm">Deposits</div>
+              <div className="text-xs text-charcoal-500">Collect a deposit at booking for services that require one</div>
+            </div>
+            <div className="p-5">
+              {vertical === 'tattoo' ? (
+                <div className="text-xs text-charcoal-500 bg-warm-200 rounded-lg p-3 mb-5">
+                  Deposits are required for tattoo bookings and can't be turned off. Consultations skip the deposit by default — toggle that per service in Manage Services.
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
+                  <div>
+                    <div className="text-sm font-semibold text-charcoal-900 mb-0.5">Require a deposit to book</div>
+                    <div className="text-xs text-charcoal-500">Applies to services with deposits enabled (Manage Services). Consultations skip it by default.</div>
+                  </div>
+                  <button
+                    onClick={() => setDepositsEnabled(v => !v)}
+                    style={{ background: depositsEnabled ? '#4B5320' : '#d4c9b8' }}
+                    className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
+                    <span
+                      style={{ transform: depositsEnabled ? 'translateX(22px)' : 'translateX(2px)' }}
+                      className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 mb-5">
+                <div>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Deposit Type</label>
+                  <select value={depositType} onChange={e => setDepositType(e.target.value as 'flat' | 'percent')}
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green">
+                    <option value="percent">Percent of service price</option>
+                    <option value="flat">Flat dollar amount</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
+                    Deposit Amount {depositType === 'percent' ? '(%)' : '($)'}
+                  </label>
+                  <input type="number" min="0" step={depositType === 'percent' ? '1' : '0.01'} value={depositAmount}
+                    onChange={e => setDepositAmount(e.target.value)}
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Full Refund Window (hours before appointment)</label>
+                <input type="number" min="0" value={depositRefundWindowHours} onChange={e => setDepositRefundWindowHours(e.target.value)}
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                <div className="text-xs text-charcoal-500 mt-2">Cancelling at least this many hours before the appointment refunds the deposit in full. Cancelling later forfeits it.</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* REVIEWS */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between">
@@ -534,7 +606,7 @@ export default function ShopSettings() {
               </div>
               <div>
                 <div className="font-serif text-charcoal-900 text-sm">Reviews</div>
-                <div className="text-xs text-charcoal-500">Import from Google, manage visibility, assign to barbers</div>
+                <div className="text-xs text-charcoal-500">Import from Google, manage visibility, assign to {staffLabelPlural.toLowerCase()}</div>
               </div>
             </div>
             <button
@@ -611,10 +683,10 @@ export default function ShopSettings() {
           </div>
           <div className="mt-4 pt-4 border-t border-warm-200 flex items-center justify-between">
             <div>
-              <div className="text-sm font-semibold text-charcoal-900">Barber Invites</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">All barbers in your shop are covered by your plan</div>
+              <div className="text-sm font-semibold text-charcoal-900">{staffLabel} Invites</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">All {staffLabelPlural.toLowerCase()} in your shop are covered by your plan</div>
             </div>
-            <button onClick={() => router.push('/dashboard/settings/invite')} className="btn-chairos">Invite Barbers</button>
+            <button onClick={() => router.push('/dashboard/settings/invite')} className="btn-chairos">Invite {staffLabelPlural}</button>
           </div>
         </div>
 
