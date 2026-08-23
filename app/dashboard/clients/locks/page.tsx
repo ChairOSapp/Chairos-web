@@ -4,8 +4,10 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 export default function ClientLocksPage() {
+  const { staffLabel } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [clientLocks, setClientLocks] = useState<any[]>([])
@@ -70,7 +72,7 @@ export default function ClientLocksPage() {
   }
 
   async function releaseClient(lockId: string) {
-    if (!confirm('Release this client lock? They will become floating and available to any barber.')) return
+    if (!confirm(`Release this client lock? They will become floating and available to any ${staffLabel.toLowerCase()}.`)) return
     const { error } = await supabase.from('client_locks').update({
       locked: false,
       updated_at: new Date().toISOString()
@@ -131,7 +133,7 @@ export default function ClientLocksPage() {
 
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
-            { key: 'locked', label: 'Locked', count: lockedClients.length, color: 'text-green-400', desc: 'Claimed by a barber' },
+            { key: 'locked', label: 'Locked', count: lockedClients.length, color: 'text-green-400', desc: `Claimed by a ${staffLabel.toLowerCase()}` },
             { key: 'atrisk', label: 'At Risk', count: atRiskClients.length, color: 'text-od-green', desc: 'Approaching lapse' },
             { key: 'floating', label: 'Floating', count: floatingClients.length, color: 'text-red-400', desc: 'Not assigned' },
           ].map(tab => (
@@ -156,7 +158,7 @@ export default function ClientLocksPage() {
               <div className="text-xs text-charcoal-500 mt-0.5">
                 {activeTab === 'locked' && 'Tap a client to reassign or release their lock'}
                 {activeTab === 'atrisk' && 'These clients are approaching their lapse window — reach out'}
-                {activeTab === 'floating' && 'These clients have no barber assigned — assign them to retain revenue'}
+                {activeTab === 'floating' && `These clients have no ${staffLabel.toLowerCase()} assigned — assign them to retain revenue`}
               </div>
             </div>
             <span className="text-xs font-semibold bg-od-green/10 text-od-green border border-od-green/20 px-2 py-1 rounded-full">
@@ -166,9 +168,9 @@ export default function ClientLocksPage() {
 
           {displayClients.length === 0 ? (
             <div className="p-8 text-center text-charcoal-500 text-sm">
-              {activeTab === 'locked' && 'No locked clients yet. Clients lock after 2 completed appointments with the same barber.'}
+              {activeTab === 'locked' && `No locked clients yet. Clients lock after 2 completed appointments with the same ${staffLabel.toLowerCase()}.`}
               {activeTab === 'atrisk' && 'No at-risk clients. All locked clients are within their booking window.'}
-              {activeTab === 'floating' && 'No floating clients. All clients are assigned to a barber.'}
+              {activeTab === 'floating' && `No floating clients. All clients are assigned to a ${staffLabel.toLowerCase()}.`}
             </div>
           ) : (
             <div className="divide-y divide-warm-200">
@@ -241,7 +243,7 @@ export default function ClientLocksPage() {
                           onChange={e => e.target.value && reassignClient(l.id, e.target.value)}
                           defaultValue=""
                           className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs text-charcoal-400 outline-none focus:border-od-green">
-                          <option value="" disabled>Select barber...</option>
+                          <option value="" disabled>Select {staffLabel.toLowerCase()}...</option>
                           {barbers.filter(b => b.barber_id).map(b => (
                             <option key={b.id} value={b.barber_id}>{b.barber_name || b.alias}</option>
                           ))}
@@ -277,7 +279,7 @@ export default function ClientLocksPage() {
             <div className="space-y-0 mb-5 bg-warm-200 rounded-xl overflow-hidden">
               {[
                 { label: 'Total Visits', value: (selectedClient as any).clients?.total_visits || selectedClient.booking_count || 0 },
-                { label: 'Barber', value: getBarberName(selectedClient.barber_id) },
+                { label: staffLabel, value: getBarberName(selectedClient.barber_id) },
                 { label: 'First Visit', value: selectedClient.first_booking_date ? new Date(selectedClient.first_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—' },
                 { label: 'Last Visit', value: selectedClient.last_booking_date ? new Date(selectedClient.last_booking_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—' },
                 { label: 'Status', value: selectedClient.loyalty_protected ? '★ Loyalty Protected' : selectedClient.locked ? 'Locked In' : 'Floating' },

@@ -29,6 +29,14 @@ function getMondayOfWeek(d: Date) {
   return monday
 }
 
+async function getStaffLabels(admin: ReturnType<typeof getAdmin>, shopId: string | null) {
+  if (!shopId) return { staffLabel: 'Barber', staffLabelPlural: 'Barbers' }
+  const { data: shop } = await admin.from('shops').select('vertical').eq('id', shopId).maybeSingle()
+  const vertical = shop?.vertical || 'barbershop'
+  const { data: config } = await admin.from('vertical_config').select('staff_label, staff_label_plural').eq('vertical', vertical).maybeSingle()
+  return { staffLabel: config?.staff_label || 'Barber', staffLabelPlural: config?.staff_label_plural || 'Barbers' }
+}
+
 export async function POST() {
   try {
     const cookieStore = await cookies()
@@ -92,6 +100,7 @@ export async function POST() {
 
       if (!shop) return NextResponse.json({ error: 'No shop found' }, { status: 404 })
       shopId = shop.id
+      const { staffLabel, staffLabelPlural } = await getStaffLabels(admin, shopId)
 
       // Yesterday
       const { data: yesterdayAppts } = await admin
@@ -251,7 +260,7 @@ export async function POST() {
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1200,
-        system: `You are ChairOS. Write a daily brief for a barbershop owner. Frame every insight around the team. Give 3 suggestions: one to help a struggling barber, one to reward a top performer, one operational move to drive more revenue today. Reference specific barber names and numbers. Under 300 words. Return JSON with keys: headline (string), one_thing (string), yesterday_summary (1-2 sentences summarizing yesterday's shop performance), week_summary (1-2 sentences on this week's revenue trend vs last week), barber_rankings (array: name, revenue, tips, no_shows, flag), shop_totals (object), suggestions (array of 3 plain strings). Respond with only valid JSON, no markdown fences.`,
+        system: `You are ChairOS. Write a daily brief for a shop owner whose team is made up of ${staffLabelPlural.toLowerCase()}. Frame every insight around the team. Give 3 suggestions: one to help a struggling ${staffLabel.toLowerCase()}, one to reward a top performer, one operational move to drive more revenue today. Reference specific ${staffLabel.toLowerCase()} names and numbers. Under 300 words. Return JSON with keys: headline (string), one_thing (string), yesterday_summary (1-2 sentences summarizing yesterday's shop performance), week_summary (1-2 sentences on this week's revenue trend vs last week), barber_rankings (array: name, revenue, tips, no_shows, flag), shop_totals (object), suggestions (array of 3 plain strings). Respond with only valid JSON, no markdown fences.`,
         messages: [{ role: 'user', content: JSON.stringify(briefData) }],
       })
 
@@ -268,7 +277,8 @@ export async function POST() {
         .maybeSingle()
 
       shopId = myEntry?.shop_id ?? null
-      const barberName = myEntry?.barber_name || myEntry?.alias || profile?.full_name || 'Barber'
+      const { staffLabel } = await getStaffLabels(admin, shopId)
+      const barberName = myEntry?.barber_name || myEntry?.alias || profile?.full_name || staffLabel
 
       const thisMonday = getMondayOfWeek(today)
       const lastMonday = subtractDays(thisMonday, 7)
@@ -343,7 +353,7 @@ export async function POST() {
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 900,
-        system: `You are ChairOS, writing a daily brief for a barber. Be specific to their numbers. Give 2 suggestions: one to increase revenue today, one to protect a client relationship. Under 200 words. Return JSON with keys: headline, yesterday_summary (1-2 sentences on yesterday), week_summary (1-2 sentences on this week's revenue trend vs last week), client_alerts (array of objects with name and days_since), suggestions (array of 2 strings), one_thing. Respond with only valid JSON, no markdown.`,
+        system: `You are ChairOS, writing a daily brief for a ${staffLabel.toLowerCase()}. Be specific to their numbers. Give 2 suggestions: one to increase revenue today, one to protect a client relationship. Under 200 words. Return JSON with keys: headline, yesterday_summary (1-2 sentences on yesterday), week_summary (1-2 sentences on this week's revenue trend vs last week), client_alerts (array of objects with name and days_since), suggestions (array of 2 strings), one_thing. Respond with only valid JSON, no markdown.`,
         messages: [{ role: 'user', content: JSON.stringify(briefData) }],
       })
 

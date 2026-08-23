@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+const STAFF_FALLBACK: Record<string, string> = { barbershop: 'A barber', salon: 'A stylist', tattoo: 'An artist' }
+
 export default function JoinPage() {
   const [mode, setMode] = useState<'loading'|'invite'|'code'|'success'|'error'>('loading')
   const [shop, setShop] = useState<any>(null)
@@ -127,7 +129,7 @@ export default function JoinPage() {
       .select('full_name')
       .eq('id', user.id)
       .maybeSingle()
-    const barberName = profile?.full_name || 'A barber'
+    const barberName = profile?.full_name || STAFF_FALLBACK[shopData.vertical || 'barbershop'] || 'A barber'
 
     // Insert pending_barbers request
     const { error: pendingErr } = await supabase

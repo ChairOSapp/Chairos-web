@@ -4,8 +4,10 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import MobileNav from '@/components/MobileNav'
 import OwnerNav from '@/components/OwnerNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 export default function TipsPage() {
+  const { staffLabel, staffLabelPlural } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [tips, setTips] = useState<any[]>([])
@@ -123,7 +125,7 @@ export default function TipsPage() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" className="text-od-green flex-shrink-0">
               <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
             </svg>
-            <p className="text-xs text-od-green">Barbers collect their own tips — no cashout needed. This is a read-only view of tips recorded in ChairOS.</p>
+            <p className="text-xs text-od-green">{staffLabelPlural} collect their own tips — no cashout needed. This is a read-only view of tips recorded in ChairOS.</p>
           </div>
         )}
 
@@ -144,7 +146,7 @@ export default function TipsPage() {
         {/* BY BARBER */}
         {byBarber.length > 0 && (
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-5">
-            <div className="px-5 py-3 border-b border-warm-200 text-xs font-semibold tracking-widest uppercase text-charcoal-500">By Barber</div>
+            <div className="px-5 py-3 border-b border-warm-200 text-xs font-semibold tracking-widest uppercase text-charcoal-500">By {staffLabel}</div>
             <div className="divide-y divide-warm-200">
               {byBarber.map((b, i) => {
                 const color = getBarberColor(b.barber.barber_id)
@@ -175,7 +177,7 @@ export default function TipsPage() {
         <div className="flex gap-3 flex-wrap mb-4">
           <select value={filterBarber} onChange={e => setFilterBarber(e.target.value)}
             className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
-            <option value="">All Barbers</option>
+            <option value="">All {staffLabelPlural}</option>
             {barbers.filter(b => b.barber_id).map(b => (
               <option key={b.id} value={b.barber_id}>{b.barber_name || b.alias}</option>
             ))}

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { Suspense } from 'react'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-warm-200 text-charcoal-500',
@@ -15,13 +16,15 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-950 text-red-400',
 }
 
-const AUDIENCE_LABELS: Record<string, string> = {
-  all_clients: 'All Clients',
-  lapsed_clients: 'Lapsed Clients',
-  specific_barber: 'By Barber',
-  specific_service: 'By Service',
-  no_booking_since: 'No Booking Since',
-  manual_list: 'Manual Entry (type emails/phones)',
+function audienceLabels(staffLabel: string): Record<string, string> {
+  return {
+    all_clients: 'All Clients',
+    lapsed_clients: 'Lapsed Clients',
+    specific_barber: `By ${staffLabel}`,
+    specific_service: 'By Service',
+    no_booking_since: 'No Booking Since',
+    manual_list: 'Manual Entry (type emails/phones)',
+  }
 }
 
 type Campaign = {
@@ -50,6 +53,8 @@ function CampaignsInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
+  const { staffLabel } = useVerticalLabels()
+  const AUDIENCE_LABELS = audienceLabels(staffLabel)
 
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
@@ -540,10 +545,10 @@ function CampaignsInner() {
                   )}
                   {audienceType === 'specific_barber' && (
                     <div>
-                      <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Barber</label>
+                      <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{staffLabel}</label>
                       <select value={selectedBarberId} onChange={e => setSelectedBarberId(e.target.value)}
                         className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
-                        <option value="">Select barber</option>
+                        <option value="">Select {staffLabel.toLowerCase()}</option>
                         {barbers.map(b => <option key={b.barber_id} value={b.barber_id}>{b.barber_name || b.alias}</option>)}
                       </select>
                     </div>

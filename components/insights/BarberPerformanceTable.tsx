@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 interface Appointment {
   id: string
@@ -57,6 +58,7 @@ export default function BarberPerformanceTable({
   tips,
   selfBarberId,
 }: Props) {
+  const { staffLabel } = useVerticalLabels()
   const [sortCol, setSortCol] = useState<SortKey>('revenue')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -91,7 +93,7 @@ export default function BarberPerformanceTable({
 
       return {
         barber_id: b.barber_id,
-        name: b.barber_name || b.alias || 'Barber',
+        name: b.barber_name || b.alias || staffLabel,
         color: b.color || '#4B5320',
         revenue,
         tips: tipTotal,
@@ -102,7 +104,7 @@ export default function BarberPerformanceTable({
         highGhost: ghostRate > 0.20 && counted.length >= 5,
       }
     })
-  }, [barbers, appointments, tips, selfBarberId])
+  }, [barbers, appointments, tips, selfBarberId, staffLabel])
 
   const ghostWarnings = rows.filter(r => r.highGhost)
 
@@ -168,7 +170,7 @@ export default function BarberPerformanceTable({
   return (
     <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
       <div className="px-5 py-4 border-b border-warm-200">
-        <div className="font-serif text-charcoal-900">Barber Performance</div>
+        <div className="font-serif text-charcoal-900">{staffLabel} Performance</div>
         <div className="text-xs text-charcoal-500 mt-0.5">Ghost rate · come-back rate · avg ticket — tap column to sort</div>
       </div>
 
@@ -186,7 +188,7 @@ export default function BarberPerformanceTable({
         <table className="w-full text-sm" style={{ minWidth: '560px' }}>
           <thead>
             <tr className="border-b border-warm-200 bg-warm-200/30">
-              <TH label="Barber" k="name" />
+              <TH label={staffLabel} k="name" />
               <TH label="Revenue" k="revenue" />
               <TH label="Avg Ticket" k="avgTicket" />
               <TH label="Come-Back Rate" k="comeBackRate" />

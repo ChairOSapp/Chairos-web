@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const TIMES = [
   '8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM',
@@ -13,6 +14,7 @@ const TIMES = [
 ]
 
 export default function NewAppointment() {
+  const { staffLabel } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
@@ -124,14 +126,14 @@ export default function NewAppointment() {
       const dateFormatted = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
         weekday: 'long', month: 'long', day: 'numeric'
       })
-      const barberName = barber?.barber_name || barber?.alias || 'your barber'
+      const barberName = barber?.barber_name || barber?.alias || `your ${staffLabel.toLowerCase()}`
       const svc = services.find(s => s.id === selectedService)
       await fetch('/api/sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: clientPhone,
-          message: `✂️ Your appointment at ${shop.name} is confirmed!\n\nService: ${svc?.name}\nBarber: ${barberName}\nDate: ${dateFormatted}\nTime: ${time}\n\nSee you soon! Reply STOP to unsubscribe.`
+          message: `✂️ Your appointment at ${shop.name} is confirmed!\n\nService: ${svc?.name}\n${staffLabel}: ${barberName}\nDate: ${dateFormatted}\nTime: ${time}\n\nSee you soon! Reply STOP to unsubscribe.`
         })
       })
     }
@@ -215,7 +217,7 @@ export default function NewAppointment() {
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">Appointment Details</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Barber</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{staffLabel}</label>
                 <select value={selectedBarber} onChange={e => setSelectedBarber(e.target.value)}
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green">
                   <option value="">Any Available</option>

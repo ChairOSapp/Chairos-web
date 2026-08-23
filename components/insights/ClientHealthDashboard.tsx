@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 interface Appointment {
   id: string
@@ -45,6 +46,7 @@ export default function ClientHealthDashboard({
   barberId,
   shopOwnerId,
 }: Props) {
+  const { staffLabel } = useVerticalLabels()
   const [drawerOpen, setDrawerOpen] = useState<DrawerBucket>(null)
   const [alertSent, setAlertSent] = useState(false)
   const supabase = useMemo(() => createClient(), [])
@@ -163,7 +165,7 @@ export default function ClientHealthDashboard({
         user_id: shopOwnerId,
         shop_id: shopId,
         type: 'alert',
-        message: `Barber flagged ${coldRows.length} gone-cold clients for follow-up`,
+        message: `${staffLabel} flagged ${coldRows.length} gone-cold clients for follow-up`,
       })
       setAlertSent(true)
     } catch {

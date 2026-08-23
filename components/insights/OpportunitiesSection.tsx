@@ -1,6 +1,7 @@
 'use client'
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 interface Appointment {
   id: string
@@ -40,6 +41,7 @@ interface InsightCard {
 
 export default function OpportunitiesSection({ shopId: _shopId, appointments, barbers, isBarber = false }: Props) {
   const router = useRouter()
+  const { staffLabel } = useVerticalLabels()
   const cards = useMemo<InsightCard[]>(() => {
     const now = new Date()
     const today = fmt(now)
@@ -104,7 +106,7 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
       }
       const rate = ret / ftCount
       if (!lowestBarber || rate < lowestBarber.rate) {
-        lowestBarber = { name: b.barber_name || b.alias || 'Barber', rate }
+        lowestBarber = { name: b.barber_name || b.alias || staffLabel, rate }
       }
     }
     if (lowestBarber) {
@@ -137,7 +139,7 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
     }
 
     return result.slice(0, 4)
-  }, [appointments, barbers])
+  }, [appointments, barbers, staffLabel])
 
   if (cards.length === 0) return null
 

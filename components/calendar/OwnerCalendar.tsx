@@ -8,6 +8,7 @@ import type { EventClickArg, DateSelectArg, DatesSetArg, EventContentArg } from 
 import { createClient } from '@/lib/supabase'
 import AppointmentPopover from './AppointmentPopover'
 import QuickBookModal from './QuickBookModal'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const BARBER_COLORS = ['#4B5320','#0369a1','#7c3aed','#b45309','#be123c','#15803d','#c2410c','#1d4ed8']
 
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Props) {
+  const { staffLabel } = useVerticalLabels()
   const [view, setView] = useState<CalView>('dayGridMonth')
   const [viewStart, setViewStart] = useState(new Date())
   const [appointments, setAppointments] = useState<any[]>([])
@@ -113,7 +115,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
     info.jsEvent.preventDefault()
     const appt = info.event.extendedProps
     const barberId = appt.barber_id
-    const barberName = barbers.find(b => b.barber_id === barberId)?.barber_name || barbers.find(b => b.barber_id === barberId)?.alias || 'Barber'
+    const barberName = barbers.find(b => b.barber_id === barberId)?.barber_name || barbers.find(b => b.barber_id === barberId)?.alias || staffLabel
     setPopover({ appt: { ...appt, id: info.event.id }, barberName, x: info.jsEvent.clientX, y: info.jsEvent.clientY })
   }
 

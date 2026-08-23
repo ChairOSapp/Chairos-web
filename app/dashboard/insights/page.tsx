@@ -11,6 +11,7 @@ import BarberPerformanceTable from '@/components/insights/BarberPerformanceTable
 import ClientHealthDashboard from '@/components/insights/ClientHealthDashboard'
 import RevenueIntelligence from '@/components/insights/RevenueIntelligence'
 import OpportunitiesSection from '@/components/insights/OpportunitiesSection'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 // ---- Shared types ----
 
@@ -275,6 +276,7 @@ function MonthlyBarsChart({ year, appointments }: { year: number; appointments: 
 // ---- Main page ----
 
 export default function InsightsPage() {
+  const { staffLabel } = useVerticalLabels()
   const [tab, setTab] = useState<TabId>('revenue')
   const analyticsLoaded = useRef(false)
 
@@ -493,7 +495,7 @@ export default function InsightsPage() {
         .filter(t => t.barber_id === b.barber_id)
         .reduce((s, t) => s + (parseFloat(String(t.amount)) || 0), 0)
       return {
-        name: b.barber_name || b.alias || 'Barber',
+        name: b.barber_name || b.alias || staffLabel,
         color: b.color || '#4B5320',
         cuts: cut,
         tips: bTips,
@@ -565,7 +567,7 @@ export default function InsightsPage() {
         .filter(t => t.barber_id === b.barber_id)
         .reduce((s, t) => s + (parseFloat(String(t.amount)) || 0), 0)
       return {
-        label: b.barber_name || b.alias || 'Barber',
+        label: b.barber_name || b.alias || staffLabel,
         value: cut + bTips,
         sub: `$${cut.toFixed(0)} cuts + $${bTips.toFixed(0)} tips`,
         color: (b.color && b.color !== '#b8861f') ? b.color : '#4B5320',
@@ -592,7 +594,7 @@ export default function InsightsPage() {
     const top = Object.entries(map).sort((a, b) => b[1] - a[1])[0]
     if (!top) return null
     const barber = shopBarbers.find(b => b.barber_id === top[0])
-    return { name: barber?.barber_name || barber?.alias || 'Barber', count: top[1] }
+    return { name: barber?.barber_name || barber?.alias || staffLabel, count: top[1] }
   }, [ana_atRiskClients, shopBarbers])
 
   const ana_busyDays = useMemo(() => {
@@ -780,14 +782,14 @@ export default function InsightsPage() {
                 {rev_barberEarnings.length > 0 && (
                   <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
                     <div className="px-5 py-4 border-b border-warm-200">
-                      <div className="font-serif text-charcoal-900">Barber Earnings</div>
+                      <div className="font-serif text-charcoal-900">{staffLabel} Earnings</div>
                       <div className="text-xs text-charcoal-500 mt-0.5">Commission / cut for this period</div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-warm-200 bg-warm-50">
-                            <th className="text-left px-5 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Barber</th>
+                            <th className="text-left px-5 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">{staffLabel}</th>
                             <th className="text-right px-4 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Cuts</th>
                             <th className="text-right px-4 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Tips</th>
                             <th className="text-right px-5 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Total</th>
@@ -1032,7 +1034,7 @@ export default function InsightsPage() {
                   return (
                     <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-4">
                       <div className="px-5 py-4 border-b border-warm-200">
-                        <div className="font-serif text-charcoal-900">Barber Performance</div>
+                        <div className="font-serif text-charcoal-900">{staffLabel} Performance</div>
                         <div className="text-xs text-charcoal-500 mt-0.5">Cuts + tips for selected period · ranked by total earnings</div>
                       </div>
                       <div className="divide-y divide-warm-200">
@@ -1333,7 +1335,7 @@ export default function InsightsPage() {
                             .sort(([, a], [, b]) => b.avg - a.avg)
                             .map(([barberId, stat]) => {
                               const barber = shopBarbers.find(b => b.barber_id === barberId)
-                              const name = barber?.barber_name || barber?.alias || 'Barber'
+                              const name = barber?.barber_name || barber?.alias || staffLabel
                               return (
                                 <div key={barberId} className="px-5 py-3 flex items-center justify-between">
                                   <span className="text-sm font-semibold text-charcoal-900">{name}</span>

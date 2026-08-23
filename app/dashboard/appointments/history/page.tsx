@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 export default function AppointmentHistory() {
+  const { staffLabelPlural } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [appointments, setAppointments] = useState<any[]>([])
@@ -98,7 +100,7 @@ export default function AppointmentHistory() {
         <div className="flex gap-3 flex-wrap mb-6">
           <select value={filterBarber} onChange={e => setFilterBarber(e.target.value)}
             className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
-            <option value="">All Barbers</option>
+            <option value="">All {staffLabelPlural}</option>
             {barbers.map(b => <option key={b.id} value={b.barber_id}>{b.barber_name || b.alias}</option>)}
           </select>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}

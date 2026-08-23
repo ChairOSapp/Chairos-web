@@ -29,13 +29,18 @@ export async function POST(req: NextRequest) {
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
   if (profile?.role !== 'owner') return NextResponse.json({ error: 'Owner only' }, { status: 403 })
 
+  const { data: shop } = await admin.from('shops').select('vertical').eq('owner_id', user.id).maybeSingle()
+  const vertical = shop?.vertical || 'barbershop'
+  const BUSINESS_TYPE: Record<string, string> = { barbershop: 'barbershop', salon: 'hair salon', tattoo: 'tattoo studio' }
+  const businessType = BUSINESS_TYPE[vertical] || 'barbershop'
+
   const { intent, channel, audienceType, audienceFilters, shopName } = await req.json()
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 600,
-    system: `You are a marketing copywriter for a barbershop. Write campaign messages that feel personal, not corporate. Use barbershop-specific language. Never use generic phrases like 'valued customer'. Always address the client directly. For SMS: under 160 characters, no emojis unless they add meaning, end with a clear action. For email: subject line under 50 characters, body under 150 words, conversational tone, one clear call to action. Return only JSON with keys: sms_message, email_subject, email_body. No preamble.`,
+    system: `You are a marketing copywriter for a ${businessType}. Write campaign messages that feel personal, not corporate. Use ${businessType}-specific language. Never use generic phrases like 'valued customer'. Always address the client directly. For SMS: under 160 characters, no emojis unless they add meaning, end with a clear action. For email: subject line under 50 characters, body under 150 words, conversational tone, one clear call to action. Return only JSON with keys: sms_message, email_subject, email_body. No preamble.`,
     messages: [{
       role: 'user',
       content: `Shop: ${shopName}. Campaign intent: ${intent}. Audience: ${audienceType}. Filters: ${JSON.stringify(audienceFilters ?? {})}.\nWrite both an SMS and email version.`,

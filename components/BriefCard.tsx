@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 type Brief = {
   id: string
@@ -41,6 +42,7 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
   const [genError, setGenError] = useState('')
   const [dismissed, setDismissed] = useState(false)
   const supabase = createClient()
+  const { staffLabelPlural } = useVerticalLabels()
 
   useEffect(() => {
     async function load() {
@@ -221,7 +223,7 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
         <Section title="Watch List">
           {c.watch_list.barbers?.length > 0 && (
             <div className="mb-2">
-              <div className="text-xs font-semibold text-charcoal-500 uppercase tracking-wider mb-1">Barbers</div>
+              <div className="text-xs font-semibold text-charcoal-500 uppercase tracking-wider mb-1">{staffLabelPlural}</div>
               <ul className="space-y-0.5">
                 {c.watch_list.barbers.map((b: string, i: number) => (
                   <li key={i} className="text-charcoal-700">• {b}</li>

@@ -4,8 +4,10 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 export default function InvitePage() {
+  const { staffLabel, staffLabelPlural } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
@@ -66,7 +68,7 @@ export default function InvitePage() {
       <div className="max-w-2xl mx-auto px-4 py-8 pb-24">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => router.back()} className="btn-chairos-outline">Back</button>
-          <h1 className="font-serif text-2xl text-charcoal-900">Invite Barbers</h1>
+          <h1 className="font-serif text-2xl text-charcoal-900">Invite {staffLabelPlural}</h1>
         </div>
 
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
@@ -74,7 +76,7 @@ export default function InvitePage() {
         {/* Shop Code */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-4">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Shop Code</div>
-          <p className="text-charcoal-500 text-xs mb-4">Barbers enter this code on the Join page. Works for anyone — share freely.</p>
+          <p className="text-charcoal-500 text-xs mb-4">{staffLabelPlural} enter this code on the Join page. Works for anyone — share freely.</p>
           <div className="flex items-center gap-3">
             <div className="flex-1 bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 font-mono text-lg text-charcoal-900 tracking-widest text-center">
               {shopCodeFormatted || '—'}
@@ -101,7 +103,7 @@ export default function InvitePage() {
         {/* Invite Link */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Invite Link</div>
-          <p className="text-charcoal-500 text-xs mb-4">Generate a one-time link. Send it directly to a barber — expires after use.</p>
+          <p className="text-charcoal-500 text-xs mb-4">Generate a one-time link. Send it directly to a {staffLabel.toLowerCase()} — expires after use.</p>
 
           {inviteLink ? (
             <div className="space-y-3">

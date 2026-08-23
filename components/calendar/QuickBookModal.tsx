@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 interface Barber { barber_id: string; barber_name: string; alias?: string | null }
 interface Service { id: string; name: string; price: number }
@@ -33,6 +34,7 @@ const TIME_SLOTS = Array.from({ length: 46 }, (_, i) => {
 export default function QuickBookModal({
   shopId, initialDate, initialTime, initialBarberId, barbers, services, lockedBarberId, onCreated, onClose,
 }: Props) {
+  const { staffLabel } = useVerticalLabels()
   const today = toDateStr(new Date())
   const [date, setDate] = useState(initialDate || today)
   const [time, setTime] = useState(initialTime || '09:00:00')
@@ -160,7 +162,7 @@ export default function QuickBookModal({
           {/* Barber */}
           {!lockedBarberId && (
             <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Barber</label>
+              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">{staffLabel}</label>
               <select value={barberId} onChange={e => setBarberId(e.target.value)}
                 className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
                 <option value="">Unassigned</option>
@@ -170,7 +172,7 @@ export default function QuickBookModal({
           )}
           {lockedBarberId && (
             <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Barber</label>
+              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">{staffLabel}</label>
               <div className="bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-600">
                 {barbers.find(b => b.barber_id === lockedBarberId)?.barber_name || 'Me'}
               </div>

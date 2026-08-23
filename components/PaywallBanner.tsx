@@ -67,8 +67,8 @@ export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate 
           <div className="text-sm font-semibold text-amber-300 mb-0.5">Your shop&apos;s ChairOS plan has ended</div>
           <div className="text-xs text-amber-400/80">
             {days > 0
-              ? `You have ${days} day${days === 1 ? '' : 's'} to subscribe as a Solo Barber to keep your access.`
-              : 'Your access has expired. Subscribe as a Solo Barber to continue.'}
+              ? `You have ${days} day${days === 1 ? '' : 's'} to subscribe to the Solo Chair plan to keep your access.`
+              : 'Your access has expired. Subscribe to the Solo Chair plan to continue.'}
           </div>
         </div>
         <button
