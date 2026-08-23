@@ -4,16 +4,17 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
-const CATALOG = [
-  { name: 'Precision Haircut', price: 55, duration_minutes: 30, description: 'Clean lines, sharp edges' },
-  { name: 'Fade', price: 45, duration_minutes: 30, description: 'Skin fade or taper' },
-  { name: 'Cut + Beard Sculpt', price: 65, duration_minutes: 45, description: 'Full cut and beard sculpt' },
-  { name: 'Beard Sculpt', price: 40, duration_minutes: 30, description: 'Precision beard shaping' },
-  { name: 'Hot Towel Shave', price: 50, duration_minutes: 30, description: '3-step straight razor shave' },
-  { name: 'Line-Up / Edge-Up', price: 25, duration_minutes: 15, description: 'Clean edge and line-up' },
-  { name: 'Youth Cut', price: 40, duration_minutes: 30, description: 'Precision cut for kids' },
-  { name: 'VIP Experience', price: 150, duration_minutes: 75, description: 'Full VIP service' },
+
+type Vertical = 'barbershop' | 'salon' | 'tattoo'
+
+const VERTICAL_OPTIONS: { value: Vertical; name: string; blurb: string }[] = [
+  { value: 'barbershop', name: 'Barbershop', blurb: 'Barbers, fades, and cuts' },
+  { value: 'salon', name: 'Salon', blurb: 'Stylists, color, and styling' },
+  { value: 'tattoo', name: 'Tattoo Studio', blurb: 'Artists and tattoo sessions' },
 ]
+
+type Preset = { name: string; duration_minutes: number }
+
 const BARBER_COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
 
 export default function Onboarding() {
@@ -26,10 +27,15 @@ export default function Onboarding() {
   const [shopAddress, setShopAddress] = useState('')
   const [shopCity, setShopCity] = useState('')
   const [shopPhone, setShopPhone] = useState('')
+  const [vertical, setVertical] = useState<Vertical | null>(null)
+  const [verticalMeta, setVerticalMeta] = useState<Record<Vertical, { staff_label: string; staff_label_plural: string }>>({
+    barbershop: { staff_label: 'Barber', staff_label_plural: 'Barbers' },
+    salon: { staff_label: 'Stylist', staff_label_plural: 'Stylists' },
+    tattoo: { staff_label: 'Artist', staff_label_plural: 'Artists' },
+  })
 
+  const [presets, setPresets] = useState<Record<Vertical, Preset[]>>({ barbershop: [], salon: [], tattoo: [] })
   const [services, setServices] = useState<any[]>([])
-  const [selectedCatalog, setSelectedCatalog] = useState<Set<number>>(new Set())
-  const [svcMode, setSvcMode] = useState<'catalog'|'custom'>('catalog')
   const [customName, setCustomName] = useState('')
   const [customPrice, setCustomPrice] = useState('')
   const [customDuration, setCustomDuration] = useState('30')
@@ -62,20 +68,31 @@ export default function Onboarding() {
       setChecking(false)
     }
     checkShop()
-  }, [])
 
-  function toggleCatalog(i: number) {
-    const next = new Set(selectedCatalog)
-    if (next.has(i)) {
-      next.delete(i)
-      setServices(prev => prev.filter(s => s._idx !== i))
-    } else {
-      next.add(i)
-      const s = CATALOG[i]
-      setServices(prev => [...prev, { ...s, _idx: i }])
+    async function loadVerticalMeta() {
+      const { data } = await supabase.from('vertical_config').select('*')
+      if (!data) return
+      setVerticalMeta(prev => {
+        const next = { ...prev }
+        for (const row of data as any[]) {
+          next[row.vertical as Vertical] = { staff_label: row.staff_label, staff_label_plural: row.staff_label_plural }
+        }
+        return next
+      })
     }
-    setSelectedCatalog(next)
-  }
+    loadVerticalMeta()
+
+    async function loadPresets() {
+      const { data } = await supabase.from('service_presets').select('vertical, name, duration_minutes').order('sort_order')
+      if (!data) return
+      const next: Record<Vertical, Preset[]> = { barbershop: [], salon: [], tattoo: [] }
+      for (const row of data as any[]) {
+        next[row.vertical as Vertical].push({ name: row.name, duration_minutes: row.duration_minutes })
+      }
+      setPresets(next)
+    }
+    loadPresets()
+  }, [])
 
   function addCustomService() {
     if (!customName || !customPrice) return
@@ -89,12 +106,6 @@ export default function Onboarding() {
   }
 
   function removeService(i: number) {
-    const s = services[i]
-    if (s._idx !== undefined) {
-      const next = new Set(selectedCatalog)
-      next.delete(s._idx)
-      setSelectedCatalog(next)
-    }
     setServices(prev => prev.filter((_, idx) => idx !== i))
   }
 
@@ -129,24 +140,23 @@ export default function Onboarding() {
       if (!user) throw new Error('Not logged in')
 
       const { data: shop, error: shopErr } = await supabase
-        .from('shops')
-        .insert({ name: shopName, address: shopAddress, city: shopCity, phone: shopPhone, owner_id: user.id })
-        .select()
-        .maybeSingle()
+        .rpc('create_shop_with_services', {
+          p_name: shopName,
+          p_address: shopAddress,
+          p_city: shopCity,
+          p_phone: shopPhone,
+          p_vertical: vertical,
+          p_custom_services: services.map(s => ({ name: s.name, price: s.price, duration_minutes: s.duration_minutes, description: s.description })),
+        })
+        .single()
       if (shopErr) throw shopErr
       if (!shop) throw new Error('Failed to create shop — please try again.')
-
-      if (services.length > 0) {
-        const { error: svcErr } = await supabase.from('services').insert(
-          services.map(s => ({ shop_id: shop.id, name: s.name, price: s.price, duration_minutes: s.duration_minutes, description: s.description }))
-        )
-        if (svcErr) throw svcErr
-      }
+      const createdShop = shop as any
 
       if (barbers.length > 0) {
         const { error: bErr } = await supabase.from('shop_barbers').insert(
           barbers.map(b => ({
-            shop_id: shop.id,
+            shop_id: createdShop.id,
             barber_id: null,
             barber_name: b.name,
             alias: b.alias || b.name,
@@ -170,7 +180,11 @@ export default function Onboarding() {
     }
   }
 
-  const stepLabel = ['Shop Info', 'Services', 'Barbers']
+  const activeVertical = vertical || 'barbershop'
+  const staffLabel = verticalMeta[activeVertical].staff_label
+  const staffLabelPlural = verticalMeta[activeVertical].staff_label_plural
+
+  const stepLabel = ['Shop Info', 'Services', staffLabelPlural]
 
   if (checking) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
@@ -215,6 +229,28 @@ export default function Onboarding() {
               <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your shop</h2>
               <p className="text-charcoal-500 text-sm">This is how clients will find you.</p>
             </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Business Type</label>
+              <div className="grid grid-cols-3 gap-2">
+                {VERTICAL_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setVertical(opt.value)}
+                    className={`text-left p-3 rounded-lg border transition-colors ${
+                      vertical === opt.value
+                        ? 'bg-od-green/10 border-od-green/50'
+                        : 'bg-warm-200 border-warm-300 hover:border-warm-400'
+                    }`}
+                  >
+                    <div className={`font-semibold text-xs mb-0.5 ${vertical === opt.value ? 'text-od-green' : 'text-charcoal-900'}`}>
+                      {opt.name}
+                    </div>
+                    <div className="text-[11px] text-charcoal-500">{opt.blurb}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
             {[
               { label: 'Shop Name', value: shopName, set: setShopName, placeholder: 'e.g. Precision House' },
               { label: 'Phone', value: shopPhone, set: setShopPhone, placeholder: '(555) 000-0000' },
@@ -227,7 +263,11 @@ export default function Onboarding() {
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
               </div>
             ))}
-            <button onClick={() => { if (!shopName) { setError('Shop name is required'); return }; setError(''); setStep(2) }}
+            <button onClick={() => {
+              if (!vertical) { setError('Please select a business type'); return }
+              if (!shopName) { setError('Shop name is required'); return }
+              setError(''); setStep(2)
+            }}
               className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm mt-4">
               Continue →
             </button>
@@ -238,31 +278,21 @@ export default function Onboarding() {
           <div>
             <div className="mb-5">
               <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your services</h2>
-              <p className="text-charcoal-500 text-sm">Pick from the catalog or add custom services.</p>
+              <p className="text-charcoal-500 text-sm">We'll add these to your shop automatically — set prices anytime from Settings.</p>
             </div>
-            <div className="flex gap-1 bg-warm-200 rounded-lg p-1 mb-5 w-fit">
-              {(['catalog','custom'] as const).map(m => (
-                <button key={m} onClick={() => setSvcMode(m)}
-                  className={`px-4 py-2 rounded-md text-xs font-semibold capitalize transition-all ${svcMode === m ? 'bg-warm-300 text-charcoal-900' : 'text-charcoal-500'}`}>
-                  {m === 'catalog' ? 'Service Catalog' : 'Custom Service'}
-                </button>
+            <div className="grid grid-cols-2 gap-2 mb-5 max-h-64 overflow-y-auto pr-1">
+              {presets[activeVertical].map((s, i) => (
+                <div key={i} className="p-3 rounded-lg border border-warm-300 bg-warm-200">
+                  <div className="text-sm font-semibold text-charcoal-900 mb-0.5">{s.name}</div>
+                  <div className="text-xs text-charcoal-400">{s.duration_minutes} mins · price TBD</div>
+                </div>
               ))}
             </div>
-            {svcMode === 'catalog' && (
-              <div className="grid grid-cols-2 gap-2 mb-4 max-h-64 overflow-y-auto pr-1">
-                {CATALOG.map((s, i) => (
-                  <div key={i} onClick={() => toggleCatalog(i)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all relative ${selectedCatalog.has(i) ? 'border-od-green bg-od-green/10' : 'border-warm-300 bg-warm-200 hover:border-warm-400'}`}>
-                    {selectedCatalog.has(i) && <div className="absolute top-2 right-2 w-4 h-4 bg-od-green rounded-full flex items-center justify-center text-white text-xs font-bold">✓</div>}
-                    <div className="text-sm font-semibold text-charcoal-900 mb-0.5">{s.name}</div>
-                    <div className="text-xs text-charcoal-400">{s.duration_minutes} mins</div>
-                    <div className="text-sm font-semibold text-od-green mt-1">${s.price}</div>
-                  </div>
-                ))}
+            <div className="border-t border-warm-200 pt-4 mb-4">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">
+                Add a custom service (optional)
               </div>
-            )}
-            {svcMode === 'custom' && (
-              <div className="bg-warm-200 rounded-lg p-4 mb-4 space-y-3">
+              <div className="bg-warm-200 rounded-lg p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Name</label>
@@ -292,7 +322,7 @@ export default function Onboarding() {
                   + Add Service
                 </button>
               </div>
-            )}
+            </div>
             {services.length > 0 && (
               <div className="border-t border-warm-200 pt-4 mb-4">
                 <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">
@@ -325,8 +355,8 @@ export default function Onboarding() {
         {step === 3 && (
           <div>
             <div className="mb-5">
-              <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your barbers</h2>
-              <p className="text-charcoal-500 text-sm">Set up each barber and their compensation.</p>
+              <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your {staffLabelPlural.toLowerCase()}</h2>
+              <p className="text-charcoal-500 text-sm">Set up each {staffLabel.toLowerCase()} and their compensation.</p>
             </div>
             {barbers.length > 0 && (
               <div className="space-y-2 mb-5">
@@ -352,7 +382,7 @@ export default function Onboarding() {
               </div>
             )}
             <div className="bg-warm-200 rounded-lg p-4 space-y-3">
-              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400">Add a Barber</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400">Add a {staffLabel}</div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-charcoal-500 mb-1.5">First Name *</label>
@@ -379,7 +409,7 @@ export default function Onboarding() {
               {compType === 'commission' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-charcoal-500 mb-1.5">Barber Commission %</label>
+                    <label className="block text-xs text-charcoal-500 mb-1.5">{staffLabel} Commission %</label>
                     <div className="relative">
                       <input type="number" min="1" max="100" value={commissionRate} onChange={e => setCommissionRate(e.target.value)}
                         className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
@@ -388,13 +418,13 @@ export default function Onboarding() {
                     <div className="text-xs text-charcoal-500 mt-1">Shop keeps {100 - parseInt(commissionRate || '0')}%</div>
                   </div>
                   <div>
-                    <label className="block text-xs text-charcoal-500 mb-1.5">Barber Tip %</label>
+                    <label className="block text-xs text-charcoal-500 mb-1.5">{staffLabel} Tip %</label>
                     <div className="relative">
                       <input type="number" min="1" max="100" value={tipSplit} onChange={e => setTipSplit(e.target.value)}
                         className="w-full bg-warm-300 border border-warm-400 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
                       <span className="absolute right-3 top-2 text-charcoal-400 text-sm">%</span>
                     </div>
-                    <div className="text-xs text-charcoal-500 mt-1">Default 100% to barber</div>
+                    <div className="text-xs text-charcoal-500 mt-1">Default 100% to {staffLabel.toLowerCase()}</div>
                   </div>
                 </div>
               )}
@@ -439,7 +469,7 @@ export default function Onboarding() {
               )}
               <button onClick={addBarber} disabled={!barberName}
                 className="w-full border border-dashed border-warm-400 rounded-lg py-2 text-charcoal-400 hover:border-od-green hover:text-od-green text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                + Add Barber
+                + Add {staffLabel}
               </button>
             </div>
             <div className="flex gap-3 mt-6">
