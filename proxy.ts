@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const ADMIN_EMAILS = ['tbbryant07@gmail.com']
 
-const PUBLIC_PATHS = ['/', '/login', '/signup', '/join', '/subscribe', '/privacy', '/terms']
+const PUBLIC_PATHS = ['/', '/login', '/signup', '/join', '/subscribe', '/privacy', '/terms', '/sms-optout']
 
 function isPublic(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true
