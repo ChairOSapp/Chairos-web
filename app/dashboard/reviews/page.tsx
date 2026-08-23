@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 type Review = {
   id: string
@@ -67,6 +68,7 @@ function StarSelector({ value, onChange }: { value: number; onChange: (v: number
 }
 
 export default function ReviewsPage() {
+  const { staffLabel } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [reviews, setReviews] = useState<Review[]>([])
   const [barbers, setBarbers] = useState<Barber[]>([])
@@ -108,7 +110,7 @@ export default function ReviewsPage() {
       .from('profiles').select('*').eq('id', user.id).maybeSingle()
     setProfile(prof)
 
-    if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
+    if (prof?.role === 'barber') { router.push('/dashboard/chair'); return }
     if (prof?.role !== 'owner') { router.push('/login'); return }
 
     const { data: shops } = await supabase
@@ -480,7 +482,7 @@ export default function ReviewsPage() {
 
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
-                  Assign to Barber
+                  Assign to {staffLabel}
                 </label>
                 <select
                   value={manualForm.barber_id}

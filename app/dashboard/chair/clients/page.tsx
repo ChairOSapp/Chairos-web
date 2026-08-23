@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import BarberMobileNav from '@/components/BarberMobileNav'
+import StaffMobileNav from '@/components/StaffMobileNav'
 
 export default function BarberClientsPage() {
   const [profile, setProfile] = useState<any>(null)
@@ -63,7 +63,7 @@ export default function BarberClientsPage() {
     <div className="min-h-screen bg-warm-50">
       <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
         <span className="font-serif text-od-green text-lg">ChairOS</span>
-        <button onClick={() => router.push('/dashboard/barber')} className="btn-chairos-outline">My Dashboard</button>
+        <button onClick={() => router.push('/dashboard/chair')} className="btn-chairos-outline">My Dashboard</button>
       </header>
 
       <div className="p-6 max-w-2xl mx-auto pb-24">
@@ -203,7 +203,7 @@ export default function BarberClientsPage() {
           </div>
         </div>
       )}
-      <BarberMobileNav />
+      <StaffMobileNav />
     </div>
   )
 }

@@ -2,8 +2,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import BarberNav from '@/components/BarberNav'
-import BarberMobileNav from '@/components/BarberMobileNav'
+import StaffNav from '@/components/StaffNav'
+import StaffMobileNav from '@/components/StaffMobileNav'
 import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
 import { getBillingStatus } from '@/lib/billing'
@@ -357,7 +357,7 @@ export default function BarberDashboard() {
   return (
     <div className="min-h-screen bg-warm-50">
 
-      <BarberNav
+      <StaffNav
         shopName={shop?.name || ''}
         barberName={shopBarber?.barber_name || shopBarber?.alias || ''}
         color={shopBarber?.color || '#b8861f'}
@@ -594,10 +594,10 @@ export default function BarberDashboard() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">My Schedule</div>
-            <button onClick={() => router.push('/dashboard/barber/calendar')} className="btn-chairos">Open Calendar</button>
+            <button onClick={() => router.push('/dashboard/chair/calendar')} className="btn-chairos">Open Calendar</button>
           </div>
           <button
-            onClick={() => router.push('/dashboard/barber/calendar')}
+            onClick={() => router.push('/dashboard/chair/calendar')}
             className="w-full bg-warm-100 border border-warm-200 rounded-2xl p-5 text-left hover:bg-warm-200/60 transition-colors group">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -713,7 +713,7 @@ export default function BarberDashboard() {
         </div>
 
       </div>
-      <BarberMobileNav />
+      <StaffMobileNav />
     </div>
   )
 }

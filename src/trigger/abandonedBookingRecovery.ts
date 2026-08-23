@@ -10,7 +10,11 @@ type Payload = {
   shopName: string
   barberId: string
   barberName: string
+  vertical?: string
 }
+
+const BUSINESS_TYPE: Record<string, string> = { barbershop: 'barbershop', salon: 'hair salon', tattoo: 'tattoo studio' }
+const STAFF_TERM: Record<string, string> = { barbershop: 'barber', salon: 'stylist', tattoo: 'artist' }
 
 function getSupabase() {
   return createClient(
@@ -54,15 +58,17 @@ export const abandonedBookingRecovery = task({
 
     // Generate personalized recovery SMS via Claude
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+    const businessType = BUSINESS_TYPE[payload.vertical || 'barbershop'] || 'barbershop'
+    const staffTerm = STAFF_TERM[payload.vertical || 'barbershop'] || 'barber'
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 100,
       system:
-        'You are writing an SMS from a barbershop to a client who started booking but did not finish. Write a single warm, friendly message under 160 characters encouraging them to complete their booking. Use the client name, shop name, and barber name naturally. Do not sound automated or promotional. Return only the SMS text, nothing else.',
+        `You are writing an SMS from a ${businessType} to a client who started booking but did not finish. Write a single warm, friendly message under 160 characters encouraging them to complete their booking. Use the client name, shop name, and ${staffTerm} name naturally. Do not sound automated or promotional. Return only the SMS text, nothing else.`,
       messages: [
         {
           role: 'user',
-          content: `Client: ${payload.clientName}. Shop: ${payload.shopName}. Barber: ${payload.barberName}.`,
+          content: `Client: ${payload.clientName}. Shop: ${payload.shopName}. ${staffTerm.charAt(0).toUpperCase() + staffTerm.slice(1)}: ${payload.barberName}.`,
         },
       ],
     })

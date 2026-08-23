@@ -213,7 +213,7 @@ export default function ShopReviews() {
                     <div>
                       <span className="font-semibold text-sm text-charcoal-900">{r.reviewer_name || 'Anonymous'}</span>
                       {barberName && (
-                        <span className="ml-2 text-xs text-charcoal-400">· Cut by {barberName}</span>
+                        <span className="ml-2 text-xs text-charcoal-400">· with {barberName}</span>
                       )}
                     </div>
                     <SourceBadge source={r.source || 'manual'} />

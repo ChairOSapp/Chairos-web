@@ -4,8 +4,10 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 export default function InviteBarber() {
+  const { staffLabel, staffLabelPlural } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [email, setEmail] = useState('')
@@ -48,7 +50,7 @@ export default function InviteBarber() {
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
-    if (!email || !selectedBarber) { setError('Select a barber and enter their email'); return }
+    if (!email || !selectedBarber) { setError(`Select a ${staffLabel.toLowerCase()} and enter their email`); return }
     setSending(true)
     setError('')
     setSuccess('')
@@ -86,8 +88,8 @@ export default function InviteBarber() {
 
       <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
-          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Invite a Barber</h1>
-          <p className="text-charcoal-500 text-sm">Send an invite or share your shop code so barbers can claim their account.</p>
+          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Invite a {staffLabel}</h1>
+          <p className="text-charcoal-500 text-sm">Send an invite or share your shop code so {staffLabelPlural.toLowerCase()} can claim their account.</p>
         </div>
 
         {/* SHOP CODE CARD */}
@@ -102,7 +104,7 @@ export default function InviteBarber() {
             </button>
           </div>
           <p className="text-charcoal-500 text-xs mt-3">
-            Barber downloads ChairOS, signs up, and enters this code to link to your shop.
+            {staffLabel} downloads ChairOS, signs up, and enters this code to link to your shop.
           </p>
         </div>
 
@@ -112,9 +114,9 @@ export default function InviteBarber() {
 
           {barbers.length === 0 ? (
             <div className="text-charcoal-500 text-sm text-center py-4">
-              All barbers are already linked. Add more barbers in{' '}
-              <button onClick={() => router.push('/dashboard/barbers')} className="text-od-green hover:underline">
-                Manage Barbers
+              All {staffLabelPlural.toLowerCase()} are already linked. Add more {staffLabelPlural.toLowerCase()} in{' '}
+              <button onClick={() => router.push('/dashboard/staff')} className="text-od-green hover:underline">
+                Manage {staffLabelPlural}
               </button>.
             </div>
           ) : (
@@ -122,10 +124,10 @@ export default function InviteBarber() {
               {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3">{error}</p>}
 
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Select Barber</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Select {staffLabel}</label>
                 <select value={selectedBarber} onChange={e => setSelectedBarber(e.target.value)}
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
-                  <option value="">Choose a barber...</option>
+                  <option value="">Choose a {staffLabel.toLowerCase()}...</option>
                   {barbers.map(b => (
                     <option key={b.id} value={b.id}>{b.barber_name || b.alias}</option>
                   ))}
@@ -133,7 +135,7 @@ export default function InviteBarber() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Barber's Email</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{staffLabel}'s Email</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="barber@email.com"
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
@@ -161,11 +163,11 @@ export default function InviteBarber() {
         {/* PENDING INVITES */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mt-6">
           <div className="px-5 py-4 border-b border-warm-200">
-            <div className="font-serif text-charcoal-900">Pending Barbers</div>
-            <div className="text-xs text-charcoal-500 mt-0.5">Barbers not yet linked to an account</div>
+            <div className="font-serif text-charcoal-900">Pending {staffLabelPlural}</div>
+            <div className="text-xs text-charcoal-500 mt-0.5">{staffLabelPlural} not yet linked to an account</div>
           </div>
           {barbers.length === 0 ? (
-            <div className="p-5 text-center text-charcoal-500 text-sm">All barbers have claimed their accounts.</div>
+            <div className="p-5 text-center text-charcoal-500 text-sm">All {staffLabelPlural.toLowerCase()} have claimed their accounts.</div>
           ) : (
             <div className="divide-y divide-warm-200">
               {barbers.map((b) => (

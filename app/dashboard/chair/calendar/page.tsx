@@ -3,11 +3,12 @@ import dynamic from 'next/dynamic'
 import { useEffect, useState, useMemo, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
-import BarberNav from '@/components/BarberNav'
-import BarberMobileNav from '@/components/BarberMobileNav'
+import StaffNav from '@/components/StaffNav'
+import StaffMobileNav from '@/components/StaffMobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
-const BarberCalendar = dynamic(
-  () => import('@/components/calendar/BarberCalendar'),
+const StaffCalendar = dynamic(
+  () => import('@/components/calendar/StaffCalendar'),
   {
     ssr: false,
     loading: () => (
@@ -26,7 +27,8 @@ function Spinner() {
   )
 }
 
-function BarberCalendarPageInner() {
+function StaffCalendarPageInner() {
+  const { staffLabel } = useVerticalLabels()
   const [profile, setProfile] = useState<any>(null)
   const [shopBarber, setShopBarber] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -53,14 +55,14 @@ function BarberCalendarPageInner() {
 
   if (loading) return <Spinner />
 
-  const barberName = shopBarber?.barber_name || shopBarber?.alias || profile?.full_name || 'Barber'
+  const barberName = shopBarber?.barber_name || shopBarber?.alias || profile?.full_name || staffLabel
   const color = shopBarber?.color || '#4B5320'
   const initial = barberName[0].toUpperCase()
   const shop = shopBarber?.shops
 
   return (
     <div className="min-h-screen bg-warm-50 flex flex-col">
-      <BarberNav
+      <StaffNav
         shopName={shop?.name || ''}
         barberName={barberName}
         color={color}
@@ -69,7 +71,7 @@ function BarberCalendarPageInner() {
         userId={shopBarber?.userId}
       />
       <div className="flex-1 flex flex-col pb-16 lg:pb-0 min-h-0" style={{ height: 'calc(100dvh - 56px)' }}>
-        <BarberCalendar
+        <StaffCalendar
           shopId={shopBarber.shop_id}
           barberId={shopBarber.userId}
           barberName={barberName}
@@ -77,15 +79,15 @@ function BarberCalendarPageInner() {
           openBookOnLoad={openBook}
         />
       </div>
-      <BarberMobileNav />
+      <StaffMobileNav />
     </div>
   )
 }
 
-export default function BarberCalendarPage() {
+export default function StaffCalendarPage() {
   return (
     <Suspense fallback={<Spinner />}>
-      <BarberCalendarPageInner />
+      <StaffCalendarPageInner />
     </Suspense>
   )
 }

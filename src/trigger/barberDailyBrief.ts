@@ -31,6 +31,9 @@ function getMondayOfWeek(d: Date): Date {
   return monday
 }
 
+const BUSINESS_TYPE: Record<string, string> = { barbershop: 'barbershop', salon: 'hair salon', tattoo: 'tattoo studio' }
+const STAFF_TERM: Record<string, string> = { barbershop: 'barber', salon: 'stylist', tattoo: 'artist' }
+
 export const barberDailyBrief = schedules.task({
   id: "barber-daily-brief",
   cron: "0 11 * * *", // 7am ET
@@ -49,7 +52,7 @@ export const barberDailyBrief = schedules.task({
     // Fetch active barbers — subscribed solo or shop barbers
     const { data: shopBarbers } = await supabase
       .from('shop_barbers')
-      .select('barber_id, shop_id, barber_name, alias, shops(name, owner_id)')
+      .select('barber_id, shop_id, barber_name, alias, shops(name, owner_id, vertical)')
       .eq('active', true)
       .not('barber_id', 'is', null)
 
@@ -64,21 +67,23 @@ export const barberDailyBrief = schedules.task({
     const shopBarberIds = new Set((shopBarbers ?? []).map(b => b.barber_id))
 
     // Combined list: shop barbers + solo barbers not in shop_barbers
-    type BarberTarget = { barber_id: string; shop_id: string | null; name: string; shop_name: string | null }
+    type BarberTarget = { barber_id: string; shop_id: string | null; name: string; shop_name: string | null; vertical: string }
     const targets: BarberTarget[] = [
       ...(shopBarbers ?? []).map(b => ({
         barber_id: b.barber_id,
         shop_id: b.shop_id,
-        name: b.barber_name || b.alias || 'Barber',
+        name: b.barber_name || b.alias || 'Team member',
         shop_name: (b.shops as any)?.name ?? null,
+        vertical: (b.shops as any)?.vertical || 'barbershop',
       })),
       ...(soloProfiles ?? [])
         .filter(p => !shopBarberIds.has(p.id))
         .map(p => ({
           barber_id: p.id,
           shop_id: null,
-          name: p.full_name || 'Barber',
+          name: p.full_name || 'Team member',
           shop_name: null,
+          vertical: 'barbershop',
         })),
     ]
 
@@ -86,6 +91,8 @@ export const barberDailyBrief = schedules.task({
 
     for (const target of targets) {
       const { barber_id, shop_id } = target
+      const businessType = BUSINESS_TYPE[target.vertical] || 'barbershop'
+      const staffTerm = STAFF_TERM[target.vertical] || 'barber'
 
       try {
         // Build query filters — scoped to this barber
@@ -239,7 +246,7 @@ export const barberDailyBrief = schedules.task({
           const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 1000,
-            system: `You are ChairOS, writing a daily brief for a barber. This barber is a business owner of their chair. Write like you're their business partner, not a tool. Be specific to their numbers. Give 2 suggestions: one to increase revenue today, one to protect a client relationship. Keep it under 200 words. Format as JSON with keys: headline, yesterday_summary, week_summary, client_alerts (array of objects with name and days_since), suggestions (array of 2 strings), one_thing. Respond with only valid JSON, no markdown.`,
+            system: `You are ChairOS, writing a daily brief for a ${businessType} ${staffTerm}. This ${staffTerm} is a business owner of their chair. Write like you're their business partner, not a tool. Be specific to their numbers. Give 2 suggestions: one to increase revenue today, one to protect a client relationship. Keep it under 200 words. Format as JSON with keys: headline, yesterday_summary, week_summary, client_alerts (array of objects with name and days_since), suggestions (array of 2 strings), one_thing. Respond with only valid JSON, no markdown.`,
             messages: [{ role: 'user', content: JSON.stringify(briefData) }],
           })
 

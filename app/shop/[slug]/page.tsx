@@ -16,6 +16,9 @@ export default function ShopProfile() {
   const [notFound, setNotFound] = useState(false)
   const [activeTab, setActiveTab] = useState<'services'|'team'|'reviews'>('services')
   const [reviews, setReviews] = useState<any[]>([])
+  // Public page — no logged-in user, so the label comes from this shop's
+  // own vertical, not useVerticalLabels() (which resolves via session).
+  const [staffLabelLower, setStaffLabelLower] = useState('barber')
 
   useEffect(() => {
     async function load() {
@@ -27,6 +30,10 @@ export default function ShopProfile() {
 
       if (!shop) { setNotFound(true); setLoading(false); return }
       setShop(shop)
+
+      const { data: verticalMeta } = await supabase
+        .from('vertical_config').select('staff_label').eq('vertical', shop.vertical).maybeSingle()
+      if (verticalMeta?.staff_label) setStaffLabelLower(verticalMeta.staff_label.toLowerCase())
 
       const { data: barbers } = await supabase
         .from('shop_barbers')
@@ -312,7 +319,7 @@ export default function ShopProfile() {
         {/* BOOK CTA */}
         <div className="mt-10 rounded-xl p-8 text-center" style={{ background: brandLight, border: `1px solid ${brand}30` }}>
           <h2 className="font-serif text-xl text-charcoal-900 mb-2">Ready to book?</h2>
-          <p className="text-charcoal-400 text-sm mb-5">Choose your barber, pick a time, and you're set.</p>
+          <p className="text-charcoal-400 text-sm mb-5">Choose your {staffLabelLower}, pick a time, and you're set.</p>
           <button
             onClick={() => router.push(bookingUrl)}
             className="font-semibold px-8 py-3 rounded-lg text-sm text-black transition-opacity hover:opacity-90"

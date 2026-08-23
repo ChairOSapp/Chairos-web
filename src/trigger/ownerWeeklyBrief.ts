@@ -23,6 +23,9 @@ function subtractDays(d: Date, n: number): Date {
   return r
 }
 
+const BUSINESS_TYPE: Record<string, string> = { barbershop: 'barbershop', salon: 'hair salon', tattoo: 'tattoo studio' }
+const STAFF_TERM_PLURAL: Record<string, string> = { barbershop: 'barbers', salon: 'stylists', tattoo: 'artists' }
+
 export const ownerWeeklyBrief = schedules.task({
   id: "owner-weekly-brief",
   cron: "0 12 * * 1", // 8am ET every Monday
@@ -43,7 +46,7 @@ export const ownerWeeklyBrief = schedules.task({
 
     const { data: shops } = await supabase
       .from('shops')
-      .select('id, name, owner_id, profiles!shops_owner_id_fkey(full_name, subscription_status)')
+      .select('id, name, owner_id, vertical, profiles!shops_owner_id_fkey(full_name, subscription_status)')
 
     const activeShops = (shops ?? []).filter(s => {
       const status = (s.profiles as any)?.subscription_status
@@ -56,6 +59,9 @@ export const ownerWeeklyBrief = schedules.task({
       try {
         const shopId = shop.id
         const ownerId = shop.owner_id
+        const vertical = (shop as any).vertical || 'barbershop'
+        const businessType = BUSINESS_TYPE[vertical] || 'barbershop'
+        const staffTermPlural = STAFF_TERM_PLURAL[vertical] || 'barbers'
 
         // Last week appointments
         const { data: lastWeekAppts } = await supabase
@@ -228,7 +234,7 @@ export const ownerWeeklyBrief = schedules.task({
           const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 1000,
-            system: `You are ChairOS, a barbershop management assistant. You are writing a weekly business brief for a shop owner. Be direct, data-driven, and specific. Always lead with the most important number. Give exactly 3 actionable suggestions tailored to the data — not generic advice. Each suggestion must reference a specific number from the data. This is a weekly brief. Include a 'watch list' section: barbers who had a slow week and may need encouragement, and clients approaching lapse who should be contacted before ChairOS automation reaches them first. Include a 'retention_pulse' section: which barbers had their best week, which had their worst, and one specific thing the owner can do this week to strengthen the weakest relationship on their floor. Keep the total response under 400 words. Format as JSON with keys: headline, week_recap, barber_rankings (array of objects with name, revenue, rebook_rate_pct), watch_list (object with keys barbers and clients, each an array of strings), retention_pulse (object with keys best_week, worst_week, owner_action — each a string), suggestions (array of 3 strings), one_thing (single most important action for the week). Respond with only valid JSON, no markdown.`,
+            system: `You are ChairOS, a ${businessType} management assistant. You are writing a weekly business brief for a shop owner. Be direct, data-driven, and specific. Always lead with the most important number. Give exactly 3 actionable suggestions tailored to the data, not generic advice. Each suggestion must reference a specific number from the data. This is a weekly brief. Include a 'watch list' section: ${staffTermPlural} who had a slow week and may need encouragement, and clients approaching lapse who should be contacted before ChairOS automation reaches them first. Include a 'retention_pulse' section: which ${staffTermPlural} had their best week, which had their worst, and one specific thing the owner can do this week to strengthen the weakest relationship on their floor. Keep the total response under 400 words. Format as JSON with keys: headline, week_recap, barber_rankings (array of objects with name, revenue, rebook_rate_pct), watch_list (object with keys barbers and clients, each an array of strings), retention_pulse (object with keys best_week, worst_week, owner_action, each a string), suggestions (array of 3 strings), one_thing (single most important action for the week). Respond with only valid JSON, no markdown.`,
             messages: [{ role: 'user', content: JSON.stringify(briefData) }],
           })
 

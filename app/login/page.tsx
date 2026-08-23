@@ -29,11 +29,11 @@ export default function Login() {
 
     if (prof?.role === 'barber') {
       const { data: sb } = await supabase.from('shop_barbers').select('id').eq('barber_id', userId).eq('active', true).maybeSingle()
-      if (sb) { router.push('/dashboard/barber'); return }
+      if (sb) { router.push('/dashboard/chair'); return }
       // Solo barbers with an active subscription go straight to their dashboard
       const soloActive = prof?.plan_type === 'solo' &&
         (prof?.subscription_status === 'active' || prof?.subscription_status === 'trialing')
-      router.push(soloActive ? '/dashboard/barber' : '/join')
+      router.push(soloActive ? '/dashboard/chair' : '/join')
       return
     }
 

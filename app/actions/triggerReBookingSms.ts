@@ -8,6 +8,7 @@ type ReBookingPayload = {
   shopName: string
   daysSinceVisit: number
   lastServiceName: string
+  vertical?: string
 }
 
 export async function triggerReBookingSms(payload: ReBookingPayload) {

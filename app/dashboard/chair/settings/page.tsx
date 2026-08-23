@@ -3,8 +3,8 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
-import BarberNav from '@/components/BarberNav'
-import BarberMobileNav from '@/components/BarberMobileNav'
+import StaffNav from '@/components/StaffNav'
+import StaffMobileNav from '@/components/StaffMobileNav'
 import { Suspense } from 'react'
 import ServicesEditor from '@/components/ServicesEditor'
 
@@ -158,7 +158,7 @@ function BarberSettingsInner() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <BarberNav
+      <StaffNav
         shopName={shop?.name || ''}
         barberName={shopBarber?.barber_name || shopBarber?.alias || ''}
         color={shopBarber?.color || '#b8861f'}
@@ -349,7 +349,7 @@ function BarberSettingsInner() {
               </div>
             </div>
             <button
-              onClick={() => router.push('/dashboard/barber/reviews')}
+              onClick={() => router.push('/dashboard/chair/reviews')}
               className="px-3 py-1.5 bg-od-green text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap">
               View Reviews
             </button>
@@ -387,7 +387,7 @@ function BarberSettingsInner() {
           <p className="text-xs text-charcoal-500 mt-2">System follows your device setting. Default is System.</p>
         </div>
       </div>
-      <BarberMobileNav />
+      <StaffMobileNav />
     </div>
   )
 }

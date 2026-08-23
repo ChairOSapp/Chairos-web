@@ -44,7 +44,7 @@ function CalendarPageInner() {
         supabase.from('shops').select('id, name, shop_code, invite_code, slug').eq('owner_id', user.id).maybeSingle(),
       ])
       setProfile(prof)
-      if (prof?.role === 'barber') { router.push('/dashboard/barber/calendar'); return }
+      if (prof?.role === 'barber') { router.push('/dashboard/chair/calendar'); return }
       if (!shopData) { router.push('/onboarding'); return }
       setShop(shopData)
       setLoading(false)

@@ -8,6 +8,7 @@ import TrialCountdownBanner from '@/components/TrialCountdownBanner'
 import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
 import { getBillingStatus } from '@/lib/billing'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
   appointmentId: string
@@ -83,6 +84,7 @@ function PaymentBadge({ status }: { status?: string }) {
   )
 }
 export default function Dashboard() {
+  const { staffLabel, staffLabelPlural } = useVerticalLabels()
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
@@ -148,7 +150,7 @@ export default function Dashboard() {
       }
 
       setProfile(prof)
-      if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
+      if (prof?.role === 'barber') { router.push('/dashboard/chair'); return }
       if (getBillingStatus(prof) === 'blocked') { router.push('/subscribe'); return }
 
       if (prof?.role === 'owner') {
@@ -447,13 +449,13 @@ export default function Dashboard() {
         <div className="mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">The floor</div>
-            <button onClick={() => router.push('/dashboard/barbers')} className="btn-chairos-outline">Manage</button>
+            <button onClick={() => router.push('/dashboard/staff')} className="btn-chairos-outline">Manage</button>
           </div>
           <div className="bg-warm-100 border border-warm-200 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               <span className="text-xs text-charcoal-500">
-                {allBarbers.filter((b: any) => b.on_floor && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} barbers in
+                {allBarbers.filter((b: any) => b.on_floor && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} {staffLabelPlural.toLowerCase()} in
               </span>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -540,12 +542,12 @@ export default function Dashboard() {
         {allBarbers.filter(b => b.barber_id).length > 0 && (
           <div className="mb-5">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Barber Performance</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{staffLabel} Performance</div>
               <button onClick={() => router.push('/dashboard/analytics')} className="btn-chairos-outline">Full Analytics</button>
             </div>
             <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
               <div className="grid grid-cols-4 px-4 py-2 border-b border-warm-200 text-[10px] font-semibold tracking-widest uppercase text-charcoal-400">
-                <div>Barber</div>
+                <div>{staffLabel}</div>
                 <div className="text-center">Locked</div>
                 <div className="text-center">Appts / 30d</div>
                 <div className="text-center">Repeat Rate</div>

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 type Period = 'today' | 'week' | 'month' | 'year'
 
@@ -124,6 +125,7 @@ function BarChart({ days, revenueByDay }: {
 }
 
 export default function RevenuePage() {
+  const { staffLabel } = useVerticalLabels()
   const [period, setPeriod] = useState<Period>('month')
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
@@ -144,7 +146,7 @@ export default function RevenuePage() {
         .from('profiles').select('*').eq('id', user.id).maybeSingle()
       setProfile(prof)
 
-      if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
+      if (prof?.role === 'barber') { router.push('/dashboard/chair'); return }
 
       const { data: shopData } = await supabase
         .from('shops').select('*').eq('owner_id', user.id).maybeSingle()
@@ -226,7 +228,7 @@ export default function RevenuePage() {
         .filter(t => t.barber_id === b.barber_id)
         .reduce((s, t) => s + (parseFloat(String(t.amount)) || 0), 0)
       return {
-        name: b.barber_name || b.alias || 'Barber',
+        name: b.barber_name || b.alias || staffLabel,
         color: b.color || '#4B5320',
         cuts: cut,
         tips: bTips,
@@ -323,14 +325,14 @@ export default function RevenuePage() {
         {barberEarnings.length > 0 && (
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
             <div className="px-5 py-4 border-b border-warm-200">
-              <div className="font-serif text-charcoal-900">Barber Earnings</div>
+              <div className="font-serif text-charcoal-900">{staffLabel} Earnings</div>
               <div className="text-xs text-charcoal-500 mt-0.5">Commission / cut for this period</div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-warm-200 bg-warm-50">
-                    <th className="text-left px-5 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Barber</th>
+                    <th className="text-left px-5 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">{staffLabel}</th>
                     <th className="text-right px-4 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Cuts</th>
                     <th className="text-right px-4 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Tips</th>
                     <th className="text-right px-5 py-2 text-xs font-semibold tracking-widest uppercase text-charcoal-400">Total</th>

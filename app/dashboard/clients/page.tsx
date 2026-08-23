@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 type SortKey = 'name' | 'lastVisit' | 'daysSince' | 'barber' | 'lock' | 'visits' | 'spend'
 type SortDir = 'asc' | 'desc'
@@ -45,6 +46,7 @@ function rowAccent(days: number | null) {
 }
 
 export default function ClientsPage() {
+  const { staffLabel } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [allAppts, setAllAppts] = useState<any[]>([])
@@ -70,7 +72,7 @@ export default function ClientsPage() {
         supabase.from('shops').select('id, name').eq('owner_id', user.id).maybeSingle(),
       ])
       setProfile(prof)
-      if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
+      if (prof?.role === 'barber') { router.push('/dashboard/chair'); return }
       if (!shopData) { router.push('/onboarding'); return }
       setShop(shopData)
 
@@ -100,7 +102,7 @@ export default function ClientsPage() {
 
       const bm: Record<string, string> = {}
       for (const b of barbers || []) {
-        if (b.barber_id) bm[b.barber_id] = b.barber_name || b.alias || 'Barber'
+        if (b.barber_id) bm[b.barber_id] = b.barber_name || b.alias || staffLabel
       }
       setBarberMap(bm)
       setLoading(false)
@@ -286,7 +288,7 @@ export default function ClientsPage() {
                       <TH label="Client" k="name" />
                       <TH label="Last Visit" k="lastVisit" />
                       <TH label="Since" k="daysSince" />
-                      <TH label="Barber" k="barber" />
+                      <TH label={staffLabel} k="barber" />
                       <TH label="Lock" k="lock" />
                       <TH label="Visits" k="visits" />
                       <TH label="Spend" k="spend" />

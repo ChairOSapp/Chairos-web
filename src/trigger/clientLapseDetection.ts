@@ -30,7 +30,7 @@ export const clientLapseDetection = schedules.task({
     // 1. Load shops so we can look up owner_ids for notifications
     const { data: shops, error: shopsErr } = await supabase
       .from('shops')
-      .select('id, owner_id, name')
+      .select('id, owner_id, name, vertical')
 
     if (shopsErr) throw new Error(`shops query failed: ${shopsErr.message}`)
     const shopMap = new Map((shops ?? []).map(s => [s.id, s]))
@@ -50,11 +50,16 @@ export const clientLapseDetection = schedules.task({
       .select('shop_id, barber_id, barber_name, alias')
       .eq('active', true)
 
+    const STAFF_TERM: Record<string, string> = { barbershop: 'your barber', salon: 'your stylist', tattoo: 'your artist' }
+
     const barberNameMap = new Map(
-      (shopBarbers ?? []).map(b => [
-        `${b.shop_id}:${b.barber_id}`,
-        b.barber_name || b.alias || 'your barber',
-      ])
+      (shopBarbers ?? []).map(b => {
+        const vertical = shopMap.get(b.shop_id)?.vertical || 'barbershop'
+        return [
+          `${b.shop_id}:${b.barber_id}`,
+          b.barber_name || b.alias || (STAFF_TERM[vertical] || 'your barber'),
+        ]
+      })
     )
 
     // 4. Build per-client map: most recent visit + visit counts per barber
@@ -174,9 +179,11 @@ export const clientLapseDetection = schedules.task({
           console.log(`[client-lapse-detection] no SMS consent for ${client.client_name}, skipping SMS`)
           continue
         }
+        const vertical = shop?.vertical || 'barbershop'
+        const staffFallback = STAFF_TERM[vertical] || 'your barber'
         const barberName = client.last_barber_id
-          ? (barberNameMap.get(`${client.shop_id}:${client.last_barber_id}`) ?? 'your barber')
-          : 'your barber'
+          ? (barberNameMap.get(`${client.shop_id}:${client.last_barber_id}`) ?? staffFallback)
+          : staffFallback
 
         smsPayloads.push({
           clientPhone: client.client_phone,
@@ -185,6 +192,7 @@ export const clientLapseDetection = schedules.task({
           shopName: shop?.name ?? 'the shop',
           daysSinceVisit: daysSince,
           lastServiceName: client.last_service_name ?? 'your last service',
+          vertical,
         })
         smsTriggered++
       }

@@ -36,7 +36,7 @@ interface Props {
 
 const EVENT_COLOR = '#4B5320'
 
-export default function BarberCalendar({ shopId, barberId, barberName, shopCode, openBookOnLoad }: Props) {
+export default function StaffCalendar({ shopId, barberId, barberName, shopCode, openBookOnLoad }: Props) {
   const [view, setView] = useState<CalView>('dayGridMonth')
   const [viewStart, setViewStart] = useState(new Date())
   const [appointments, setAppointments] = useState<any[]>([])

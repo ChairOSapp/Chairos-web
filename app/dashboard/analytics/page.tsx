@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
-import BarberNav from '@/components/BarberNav'
+import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import AIInsightStrip from '@/components/insights/AIInsightStrip'
 import PeakHoursHeatmap from '@/components/insights/PeakHoursHeatmap'
@@ -11,6 +11,7 @@ import BarberPerformanceTable from '@/components/insights/BarberPerformanceTable
 import ClientHealthDashboard from '@/components/insights/ClientHealthDashboard'
 import RevenueIntelligence from '@/components/insights/RevenueIntelligence'
 import OpportunitiesSection from '@/components/insights/OpportunitiesSection'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 type AnalyticsPeriod = '30' | '90' | 'year'
 
@@ -178,6 +179,7 @@ function MonthlyBarsChart({ year, appointments }: { year: number; appointments: 
 // (SVGBarChart removed — replaced by ServiceRevenueTable and BarberPerfCards below)
 
 export default function AnalyticsPage() {
+  const { staffLabel } = useVerticalLabels()
   const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>('30')
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
@@ -353,7 +355,7 @@ export default function AnalyticsPage() {
         .filter(t => t.barber_id === b.barber_id)
         .reduce((s, t) => s + (parseFloat(String(t.amount)) || 0), 0)
       return {
-        label: b.barber_name || b.alias || 'Barber',
+        label: b.barber_name || b.alias || staffLabel,
         value: cut + bTips,
         sub: `$${cut.toFixed(0)} cuts + $${bTips.toFixed(0)} tips`,
         color: (b.color && b.color !== '#b8861f') ? b.color : '#4B5320',
@@ -381,7 +383,7 @@ export default function AnalyticsPage() {
     const top = Object.entries(map).sort((a, b) => b[1] - a[1])[0]
     if (!top) return null
     const barber = shopBarbers.find(b => b.barber_id === top[0])
-    return { name: barber?.barber_name || barber?.alias || 'Barber', count: top[1] }
+    return { name: barber?.barber_name || barber?.alias || staffLabel, count: top[1] }
   }, [atRiskClients, shopBarbers])
 
   // G) Busiest days of week
@@ -482,7 +484,7 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen bg-warm-50">
       {isBarber ? (
-        <BarberNav
+        <StaffNav
           shopName={shop?.name || ''}
           barberName={ownerName}
           color={myBarberEntry?.color || '#4B5320'}
@@ -913,7 +915,7 @@ export default function AnalyticsPage() {
                       .sort(([, a], [, b]) => (b as any).avg - (a as any).avg)
                       .map(([barberId, stat]) => {
                         const barber = shopBarbers.find(b => b.barber_id === barberId)
-                        const name = barber?.barber_name || barber?.alias || 'Barber'
+                        const name = barber?.barber_name || barber?.alias || staffLabel
                         return (
                           <div key={barberId} className="px-5 py-3 flex items-center justify-between">
                             <span className="text-sm font-semibold text-charcoal-900">{name}</span>

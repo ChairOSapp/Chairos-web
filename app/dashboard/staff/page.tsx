@@ -4,11 +4,13 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 
 export default function ManageBarbers() {
+  const { staffLabel, staffLabelPlural } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -148,7 +150,7 @@ export default function ManageBarbers() {
       const inviteLink = `${siteUrl}/join?token=${token}`
       setInviteResult({ name: barberName.trim(), link: inviteLink })
     } else {
-      setSuccess(editingId ? 'Barber updated.' : 'Barber added.')
+      setSuccess(editingId ? `${staffLabel} updated.` : `${staffLabel} added.`)
       setTimeout(() => setSuccess(''), 3000)
     }
 
@@ -181,7 +183,7 @@ export default function ManageBarbers() {
   }
 
   async function toggleActive(id: string, current: boolean) {
-    if (current && !confirm('Deactivate this barber? They will no longer appear in bookings.')) return
+    if (current && !confirm(`Deactivate this ${staffLabel.toLowerCase()}? They will no longer appear in bookings.`)) return
     const { error } = await supabase.from('shop_barbers').update({ active: !current }).eq('id', id)
     if (error) { setError(error.message); return }
     await loadData()
@@ -198,7 +200,7 @@ export default function ManageBarbers() {
       .maybeSingle()
 
     if (!prof) {
-      setError(`No account found for ${email.trim()}. The barber must sign up first at chairos.cc.`)
+      setError(`No account found for ${email.trim()}. The ${staffLabel.toLowerCase()} must sign up first at chairos.cc.`)
       setLinkModal(m => ({ ...m, open: false }))
       return
     }
@@ -234,19 +236,19 @@ export default function ManageBarbers() {
       <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Manage Barbers</h1>
+            <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Manage {staffLabelPlural}</h1>
             <p className="text-charcoal-500 text-sm">{shop?.name} · {barbers.filter(b => b.active).length} active</p>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => router.push('/dashboard/barbers/requests')}
+              onClick={() => router.push('/dashboard/staff/requests')}
               className="border border-od-green/40 text-od-green bg-od-green/10 hover:bg-od-green/20 font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
               Review Join Requests
             </button>
             <button
               onClick={() => { resetForm(); setInviteResult(null); setShowForm(!showForm) }}
               className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
-              + Add Barber
+              + Add {staffLabel}
             </button>
           </div>
         </div>
@@ -286,7 +288,7 @@ export default function ManageBarbers() {
         {showForm && (
           <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">
-              {editingId ? 'Edit Barber' : 'New Barber'}
+              {editingId ? `Edit ${staffLabel}` : `New ${staffLabel}`}
             </div>
             {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
 
@@ -334,7 +336,7 @@ export default function ManageBarbers() {
             {compType === 'commission' && (
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Barber Commission %</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{staffLabel} Commission %</label>
                   <div className="relative">
                     <input type="number" min="1" max="100" value={commissionRate} onChange={e => setCommissionRate(e.target.value)}
                       className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
@@ -343,13 +345,13 @@ export default function ManageBarbers() {
                   <div className="text-xs text-charcoal-500 mt-1">Shop keeps {100 - parseInt(commissionRate || '0')}%</div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Barber Tip %</label>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{staffLabel} Tip %</label>
                   <div className="relative">
                     <input type="number" min="1" max="100" value={tipSplit} onChange={e => setTipSplit(e.target.value)}
                       className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
                     <span className="absolute right-3 top-3 text-charcoal-400 text-sm">%</span>
                   </div>
-                  <div className="text-xs text-charcoal-500 mt-1">Default 100% to barber</div>
+                  <div className="text-xs text-charcoal-500 mt-1">Default 100% to {staffLabel.toLowerCase()}</div>
                 </div>
               </div>
             )}
@@ -393,7 +395,7 @@ export default function ManageBarbers() {
 
             {editingId && (
               <div className="mb-4">
-                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Barber Photo</label>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">{staffLabel} Photo</label>
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 border-2 border-warm-300">
                     {barberPhotoUrl ? (
@@ -426,8 +428,8 @@ export default function ManageBarbers() {
             )}
             {!editingId && (
               <div className="mb-4">
-                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Barber Photo</label>
-                <p className="text-xs text-charcoal-600">Save the barber first, then edit them to upload a photo.</p>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">{staffLabel} Photo</label>
+                <p className="text-xs text-charcoal-600">Save the {staffLabel.toLowerCase()} first, then edit them to upload a photo.</p>
               </div>
             )}
 
@@ -438,7 +440,7 @@ export default function ManageBarbers() {
               </button>
               <button onClick={handleSave} disabled={saving}
                 className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
-                {saving ? 'Saving...' : editingId ? 'Save Changes' : barberEmail ? 'Add & Generate Invite' : 'Add Barber'}
+                {saving ? 'Saving...' : editingId ? 'Save Changes' : barberEmail ? 'Add & Generate Invite' : `Add ${staffLabel}`}
               </button>
             </div>
           </div>
@@ -446,7 +448,7 @@ export default function ManageBarbers() {
 
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
           {barbers.length === 0 ? (
-            <div className="p-8 text-center text-charcoal-500 text-sm">No barbers yet. Add your first barber above.</div>
+            <div className="p-8 text-center text-charcoal-500 text-sm">No {staffLabelPlural.toLowerCase()} yet. Add your first {staffLabel.toLowerCase()} above.</div>
           ) : (
             <div className="divide-y divide-warm-200">
               {barbers.map((b, i) => (
@@ -485,7 +487,7 @@ export default function ManageBarbers() {
                       className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors">
                       Edit
                     </button>
-                    <button onClick={() => router.push(`/dashboard/barbers/${b.id}/earnings`)}
+                    <button onClick={() => router.push(`/dashboard/staff/${b.id}/earnings`)}
                       className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:border-green-500 hover:text-green-400 transition-colors">
                       Earnings
                     </button>
@@ -567,7 +569,7 @@ export default function ManageBarbers() {
                 onClick={handleLinkSubmit}
                 disabled={!linkModal.value.trim()}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
-                Link Barber
+                Link {staffLabel}
               </button>
             </div>
           </div>

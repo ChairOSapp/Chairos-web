@@ -6,7 +6,7 @@ import NotificationBell from '@/components/NotificationBell'
 import NotificationToast from '@/components/NotificationToast'
 import { NotificationsProvider } from '@/src/context/NotificationsContext'
 
-export default function BarberNav({ shopName, barberName, color, initial, photoUrl, userId }: {
+export default function StaffNav({ shopName, barberName, color, initial, photoUrl, userId }: {
   shopName: string
   barberName: string
   color: string
@@ -28,10 +28,10 @@ export default function BarberNav({ shopName, barberName, color, initial, photoU
       <div className="flex items-center gap-1">
         <span className="font-serif text-od-green text-lg mr-4">ChairOS</span>
         {[
-          { label: 'My Schedule', href: '/dashboard/barber' },
-          { label: 'Calendar', href: '/dashboard/barber/calendar' },
-          { label: 'My Profile', href: '/dashboard/barber/settings' },
-          { label: 'My Reviews', href: '/dashboard/barber/reviews' },
+          { label: 'My Schedule', href: '/dashboard/chair' },
+          { label: 'Calendar', href: '/dashboard/chair/calendar' },
+          { label: 'My Profile', href: '/dashboard/chair/settings' },
+          { label: 'My Reviews', href: '/dashboard/chair/reviews' },
         ].map(item => {
           const active = pathname === item.href
           return (

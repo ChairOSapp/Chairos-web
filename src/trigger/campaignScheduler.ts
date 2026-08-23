@@ -17,6 +17,8 @@ function nextRecurrenceDate(rule: string, from: Date): Date {
   return d
 }
 
+const BUSINESS_TYPE: Record<string, string> = { barbershop: 'barbershop', salon: 'hair salon', tattoo: 'tattoo studio' }
+
 export const campaignScheduler = schedules.task({
   id: "campaign-scheduler",
   cron: "0 * * * *", // every hour
@@ -66,11 +68,12 @@ export const campaignScheduler = schedules.task({
       if (campaign.ai_generated && campaign.audience_filters?.custom_curate) {
         try {
           const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-          const { data: shop } = await supabase.from('shops').select('name').eq('id', campaign.shop_id).maybeSingle()
+          const { data: shop } = await supabase.from('shops').select('name, vertical').eq('id', campaign.shop_id).maybeSingle()
+          const businessType = BUSINESS_TYPE[(shop as any)?.vertical || 'barbershop'] || 'barbershop'
           const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 600,
-            system: `You are a marketing copywriter for a barbershop. Write campaign messages that feel personal, not corporate. Never use generic phrases like 'valued customer'. For SMS: under 160 characters, clear action. For email: subject under 50 chars, body under 150 words. Return only JSON with keys: sms_message, email_subject, email_body. No preamble.`,
+            system: `You are a marketing copywriter for a ${businessType}. Write campaign messages that feel personal, not corporate. Never use generic phrases like 'valued customer'. For SMS: under 160 characters, clear action. For email: subject under 50 chars, body under 150 words. Return only JSON with keys: sms_message, email_subject, email_body. No preamble.`,
             messages: [{
               role: 'user',
               content: `Shop: ${shop?.name}. Campaign intent: ${campaign.intent}. Audience: ${campaign.audience_type}. Write a fresh version of this recurring campaign message.`,

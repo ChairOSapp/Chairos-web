@@ -62,7 +62,7 @@ async function shopNameForClient(supabase: ReturnType<typeof getSupabase>, clien
     .maybeSingle()
   const shop = (data as any)?.shops
   const name = Array.isArray(shop) ? shop[0]?.name : shop?.name
-  return name || 'your barbershop'
+  return name || 'your shop'
 }
 
 // Handles two distinct callers on the same endpoint:
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Phone number not found' }, { status: 404 })
   }
 
-  const shopName = client ? await shopNameForClient(supabase, client.id) : 'your barbershop'
+  const shopName = client ? await shopNameForClient(supabase, client.id) : 'your shop'
   const displayName = shortShopName(shopName)
 
   if (STOP_KEYWORDS.includes(keyword)) {

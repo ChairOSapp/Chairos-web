@@ -31,6 +31,10 @@ function getMondayOfWeek(d: Date): Date {
   return monday
 }
 
+const BUSINESS_TYPE: Record<string, string> = { barbershop: 'barbershop', salon: 'hair salon', tattoo: 'tattoo studio' }
+const STAFF_TERM: Record<string, string> = { barbershop: 'barber', salon: 'stylist', tattoo: 'artist' }
+const STAFF_TERM_PLURAL: Record<string, string> = { barbershop: 'barbers', salon: 'stylists', tattoo: 'artists' }
+
 export const ownerDailyBrief = schedules.task({
   id: "owner-daily-brief",
   cron: "0 11 * * *", // 7am ET
@@ -52,7 +56,7 @@ export const ownerDailyBrief = schedules.task({
     // Fetch active shops
     const { data: shops, error: shopsError } = await supabase
       .from('shops')
-      .select('id, name, owner_id')
+      .select('id, name, owner_id, vertical')
 
     if (shopsError) {
       console.error('[owner-daily-brief] shops query error:', shopsError)
@@ -88,6 +92,10 @@ export const ownerDailyBrief = schedules.task({
         const shopId = shop.id
         const ownerId = shop.owner_id
         const ownerProfile = profileMap[ownerId]
+        const vertical = (shop as any).vertical || 'barbershop'
+        const businessType = BUSINESS_TYPE[vertical] || 'barbershop'
+        const staffTerm = STAFF_TERM[vertical] || 'barber'
+        const staffTermPlural = STAFF_TERM_PLURAL[vertical] || 'barbers'
 
         // --- YESTERDAY ---
         const { data: yesterdayAppts } = await supabase
@@ -322,7 +330,7 @@ export const ownerDailyBrief = schedules.task({
           const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 1000,
-            system: `You are ChairOS. Write a daily brief for a barbershop owner. The owner's primary job is managing and retaining their barbers. Frame every insight around the team. Highlight what the owner did that enabled barber performance — chair availability, scheduling decisions, client flow. This brief should make the owner feel like a leader whose decisions directly impact their barbers' income. Give 3 suggestions: one to help a struggling barber, one to reward or recognize a top performer, one operational move to drive more revenue to the floor today. Reference specific barber names and numbers. Under 300 words. Return JSON with these exact keys: headline (string), one_thing (string), barber_rankings (array of objects: name, revenue, tips, no_shows, flag), shop_totals (object), suggestions (array of 3 plain strings — each string is the full action sentence, no nested objects). Respond with only valid JSON, no markdown fences.`,
+            system: `You are ChairOS. Write a daily brief for a ${businessType} owner. The owner's primary job is managing and retaining their ${staffTermPlural}. Frame every insight around the team. Highlight what the owner did that enabled ${staffTerm} performance: chair availability, scheduling decisions, client flow. This brief should make the owner feel like a leader whose decisions directly impact their ${staffTermPlural}' income. Give 3 suggestions: one to help a struggling ${staffTerm}, one to reward or recognize a top performer, one operational move to drive more revenue to the floor today. Reference specific ${staffTerm} names and numbers. Under 300 words. Return JSON with these exact keys: headline (string), one_thing (string), barber_rankings (array of objects: name, revenue, tips, no_shows, flag), shop_totals (object), suggestions (array of 3 plain strings, each string is the full action sentence, no nested objects). Respond with only valid JSON, no markdown fences.`,
             messages: [{ role: 'user', content: JSON.stringify(briefData) }],
           })
 

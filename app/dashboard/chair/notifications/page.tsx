@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import BarberMobileNav from '@/components/BarberMobileNav'
-import BarberNav from '@/components/BarberNav'
+import StaffMobileNav from '@/components/StaffMobileNav'
+import StaffNav from '@/components/StaffNav'
 
 export default function BarberNotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([])
@@ -59,7 +59,7 @@ export default function BarberNotificationsPage() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <BarberNav
+      <StaffNav
         shopName={shopBarber?.shops?.name || ''}
         barberName={shopBarber?.barber_name || shopBarber?.alias || ''}
         color={color}
@@ -107,7 +107,7 @@ export default function BarberNotificationsPage() {
           )}
         </div>
       </div>
-      <BarberMobileNav />
+      <StaffMobileNav />
     </div>
   )
 }

@@ -22,7 +22,7 @@ const PLANS = [
   },
   {
     id: 'barber' as const,
-    name: 'Solo Barber',
+    name: 'Solo Chair',
     price: '$25',
     period: '/mo',
     description: 'Everything you need as an independent barber',

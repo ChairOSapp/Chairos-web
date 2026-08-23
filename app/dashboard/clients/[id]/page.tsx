@@ -62,7 +62,7 @@ export default function ClientProfilePage() {
       const { data: prof } = await supabase
         .from('profiles').select('*').eq('id', user.id).maybeSingle()
       setProfile(prof)
-      if (prof?.role === 'barber') { router.push('/dashboard/barber'); return }
+      if (prof?.role === 'barber') { router.push('/dashboard/chair'); return }
 
       const { data: shopData } = await supabase
         .from('shops').select('*').eq('owner_id', user.id).maybeSingle()

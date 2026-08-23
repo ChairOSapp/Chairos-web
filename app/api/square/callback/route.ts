@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     userId = state || ''
   }
 
-  const settingsPath = role === 'owner' ? '/dashboard/settings' : '/dashboard/barber/settings'
+  const settingsPath = role === 'owner' ? '/dashboard/settings' : '/dashboard/chair/settings'
 
   // Helper to build an error redirect that always clears the nonce cookie
   function errorRedirect(param: string) {

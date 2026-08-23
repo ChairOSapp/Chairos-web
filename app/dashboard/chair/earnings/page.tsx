@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import BarberMobileNav from '@/components/BarberMobileNav'
+import StaffMobileNav from '@/components/StaffMobileNav'
 
 type Appointment = {
   id: string
@@ -160,7 +160,7 @@ export default function BarberEarningsPage() {
         {drillMode ? (
           <button onClick={() => setDrillMode(null)} className="btn-chairos-outline">Back</button>
         ) : (
-          <button onClick={() => router.push('/dashboard/barber')} className="btn-chairos-outline">Dashboard</button>
+          <button onClick={() => router.push('/dashboard/chair')} className="btn-chairos-outline">Dashboard</button>
         )}
       </header>
 
@@ -438,7 +438,7 @@ export default function BarberEarningsPage() {
         )}
 
       </div>
-      <BarberMobileNav />
+      <StaffMobileNav />
     </div>
   )
 }

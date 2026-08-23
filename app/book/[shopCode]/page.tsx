@@ -33,6 +33,11 @@ function BookingPageInner() {
   const [emailConsent, setEmailConsent] = useState(false)
   const [error, setError] = useState('')
   const [returningClient, setReturningClient] = useState<any>(null)
+  // Public page — no logged-in user, so labels come from this shop's own
+  // vertical (already loaded with the shop row), not useVerticalLabels()
+  // which resolves via the current session and doesn't apply here.
+  const [staffLabel, setStaffLabel] = useState('Barber')
+  const [staffLabelLower, setStaffLabelLower] = useState('barber')
 
   // Square payment state
   const squareCardRef = useRef<any>(null)
@@ -59,6 +64,13 @@ function BookingPageInner() {
         .from('shops').select('*').eq('shop_code', shopCode).maybeSingle()
       if (!shop) { setNotFound(true); setLoading(false); return }
       setShop(shop)
+
+      const { data: verticalMeta } = await supabase
+        .from('vertical_config').select('staff_label').eq('vertical', shop.vertical).maybeSingle()
+      if (verticalMeta?.staff_label) {
+        setStaffLabel(verticalMeta.staff_label)
+        setStaffLabelLower(verticalMeta.staff_label.toLowerCase())
+      }
 
       const { data: barbers } = await supabase
         .from('shop_barbers').select('*')
@@ -348,7 +360,7 @@ function BookingPageInner() {
     }
 
     // Notify owner
-    const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || 'Any barber'
+    const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || `Any ${staffLabelLower}`
     const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     await supabase.from('notifications').insert({
       user_id: shop.owner_id,
@@ -376,14 +388,14 @@ function BookingPageInner() {
       const dateFormatted = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
         weekday: 'long', month: 'long', day: 'numeric'
       })
-      const barberName = selectedBarber?.barber_name || selectedBarber?.alias || 'your barber'
+      const barberName = selectedBarber?.barber_name || selectedBarber?.alias || `your ${staffLabelLower}`
       try {
         await fetch('/api/sms', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             to: clientPhone,
-            message: `✂️ You're booked at ${shop.name}!\n\nService: ${selectedService.name}\nBarber: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to opt out.`
+            message: `You're booked at ${shop.name}!\n\nService: ${selectedService.name}\n${staffLabel}: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to opt out.`
           })
         })
       } catch {
@@ -437,7 +449,7 @@ function BookingPageInner() {
           </div>
           <h2 className="font-serif text-xl text-charcoal-900 mb-2">You're booked.</h2>
           <p className="text-charcoal-400 text-sm mb-6">
-            {selectedService.name} with {selectedBarber?.barber_name || selectedBarber?.alias || 'any barber'} on{' '}
+            {selectedService.name} with {selectedBarber?.barber_name || selectedBarber?.alias || `any ${staffLabelLower}`} on{' '}
             {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at {selectedTime}.
           </p>
           {paymentError && (
@@ -450,7 +462,7 @@ function BookingPageInner() {
               { label: 'Service', value: selectedService.name },
               { label: 'Price', value: `$${selectedService.price}`, colored: true },
               { label: 'Duration', value: `${selectedService.duration_minutes} mins` },
-              { label: 'Barber', value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
+              { label: staffLabel, value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
             ].map((row, i) => (
               <div key={i} className="flex justify-between text-sm">
                 <span className="text-charcoal-400">{row.label}</span>
@@ -509,7 +521,7 @@ function BookingPageInner() {
 
       <div className="bg-warm-100 border-b border-warm-200 px-6 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
-          {['Barber', 'Service', 'Date & Time', 'Info & Pay'].map((label, i) => (
+          {[staffLabel, 'Service', 'Date & Time', 'Info & Pay'].map((label, i) => (
             <div key={i} className="flex items-center gap-2 flex-1 last:flex-none">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
                 style={{
@@ -562,8 +574,8 @@ function BookingPageInner() {
 
         {step === 1 && (
           <div>
-            <h2 className="font-serif text-xl text-charcoal-900 mb-1">Choose your barber</h2>
-            <p className="text-charcoal-500 text-sm mb-6">Pick who you want or select any available barber.</p>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-1">Choose your {staffLabelLower}</h2>
+            <p className="text-charcoal-500 text-sm mb-6">Pick who you want or select any available {staffLabelLower}.</p>
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div
                 onClick={() => { setSelectedBarber(null); setStep(2) }}
@@ -576,7 +588,7 @@ function BookingPageInner() {
                     <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                   </svg>
                 </div>
-                <div className="text-sm font-semibold text-charcoal-900">Any Barber</div>
+                <div className="text-sm font-semibold text-charcoal-900">Any {staffLabel}</div>
                 <div className="text-xs text-charcoal-500 mt-1">First available</div>
               </div>
               {barbers.map((b, i) => (
@@ -688,7 +700,7 @@ function BookingPageInner() {
             <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-6 space-y-2">
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Booking Summary</div>
               {[
-                { label: 'Barber', value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
+                { label: staffLabel, value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
                 { label: 'Service', value: selectedService?.name },
                 { label: 'Date', value: new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) },
                 { label: 'Time', value: selectedTime },
@@ -714,7 +726,7 @@ function BookingPageInner() {
                 { label: 'Full Name *', value: clientName, set: setClientName, type: 'text', placeholder: 'Your name' },
                 { label: 'Phone Number *', value: clientPhone, set: setClientPhone, type: 'tel', placeholder: '(555) 000-0000' },
                 { label: 'Email (optional)', value: clientEmail, set: setClientEmail, type: 'email', placeholder: 'For confirmation email' },
-                { label: 'Notes (optional)', value: notes, set: setNotes, type: 'text', placeholder: 'Any requests for your barber' },
+                { label: 'Notes (optional)', value: notes, set: setNotes, type: 'text', placeholder: `Any requests for your ${staffLabelLower}` },
               ].map(f => (
                 <div key={f.label}>
                   <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{f.label}</label>
@@ -728,7 +740,7 @@ function BookingPageInner() {
                       <div>
                         <div className="text-xs font-semibold text-green-400">Welcome back, {returningClient.full_name?.split(' ')[0]}!</div>
                         <div className="text-xs text-charcoal-500 mt-0.5">
-                          {returningClient.total_visits} visit{returningClient.total_visits !== 1 ? 's' : ''} — your barber has been pre-selected
+                          {returningClient.total_visits} visit{returningClient.total_visits !== 1 ? 's' : ''}, your {staffLabelLower} has been pre-selected
                         </div>
                       </div>
                     </div>

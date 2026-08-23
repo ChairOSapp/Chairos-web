@@ -10,7 +10,11 @@ type Payload = {
   shopName: string
   daysSinceVisit: number
   lastServiceName: string
+  vertical?: string
 }
+
+const BUSINESS_TYPE: Record<string, string> = { barbershop: 'barbershop', salon: 'hair salon', tattoo: 'tattoo studio' }
+const STAFF_TERM: Record<string, string> = { barbershop: 'barber', salon: 'stylist', tattoo: 'artist' }
 
 function getSupabase() {
   return createClient(
@@ -37,16 +41,18 @@ export const reBookingSms = task({
     }
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+    const businessType = BUSINESS_TYPE[payload.vertical || 'barbershop'] || 'barbershop'
+    const staffTerm = STAFF_TERM[payload.vertical || 'barbershop'] || 'barber'
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 100,
       system:
-        "You are writing a personalized SMS from a barbershop to a returning client. The message must be under 160 characters, warm and personal (not promotional), reference how long it's been since their last visit, mention the barber by first name, and end with a soft call to action to book again. Never use exclamation points more than once. Return only the SMS text, nothing else.",
+        `You are writing a personalized SMS from a ${businessType} to a returning client. The message must be under 160 characters, warm and personal (not promotional), reference how long it's been since their last visit, mention the ${staffTerm} by first name, and end with a soft call to action to book again. Never use exclamation points more than once. Return only the SMS text, nothing else.`,
       messages: [
         {
           role: 'user',
-          content: `Client: ${payload.clientName}. Barber: ${payload.barberName}. Shop: ${payload.shopName}. Days since last visit: ${payload.daysSinceVisit}. Last service: ${payload.lastServiceName}.`,
+          content: `Client: ${payload.clientName}. ${staffTerm.charAt(0).toUpperCase() + staffTerm.slice(1)}: ${payload.barberName}. Shop: ${payload.shopName}. Days since last visit: ${payload.daysSinceVisit}. Last service: ${payload.lastServiceName}.`,
         },
       ],
     })

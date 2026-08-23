@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 export default function BarberEarnings() {
+  const { staffLabelPlural } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [barber, setBarber] = useState<any>(null)
   const [appointments, setAppointments] = useState<any[]>([])
@@ -98,7 +100,7 @@ export default function BarberEarnings() {
             className="px-4 py-1.5 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-xs transition-colors">
             Print / Save PDF
           </button>
-          <button onClick={() => router.push('/dashboard/barbers')} className="btn-chairos-outline">Barbers</button>
+          <button onClick={() => router.push('/dashboard/staff')} className="btn-chairos-outline">{staffLabelPlural}</button>
         </div>
       </header>
 

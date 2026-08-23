@@ -4,10 +4,12 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
 
 export default function BarberRequestsPage() {
+  const { staffLabel, staffLabelPlural } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -140,9 +142,9 @@ export default function BarberRequestsPage() {
             <p className="text-charcoal-500 text-sm">{shop?.name} · {requests.length} pending</p>
           </div>
           <button
-            onClick={() => router.push('/dashboard/barbers')}
+            onClick={() => router.push('/dashboard/staff')}
             className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">
-            Back to Barbers
+            Back to {staffLabelPlural}
           </button>
         </div>
 
@@ -152,7 +154,7 @@ export default function BarberRequestsPage() {
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
           {requests.length === 0 ? (
             <div className="p-8 text-center text-charcoal-500 text-sm">
-              No pending join requests. When a barber enters your shop code, they'll appear here.
+              No pending join requests. When a {staffLabel.toLowerCase()} enters your shop code, they'll appear here.
             </div>
           ) : (
             <div className="divide-y divide-warm-200">

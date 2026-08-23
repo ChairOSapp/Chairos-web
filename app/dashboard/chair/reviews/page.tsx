@@ -2,8 +2,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import BarberNav from '@/components/BarberNav'
-import BarberMobileNav from '@/components/BarberMobileNav'
+import StaffNav from '@/components/StaffNav'
+import StaffMobileNav from '@/components/StaffMobileNav'
 
 export default function BarberReviewsPage() {
   const [reviews, setReviews] = useState<any[]>([])
@@ -69,7 +69,7 @@ export default function BarberReviewsPage() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <BarberNav
+      <StaffNav
         shopName={shopName}
         barberName={barberName}
         color={color}
@@ -82,7 +82,7 @@ export default function BarberReviewsPage() {
 
         {/* Back button */}
         <button
-          onClick={() => router.push('/dashboard/barber')}
+          onClick={() => router.push('/dashboard/chair')}
           className="btn-chairos-outline mb-6">
           My Dashboard
         </button>
@@ -162,7 +162,7 @@ export default function BarberReviewsPage() {
         </div>
 
       </div>
-      <BarberMobileNav />
+      <StaffMobileNav />
     </div>
   )
 }

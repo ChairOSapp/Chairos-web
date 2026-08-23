@@ -18,7 +18,7 @@ export function getStripeJs() {
 }
 
 export const PLANS = {
-  solo: { price: process.env.STRIPE_SOLO_PRICE_ID!, label: 'Solo Barber', amount: '$25/mo' },
+  solo: { price: process.env.STRIPE_SOLO_PRICE_ID!, label: 'Solo Chair', amount: '$25/mo' },
   owner: { price: process.env.STRIPE_OWNER_PRICE_ID!, label: 'Shop Owner', amount: '$99/mo' },
 } as const
 
