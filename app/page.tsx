@@ -55,12 +55,19 @@ function IconShield() {
   )
 }
 
+const VERTICAL_SECTIONS = [
+  { id: 'barbershops', label: 'Barbershops' },
+  { id: 'salons', label: 'Salons' },
+  { id: 'tattoo', label: 'Tattoo Studios' },
+]
+
 export default function LandingPage() {
   const router = useRouter()
   const supabase = createClient()
   const [email, setEmail] = useState('')
   const [joined, setJoined] = useState(false)
   const [emailError, setEmailError] = useState(false)
+  const [activeSection, setActiveSection] = useState('barbershops')
   const revenueRef = useRef<HTMLDivElement>(null)
   const tipsRef = useRef<HTMLDivElement>(null)
   const lockedRef = useRef<HTMLDivElement>(null)
@@ -121,6 +128,28 @@ export default function LandingPage() {
       observer.observe(e)
     })
     return () => observer.disconnect()
+  }, [])
+
+  // Scroll-spy for the vertical nav — updates on manual scrolling too, not
+  // just button clicks, since it just tracks which section is nearest the
+  // top of the viewport (under the sticky nav bar) at any given moment.
+  useEffect(() => {
+    const sectionEls = VERTICAL_SECTIONS
+      .map(v => document.getElementById(v.id))
+      .filter((el): el is HTMLElement => !!el)
+    if (sectionEls.length === 0) return
+
+    const spy = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter(e => e.isIntersecting)
+        if (visible.length === 0) return
+        const topMost = visible.reduce((a, b) => (a.boundingClientRect.top < b.boundingClientRect.top ? a : b))
+        setActiveSection(topMost.target.id)
+      },
+      { rootMargin: '-140px 0px -70% 0px', threshold: 0 }
+    )
+    sectionEls.forEach(el => spy.observe(el))
+    return () => spy.disconnect()
   }, [])
 
   function scrollTo(id: string) {
@@ -191,6 +220,35 @@ export default function LandingPage() {
           ))}
         </div>
       </div>
+
+      {/* VERTICAL NAV — scrolls to each shop-type section below; active state tracked on scroll */}
+      <div style={{ position: 'sticky', top: '56px', zIndex: 40, background: 'rgba(250,250,247,0.95)', backdropFilter: 'blur(12px)', borderBottom: '0.5px solid #D8D5C8', padding: '12px 24px' }}>
+        <div style={{ maxWidth: '760px', margin: '0 auto', display: 'flex', gap: '8px', overflowX: 'auto' as const }}>
+          {VERTICAL_SECTIONS.map(v => (
+            <button
+              key={v.id}
+              onClick={() => scrollTo(v.id)}
+              style={{
+                flexShrink: 0,
+                fontSize: '13px',
+                fontWeight: 600,
+                padding: '9px 18px',
+                borderRadius: '20px',
+                border: activeSection === v.id ? '1px solid #4B5320' : '1px solid #D8D5C8',
+                background: activeSection === v.id ? '#4B5320' : '#FAFAF7',
+                color: activeSection === v.id ? '#FAFAF7' : '#4F4F48',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap' as const,
+              }}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <section id="barbershops">
 
       {/* DASHBOARD PREVIEW */}
       <div data-anim data-animate="revenue" style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '16px', margin: '0 24px 80px', overflow: 'hidden', maxWidth: '680px', marginLeft: 'auto', marginRight: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.08)' }}>
@@ -372,6 +430,73 @@ export default function LandingPage() {
           </div>
         </div>
       </div>
+
+      </section>
+
+      {/* SALON SECTION — draft copy, Bear/Candice review before merge */}
+      <section id="salons" style={{ background: '#FAFAF7', padding: '80px 24px' }}>
+        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+          <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320', marginBottom: '12px' }}>For salon owners</div>
+          <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, marginBottom: '14px' }}>
+            Booking, retention, and client lock —<br />built for salon owners.
+          </div>
+          <div data-anim style={{ fontSize: '16px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '44px', maxWidth: '520px' }}>
+            Run color, cut, and highlight bookings the way your salon actually works — with the same client-ownership protection that's kept barbershops on ChairOS.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+            {[
+              { title: 'Client Lock for stylists', desc: "Client Lock prevents a stylist from walking out with your book — the same protection that's kept barbershops on ChairOS, now for every chair." },
+              { title: 'One flat fee, every chair', desc: 'No per-stylist software cost. One shop-wide rate covers your whole team, how ever many chairs you run.' },
+              { title: 'Salon-specific booking', desc: 'Cut, color, and highlights presets ready out of the box, plus consultation booking for new clients before they commit to a service.' },
+            ].map((f, i) => (
+              <div data-anim key={i} style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A18', marginBottom: '7px' }}>{f.title}</div>
+                <div style={{ fontSize: '12px', color: '#65655F', lineHeight: 1.55 }}>{f.desc}</div>
+              </div>
+            ))}
+          </div>
+          <div data-anim style={{ fontSize: '13px', color: '#65655F', lineHeight: 1.6, maxWidth: '520px' }}>
+            <span style={{ color: '#4B5320', fontWeight: 600 }}>Client Lock</span> is the same retention engine running the barbershop side of ChairOS — it just as easily protects a stylist's book as a barber's.
+          </div>
+        </div>
+      </section>
+
+      {/* TATTOO SECTION — draft copy, Bear/Candice review before merge.
+          NOTE: the original draft for this section referenced deposits
+          collected at booking and digital consent forms (Phase 4/5).
+          Per the explicit instruction not to claim those until they're
+          verified live in production — and as of this build, Phase 4
+          (a real Square sandbox charge) and Phase 5 (a real-PDF signing
+          flow) have not completed that verification — this section uses
+          only what's confirmed live: Client Lock, setup/cleanup buffers,
+          and the tattoo service presets. Swap in the deposit/consent
+          highlights here once that verification is done. */}
+      <section id="tattoo" style={{ background: '#4B5320', padding: '80px 24px' }}>
+        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+          <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#B8C49A', marginBottom: '14px' }}>For studio owners</div>
+          <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, color: '#FAFAF7', marginBottom: '14px' }}>
+            Booking and client lock —<br />built for studio owners.
+          </div>
+          <div data-anim style={{ fontSize: '16px', color: '#B8C49A', lineHeight: 1.65, marginBottom: '44px', maxWidth: '520px' }}>
+            Session bookings that respect real setup and cleanup time, and the same client-ownership protection that's kept barbershops on ChairOS.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+            {[
+              { title: 'Client Lock for artists', desc: "Client Lock protects your artists' books the same way it protects barbers' — a client who books twice with an artist is locked to them." },
+              { title: 'Buffer time built in', desc: "Set setup and cleanup time per service. Session bookings automatically block the minutes your artist needs before and after — no back-to-back rushing." },
+              { title: 'Session-ready booking', desc: 'Consultation, Session, Touch-up, and Piercing presets ready out of the box, with consultation booking for new clients before they commit.' },
+            ].map((f, i) => (
+              <div data-anim key={i} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '14px', padding: '24px', backdropFilter: 'blur(4px)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#FAFAF7', marginBottom: '7px' }}>{f.title}</div>
+                <div style={{ fontSize: '12px', color: '#9aa87a', lineHeight: 1.55 }}>{f.desc}</div>
+              </div>
+            ))}
+          </div>
+          <div data-anim style={{ fontSize: '13px', color: '#9aa87a', lineHeight: 1.6, maxWidth: '520px' }}>
+            <span style={{ color: '#B8C49A', fontWeight: 600 }}>Client Lock</span> is the same retention engine running the barbershop side of ChairOS — it just as easily protects an artist's book as a barber's.
+          </div>
+        </div>
+      </section>
 
       {/* PRICING */}
       <div style={{ background: '#FAFAF7', padding: '80px 24px' }}>
