@@ -130,7 +130,7 @@ export default function LandingPage() {
     return () => observer.disconnect()
   }, [])
 
-  // Scroll-spy for the vertical nav — updates on manual scrolling too, not
+  // Scroll-spy for the vertical nav. Updates on manual scrolling too, not
   // just button clicks, since it just tracks which section is nearest the
   // top of the viewport (under the sticky nav bar) at any given moment.
   useEffect(() => {
@@ -167,9 +167,9 @@ export default function LandingPage() {
   const FEATURES = [
     { icon: <IconCalendar />, title: 'Live booking page', desc: 'Branded for your shop. Clients book in 4 steps. Confirmation texts sent automatically.' },
     { icon: <IconDollar />, title: 'Barber compensation', desc: 'Commission or booth rent. Tips tracked per barber. Year-end statements built in.' },
-    { icon: <IconUsers />, title: 'Floor visibility', desc: "See who's in, who's off, who's pending — live. Barbers toggle their own status." },
+    { icon: <IconUsers />, title: 'Floor visibility', desc: "See who's in, who's off, who's pending, all live. Barbers toggle their own status." },
     { icon: <IconBell />, title: 'Instant alerts', desc: 'New bookings, walk-ins, and status changes push to you in real time.' },
-    { icon: <IconChart />, title: 'Revenue analytics', desc: 'Daily revenue trends, monthly breakdowns, busiest days, service performance — all in one view.' },
+    { icon: <IconChart />, title: 'Revenue analytics', desc: 'Daily revenue trends, monthly breakdowns, busiest days, and service performance, all in one view.' },
     { icon: <IconShield />, title: 'Client Lock', desc: 'Proprietary retention engine. Track which clients belong to which barber. Know your exposure before a barber walks.' },
   ]
 
@@ -189,21 +189,21 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* HERO — full-bleed, bold */}
+      {/* HERO: full-bleed, bold */}
       <div style={{ padding: '72px 24px 64px', maxWidth: '760px', margin: '0 auto' }}>
         <div data-anim style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#EDF2E5', border: '0.5px solid #B8C49A', color: '#4B5320', fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '20px', marginBottom: '28px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4B5320', display: 'inline-block', animation: 'pulse 2s infinite' }} />
-          Founding member spots open — 30-day free trial
+          Founding member spots open · 30-day free trial
         </div>
         <div data-anim style={{ fontSize: 'clamp(42px, 9vw, 64px)', lineHeight: 1.05, fontWeight: 400, letterSpacing: '-2px', marginBottom: '20px' }}>
           Run your shop.<br /><span style={{ color: '#4B5320' }}>Not spreadsheets.</span>
         </div>
         <div data-anim style={{ fontSize: '18px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '36px', maxWidth: '520px' }}>
-          The operating system for barbershop owners. Bookings, barber comp, client retention, and analytics — built by someone who's been behind the chair.
+          The operating system for barbershop owners. Bookings, barber comp, client retention, and analytics, built by someone who's been behind the chair.
         </div>
         <div data-anim style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' as const, marginBottom: '36px' }}>
           <button onClick={() => router.push('/signup')} style={{ background: '#4B5320', color: '#fff', fontSize: '15px', fontWeight: 700, padding: '15px 32px', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(75,83,32,0.3)' }}>
-            Start free trial — 30 days
+            Start free trial · 30 days
           </button>
           <button onClick={() => scrollTo('features')} style={{ background: '#FAFAF7', color: '#1A1A18', fontSize: '15px', fontWeight: 500, padding: '15px 28px', borderRadius: '10px', border: '1px solid #C0BDB0', cursor: 'pointer' }}>
             See how it works →
@@ -221,7 +221,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* VERTICAL NAV — scrolls to each shop-type section below; active state tracked on scroll */}
+      {/* VERTICAL NAV: scrolls to each shop-type section below; active state tracked on scroll */}
       <div style={{ position: 'sticky', top: '56px', zIndex: 40, background: 'rgba(250,250,247,0.95)', backdropFilter: 'blur(12px)', borderBottom: '0.5px solid #D8D5C8', padding: '12px 24px' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto', display: 'flex', gap: '8px', overflowX: 'auto' as const }}>
           {VERTICAL_SECTIONS.map(v => (
@@ -254,7 +254,7 @@ export default function LandingPage() {
       <div data-anim data-animate="revenue" style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '16px', margin: '0 24px 80px', overflow: 'hidden', maxWidth: '680px', marginLeft: 'auto', marginRight: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.08)' }}>
         <div style={{ background: '#EAE8E0', borderBottom: '0.5px solid #D8D5C8', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
           {['#ff5f57', '#ffbd2e', '#28ca41'].map((c, i) => <div key={i} style={{ width: '10px', height: '10px', borderRadius: '50%', background: c }} />)}
-          <span style={{ fontSize: '11px', color: '#65655F', marginLeft: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>Owner dashboard — live</span>
+          <span style={{ fontSize: '11px', color: '#65655F', marginLeft: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>Owner dashboard · live</span>
         </div>
         <div style={{ padding: '20px' }}>
           <div style={{ fontSize: '16px', color: '#1A1A18', marginBottom: '8px' }}>Good morning, Bear.</div>
@@ -273,7 +273,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div style={{ background: '#EAE8E0', border: '0.5px solid #D8D5C8', borderRadius: '10px', padding: '12px' }}>
-            <div style={{ fontSize: '10px', color: '#65655F', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '8px' }}>The floor — live</div>
+            <div style={{ fontSize: '10px', color: '#65655F', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '8px' }}>The floor · live</div>
             {[
               { initial: 'B', name: 'Bear Bryant', comp: '70% commission', color: '#4B5320', on: true },
               { initial: 'M', name: 'Marcus Webb', comp: '$150/wk booth rent', color: '#4a7fb5', on: true },
@@ -293,12 +293,12 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* FEATURES — dark OD green section */}
+      {/* FEATURES: dark OD green section */}
       <div id="features" style={{ background: '#4B5320', padding: '80px 24px' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
           <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#B8C49A', marginBottom: '14px' }}>For shop owners</div>
           <div data-anim style={{ fontSize: 'clamp(30px, 6vw, 42px)', fontWeight: 400, letterSpacing: '-1px', lineHeight: 1.15, color: '#FAFAF7', marginBottom: '14px' }}>Everything you need<br />to run a modern shop.</div>
-          <div data-anim style={{ fontSize: '16px', color: '#B8C49A', lineHeight: 1.65, marginBottom: '52px', maxWidth: '480px' }}>Bookings, barber comp, client retention, and analytics — in one dashboard built for how a barbershop actually runs.</div>
+          <div data-anim style={{ fontSize: '16px', color: '#B8C49A', lineHeight: 1.65, marginBottom: '52px', maxWidth: '480px' }}>Bookings, barber comp, client retention, and analytics, in one dashboard built for how a barbershop actually runs.</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
             {FEATURES.map((f, i) => (
               <div data-anim key={i} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '14px', padding: '24px', backdropFilter: 'blur(4px)' }}>
@@ -313,24 +313,24 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* CLIENT LOCK — premium hero section */}
+      {/* CLIENT LOCK: premium hero section */}
       <div style={{ background: '#FAFAF7', padding: '80px 24px' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
           <div data-anim style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#EDF2E5', border: '0.5px solid #B8C49A', borderRadius: '20px', padding: '5px 14px', marginBottom: '24px' }}>
             <span style={{ color: '#4B5320' }}><IconLock /></span>
-            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320' }}>Client Lock — Proprietary</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320' }}>Client Lock · Proprietary</span>
           </div>
           <div data-anim style={{ fontSize: 'clamp(32px, 7vw, 48px)', fontWeight: 400, letterSpacing: '-1.2px', lineHeight: 1.1, marginBottom: '16px' }}>
             Your clients stay yours.<br /><span style={{ color: '#4B5320' }}>Even when barbers leave.</span>
           </div>
           <div data-anim style={{ fontSize: '17px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '40px', maxWidth: '520px' }}>
-            ChairOS tracks which clients belong to which barber — and for how long. When a barber leaves, you know exactly what revenue is at risk before they walk out the door.
+            ChairOS tracks which clients belong to which barber, and for how long. When a barber leaves, you know exactly what revenue is at risk before they walk out the door.
           </div>
 
           {/* Lock metrics card */}
           <div data-anim data-animate="lock" style={{ background: '#F0EDE6', border: '1px solid #C8C4B8', borderRadius: '20px', overflow: 'hidden', marginBottom: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ background: '#2d3214', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#B8C49A' }}>Retention intelligence — live</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#B8C49A' }}>Retention intelligence · live</span>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5ecc5e', display: 'inline-block', animation: 'pulse 2s infinite' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', background: '#E8E4DC' }}>
@@ -350,7 +350,7 @@ export default function LandingPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
             {[
-              { icon: '2', title: 'Locks after 2 visits', desc: 'A client books twice — they\'re locked. No guessing who owns who.' },
+              { icon: '2', title: 'Locks after 2 visits', desc: 'A client books twice. They\'re locked. No guessing who owns who.' },
               { icon: '90', title: '90-day lapse window', desc: '90 days without a booking releases the lock. 12+ months earns loyalty protection.' },
               { icon: '∞', title: 'Owner override', desc: 'The logic runs automatically. You can reassign or release any lock manually.' },
             ].map((c, i) => (
@@ -369,7 +369,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
           <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320', marginBottom: '12px' }}>For barbers</div>
           <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, marginBottom: '14px' }}>Built for the person<br />behind the chair.</div>
-          <div data-anim style={{ fontSize: '16px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '44px', maxWidth: '480px' }}>Barbers get their own dashboard — schedule, earnings, clients, and floor toggle. No shared logins. No guessing what you made.</div>
+          <div data-anim style={{ fontSize: '16px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '44px', maxWidth: '480px' }}>Barbers get their own dashboard: schedule, earnings, clients, and floor toggle. No shared logins. No guessing what you made.</div>
           <div style={{ display: 'flex', gap: '32px', alignItems: 'flex-start', flexWrap: 'wrap' as const }}>
             <div data-anim style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '28px', padding: '16px', width: '260px', flexShrink: 0, boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
               <div style={{ background: '#EAE8E0', borderRadius: '20px', overflow: 'hidden' }}>
@@ -413,7 +413,7 @@ export default function LandingPage() {
             <div style={{ flex: 1, minWidth: '200px' }}>
               <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '12px' }}>
                 {[
-                  { icon: <IconDollar />, title: 'Private earnings', desc: 'Your cut and tips — tap to show or hide. Other barbers never see your numbers.' },
+                  { icon: <IconDollar />, title: 'Private earnings', desc: 'Your cut and tips. Tap to show or hide. Other barbers never see your numbers.' },
                   { icon: <IconUsers />, title: 'Your client list', desc: "See who's locked to you, who's at risk. Call or text directly from the app." },
                   { icon: <IconCalendar />, title: 'Real-time schedule', desc: 'Appointments update live. Mark done, add tips, book walk-ins from your phone.' },
                 ].map((f, i) => (
@@ -433,21 +433,23 @@ export default function LandingPage() {
 
       </section>
 
-      {/* SALON SECTION — draft copy, Bear/Candice review before merge */}
+      {/* SALON SECTION: draft copy, Bear/Candice review before merge.
+          Written to stand alone: no sentence shared or paraphrased from
+          the barbershop section above. */}
       <section id="salons" style={{ background: '#FAFAF7', padding: '80px 24px' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
           <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320', marginBottom: '12px' }}>For salon owners</div>
           <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, marginBottom: '14px' }}>
-            Booking, retention, and client lock —<br />built for salon owners.
+            A stylist can build your book for two years.<br />Then open their own suite and take it with them.
           </div>
           <div data-anim style={{ fontSize: '16px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '44px', maxWidth: '520px' }}>
-            Run color, cut, and highlight bookings the way your salon actually works — with the same client-ownership protection that's kept barbershops on ChairOS.
+            Client Lock ties every client to the stylist who's earning their loyalty, one appointment at a time. The day a stylist gives notice, you already know exactly whose book is walking out the door, not three months later when the rebooking numbers stop adding up.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
             {[
-              { title: 'Client Lock for stylists', desc: "Client Lock prevents a stylist from walking out with your book — the same protection that's kept barbershops on ChairOS, now for every chair." },
-              { title: 'One flat fee, every chair', desc: 'No per-stylist software cost. One shop-wide rate covers your whole team, how ever many chairs you run.' },
-              { title: 'Salon-specific booking', desc: 'Cut, color, and highlights presets ready out of the box, plus consultation booking for new clients before they commit to a service.' },
+              { title: 'Color and chemical services, actually bookable', desc: 'Clients book color, cuts, and highlights the way your salon actually runs, not a generic slot borrowed from a barbershop scheduler.' },
+              { title: 'Relationships built over months', desc: "A client isn't locked in after one blowout. Client Lock tracks the relationship your stylists build over repeat color and cut appointments, so you always know which books are solid." },
+              { title: 'One fee, not one fee per stylist', desc: 'Other salon platforms charge per seat. ChairOS is one flat rate for the whole salon, whether you run three chairs or twelve.' },
             ].map((f, i) => (
               <div data-anim key={i} style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A18', marginBottom: '7px' }}>{f.title}</div>
@@ -456,35 +458,34 @@ export default function LandingPage() {
             ))}
           </div>
           <div data-anim style={{ fontSize: '13px', color: '#65655F', lineHeight: 1.6, maxWidth: '520px' }}>
-            <span style={{ color: '#4B5320', fontWeight: 600 }}>Client Lock</span> is the same retention engine running the barbershop side of ChairOS — it just as easily protects a stylist's book as a barber's.
+            This is <span style={{ color: '#4B5320', fontWeight: 600 }}>Client Lock</span>: the system that keeps a stylist from quietly building a client list on your dime and walking it out the door the day they go independent.
           </div>
         </div>
       </section>
 
-      {/* TATTOO SECTION — draft copy, Bear/Candice review before merge.
-          NOTE: the original draft for this section referenced deposits
-          collected at booking and digital consent forms (Phase 4/5).
-          Per the explicit instruction not to claim those until they're
-          verified live in production — and as of this build, Phase 4
-          (a real Square sandbox charge) and Phase 5 (a real-PDF signing
-          flow) have not completed that verification — this section uses
-          only what's confirmed live: Client Lock, setup/cleanup buffers,
-          and the tattoo service presets. Swap in the deposit/consent
-          highlights here once that verification is done. */}
+      {/* TATTOO SECTION: draft copy, Bear/Candice review before merge.
+          Written to stand alone, no sentence shared with barbershop or
+          salon. Deliberately holds back deposit/consent-form claims:
+          Phase 4 has never had a real Square charge run (sandbox or
+          otherwise), and while Phase 5's signing pipeline has been
+          exercised for real in production (a real signed PDF, viewable
+          in the dashboard), the real-attorney-PDF UAT that Phase 5's own
+          spec set as the confidence bar was never completed. Swap in the
+          deposit/consent highlights once both are actually verified. */}
       <section id="tattoo" style={{ background: '#4B5320', padding: '80px 24px' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
           <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#B8C49A', marginBottom: '14px' }}>For studio owners</div>
           <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, color: '#FAFAF7', marginBottom: '14px' }}>
-            Booking and client lock —<br />built for studio owners.
+            A client gets their first tattoo, then comes back for the sleeve.<br />If your artist leaves for another studio, that relationship leaves too.
           </div>
           <div data-anim style={{ fontSize: '16px', color: '#B8C49A', lineHeight: 1.65, marginBottom: '44px', maxWidth: '520px' }}>
-            Session bookings that respect real setup and cleanup time, and the same client-ownership protection that's kept barbershops on ChairOS.
+            Tattoo clients are the longest relationships in the industry. A first small piece turns into a full sleeve over years of sessions, and every one of those visits deepens a bond with one specific artist, not your studio. Client Lock ties that relationship to your business from the second visit on, so an artist can't walk out the door with years of your client's trust.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
             {[
-              { title: 'Client Lock for artists', desc: "Client Lock protects your artists' books the same way it protects barbers' — a client who books twice with an artist is locked to them." },
-              { title: 'Buffer time built in', desc: "Set setup and cleanup time per service. Session bookings automatically block the minutes your artist needs before and after — no back-to-back rushing." },
-              { title: 'Session-ready booking', desc: 'Consultation, Session, Touch-up, and Piercing presets ready out of the box, with consultation booking for new clients before they commit.' },
+              { title: 'Consultations and sessions, booked right', desc: 'Clients book a consultation before committing to a piece, then real hourly sessions for the work itself. Not a generic appointment slot that has nothing to do with how a tattoo actually gets done.' },
+              { title: 'Real setup and cleanup time, built in', desc: "Every session automatically holds the setup and cleanup time your artist actually needs before and after. No back-to-back bookings that leave your artist rushing to sanitize a station." },
+              { title: 'Client Lock, built for the longest relationships in the industry', desc: 'A client who books twice with the same artist is locked to them. When an artist leaves for another studio, you know exactly which clients, and which years of work, are at risk before they walk.' },
             ].map((f, i) => (
               <div data-anim key={i} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '14px', padding: '24px', backdropFilter: 'blur(4px)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: '#FAFAF7', marginBottom: '7px' }}>{f.title}</div>
@@ -493,7 +494,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div data-anim style={{ fontSize: '13px', color: '#9aa87a', lineHeight: 1.6, maxWidth: '520px' }}>
-            <span style={{ color: '#B8C49A', fontWeight: 600 }}>Client Lock</span> is the same retention engine running the barbershop side of ChairOS — it just as easily protects an artist's book as a barber's.
+            No vertical on ChairOS holds relationships longer than tattoo work. That's exactly why <span style={{ color: '#B8C49A', fontWeight: 600 }}>Client Lock</span> matters most here.
           </div>
         </div>
       </section>
@@ -508,7 +509,7 @@ export default function LandingPage() {
             {[
               {
                 featured: false,
-                tier: 'Solo barber',
+                tier: 'Solo chair',
                 amount: '$25',
                 period: 'per month · 30-day free trial',
                 features: ['Branded booking page', 'Client Lock engine', 'Earnings tracking', 'Real-time notifications', 'Portfolio + reviews'],
@@ -538,7 +539,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div data-anim style={{ textAlign: 'center' as const, fontSize: '13px', color: '#65655F' }}>
-            Compare to Squire at $250/location or FullCap at $150+ — ChairOS is built differently.
+            Compare to Squire at $250/location or FullCap at $150+. ChairOS is built differently.
           </div>
         </div>
       </div>
@@ -549,7 +550,7 @@ export default function LandingPage() {
           <div data-anim style={{ background: '#FAFAF7', border: '1px solid #D8D5C8', borderRadius: '16px', padding: '32px', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', color: '#4B5320', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', marginBottom: '14px' }}>Built by someone who's been behind the chair</div>
             <div style={{ fontSize: '17px', color: '#1A1A18', lineHeight: 1.7, marginBottom: '16px', fontStyle: 'italic' }}>
-              "I built ChairOS because I lived the problem. Managing barbers, tracking tips, watching clients walk out the door when a barber left — there was no tool built for how a barbershop actually runs. So I built it."
+              "I built ChairOS because I lived the problem. Managing barbers, tracking tips, watching clients walk out the door when a barber left. There was no tool built for how a barbershop actually runs. So I built it."
             </div>
             <div style={{ fontSize: '12px', color: '#65655F', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#4B532015', border: '1px solid #4B532030', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4B5320', fontSize: '14px', fontWeight: 600 }}>B</div>
