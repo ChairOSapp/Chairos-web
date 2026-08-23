@@ -11,9 +11,11 @@ interface Service {
   description: string | null
   active: boolean
   deposit_required: boolean
+  buffer_before_minutes: number
+  buffer_after_minutes: number
 }
 
-const BLANK: Omit<Service, 'id'> = { name: '', price: 0, duration_minutes: 30, description: '', active: true, deposit_required: true }
+const BLANK: Omit<Service, 'id'> = { name: '', price: 0, duration_minutes: 30, description: '', active: true, deposit_required: true, buffer_before_minutes: 0, buffer_after_minutes: 0 }
 
 export default function ServicesEditor({ shopId }: { shopId: string }) {
   const supabase = createClient()
@@ -31,7 +33,7 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
   async function load() {
     const { data } = await supabase
       .from('services')
-      .select('id, name, price, duration_minutes, description, active, deposit_required')
+      .select('id, name, price, duration_minutes, description, active, deposit_required, buffer_before_minutes, buffer_after_minutes')
       .eq('shop_id', shopId)
       .order('name')
     setServices(data ?? [])
@@ -45,7 +47,11 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
   }
 
   function startEdit(s: Service) {
-    setForm({ name: s.name, price: s.price, duration_minutes: s.duration_minutes, description: s.description ?? '', active: s.active, deposit_required: s.deposit_required })
+    setForm({
+      name: s.name, price: s.price, duration_minutes: s.duration_minutes, description: s.description ?? '',
+      active: s.active, deposit_required: s.deposit_required,
+      buffer_before_minutes: s.buffer_before_minutes, buffer_after_minutes: s.buffer_after_minutes,
+    })
     setEditing(s.id)
     setError('')
   }
@@ -67,6 +73,8 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
       description: form.description?.trim() || null,
       active: form.active,
       deposit_required: form.deposit_required,
+      buffer_before_minutes: Number(form.buffer_before_minutes) || 0,
+      buffer_after_minutes: Number(form.buffer_after_minutes) || 0,
     }
 
     if (editing === 'new') {
@@ -114,6 +122,9 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
               </div>
               <div className="text-xs text-charcoal-500 mt-0.5">
                 ${Number(s.price).toFixed(2)} · {s.duration_minutes} min
+                {(s.buffer_before_minutes > 0 || s.buffer_after_minutes > 0) && (
+                  <span className="ml-1">· +{s.buffer_before_minutes}/{s.buffer_after_minutes}m buffer</span>
+                )}
                 {s.description && <span className="ml-1">· {s.description}</span>}
               </div>
             </div>
@@ -180,6 +191,28 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
                 step="5"
                 value={form.duration_minutes}
                 onChange={e => setForm(f => ({ ...f, duration_minutes: parseInt(e.target.value) || 30 }))}
+                className="w-full bg-warm-100 border border-warm-300 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-charcoal-400 mb-1">Buffer Before (minutes)</label>
+              <input
+                type="number"
+                min="0"
+                step="5"
+                value={form.buffer_before_minutes}
+                onChange={e => setForm(f => ({ ...f, buffer_before_minutes: parseInt(e.target.value) || 0 }))}
+                className="w-full bg-warm-100 border border-warm-300 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-charcoal-400 mb-1">Buffer After (minutes)</label>
+              <input
+                type="number"
+                min="0"
+                step="5"
+                value={form.buffer_after_minutes}
+                onChange={e => setForm(f => ({ ...f, buffer_after_minutes: parseInt(e.target.value) || 0 }))}
                 className="w-full bg-warm-100 border border-warm-300 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green transition-colors"
               />
             </div>

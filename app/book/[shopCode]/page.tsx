@@ -3,13 +3,6 @@ import { useEffect, useState, useRef, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams, useSearchParams } from 'next/navigation'
 
-const TIMES = [
-  '8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM',
-  '11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM',
-  '2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM',
-  '5:00 PM','5:30 PM','6:00 PM','6:30 PM','7:00 PM','7:30 PM','8:00 PM'
-]
-
 function BookingPageInner() {
   const params = useParams()
   const shopCode = (params.shopCode as string)?.toUpperCase()
@@ -30,6 +23,8 @@ function BookingPageInner() {
   const [selectedService, setSelectedService] = useState<any>(null)
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedTime, setSelectedTime] = useState('')
+  const [availableSlots, setAvailableSlots] = useState<string[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
   const [clientName, setClientName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [clientEmail, setClientEmail] = useState('')
@@ -162,6 +157,23 @@ function BookingPageInner() {
       }
     }
   }, [step])
+
+  // Real server-side availability, buffer-aware — replaces a fixed time
+  // list that showed every slot regardless of existing bookings.
+  useEffect(() => {
+    if (!selectedDate || !selectedService) { setAvailableSlots([]); return }
+    let cancelled = false
+    setLoadingSlots(true)
+    setSelectedTime('')
+    const params = new URLSearchParams({ shopCode, date: selectedDate, serviceId: selectedService.id })
+    if (selectedBarber?.barber_id) params.set('barberId', selectedBarber.barber_id)
+    fetch(`/api/book/availability?${params.toString()}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setAvailableSlots(data.slots || []) })
+      .catch(() => { if (!cancelled) setAvailableSlots([]) })
+      .finally(() => { if (!cancelled) setLoadingSlots(false) })
+    return () => { cancelled = true }
+  }, [selectedDate, selectedService, selectedBarber, shopCode])
 
   async function checkReturningClient(phone: string) {
     if (phone.replace(/\D/g, '').length < 10) return
@@ -635,8 +647,13 @@ function BookingPageInner() {
               {selectedDate && (
                 <div>
                   <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Time</label>
+                  {loadingSlots ? (
+                    <p className="text-charcoal-500 text-xs py-3">Checking availability…</p>
+                  ) : availableSlots.length === 0 ? (
+                    <p className="text-charcoal-500 text-xs py-3">No times available this day — try another date.</p>
+                  ) : (
                   <div className="grid grid-cols-4 gap-2">
-                    {TIMES.map(t => (
+                    {availableSlots.map(t => (
                       <button key={t} onClick={() => setSelectedTime(t)}
                         className="py-2 rounded-lg text-xs font-medium transition-all border"
                         style={{
@@ -648,6 +665,7 @@ function BookingPageInner() {
                       </button>
                     ))}
                   </div>
+                  )}
                 </div>
               )}
             </div>

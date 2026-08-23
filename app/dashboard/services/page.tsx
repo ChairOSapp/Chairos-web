@@ -36,6 +36,8 @@ export default function ManageServices() {
   const [svcDuration, setSvcDuration] = useState('30')
   const [svcDesc, setSvcDesc] = useState('')
   const [svcDepositRequired, setSvcDepositRequired] = useState(true)
+  const [svcBufferBefore, setSvcBufferBefore] = useState('0')
+  const [svcBufferAfter, setSvcBufferAfter] = useState('0')
 
   const router = useRouter()
   const supabase = createClient()
@@ -63,6 +65,7 @@ export default function ManageServices() {
 
   function resetForm() {
     setSvcName(''); setSvcPrice(''); setSvcDuration('30'); setSvcDesc(''); setSvcDepositRequired(true)
+    setSvcBufferBefore('0'); setSvcBufferAfter('0')
     setEditingId(null); setError('')
   }
 
@@ -73,6 +76,8 @@ export default function ManageServices() {
     setSvcDuration(String(s.duration_minutes))
     setSvcDesc(s.description || '')
     setSvcDepositRequired(!!s.deposit_required)
+    setSvcBufferBefore(String(s.buffer_before_minutes ?? 0))
+    setSvcBufferAfter(String(s.buffer_after_minutes ?? 0))
     setMode('custom')
     setShowForm(true)
   }
@@ -104,6 +109,8 @@ export default function ManageServices() {
       duration_minutes: parseInt(svcDuration),
       description: svcDesc.trim(),
       deposit_required: svcDepositRequired,
+      buffer_before_minutes: parseInt(svcBufferBefore) || 0,
+      buffer_after_minutes: parseInt(svcBufferAfter) || 0,
     }
 
     let saveError = null
@@ -215,6 +222,18 @@ export default function ManageServices() {
                   <div>
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Description</label>
                     <input value={svcDesc} onChange={e => setSvcDesc(e.target.value)} placeholder="Short description"
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Buffer Before (mins)</label>
+                    <input type="number" min="0" step="5" value={svcBufferBefore} onChange={e => setSvcBufferBefore(e.target.value)} placeholder="0"
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Buffer After (mins)</label>
+                    <input type="number" min="0" step="5" value={svcBufferAfter} onChange={e => setSvcBufferAfter(e.target.value)} placeholder="0"
                       className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
                   </div>
                 </div>
