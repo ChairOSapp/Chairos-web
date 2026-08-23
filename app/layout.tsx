@@ -7,7 +7,7 @@ const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' })
 const dmSerif = DM_Serif_Display({ subsets: ['latin'], weight: '400', variable: '--font-dm-serif' })
 
 export const metadata: Metadata = {
-  title: 'ChairOS — The OS for Barbershop Owners',
+  title: 'ChairOS: The OS for Barbershop Owners',
   description: 'Manage your barbershop, retain your barbers, and grow your revenue with ChairOS.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
