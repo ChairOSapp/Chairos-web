@@ -8,6 +8,8 @@ interface Appointment {
   id: string
   client_name: string
   client_phone?: string
+  client_id?: string
+  shop_id?: string
   date: string
   time: string
   price: number
@@ -47,17 +49,43 @@ function fmtTime(t: string) {
 }
 
 export default function AppointmentPopover({ appointment, barberName, x, y, isOwner, onClose, onUpdated }: Props) {
-  const { staffLabel } = useVerticalLabels()
+  const { staffLabel, vertical } = useVerticalLabels()
   const [saving, setSaving] = useState(false)
   const [rescheduling, setRescheduling] = useState(false)
   const [newDate, setNewDate] = useState(appointment.date)
   const [newTime, setNewTime] = useState(appointment.time.slice(0, 5))
+  const [consentSignature, setConsentSignature] = useState<{ signed_pdf_path: string; signed_at: string } | null | undefined>(undefined)
   const ref = useRef<HTMLDivElement>(null)
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
 
   const notDone = appointment.status !== 'done'
   const unpaid = appointment.payment_status !== 'paid'
+
+  // Pre-session consent status (Task 5: staff see signed status + doc).
+  // Determined purely from consent_form_signatures, which both owner and
+  // staff have RLS access to — no need to also read consent_form_templates
+  // (owner-only) just to show this badge.
+  useEffect(() => {
+    if (vertical !== 'tattoo' || !appointment.client_id || !appointment.shop_id) { setConsentSignature(null); return }
+    let cancelled = false
+    supabase
+      .from('consent_form_signatures')
+      .select('signed_pdf_path, signed_at')
+      .eq('shop_id', appointment.shop_id)
+      .eq('client_id', appointment.client_id)
+      .order('signed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled) setConsentSignature(data ?? null) })
+    return () => { cancelled = true }
+  }, [appointment.client_id, appointment.shop_id, vertical])
+
+  async function viewConsentDoc() {
+    if (!consentSignature) return
+    const { data } = await supabase.storage.from('consent-signed').createSignedUrl(consentSignature.signed_pdf_path, 900)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }
 
   // position popover so it stays on screen
   const [pos, setPos] = useState({ left: x, top: y })
@@ -159,6 +187,22 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
           <span className="text-charcoal-400">Status</span>
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase ${badge.cls}`}>{badge.label}</span>
         </div>
+        {vertical === 'tattoo' && (
+          <div className="flex items-center justify-between">
+            <span className="text-charcoal-400">Consent</span>
+            {consentSignature === undefined ? (
+              <span className="text-charcoal-400">…</span>
+            ) : consentSignature ? (
+              <button onClick={viewConsentDoc} className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase bg-od-green/10 text-od-green border border-od-green/20 hover:bg-od-green/20 transition-colors">
+                Signed · View
+              </button>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase bg-red-50 text-red-500 border border-red-200">
+                Not Signed
+              </span>
+            )}
+          </div>
+        )}
         {appointment.notes && (
           <div className="pt-1 text-charcoal-500 italic">{appointment.notes}</div>
         )}

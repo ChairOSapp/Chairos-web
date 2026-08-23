@@ -9,10 +9,13 @@ function isPublic(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true
   if (pathname.startsWith('/book/')) return true
   if (pathname.startsWith('/shop/')) return true
+  if (pathname.startsWith('/consent/')) return true
   if (pathname.startsWith('/api/stripe/')) return true
   if (pathname.startsWith('/api/square/')) return true
   if (pathname.startsWith('/api/sms')) return true
   if (pathname.startsWith('/api/email/')) return true
+  if (pathname.startsWith('/api/consent/')) return true
+  if (pathname.startsWith('/api/book/')) return true
   if (pathname.startsWith('/_next/')) return true
   if (pathname.startsWith('/favicon')) return true
   return false
