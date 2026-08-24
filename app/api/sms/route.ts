@@ -17,9 +17,6 @@ export async function POST(req: NextRequest) {
     }
   )
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   try {
     const { to, message } = await req.json()
@@ -32,22 +29,6 @@ export async function POST(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-
-    // Resolve which shop(s) this caller may send SMS on behalf of, so this
-    // can't be used as an open relay to text arbitrary numbers using the
-    // platform's shared Twilio sender.
-    const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
-    let shopIds: string[] = []
-    if (profile?.role === 'owner') {
-      const { data: shops } = await admin.from('shops').select('id').eq('owner_id', user.id)
-      shopIds = (shops ?? []).map((s: any) => s.id)
-    } else {
-      const { data: sb } = await admin.from('shop_barbers').select('shop_id').eq('barber_id', user.id).eq('active', true)
-      shopIds = (sb ?? []).map((s: any) => s.shop_id)
-    }
-    if (shopIds.length === 0) {
-      return NextResponse.json({ error: 'No shop found for this account' }, { status: 403 })
-    }
 
     // clients.phone is stored inconsistently (some E.164, some bare
     // 10-digit), so match against both forms.
@@ -68,15 +49,52 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'This client has not consented to SMS' }, { status: 403 })
     }
 
-    const { data: membership } = await admin
-      .from('client_shop_memberships')
-      .select('shop_id')
-      .eq('client_id', client.id)
-      .in('shop_id', shopIds)
-      .maybeSingle()
+    if (user) {
+      // Owner/staff path: resolve which shop(s) this account may send SMS
+      // on behalf of, so this can't be used as an open relay to text
+      // arbitrary numbers using the platform's shared Twilio sender.
+      const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      let shopIds: string[] = []
+      if (profile?.role === 'owner') {
+        const { data: shops } = await admin.from('shops').select('id').eq('owner_id', user.id)
+        shopIds = (shops ?? []).map((s: any) => s.id)
+      } else {
+        const { data: sb } = await admin.from('shop_barbers').select('shop_id').eq('barber_id', user.id).eq('active', true)
+        shopIds = (sb ?? []).map((s: any) => s.shop_id)
+      }
+      if (shopIds.length === 0) {
+        return NextResponse.json({ error: 'No shop found for this account' }, { status: 403 })
+      }
 
-    if (!membership) {
-      return NextResponse.json({ error: 'Client is not associated with your shop' }, { status: 403 })
+      const { data: membership } = await admin
+        .from('client_shop_memberships')
+        .select('shop_id')
+        .eq('client_id', client.id)
+        .in('shop_id', shopIds)
+        .maybeSingle()
+
+      if (!membership) {
+        return NextResponse.json({ error: 'Client is not associated with your shop' }, { status: 403 })
+      }
+    } else {
+      // Anonymous path: the public booking flow texts its own
+      // confirmation to the client who just booked, before any session
+      // exists. Require a real appointment for this exact client created
+      // in the last few minutes, so this can't be used to blast a
+      // consented client out of the blue -- only right after they've
+      // actually just gone through the booking flow themselves.
+      const since = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+      const { data: recentAppt } = await admin
+        .from('appointments')
+        .select('id')
+        .eq('client_id', client.id)
+        .gte('created_at', since)
+        .limit(1)
+        .maybeSingle()
+
+      if (!recentAppt) {
+        return NextResponse.json({ error: 'No recent booking found for this client' }, { status: 403 })
+      }
     }
 
     const twilioClient = twilio(
