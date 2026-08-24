@@ -79,7 +79,10 @@ export default function Login() {
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
           </div>
           <div>
-            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Password</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400">Password</label>
+              <Link href="/forgot-password" className="text-xs text-od-green hover:text-od-green-light">Forgot password?</Link>
+            </div>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
           </div>

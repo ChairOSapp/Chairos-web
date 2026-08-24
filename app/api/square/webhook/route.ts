@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import { resolveSquareCredentials, refundSquarePayment } from '@/lib/square'
+import { notifySlack } from '@/lib/slack'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -138,6 +139,7 @@ export async function POST(req: NextRequest) {
 
   if (!process.env.SQUARE_WEBHOOK_SIGNATURE_KEY) {
     console.error('[square/webhook] SQUARE_WEBHOOK_SIGNATURE_KEY not configured')
+    await notifySlack('🚨 Square webhook misconfigured: SQUARE_WEBHOOK_SIGNATURE_KEY is not set. All incoming events are being rejected.', 'square/webhook')
     return NextResponse.json({ error: 'Webhook key not configured' }, { status: 500 })
   }
   if (!verifySignature(body, signature, process.env.SQUARE_WEBHOOK_SIGNATURE_KEY, req.url)) {
@@ -151,33 +153,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  if (event.type === 'payment.updated') {
-    const payment = event.data?.object?.payment
-    if (!payment?.id || !payment?.reference_id) {
-      return NextResponse.json({ received: true })
-    }
+  try {
+    if (event.type === 'payment.updated') {
+      const payment = event.data?.object?.payment
+      if (!payment?.id || !payment?.reference_id) {
+        return NextResponse.json({ received: true })
+      }
 
-    if (typeof payment.reference_id === 'string' && payment.reference_id.startsWith('deposit:')) {
-      await handleDepositPayment(payment, payment.reference_id.slice('deposit:'.length))
-      return NextResponse.json({ received: true })
-    }
+      if (typeof payment.reference_id === 'string' && payment.reference_id.startsWith('deposit:')) {
+        await handleDepositPayment(payment, payment.reference_id.slice('deposit:'.length))
+        return NextResponse.json({ received: true })
+      }
 
-    const paymentStatus = payment.status === 'COMPLETED' ? 'paid'
-      : payment.status === 'FAILED' ? 'failed'
-      : null
+      const paymentStatus = payment.status === 'COMPLETED' ? 'paid'
+        : payment.status === 'FAILED' ? 'failed'
+        : null
 
-    if (paymentStatus) {
-      await supabase
-        .from('appointments')
-        .update({
-          payment_status: paymentStatus,
-          square_payment_id: payment.id,
-          amount_paid: paymentStatus === 'paid'
-            ? (payment.amount_money?.amount ? Number(payment.amount_money.amount) / 100 : null)
-            : null,
-        })
-        .eq('id', payment.reference_id)
+      if (paymentStatus) {
+        await supabase
+          .from('appointments')
+          .update({
+            payment_status: paymentStatus,
+            square_payment_id: payment.id,
+            amount_paid: paymentStatus === 'paid'
+              ? (payment.amount_money?.amount ? Number(payment.amount_money.amount) / 100 : null)
+              : null,
+          })
+          .eq('id', payment.reference_id)
+      }
     }
+  } catch (err: any) {
+    console.error(`[square/webhook] Unhandled error processing ${event.type}:`, err.message)
+    await notifySlack(`🚨 Square webhook error processing ${event.type}:\n${err.message}`, 'square/webhook')
   }
 
   return NextResponse.json({ received: true })

@@ -20,6 +20,7 @@ function BarberSettingsInner() {
   const [error, setError] = useState('')
   const [squareAccount, setSquareAccount] = useState<any>(null)
   const [disconnectingSquare, setDisconnectingSquare] = useState(false)
+  const [deletionRequested, setDeletionRequested] = useState(false)
 
   const [fullName, setFullName] = useState('')
   const [alias, setAlias] = useState('')
@@ -385,6 +386,26 @@ function BarberSettingsInner() {
             ))}
           </div>
           <p className="text-xs text-charcoal-500 mt-2">System follows your device setting. Default is System.</p>
+        </div>
+
+        {/* DANGER ZONE */}
+        <div className="bg-warm-100 border border-red-900/40 rounded-xl p-6 mt-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-red-400 mb-1">Danger Zone</div>
+          <p className="text-xs text-charcoal-500 mb-4">
+            Request deletion of your ChairOS account. Our team reviews every request and follows up by email.
+          </p>
+          <button
+            onClick={async () => {
+              if (deletionRequested) return
+              if (!window.confirm('Request deletion of your ChairOS account? Our team will follow up by email to confirm before anything is removed.')) return
+              const res = await fetch('/api/account/request-deletion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+              if (res.ok) setDeletionRequested(true)
+            }}
+            disabled={deletionRequested}
+            className="px-4 py-2 bg-red-950 border border-red-900 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-900/40 transition-colors disabled:opacity-60"
+          >
+            {deletionRequested ? 'Deletion requested — we\'ll follow up by email' : 'Request Account Deletion'}
+          </button>
         </div>
       </div>
       <StaffMobileNav />

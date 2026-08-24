@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import { notifySlack as notifySlackShared } from '@/lib/slack'
 
 // Next.js App Router does NOT auto-parse bodies — req.text() receives the raw bytes
 // that Stripe needs for signature verification. No bodyParser config is required here.
@@ -13,26 +14,8 @@ function safeToISO(timestamp: number | null | undefined): string {
   return new Date(timestamp * 1000).toISOString()
 }
 
-async function notifySlack(message: string) {
-  const url = process.env.SLACK_WEBHOOK_URL
-  if (!url) {
-    console.log('[stripe/webhook] SLACK_WEBHOOK_URL is not set — skipping Slack notification')
-    return
-  }
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: message }),
-    })
-    if (!res.ok) {
-      console.error(`[stripe/webhook] Slack fetch failed: ${res.status} ${await res.text()}`)
-    } else {
-      console.log('[stripe/webhook] Slack notification sent')
-    }
-  } catch (err: any) {
-    console.error('[stripe/webhook] Slack fetch threw:', err.message)
-  }
+function notifySlack(message: string) {
+  return notifySlackShared(message, 'stripe/webhook')
 }
 
 export async function POST(req: NextRequest) {
@@ -62,6 +45,7 @@ export async function POST(req: NextRequest) {
 
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
     console.error('[stripe/webhook] STRIPE_WEBHOOK_SECRET is not set')
+    await notifySlack('🚨 Stripe webhook misconfigured: STRIPE_WEBHOOK_SECRET is not set. All incoming events are being rejected.')
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
   }
 
@@ -75,6 +59,17 @@ export async function POST(req: NextRequest) {
 
   console.log('[stripe/webhook] Event type:', event.type, '| ID:', event.id)
 
+  try {
+    await handleEvent(event, stripe, supabase)
+  } catch (err: any) {
+    console.error(`[stripe/webhook] Unhandled error processing ${event.type}:`, err.message)
+    await notifySlack(`🚨 Stripe webhook error processing ${event.type} (event ${event.id}):\n${err.message}`)
+  }
+
+  return NextResponse.json({ received: true })
+}
+
+async function handleEvent(event: Stripe.Event, stripe: Stripe, supabase: any) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
@@ -292,6 +287,4 @@ export async function POST(req: NextRequest) {
     default:
       console.log('[stripe/webhook] Unhandled event type:', event.type)
   }
-
-  return NextResponse.json({ received: true })
 }
