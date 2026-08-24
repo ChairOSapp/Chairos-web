@@ -133,7 +133,7 @@ export default function NewAppointment() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: clientPhone,
-          message: `✂️ Your appointment at ${shop.name} is confirmed!\n\nService: ${svc?.name}\n${staffLabel}: ${barberName}\nDate: ${dateFormatted}\nTime: ${time}\n\nSee you soon! Reply STOP to unsubscribe.`
+          message: `Your appointment at ${shop.name} is confirmed!\n\nService: ${svc?.name}\n${staffLabel}: ${barberName}\nDate: ${dateFormatted}\nTime: ${time}\n\nSee you soon! Reply STOP to unsubscribe.`
         })
       })
     }
