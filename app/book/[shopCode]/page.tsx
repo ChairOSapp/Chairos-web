@@ -289,8 +289,16 @@ function BookingPageInner() {
     }
     await supabase.from('clients').upsert(clientUpsert, { onConflict: 'phone', ignoreDuplicates: false })
 
-    // Create appointment first so we have an ID for Square payment
-    const { data: newAppt, error: bookErr } = await supabase.from('appointments').insert({
+    // Create appointment first so we have an ID for Square payment.
+    // appointments' SELECT policy is barber-scoped (auth.uid() = barber_id),
+    // so an anonymous booking -- barber_id is often null ("Any Barber"), and
+    // there's no auth.uid() at all -- can never read back a row it just
+    // inserted. Generating the id client-side (appointments.id already
+    // defaults to gen_random_uuid()) avoids ever needing a
+    // RETURNING/select-after-insert that RLS would block.
+    const newApptId = crypto.randomUUID()
+    const { error: bookErr } = await supabase.from('appointments').insert({
+      id: newApptId,
       shop_id: shop.id,
       barber_id: selectedBarber?.barber_id || null,
       service_id: selectedService.id,
@@ -304,11 +312,11 @@ function BookingPageInner() {
       status: 'pending',
       notes: notes || null,
       payment_status: 'unpaid',
-    }).select('id').maybeSingle()
+    })
 
-    if (bookErr || !newAppt) { setError(bookErr?.message || 'Booking failed'); setSubmitting(false); return }
+    if (bookErr) { setError(bookErr.message || 'Booking failed'); setSubmitting(false); return }
 
-    if (sourceId && requiresDeposit && newAppt?.id) {
+    if (sourceId && requiresDeposit) {
       // Deposit path: charges the deposit amount (not the full price) and,
       // on success, the server flips the appointment straight to
       // 'confirmed'. On failure the appointment stays 'pending' with its
@@ -318,7 +326,7 @@ function BookingPageInner() {
         const depRes = await fetch('/api/square/create-deposit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceId, appointmentId: newAppt.id, publicShopCode: shop.shop_code }),
+          body: JSON.stringify({ sourceId, appointmentId: newApptId, publicShopCode: shop.shop_code }),
         })
         const depData = await depRes.json()
         if (!depRes.ok || depData.error) {
@@ -329,13 +337,13 @@ function BookingPageInner() {
       } catch {
         setPaymentError('Deposit payment failed. Your slot is held for 15 minutes — try again or contact the shop.')
       }
-    } else if (sourceId && cardMode === 'charge' && newAppt?.id) {
+    } else if (sourceId && cardMode === 'charge') {
       // Charge card immediately if one-time mode (need appointmentId for Square)
       try {
         const payRes = await fetch('/api/square/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceId, appointmentId: newAppt.id, publicShopCode: shop.shop_code }),
+          body: JSON.stringify({ sourceId, appointmentId: newApptId, publicShopCode: shop.shop_code }),
         })
         const payData = await payRes.json()
         if (!payRes.ok || payData.error) {
