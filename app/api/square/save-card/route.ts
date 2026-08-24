@@ -28,6 +28,26 @@ export async function POST(req: NextRequest) {
 
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
+  // This route is intentionally callable without a ChairOS auth session
+  // (the caller is an anonymous booking client, not a logged-in barber or
+  // owner), so authorization has to come from proving a real relationship
+  // between clientId and shopId rather than a session check. The booking
+  // flow always creates the appointment before calling this route, so
+  // requiring an existing appointment for this client at this shop blocks
+  // an arbitrary caller from attaching a card to a client they have no
+  // relationship to, without breaking the legitimate save-during-booking flow.
+  const { data: relation } = await admin
+    .from('appointments')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('shop_id', shopId)
+    .limit(1)
+    .maybeSingle()
+
+  if (!relation) {
+    return NextResponse.json({ error: 'Client is not associated with this shop' }, { status: 403 })
+  }
+
   // Resolve Square account for this shop
   const { data: shop } = await admin.from('shops').select('owner_id').eq('id', shopId).maybeSingle()
   let accessToken = process.env.SQUARE_ACCESS_TOKEN!

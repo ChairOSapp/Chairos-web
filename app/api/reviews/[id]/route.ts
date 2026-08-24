@@ -68,6 +68,18 @@ export async function PATCH(
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
+  if (updates.barber_id) {
+    const { data: staff } = await getAdminSupabase()
+      .from('shop_barbers')
+      .select('id')
+      .eq('shop_id', shop.id)
+      .eq('barber_id', updates.barber_id)
+      .maybeSingle()
+    if (!staff) {
+      return NextResponse.json({ error: 'barber_id is not staff at this shop' }, { status: 400 })
+    }
+  }
+
   const { data: review, error: updateErr } = await getAdminSupabase()
     .from('reviews')
     .update(updates)

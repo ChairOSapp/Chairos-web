@@ -71,6 +71,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
   }
 
+  if (barber_id) {
+    const { data: staff } = await supabase
+      .from('shop_barbers')
+      .select('id')
+      .eq('shop_id', shop.id)
+      .eq('barber_id', barber_id)
+      .maybeSingle()
+    if (!staff) {
+      return NextResponse.json({ error: 'barber_id is not staff at this shop' }, { status: 400 })
+    }
+  }
+
   const { data: review, error: insertErr } = await supabase
     .from('reviews')
     .insert({

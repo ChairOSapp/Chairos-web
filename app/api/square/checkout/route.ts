@@ -58,6 +58,15 @@ export async function POST(req: NextRequest) {
     .eq('id', appt.shop_id)
     .maybeSingle()
 
+  // Authorization: POS checkout is always an authenticated in-shop flow —
+  // the caller must be the shop's owner or the appointment's assigned
+  // barber, never an unrelated authenticated user from another shop.
+  const isOwner = shop?.owner_id === user.id
+  const isBarber = appt.barber_id === user.id
+  if (!isOwner && !isBarber) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   // Resolve which Square account to charge through
   let accessToken = process.env.SQUARE_ACCESS_TOKEN!
   let locationId = process.env.SQUARE_LOCATION_ID!

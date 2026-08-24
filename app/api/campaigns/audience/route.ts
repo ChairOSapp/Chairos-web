@@ -38,7 +38,14 @@ export async function POST(req: NextRequest) {
   let clients: any[] = []
 
   if (audienceType === 'all_clients') {
-    const { data } = await admin.from('clients').select(clientSelect).eq('shop_id', shopId)
+    const { data: memberships } = await admin
+      .from('client_shop_memberships')
+      .select('client_id')
+      .eq('shop_id', shopId)
+    const memberIds = [...new Set((memberships ?? []).map((m: any) => m.client_id))]
+    if (memberIds.length === 0) return NextResponse.json({ clients: [], count: 0 })
+
+    const { data } = await admin.from('clients').select(clientSelect).in('id', memberIds)
     clients = data ?? []
 
   } else if (audienceType === 'lapsed_clients') {
@@ -129,7 +136,18 @@ export async function POST(req: NextRequest) {
     const clientIds: string[] = audienceFilters?.clientIds ?? []
     if (clientIds.length === 0) return NextResponse.json({ clients: [], count: 0 })
 
-    const { data } = await admin.from('clients').select(clientSelect).in('id', clientIds)
+    // clientIds come from the request body, so scope to clients that are
+    // actually members of this shop before returning their PII — otherwise
+    // an owner could submit another shop's client IDs and read their data.
+    const { data: memberships } = await admin
+      .from('client_shop_memberships')
+      .select('client_id')
+      .eq('shop_id', shopId)
+      .in('client_id', clientIds)
+    const scopedIds = [...new Set((memberships ?? []).map((m: any) => m.client_id))]
+    if (scopedIds.length === 0) return NextResponse.json({ clients: [], count: 0 })
+
+    const { data } = await admin.from('clients').select(clientSelect).in('id', scopedIds)
     clients = data ?? []
   }
 

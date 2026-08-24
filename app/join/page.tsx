@@ -24,18 +24,22 @@ export default function JoinPage() {
         const token = params.get('token')
 
         if (token) {
-          // Look up invite
-          const { data: invite } = await supabase
-            .from('invites')
-            .select('*, shops(*), shop_barbers(*)')
-            .eq('token', token)
-            .eq('accepted', false)
-            .maybeSingle()
+          // Look up invite via a security-definer RPC (not a direct table
+          // select) so an anonymous caller can only ever resolve the exact
+          // token they already have, not enumerate every shop's invites.
+          const { data: rows } = await supabase.rpc('get_invite_by_token', { p_token: token })
+          const row = rows?.[0]
 
-          if (!invite) { setMode('error'); return }
-          setInvite(invite)
-          setShop(invite.shops)
-          setBarber(invite.shop_barbers)
+          if (!row) { setMode('error'); return }
+          setInvite({ id: row.invite_id, token: row.token, shop_barber_id: row.shop_barber_id })
+          setShop({ name: row.shop_name, city: row.shop_city })
+          setBarber({
+            barber_name: row.barber_name,
+            alias: row.barber_alias,
+            compensation_type: row.compensation_type,
+            commission_rate: row.commission_rate,
+            booth_rent_amount: row.booth_rent_amount,
+          })
           setMode('invite')
         } else {
           const code = params.get('code')

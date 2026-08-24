@@ -23,7 +23,10 @@ export default function Login() {
   async function routeUser(userId: string) {
     const params = new URLSearchParams(window.location.search)
     const redirect = params.get('redirect')
-    if (redirect) { router.push(redirect); return }
+    // Only allow same-origin relative paths — a redirect param like
+    // "https://evil.example" or "//evil.example" must never be honored,
+    // or this becomes an open redirect for phishing off a trusted domain.
+    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) { router.push(redirect); return }
 
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
 

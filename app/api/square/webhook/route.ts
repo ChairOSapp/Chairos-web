@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import { resolveSquareCredentials, refundSquarePayment } from '@/lib/square'
@@ -10,10 +10,15 @@ const supabase = createClient(
 )
 
 function verifySignature(body: string, signature: string, key: string, url: string): boolean {
-  const hash = createHmac('sha256', key)
+  const expected = createHmac('sha256', key)
     .update(url + body)
     .digest('base64')
-  return hash === signature
+  const expectedBuf = Buffer.from(expected)
+  const actualBuf = Buffer.from(signature)
+  // Lengths must match before timingSafeEqual (it throws on mismatched
+  // lengths); an attacker-controlled length is not itself sensitive here.
+  if (expectedBuf.length !== actualBuf.length) return false
+  return timingSafeEqual(expectedBuf, actualBuf)
 }
 
 async function notifyClientSlotExpired(appointment: { client_name: string; client_phone: string | null; client_id: string | null }) {

@@ -14,7 +14,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'clientId and shopId required' }, { status: 400 })
   }
 
-  const { error } = await getAdmin()
+  const admin = getAdmin()
+
+  // This route has no auth session by design (called from the public booking
+  // flow right after an anonymous visitor creates their own client record),
+  // so it can't check ownership the normal way. At minimum, verify both ids
+  // refer to real rows before writing a membership link — this blocks
+  // arbitrary-FK spam/enumeration through the endpoint.
+  const [{ data: shop }, { data: client }] = await Promise.all([
+    admin.from('shops').select('id').eq('id', shopId).maybeSingle(),
+    admin.from('clients').select('id').eq('id', clientId).maybeSingle(),
+  ])
+  if (!shop || !client) {
+    return NextResponse.json({ error: 'Invalid clientId or shopId' }, { status: 404 })
+  }
+
+  const { error } = await admin
     .from('client_shop_memberships')
     .upsert(
       { client_id: clientId, shop_id: shopId },

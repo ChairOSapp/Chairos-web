@@ -17,7 +17,7 @@ const NOTE_PLACEHOLDER: Record<string, string> = {
   tattoo: 'Session notes, design direction, what the client wants to achieve across sessions.',
 }
 
-const MAX_PHOTO_BYTES = 8 * 1024 * 1024
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 
 export default function ClientNotes({
   clientId,
@@ -71,7 +71,7 @@ export default function ClientNotes({
   async function handleSave() {
     if (!body.trim() && files.length === 0) { setError('Add a note or a photo.'); return }
     for (const f of files) {
-      if (f.size > MAX_PHOTO_BYTES) { setError('Each photo must be under 8MB.'); return }
+      if (f.size > MAX_PHOTO_BYTES) { setError('Each photo must be under 5MB.'); return }
     }
     setSaving(true)
     setError('')
