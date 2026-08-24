@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
     })
 
     const PRICES: Record<string, string> = {
-      owner: process.env.STRIPE_PRICE_OWNER!,
-      barber: process.env.STRIPE_PRICE_BARBER!,
+      owner: process.env.STRIPE_PRICE_SHOP!,
+      barber: process.env.STRIPE_PRICE_SOLO!,
     }
 
     if (!PRICES[plan]) {

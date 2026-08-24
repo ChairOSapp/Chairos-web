@@ -11,7 +11,7 @@ const PLANS = [
     period: '/mo',
     description: 'Full shop management platform',
     features: [
-      'Unlimited barbers',
+      'Unlimited staff',
       'Client Lock™ retention system',
       'Appointment scheduling & history',
       'Earnings & tips tracking',
@@ -25,7 +25,7 @@ const PLANS = [
     name: 'Solo Chair',
     price: '$25',
     period: '/mo',
-    description: 'Everything you need as an independent barber',
+    description: 'Everything you need as an independent professional',
     features: [
       'Personal booking portal',
       'Client lock & loyalty tracking',
@@ -85,7 +85,7 @@ export default function Subscribe() {
         <div className="text-center mb-10">
           <h1 className="font-serif text-3xl text-od-green mb-2">ChairOS</h1>
           <h2 className="font-serif text-2xl text-charcoal-900 mb-2">Choose your plan</h2>
-          <p className="text-charcoal-400 text-sm">Start your 30-day free trial — cancel anytime.</p>
+          <p className="text-charcoal-400 text-sm">Start your 30-day free trial. Cancel anytime.</p>
         </div>
 
         {error && (
