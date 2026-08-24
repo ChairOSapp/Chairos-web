@@ -245,23 +245,25 @@ export default function BarberDashboard() {
     const time24 = `${h.toString().padStart(2,'0')}:${minutes}:00`
     const svc = services.find(s => s.id === bookingService)
 
-    // Look up or create client record so client_id is never null
+    // Look up or create client record so client_id is never null.
+    // clients' SELECT policy is scoped to clients already linked to a
+    // shop this staff member belongs to, so a brand-new walk-in (no
+    // membership yet) can't be found via a direct select -- hence the
+    // lookup RPC, and generating the id client-side so the insert never
+    // needs a RETURNING/select-after-insert that RLS would block.
     const normalizedPhone = bookingPhone.replace(/\D/g, '')
     let walkinClientId: string | null = null
-    const { data: existingWalkInClient } = await supabase
-      .from('clients')
-      .select('id')
-      .eq('phone', normalizedPhone)
-      .maybeSingle()
-    if (existingWalkInClient) {
-      walkinClientId = existingWalkInClient.id
+    const { data: rpcData } = await supabase
+      .rpc('find_client_for_booking', { p_phone: normalizedPhone, p_shop_id: shopId })
+    const existingWalkInClient = rpcData?.[0]
+    if (existingWalkInClient?.client_id) {
+      walkinClientId = existingWalkInClient.client_id
     } else {
-      const { data: newWalkInClient } = await supabase
+      const newId = crypto.randomUUID()
+      const { error: newWalkInErr } = await supabase
         .from('clients')
-        .insert({ full_name: bookingName, phone: normalizedPhone })
-        .select('id')
-        .maybeSingle()
-      walkinClientId = newWalkInClient?.id ?? null
+        .insert({ id: newId, full_name: bookingName, phone: normalizedPhone })
+      walkinClientId = newWalkInErr ? null : newId
     }
 
     if (walkinClientId && shopId) {

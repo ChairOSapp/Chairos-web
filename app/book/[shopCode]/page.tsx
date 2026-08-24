@@ -189,18 +189,17 @@ function BookingPageInner() {
 
   async function checkReturningClient(phone: string) {
     if (phone.replace(/\D/g, '').length < 10) return
-    const { data: client } = await supabase
-      .from('clients')
-      .select('*, client_locks!inner(*, shop_barbers(*))')
-      .eq('phone', phone.replace(/\D/g, ''))
-      .eq('client_locks.shop_id', shop.id)
-      .maybeSingle()
-    if (!client) return
+    // Anonymous callers can't read the clients table directly (it's PII,
+    // scoped to shop owner/staff) -- this RPC returns only what the
+    // booking flow needs, keyed by an exact phone match.
+    const { data } = await supabase
+      .rpc('find_client_for_booking', { p_phone: phone.replace(/\D/g, ''), p_shop_id: shop.id })
+    const client = data?.[0]
+    if (!client?.client_id) return
     setReturningClient(client)
 
-    const lock = client.client_locks?.find((l: any) => l.locked && l.shop_barbers?.shop_id === shop.id)
-    if (lock?.shop_barbers) {
-      const matchedBarber = barbers.find(b => b.id === lock.shop_barber_id)
+    if (client.locked_barber_id) {
+      const matchedBarber = barbers.find(b => b.id === client.locked_barber_id)
       if (matchedBarber) setSelectedBarber(matchedBarber)
     }
   }
@@ -235,25 +234,26 @@ function BookingPageInner() {
 
     let paymentSucceeded = false
 
-    // Look up or create client record
+    // Look up or create client record. clients' SELECT policy is
+    // owner/staff-scoped (it holds PII), so an anonymous booker can't
+    // read back a row they just inserted -- hence the lookup RPC, and
+    // generating the id client-side so the insert never needs a
+    // RETURNING/select-after-insert that RLS would block.
     const normalizedPhone = clientPhone.replace(/\D/g, '')
     let clientId: string | null = null
-    const { data: existingClient } = await supabase
-      .from('clients')
-      .select('id, sms_consent, email_consent')
-      .eq('phone', normalizedPhone)
-      .maybeSingle()
+    const { data: rpcData } = await supabase
+      .rpc('find_client_for_booking', { p_phone: normalizedPhone, p_shop_id: shop.id })
+    const existingClient = rpcData?.[0]
 
-    if (existingClient) {
-      clientId = existingClient.id
+    if (existingClient?.client_id) {
+      clientId = existingClient.client_id
     } else {
-      const { data: newClient, error: newClientErr } = await supabase
+      const newId = crypto.randomUUID()
+      const { error: newClientErr } = await supabase
         .from('clients')
-        .insert({ full_name: clientName, phone: normalizedPhone })
-        .select('id')
-        .maybeSingle()
+        .insert({ id: newId, full_name: clientName, phone: normalizedPhone })
       if (newClientErr) { setError('Failed to create client record. Please try again.'); setSubmitting(false); return }
-      if (newClient) clientId = newClient.id
+      clientId = newId
     }
 
     // Record shop membership for this client (new or returning) — non-fatal
