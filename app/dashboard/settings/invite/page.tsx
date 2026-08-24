@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
-import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useVerticalLabels, withIndefiniteArticle } from '@/lib/VerticalContext'
 
 export default function InvitePage() {
   const { staffLabel, staffLabelPlural } = useVerticalLabels()
@@ -103,7 +103,7 @@ export default function InvitePage() {
         {/* Invite Link */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Invite Link</div>
-          <p className="text-charcoal-500 text-xs mb-4">Generate a one-time link. Send it directly to a {staffLabel.toLowerCase()} — expires after use.</p>
+          <p className="text-charcoal-500 text-xs mb-4">Generate a one-time link. Send it directly to {withIndefiniteArticle(staffLabel.toLowerCase())}. Expires after use.</p>
 
           {inviteLink ? (
             <div className="space-y-3">

@@ -77,3 +77,8 @@ export function VerticalProvider({ children }: { children: ReactNode }) {
 export function useVerticalLabels() {
   return useContext(VerticalContext)
 }
+
+// "a barber" / "an artist" — staff labels vary in first letter across verticals.
+export function withIndefiniteArticle(word: string): string {
+  return /^[aeiou]/i.test(word) ? `an ${word}` : `a ${word}`
+}

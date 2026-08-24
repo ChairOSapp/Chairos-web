@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
-import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useVerticalLabels, withIndefiniteArticle } from '@/lib/VerticalContext'
 
 export default function InviteBarber() {
   const { staffLabel, staffLabelPlural } = useVerticalLabels()
@@ -50,7 +50,7 @@ export default function InviteBarber() {
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
-    if (!email || !selectedBarber) { setError(`Select ${/^[aeiou]/i.test(staffLabel) ? 'an' : 'a'} ${staffLabel.toLowerCase()} and enter their email`); return }
+    if (!email || !selectedBarber) { setError(`Select ${withIndefiniteArticle(staffLabel.toLowerCase())} and enter their email`); return }
     setSending(true)
     setError('')
     setSuccess('')
@@ -88,7 +88,7 @@ export default function InviteBarber() {
 
       <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
-          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Invite a {staffLabel}</h1>
+          <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Invite {withIndefiniteArticle(staffLabel)}</h1>
           <p className="text-charcoal-500 text-sm">Send an invite or share your shop code so {staffLabelPlural.toLowerCase()} can claim their account.</p>
         </div>
 
@@ -127,7 +127,7 @@ export default function InviteBarber() {
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Select {staffLabel}</label>
                 <select value={selectedBarber} onChange={e => setSelectedBarber(e.target.value)}
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
-                  <option value="">Choose a {staffLabel.toLowerCase()}...</option>
+                  <option value="">Choose {withIndefiniteArticle(staffLabel.toLowerCase())}...</option>
                   {barbers.map(b => (
                     <option key={b.id} value={b.id}>{b.barber_name || b.alias}</option>
                   ))}

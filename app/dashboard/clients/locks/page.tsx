@@ -4,11 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
-import { useVerticalLabels } from '@/lib/VerticalContext'
-
-function withArticle(word: string): string {
-  return /^[aeiou]/i.test(word) ? `an ${word}` : `a ${word}`
-}
+import { useVerticalLabels, withIndefiniteArticle } from '@/lib/VerticalContext'
 
 export default function ClientLocksPage() {
   const { staffLabel } = useVerticalLabels()
@@ -137,7 +133,7 @@ export default function ClientLocksPage() {
 
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
-            { key: 'locked', label: 'Locked', count: lockedClients.length, color: 'text-green-400', desc: `Claimed by ${withArticle(staffLabel.toLowerCase())}` },
+            { key: 'locked', label: 'Locked', count: lockedClients.length, color: 'text-green-400', desc: `Claimed by ${withIndefiniteArticle(staffLabel.toLowerCase())}` },
             { key: 'atrisk', label: 'At Risk', count: atRiskClients.length, color: 'text-od-green', desc: 'Approaching lapse' },
             { key: 'floating', label: 'Floating', count: floatingClients.length, color: 'text-red-400', desc: 'Not assigned' },
           ].map(tab => (
@@ -174,7 +170,7 @@ export default function ClientLocksPage() {
             <div className="p-8 text-center text-charcoal-500 text-sm">
               {activeTab === 'locked' && `No locked clients yet. Clients lock after 2 completed appointments with the same ${staffLabel.toLowerCase()}.`}
               {activeTab === 'atrisk' && 'No at-risk clients. All locked clients are within their booking window.'}
-              {activeTab === 'floating' && `No floating clients. All clients are assigned to ${withArticle(staffLabel.toLowerCase())}.`}
+              {activeTab === 'floating' && `No floating clients. All clients are assigned to ${withIndefiniteArticle(staffLabel.toLowerCase())}.`}
             </div>
           ) : (
             <div className="divide-y divide-warm-200">

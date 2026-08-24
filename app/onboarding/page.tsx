@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { withIndefiniteArticle } from '@/lib/VerticalContext'
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 
@@ -382,7 +383,7 @@ export default function Onboarding() {
               </div>
             )}
             <div className="bg-warm-200 rounded-lg p-4 space-y-3">
-              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400">Add a {staffLabel}</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400">Add {withIndefiniteArticle(staffLabel)}</div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-charcoal-500 mb-1.5">First Name *</label>
