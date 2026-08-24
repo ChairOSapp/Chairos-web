@@ -105,7 +105,7 @@ export default function Signup() {
                 Shop Owner
               </div>
               <div className="text-xs text-charcoal-500">
-                I run a barbershop and manage a team — $99/mo after trial
+                I run a barbershop and manage a team — $79/mo after trial
               </div>
             </button>
 

@@ -470,7 +470,7 @@ export default function LandingPage() {
               {
                 featured: true,
                 tier: 'Shop owner',
-                amount: '$99',
+                amount: '$79',
                 period: 'per month. Up to 10 staff.',
                 features: ['Everything in Solo', 'Full staff dashboards', 'Compensation management', 'Client Lock for your whole team', 'Year-end earnings reports', 'Live floor visibility'],
               },

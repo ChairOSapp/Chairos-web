@@ -35,7 +35,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="font-serif text-xl text-charcoal-900 mb-3">5. Subscriptions and Billing</h2>
-            <p>ChairOS is a subscription service billed monthly. Shop owners are billed $99/month. Independent professionals are billed $25/month. You may cancel at any time. No refunds are issued for partial billing periods.</p>
+            <p>ChairOS is a subscription service billed monthly. Shop owners are billed $79/month. Independent professionals are billed $25/month. You may cancel at any time. No refunds are issued for partial billing periods.</p>
           </section>
 
           <section>

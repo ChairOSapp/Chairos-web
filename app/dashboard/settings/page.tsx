@@ -646,7 +646,7 @@ export default function ShopSettings() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-semibold text-charcoal-900">
-                {profile?.subscription_status === 'active' && 'Shop Plan · $99/mo'}
+                {profile?.subscription_status === 'active' && 'Shop Plan · $79/mo'}
                 {profile?.subscription_status === 'trialing' && 'Shop Plan · Free Trial'}
                 {profile?.subscription_status === 'past_due' && 'Shop Plan · Payment Failed'}
                 {profile?.subscription_status === 'cancelled' && 'Shop Plan · Cancelled'}

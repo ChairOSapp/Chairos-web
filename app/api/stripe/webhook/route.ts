@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
 
         // Slack notification
         const email = session.customer_email || session.customer_details?.email || 'unknown'
-        const planLabel = planType === 'shop' ? 'Shop Owner ($99/mo)' : 'Solo Chair ($25/mo)'
+        const planLabel = planType === 'shop' ? 'Shop Owner ($79/mo)' : 'Solo Chair ($25/mo)'
         await notifySlack(`🎉 New ChairOS subscriber!\nPlan: ${planLabel}\nEmail: ${email}`)
       } catch (err: any) {
         console.error('[stripe/webhook] checkout.session.completed error:', err.message)

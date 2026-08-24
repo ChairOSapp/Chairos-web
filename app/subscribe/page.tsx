@@ -7,7 +7,7 @@ const PLANS = [
   {
     id: 'owner' as const,
     name: 'Shop Owner',
-    price: '$99',
+    price: '$79',
     period: '/mo',
     description: 'Full shop management platform',
     features: [
