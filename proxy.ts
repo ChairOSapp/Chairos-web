@@ -18,6 +18,7 @@ function isPublic(pathname: string) {
   if (pathname.startsWith('/api/book/')) return true
   if (pathname.startsWith('/_next/')) return true
   if (pathname.startsWith('/favicon')) return true
+  if (pathname.startsWith('/landing/')) return true
   return false
 }
 

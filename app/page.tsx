@@ -55,11 +55,69 @@ function IconShield() {
   )
 }
 
-const VERTICAL_SECTIONS = [
-  { id: 'barbershops', label: 'Barbershops' },
-  { id: 'salons', label: 'Salons' },
-  { id: 'tattoo', label: 'Tattoo Studios' },
+type VerticalSection = {
+  id: string
+  label: string
+  eyebrow: string
+  headlineLines: string[]
+  subline: string
+  proof: string
+  image: string
+  imageAlt: string
+  sectionBg: 'light' | 'dark'
+}
+
+const VERTICAL_SECTIONS: VerticalSection[] = [
+  {
+    id: 'barbershops',
+    label: 'Barbershops',
+    eyebrow: 'BARBERSHOPS',
+    headlineLines: ["A barber builds his own book on your chair.", "Then he leaves with it."],
+    subline: "Client Lock ties every client to your shop from their second visit, so you know exactly what you're exposed to before anyone walks.",
+    proof: 'Floor visibility for every chair. Commission or booth rent tracked automatically. Live Client Lock counts, updated in real time.',
+    image: '/landing/barbershop-dashboard.png',
+    imageAlt: 'Downtown Fade Co. owner dashboard showing two barbers on the floor and Client Lock counts',
+    sectionBg: 'light',
+  },
+  {
+    id: 'salons',
+    label: 'Salons',
+    eyebrow: 'SALONS',
+    headlineLines: ["Your stylist's clients.", "Not theirs."],
+    subline: "Client Lock ties every client to your salon, not just to whoever's holding the color brush. When a stylist gives notice, you already know whose book is walking with them.",
+    proof: 'One flat fee for the whole salon, not one per stylist seat. Color, cut, and highlight booking built for how a salon actually runs.',
+    image: '/landing/salon-dashboard.png',
+    imageAlt: 'Willow & Rose Salon owner dashboard showing two stylists on the floor and Client Lock counts',
+    sectionBg: 'light',
+  },
+  {
+    id: 'tattoo',
+    label: 'Tattoo Studios',
+    eyebrow: 'TATTOO STUDIOS',
+    headlineLines: ["Your artist's client left with them."],
+    subline: "Client Lock ties every client to your studio from their second visit, so an artist can't walk out the door with a book they built on your chair.",
+    // Deposits (Phase 4) and consent forms (Phase 5) are both live in production, but neither has cleared
+    // the verification bar the team set for making public claims about them (a real Square sandbox charge,
+    // a real attorney-sourced consent PDF run through UAT). Swap this line for the fuller one once both clear:
+    // 'Deposits collected before the chair's held. Consent forms signed and stored automatically. Setup and cleanup time blocked so your artist never rushes a station.'
+    proof: 'Sessions and consultations booked the way a studio actually works, with real setup and cleanup time built in.',
+    image: '/landing/tattoo-dashboard.png',
+    imageAlt: 'Ironclad Tattoo Studio owner dashboard showing two artists on the floor and Client Lock counts',
+    sectionBg: 'light',
+  },
 ]
+
+function ScreenshotCard({ src, alt, chromeLabel, imgHeight }: { src: string; alt: string; chromeLabel: string; imgHeight: number }) {
+  return (
+    <div style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}>
+      <div style={{ background: '#EAE8E0', borderBottom: '0.5px solid #D8D5C8', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {['#ff5f57', '#ffbd2e', '#28ca41'].map((c, i) => <div key={i} style={{ width: '10px', height: '10px', borderRadius: '50%', background: c }} />)}
+        <span style={{ fontSize: '11px', color: '#65655F', marginLeft: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{chromeLabel}</span>
+      </div>
+      <img src={src} alt={alt} style={{ width: '100%', height: imgHeight, objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
+    </div>
+  )
+}
 
 export default function LandingPage() {
   const router = useRouter()
@@ -68,8 +126,6 @@ export default function LandingPage() {
   const [joined, setJoined] = useState(false)
   const [emailError, setEmailError] = useState(false)
   const [activeSection, setActiveSection] = useState('barbershops')
-  const revenueRef = useRef<HTMLDivElement>(null)
-  const tipsRef = useRef<HTMLDivElement>(null)
   const lockedRef = useRef<HTMLDivElement>(null)
   const atRiskRef = useRef<HTMLDivElement>(null)
   const floatingRef = useRef<HTMLDivElement>(null)
@@ -83,15 +139,6 @@ export default function LandingPage() {
   }, [])
 
   useEffect(() => {
-    function animateCounter(el: HTMLElement, target: number, prefix: string, duration: number) {
-      let start = 0
-      const step = target / (duration / 16)
-      const timer = setInterval(() => {
-        start += step
-        if (start >= target) { start = target; clearInterval(timer) }
-        el.textContent = prefix + Math.round(start).toLocaleString()
-      }, 16)
-    }
     function animateNum(el: HTMLElement, target: number, duration: number) {
       let start = 0
       const step = target / (duration / 16)
@@ -107,10 +154,6 @@ export default function LandingPage() {
           const el = entry.target as HTMLElement
           el.style.opacity = '1'
           el.style.transform = 'translateY(0)'
-          if (el.dataset.animate === 'revenue' && revenueRef.current) {
-            setTimeout(() => animateCounter(revenueRef.current!, 485, '$', 1200), 200)
-            setTimeout(() => animateCounter(tipsRef.current!, 64, '$', 1000), 400)
-          }
           if (el.dataset.animate === 'lock') {
             setTimeout(() => animateNum(lockedRef.current!, 24, 800), 200)
             setTimeout(() => animateNum(atRiskRef.current!, 4, 600), 400)
@@ -130,9 +173,9 @@ export default function LandingPage() {
     return () => observer.disconnect()
   }, [])
 
-  // Scroll-spy for the vertical nav. Updates on manual scrolling too, not
-  // just button clicks, since it just tracks which section is nearest the
-  // top of the viewport (under the sticky nav bar) at any given moment.
+  // Scroll-spy for the vertical nav and picker tiles. Updates on manual
+  // scrolling too, not just clicks, since it just tracks which section is
+  // nearest the top of the viewport (under the sticky nav bar).
   useEffect(() => {
     const sectionEls = VERTICAL_SECTIONS
       .map(v => document.getElementById(v.id))
@@ -166,11 +209,11 @@ export default function LandingPage() {
 
   const FEATURES = [
     { icon: <IconCalendar />, title: 'Live booking page', desc: 'Branded for your shop. Clients book in 4 steps. Confirmation texts sent automatically.' },
-    { icon: <IconDollar />, title: 'Barber compensation', desc: 'Commission or booth rent. Tips tracked per barber. Year-end statements built in.' },
-    { icon: <IconUsers />, title: 'Floor visibility', desc: "See who's in, who's off, who's pending, all live. Barbers toggle their own status." },
+    { icon: <IconDollar />, title: 'Staff compensation', desc: 'Commission or booth rent. Tips tracked per staff member. Year-end statements built in.' },
+    { icon: <IconUsers />, title: 'Floor visibility', desc: "See who's in, who's off, who's pending, all live. Staff toggle their own status." },
     { icon: <IconBell />, title: 'Instant alerts', desc: 'New bookings, walk-ins, and status changes push to you in real time.' },
     { icon: <IconChart />, title: 'Revenue analytics', desc: 'Daily revenue trends, monthly breakdowns, busiest days, and service performance, all in one view.' },
-    { icon: <IconShield />, title: 'Client Lock', desc: 'Proprietary retention engine. Track which clients belong to which barber. Know your exposure before a barber walks.' },
+    { icon: <IconShield />, title: 'Client Lock', desc: 'Proprietary retention engine. Track which clients belong to which staff member. Know your exposure before someone walks.' },
   ]
 
   return (
@@ -189,28 +232,28 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* HERO: full-bleed, bold */}
-      <div style={{ padding: '72px 24px 64px', maxWidth: '760px', margin: '0 auto' }}>
+      {/* HERO: vertical-neutral */}
+      <div style={{ padding: '72px 24px 56px', maxWidth: '760px', margin: '0 auto' }}>
         <div data-anim style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#EDF2E5', border: '0.5px solid #B8C49A', color: '#4B5320', fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '20px', marginBottom: '28px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4B5320', display: 'inline-block', animation: 'pulse 2s infinite' }} />
-          Founding member spots open · 30-day free trial
+          Founding member spots open. 30-day free trial.
         </div>
-        <div data-anim style={{ fontSize: 'clamp(42px, 9vw, 64px)', lineHeight: 1.05, fontWeight: 400, letterSpacing: '-2px', marginBottom: '20px' }}>
-          Run your shop.<br /><span style={{ color: '#4B5320' }}>Not spreadsheets.</span>
+        <div data-anim style={{ fontSize: 'clamp(38px, 8vw, 58px)', lineHeight: 1.08, fontWeight: 400, letterSpacing: '-2px', marginBottom: '20px' }}>
+          Own your shop.<br />Lock your clients.<br /><span style={{ color: '#4B5320' }}>Scale your business.</span>
         </div>
         <div data-anim style={{ fontSize: '18px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '36px', maxWidth: '520px' }}>
-          The operating system for barbershop owners. Bookings, barber comp, client retention, and analytics, built by someone who's been behind the chair.
+          The operating system for shop owners. Bookings, staff pay, client retention, and analytics, built by someone who's been behind the chair.
         </div>
         <div data-anim style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' as const, marginBottom: '36px' }}>
           <button onClick={() => router.push('/signup')} style={{ background: '#4B5320', color: '#fff', fontSize: '15px', fontWeight: 700, padding: '15px 32px', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(75,83,32,0.3)' }}>
-            Start free trial · 30 days
+            Start free trial. 30 days.
           </button>
           <button onClick={() => scrollTo('features')} style={{ background: '#FAFAF7', color: '#1A1A18', fontSize: '15px', fontWeight: 500, padding: '15px 28px', borderRadius: '10px', border: '1px solid #C0BDB0', cursor: 'pointer' }}>
             See how it works →
           </button>
         </div>
         <div data-anim style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' as const }}>
-          {['30-day free trial', 'No per-barber fees', 'Cancel anytime'].map((t, i) => (
+          {['30-day free trial', 'No per-seat fees', 'Cancel anytime'].map((t, i) => (
             <span key={i} style={{ fontSize: '12px', color: '#65655F', display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ width: '14px', height: '14px', borderRadius: '50%', background: '#EDF2E5', border: '0.5px solid #B8C49A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4B5320', display: 'block' }} />
@@ -221,7 +264,50 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* VERTICAL NAV: scrolls to each shop-type section below; active state tracked on scroll */}
+      {/* VISUAL VERTICAL PICKER: primary entry point, real screenshots from
+          the three seeded test shops. Clicking a tile scrolls to that
+          vertical's section below (anchor scroll, not a route change). */}
+      <div style={{ padding: '0 24px 40px' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <div data-anim style={{ textAlign: 'center' as const, fontSize: '13px', fontWeight: 600, color: '#65655F', letterSpacing: '0.04em', marginBottom: '20px' }}>
+            What kind of shop are you running?
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '20px' }}>
+            {VERTICAL_SECTIONS.map(v => {
+              const isActive = activeSection === v.id
+              return (
+                <button
+                  key={v.id}
+                  data-anim
+                  onClick={() => scrollTo(v.id)}
+                  className="vertical-tile"
+                  style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left' as const, cursor: 'pointer', font: 'inherit', color: 'inherit' }}
+                >
+                  <div style={{
+                    borderRadius: '18px',
+                    padding: '3px',
+                    background: isActive ? '#4B5320' : 'transparent',
+                    transition: 'background 0.2s ease',
+                  }}>
+                    <ScreenshotCard
+                      src={v.image}
+                      alt={v.imageAlt}
+                      chromeLabel={`${v.label} · live`}
+                      imgHeight={168}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: isActive ? '#4B5320' : '#1A1A18' }}>{v.label}</div>
+                    <span style={{ fontSize: '13px', color: '#4B5320', fontWeight: 600 }}>{isActive ? '● Viewing' : 'View →'}</span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* SLIM SECONDARY NAV: same three anchors, for quick jumps once scrolled past the picker */}
       <div style={{ position: 'sticky', top: '56px', zIndex: 40, background: 'rgba(250,250,247,0.95)', backdropFilter: 'blur(12px)', borderBottom: '0.5px solid #D8D5C8', padding: '12px 24px' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto', display: 'flex', gap: '8px', overflowX: 'auto' as const }}>
           {VERTICAL_SECTIONS.map(v => (
@@ -248,57 +334,51 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <section id="barbershops">
-
-      {/* DASHBOARD PREVIEW */}
-      <div data-anim data-animate="revenue" style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '16px', margin: '0 24px 80px', overflow: 'hidden', maxWidth: '680px', marginLeft: 'auto', marginRight: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.08)' }}>
-        <div style={{ background: '#EAE8E0', borderBottom: '0.5px solid #D8D5C8', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {['#ff5f57', '#ffbd2e', '#28ca41'].map((c, i) => <div key={i} style={{ width: '10px', height: '10px', borderRadius: '50%', background: c }} />)}
-          <span style={{ fontSize: '11px', color: '#65655F', marginLeft: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>Owner dashboard · live</span>
-        </div>
-        <div style={{ padding: '20px' }}>
-          <div style={{ fontSize: '16px', color: '#1A1A18', marginBottom: '8px' }}>Good morning, Bear.</div>
-          <div ref={revenueRef} style={{ fontSize: '44px', color: '#4B5320', fontWeight: 400, letterSpacing: '-2px', lineHeight: 1 }}>$0</div>
-          <div style={{ fontSize: '11px', color: '#65655F', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginTop: '4px', marginBottom: '16px' }}>Today's revenue</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' }}>
-            {[
-              { val: '$0', color: '#3a7d2a', label: 'Tips' },
-              { val: '6', color: '#1A1A18', label: 'Bookings' },
-              { val: '0%', color: '#b94040', label: 'No-shows' },
-            ].map((t, i) => (
-              <div key={i} style={{ background: '#EAE8E0', border: '0.5px solid #D8D5C8', borderRadius: '10px', padding: '12px', textAlign: 'center' as const }}>
-                <div ref={i === 0 ? tipsRef : undefined} style={{ fontSize: '20px', color: t.color, fontWeight: 400 }}>{t.val}</div>
-                <div style={{ fontSize: '10px', color: '#65655F', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginTop: '3px' }}>{t.label}</div>
+      {/* VERTICAL SECTIONS: strict 3-beat structure (eyebrow, headline naming
+          the fear, subline naming the mechanism, proof line, real visual),
+          same shape for all three so none reads like an afterthought. */}
+      {VERTICAL_SECTIONS.map((v, i) => {
+        const dark = v.sectionBg === 'dark'
+        return (
+          <section
+            key={v.id}
+            id={v.id}
+            style={{
+              background: dark ? '#4B5320' : (i % 2 === 1 ? '#F0EDE6' : '#FAFAF7'),
+              borderTop: dark ? 'none' : '1px solid #D8D5C8',
+              borderBottom: dark ? 'none' : '1px solid #D8D5C8',
+              padding: '76px 24px',
+            }}
+          >
+            <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+              <div data-anim style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: dark ? '#B8C49A' : '#4B5320', marginBottom: '14px' }}>
+                {v.eyebrow}
               </div>
-            ))}
-          </div>
-          <div style={{ background: '#EAE8E0', border: '0.5px solid #D8D5C8', borderRadius: '10px', padding: '12px' }}>
-            <div style={{ fontSize: '10px', color: '#65655F', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '8px' }}>The floor · live</div>
-            {[
-              { initial: 'B', name: 'Bear Bryant', comp: '70% commission', color: '#4B5320', on: true },
-              { initial: 'M', name: 'Marcus Webb', comp: '$150/wk booth rent', color: '#4a7fb5', on: true },
-              { initial: 'D', name: 'Devon King', comp: '65% commission', color: '#3aab6e', on: false },
-            ].map((b, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: i < 2 ? '0.5px solid #D8D5C8' : 'none' }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: b.color + '22', border: `1.5px solid ${b.color}44`, color: b.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 600, flexShrink: 0 }}>{b.initial}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '12px', color: '#1A1A18' }}>{b.name}</div>
-                  <div style={{ fontSize: '10px', color: '#65655F' }}>{b.comp}</div>
-                </div>
-                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: b.on ? '#3a7d2a' : '#C0BDB0', flexShrink: 0 }} />
-                <div style={{ fontSize: '10px', color: b.on ? '#3a7d2a' : '#65655F' }}>{b.on ? 'On floor' : 'Off floor'}</div>
+              <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, color: dark ? '#FAFAF7' : '#1A1A18', marginBottom: '16px' }}>
+                {v.headlineLines.map((line, li) => (
+                  <span key={li}>{line}{li < v.headlineLines.length - 1 && <br />}</span>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+              <div data-anim style={{ fontSize: '17px', color: dark ? '#D4E0A0' : '#4F4F48', lineHeight: 1.65, marginBottom: '24px', maxWidth: '540px' }}>
+                {v.subline}
+              </div>
+              <div data-anim style={{ fontSize: '14px', fontWeight: 600, color: dark ? '#FAFAF7' : '#1A1A18', lineHeight: 1.6, marginBottom: '36px', maxWidth: '540px' }}>
+                {v.proof}
+              </div>
+              <div data-anim style={{ maxWidth: '560px' }}>
+                <ScreenshotCard src={v.image} alt={v.imageAlt} chromeLabel="Owner dashboard · live" imgHeight={340} />
+              </div>
+            </div>
+          </section>
+        )
+      })}
 
-      {/* FEATURES: dark OD green section */}
+      {/* FEATURES: shared, dark OD green section */}
       <div id="features" style={{ background: '#4B5320', padding: '80px 24px' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
           <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#B8C49A', marginBottom: '14px' }}>For shop owners</div>
           <div data-anim style={{ fontSize: 'clamp(30px, 6vw, 42px)', fontWeight: 400, letterSpacing: '-1px', lineHeight: 1.15, color: '#FAFAF7', marginBottom: '14px' }}>Everything you need<br />to run a modern shop.</div>
-          <div data-anim style={{ fontSize: '16px', color: '#B8C49A', lineHeight: 1.65, marginBottom: '52px', maxWidth: '480px' }}>Bookings, barber comp, client retention, and analytics, in one dashboard built for how a barbershop actually runs.</div>
+          <div data-anim style={{ fontSize: '16px', color: '#B8C49A', lineHeight: 1.65, marginBottom: '52px', maxWidth: '480px' }}>Bookings, staff pay, client retention, and analytics, in one dashboard built for how a modern shop actually runs.</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
             {FEATURES.map((f, i) => (
               <div data-anim key={i} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '14px', padding: '24px', backdropFilter: 'blur(4px)' }}>
@@ -313,30 +393,30 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* CLIENT LOCK: premium hero section */}
+      {/* CLIENT LOCK: shared explainer section */}
       <div style={{ background: '#FAFAF7', padding: '80px 24px' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
           <div data-anim style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#EDF2E5', border: '0.5px solid #B8C49A', borderRadius: '20px', padding: '5px 14px', marginBottom: '24px' }}>
             <span style={{ color: '#4B5320' }}><IconLock /></span>
-            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320' }}>Client Lock · Proprietary</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320' }}>Client Lock. Proprietary.</span>
           </div>
           <div data-anim style={{ fontSize: 'clamp(32px, 7vw, 48px)', fontWeight: 400, letterSpacing: '-1.2px', lineHeight: 1.1, marginBottom: '16px' }}>
-            Your clients stay yours.<br /><span style={{ color: '#4B5320' }}>Even when barbers leave.</span>
+            Your clients stay yours.<br /><span style={{ color: '#4B5320' }}>Even when someone leaves.</span>
           </div>
           <div data-anim style={{ fontSize: '17px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '40px', maxWidth: '520px' }}>
-            ChairOS tracks which clients belong to which barber, and for how long. When a barber leaves, you know exactly what revenue is at risk before they walk out the door.
+            ChairOS tracks which clients belong to which staff member, and for how long. When someone leaves, you know exactly what revenue is at risk before they walk out the door.
           </div>
 
           {/* Lock metrics card */}
           <div data-anim data-animate="lock" style={{ background: '#F0EDE6', border: '1px solid #C8C4B8', borderRadius: '20px', overflow: 'hidden', marginBottom: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ background: '#2d3214', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#B8C49A' }}>Retention intelligence · live</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#B8C49A' }}>Retention intelligence. Live.</span>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5ecc5e', display: 'inline-block', animation: 'pulse 2s infinite' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', background: '#E8E4DC' }}>
               {[
-                { ref: lockedRef, val: '0', color: '#3a7d2a', label: 'Locked', desc: 'Clients who belong to a barber' },
-                { ref: atRiskRef, val: '0', color: '#b97a20', label: 'At Risk', desc: 'Haven\'t been in 60+ days' },
+                { ref: lockedRef, val: '0', color: '#3a7d2a', label: 'Locked', desc: 'Clients who belong to a staff member' },
+                { ref: atRiskRef, val: '0', color: '#b97a20', label: 'At Risk', desc: "Haven't been in 60+ days" },
                 { ref: floatingRef, val: '0', color: '#b94040', label: 'Floating', desc: 'Not yet locked to anyone' },
               ].map((s, i) => (
                 <div key={i} style={{ padding: '24px 16px', textAlign: 'center' as const, borderRight: i < 2 ? '1px solid #D8D5C8' : 'none' }}>
@@ -350,7 +430,7 @@ export default function LandingPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
             {[
-              { icon: '2', title: 'Locks after 2 visits', desc: 'A client books twice. They\'re locked. No guessing who owns who.' },
+              { icon: '2', title: 'Locks after 2 visits', desc: "A client books twice. They're locked. No guessing who owns who." },
               { icon: '90', title: '90-day lapse window', desc: '90 days without a booking releases the lock. 12+ months earns loyalty protection.' },
               { icon: '∞', title: 'Owner override', desc: 'The logic runs automatically. You can reassign or release any lock manually.' },
             ].map((c, i) => (
@@ -364,162 +444,27 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* BARBER SECTION */}
-      <div style={{ background: '#F0EDE6', borderTop: '1px solid #D8D5C8', borderBottom: '1px solid #D8D5C8', padding: '80px 24px' }}>
-        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
-          <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320', marginBottom: '12px' }}>For barbers</div>
-          <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, marginBottom: '14px' }}>Built for the person<br />behind the chair.</div>
-          <div data-anim style={{ fontSize: '16px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '44px', maxWidth: '480px' }}>Barbers get their own dashboard: schedule, earnings, clients, and floor toggle. No shared logins. No guessing what you made.</div>
-          <div style={{ display: 'flex', gap: '32px', alignItems: 'flex-start', flexWrap: 'wrap' as const }}>
-            <div data-anim style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '28px', padding: '16px', width: '260px', flexShrink: 0, boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
-              <div style={{ background: '#EAE8E0', borderRadius: '20px', overflow: 'hidden' }}>
-                <div style={{ background: '#FAFAF7', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '0.5px solid #D8D5C8' }}>
-                  <span style={{ fontSize: '14px', color: '#4B5320' }}>ChairOS</span>
-                  <span style={{ fontSize: '10px', color: '#65655F' }}>Barber view</span>
-                </div>
-                <div style={{ padding: '14px' }}>
-                  <div style={{ fontSize: '15px', color: '#1A1A18', marginBottom: '10px' }}>Good morning, Marcus.</div>
-                  <div style={{ background: '#F4F2EC', border: '0.5px solid #D8D5C8', borderRadius: '10px', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#4B532018', border: '1.5px solid #4B532040', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#4B5320', fontWeight: 600, flexShrink: 0 }}>M</div>
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#1A1A18' }}>Marcus Webb</div>
-                      <div style={{ fontSize: '10px', color: '#3a7d2a', marginTop: '2px' }}>On the floor</div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-                    {[
-                      { val: '$340', color: '#4B5320', label: "Today's cut" },
-                      { val: '$45', color: '#3a7d2a', label: 'Tips today' },
-                      { val: '8', color: '#1A1A18', label: 'Locked clients' },
-                      { val: '2', color: '#b94040', label: 'At risk' },
-                    ].map((s, i) => (
-                      <div key={i} style={{ background: '#F4F2EC', border: '0.5px solid #D8D5C8', borderRadius: '8px', padding: '10px', textAlign: 'center' as const }}>
-                        <div style={{ fontSize: '18px', color: s.color, fontWeight: 400 }}>{s.val}</div>
-                        <div style={{ fontSize: '9px', color: '#65655F', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginTop: '2px' }}>{s.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ background: '#F4F2EC', border: '0.5px solid #D8D5C8', borderRadius: '8px', padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#4B5320', fontFamily: 'monospace', fontWeight: 600 }}>14:00</div>
-                      <div style={{ fontSize: '12px', color: '#1A1A18', fontWeight: 500 }}>Jordan Davis</div>
-                      <div style={{ fontSize: '10px', color: '#65655F', marginTop: '1px' }}>Fade + lineup</div>
-                    </div>
-                    <div style={{ fontSize: '13px', color: '#1A1A18', fontWeight: 600, fontFamily: 'monospace' }}>$55</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '12px' }}>
-                {[
-                  { icon: <IconDollar />, title: 'Private earnings', desc: 'Your cut and tips. Tap to show or hide. Other barbers never see your numbers.' },
-                  { icon: <IconUsers />, title: 'Your client list', desc: "See who's locked to you, who's at risk. Call or text directly from the app." },
-                  { icon: <IconCalendar />, title: 'Real-time schedule', desc: 'Appointments update live. Mark done, add tips, book walk-ins from your phone.' },
-                ].map((f, i) => (
-                  <div data-anim key={i} style={{ background: '#FAFAF7', border: '1px solid #D8D5C8', borderRadius: '12px', padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                    <div style={{ color: '#4B5320', flexShrink: 0, marginTop: '1px' }}>{f.icon}</div>
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A18', marginBottom: '4px' }}>{f.title}</div>
-                      <div style={{ fontSize: '12px', color: '#65655F', lineHeight: 1.5 }}>{f.desc}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      </section>
-
-      {/* SALON SECTION: draft copy, Bear/Candice review before merge.
-          Written to stand alone: no sentence shared or paraphrased from
-          the barbershop section above. */}
-      <section id="salons" style={{ background: '#FAFAF7', padding: '80px 24px' }}>
-        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
-          <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320', marginBottom: '12px' }}>For salon owners</div>
-          <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, marginBottom: '14px' }}>
-            A stylist can build your book for two years.<br />Then open their own suite and take it with them.
-          </div>
-          <div data-anim style={{ fontSize: '16px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '44px', maxWidth: '520px' }}>
-            Client Lock ties every client to the stylist who's earning their loyalty, one appointment at a time. The day a stylist gives notice, you already know exactly whose book is walking out the door, not three months later when the rebooking numbers stop adding up.
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-            {[
-              { title: 'Color and chemical services, actually bookable', desc: 'Clients book color, cuts, and highlights the way your salon actually runs, not a generic slot borrowed from a barbershop scheduler.' },
-              { title: 'Relationships built over months', desc: "A client isn't locked in after one blowout. Client Lock tracks the relationship your stylists build over repeat color and cut appointments, so you always know which books are solid." },
-              { title: 'One fee, not one fee per stylist', desc: 'Other salon platforms charge per seat. ChairOS is one flat rate for the whole salon, whether you run three chairs or twelve.' },
-            ].map((f, i) => (
-              <div data-anim key={i} style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A18', marginBottom: '7px' }}>{f.title}</div>
-                <div style={{ fontSize: '12px', color: '#65655F', lineHeight: 1.55 }}>{f.desc}</div>
-              </div>
-            ))}
-          </div>
-          <div data-anim style={{ fontSize: '13px', color: '#65655F', lineHeight: 1.6, maxWidth: '520px' }}>
-            This is <span style={{ color: '#4B5320', fontWeight: 600 }}>Client Lock</span>: the system that keeps a stylist from quietly building a client list on your dime and walking it out the door the day they go independent.
-          </div>
-        </div>
-      </section>
-
-      {/* TATTOO SECTION: draft copy, Bear/Candice review before merge.
-          Written to stand alone, no sentence shared with barbershop or
-          salon. Deliberately holds back deposit/consent-form claims:
-          Phase 4 has never had a real Square charge run (sandbox or
-          otherwise), and while Phase 5's signing pipeline has been
-          exercised for real in production (a real signed PDF, viewable
-          in the dashboard), the real-attorney-PDF UAT that Phase 5's own
-          spec set as the confidence bar was never completed. Swap in the
-          deposit/consent highlights once both are actually verified. */}
-      <section id="tattoo" style={{ background: '#4B5320', padding: '80px 24px' }}>
-        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
-          <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#B8C49A', marginBottom: '14px' }}>For studio owners</div>
-          <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, color: '#FAFAF7', marginBottom: '14px' }}>
-            A client gets their first tattoo, then comes back for the sleeve.<br />If your artist leaves for another studio, that relationship leaves too.
-          </div>
-          <div data-anim style={{ fontSize: '16px', color: '#B8C49A', lineHeight: 1.65, marginBottom: '44px', maxWidth: '520px' }}>
-            Tattoo clients are the longest relationships in the industry. A first small piece turns into a full sleeve over years of sessions, and every one of those visits deepens a bond with one specific artist, not your studio. Client Lock ties that relationship to your business from the second visit on, so an artist can't walk out the door with years of your client's trust.
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-            {[
-              { title: 'Consultations and sessions, booked right', desc: 'Clients book a consultation before committing to a piece, then real hourly sessions for the work itself. Not a generic appointment slot that has nothing to do with how a tattoo actually gets done.' },
-              { title: 'Real setup and cleanup time, built in', desc: "Every session automatically holds the setup and cleanup time your artist actually needs before and after. No back-to-back bookings that leave your artist rushing to sanitize a station." },
-              { title: 'Client Lock, built for the longest relationships in the industry', desc: 'A client who books twice with the same artist is locked to them. When an artist leaves for another studio, you know exactly which clients, and which years of work, are at risk before they walk.' },
-            ].map((f, i) => (
-              <div data-anim key={i} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '14px', padding: '24px', backdropFilter: 'blur(4px)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#FAFAF7', marginBottom: '7px' }}>{f.title}</div>
-                <div style={{ fontSize: '12px', color: '#9aa87a', lineHeight: 1.55 }}>{f.desc}</div>
-              </div>
-            ))}
-          </div>
-          <div data-anim style={{ fontSize: '13px', color: '#9aa87a', lineHeight: 1.6, maxWidth: '520px' }}>
-            No vertical on ChairOS holds relationships longer than tattoo work. That's exactly why <span style={{ color: '#B8C49A', fontWeight: 600 }}>Client Lock</span> matters most here.
-          </div>
-        </div>
-      </section>
-
       {/* PRICING */}
-      <div style={{ background: '#FAFAF7', padding: '80px 24px' }}>
+      <div style={{ background: '#F0EDE6', padding: '80px 24px', borderTop: '1px solid #D8D5C8' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
           <div data-anim style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#4B5320', marginBottom: '12px' }}>Pricing</div>
           <div data-anim style={{ fontSize: 'clamp(28px, 6vw, 40px)', fontWeight: 400, letterSpacing: '-0.8px', lineHeight: 1.15, marginBottom: '12px' }}>Simple pricing.<br />No per-seat fees.</div>
-          <div data-anim style={{ fontSize: '16px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '44px' }}>One flat rate. No per-barber fees. No add-on tiers. No surprises.</div>
+          <div data-anim style={{ fontSize: '16px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '44px' }}>One flat rate. No per-staff fees. No add-on tiers. No surprises.</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
             {[
               {
                 featured: false,
                 tier: 'Solo chair',
                 amount: '$25',
-                period: 'per month · 30-day free trial',
+                period: 'per month. 30-day free trial.',
                 features: ['Branded booking page', 'Client Lock engine', 'Earnings tracking', 'Real-time notifications', 'Portfolio + reviews'],
               },
               {
                 featured: true,
                 tier: 'Shop owner',
                 amount: '$99',
-                period: 'per month · up to 10 barbers',
-                features: ['Everything in Solo', 'Full barber dashboards', 'Compensation management', 'Client Lock for all barbers', 'Year-end earnings reports', 'Live floor visibility'],
+                period: 'per month. Up to 10 staff.',
+                features: ['Everything in Solo', 'Full staff dashboards', 'Compensation management', 'Client Lock for your whole team', 'Year-end earnings reports', 'Live floor visibility'],
               },
             ].map((p, i) => (
               <div data-anim key={i} style={{ background: p.featured ? '#EDF2E5' : '#F4F2EC', border: p.featured ? '1.5px solid #4B532050' : '1px solid #D8D5C8', borderRadius: '16px', padding: '28px', boxShadow: p.featured ? '0 4px 20px rgba(75,83,32,0.12)' : '0 1px 6px rgba(0,0,0,0.04)' }}>
@@ -545,18 +490,21 @@ export default function LandingPage() {
       </div>
 
       {/* FOUNDER */}
-      <div style={{ background: '#F0EDE6', borderTop: '1px solid #D8D5C8', padding: '64px 24px' }}>
+      <div style={{ background: '#FAFAF7', padding: '64px 24px' }}>
         <div style={{ maxWidth: '680px', margin: '0 auto' }}>
-          <div data-anim style={{ background: '#FAFAF7', border: '1px solid #D8D5C8', borderRadius: '16px', padding: '32px', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
+          <div data-anim style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '16px', padding: '32px', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', color: '#4B5320', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', marginBottom: '14px' }}>Built by someone who's been behind the chair</div>
             <div style={{ fontSize: '17px', color: '#1A1A18', lineHeight: 1.7, marginBottom: '16px', fontStyle: 'italic' }}>
               "I built ChairOS because I lived the problem. Managing barbers, tracking tips, watching clients walk out the door when a barber left. There was no tool built for how a barbershop actually runs. So I built it."
             </div>
+            <div style={{ fontSize: '13px', color: '#4F4F48', lineHeight: 1.6, marginBottom: '20px' }}>
+              Built first for barbershops. Now built for salons and tattoo studios too.
+            </div>
             <div style={{ fontSize: '12px', color: '#65655F', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#4B532015', border: '1px solid #4B532030', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4B5320', fontSize: '14px', fontWeight: 600 }}>B</div>
               <div>
-                <div style={{ fontWeight: 600, color: '#1A1A18', marginBottom: '2px' }}>Licensed barber · Former shop owner</div>
-                Barbering instructor · Founder of ChairOS
+                <div style={{ fontWeight: 600, color: '#1A1A18', marginBottom: '2px' }}>Licensed barber. Former shop owner.</div>
+                Barbering instructor. Founder of ChairOS.
               </div>
             </div>
           </div>
@@ -625,6 +573,8 @@ export default function LandingPage() {
           50% { opacity: 0.4; }
         }
         ::placeholder { color: rgba(250,250,247,0.4) !important; }
+        .vertical-tile { transition: transform 0.2s ease; }
+        .vertical-tile:hover { transform: translateY(-4px); }
       `}</style>
     </div>
   )
