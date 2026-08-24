@@ -2,8 +2,14 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import Turnstile from '@/components/Turnstile'
 
 type Step = 'credentials' | 'role' | 'confirmed'
+
+// When unset, the widget renders nothing and no token is required --
+// safe as long as Supabase's server-side CAPTCHA enforcement (a
+// separate dashboard toggle) is only turned on once this is also set.
+const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function Signup() {
   const [step, setStep] = useState<Step>('credentials')
@@ -12,6 +18,7 @@ export default function Signup() {
   const [name, setName] = useState('')
   const [role, setRole] = useState<'owner' | 'barber' | null>(null)
   const [smsConsent, setSmsConsent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
@@ -29,7 +36,7 @@ export default function Signup() {
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name, role } },
+      options: { data: { full_name: name, role }, captchaToken: captchaToken || undefined },
     })
 
     if (signUpError) { setError(signUpError.message); setLoading(false); return }
@@ -140,9 +147,15 @@ export default function Signup() {
             </span>
           </label>
 
+          {CAPTCHA_ENABLED && (
+            <div className="mb-4">
+              <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+            </div>
+          )}
+
           <button
             onClick={handleRoleSubmit}
-            disabled={!role || loading}
+            disabled={!role || loading || (CAPTCHA_ENABLED && !captchaToken)}
             className="w-full bg-od-green hover:bg-od-green-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors text-sm"
           >
             {loading ? 'Creating account…' : 'Create Account'}

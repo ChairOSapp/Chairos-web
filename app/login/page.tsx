@@ -4,10 +4,14 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getBillingStatus } from '@/lib/billing'
+import Turnstile from '@/components/Turnstile'
+
+const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -59,7 +63,11 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken: captchaToken || undefined },
+    })
     if (error) { setError(error.message); setLoading(false); return }
     if (data.user) await routeUser(data.user.id)
   }
@@ -86,8 +94,11 @@ export default function Login() {
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
           </div>
-          <button type="submit" disabled={loading}
-            className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg transition-colors text-sm tracking-wide">
+          {CAPTCHA_ENABLED && (
+            <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+          )}
+          <button type="submit" disabled={loading || (CAPTCHA_ENABLED && !captchaToken)}
+            className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg transition-colors text-sm tracking-wide disabled:opacity-50 disabled:cursor-not-allowed">
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
           <p className="text-center text-charcoal-500 text-sm">

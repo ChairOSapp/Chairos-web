@@ -2,12 +2,16 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import Turnstile from '@/components/Turnstile'
+
+const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
   const supabase = createClient()
 
   async function handleSubmit(e: React.FormEvent) {
@@ -16,6 +20,7 @@ export default function ForgotPassword() {
     setError('')
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken: captchaToken || undefined,
     })
     setLoading(false)
     // Always show the same success state regardless of whether the email
@@ -55,7 +60,10 @@ export default function ForgotPassword() {
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
           </div>
-          <button type="submit" disabled={loading}
+          {CAPTCHA_ENABLED && (
+            <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+          )}
+          <button type="submit" disabled={loading || (CAPTCHA_ENABLED && !captchaToken)}
             className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg transition-colors text-sm tracking-wide disabled:opacity-60">
             {loading ? 'Sending...' : 'Send reset link'}
           </button>
