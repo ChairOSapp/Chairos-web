@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import ClientNotes from '@/components/ClientNotes'
 
 interface Client {
   id: string
@@ -269,6 +270,13 @@ export default function ClientProfilePage() {
             </div>
           )}
         </div>
+
+        {/* CLIENT NOTES */}
+        {client && shop?.id && (
+          <div className="mt-5">
+            <ClientNotes clientId={client.id} shopId={shop.id} mode="full" />
+          </div>
+        )}
 
       </div>
       <MobileNav />

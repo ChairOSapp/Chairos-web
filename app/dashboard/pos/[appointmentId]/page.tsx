@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
+import ClientNotes from '@/components/ClientNotes'
 
 const TIP_PRESETS = [
   { label: '15%', pct: 0.15 },
@@ -286,6 +287,13 @@ export default function POSCheckout() {
             </div>
           )}
         </div>
+
+        {/* Client notes: cut preference, color formula, session notes, optional reference photos */}
+        {client && appt?.shop_id && (
+          <div className="mb-5">
+            <ClientNotes clientId={client.id} shopId={appt.shop_id} mode="add-only" dark />
+          </div>
+        )}
 
         {/* Tip selector */}
         <div className="mb-5">

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import StaffMobileNav from '@/components/StaffMobileNav'
+import ClientNotes from '@/components/ClientNotes'
 
 export default function BarberClientsPage() {
   const [profile, setProfile] = useState<any>(null)
@@ -186,6 +187,11 @@ export default function BarberClientsPage() {
                 </div>
               ))}
             </div>
+            {selectedClient.client_id && shopBarber?.shop_id && (
+              <div className="mb-5">
+                <ClientNotes clientId={selectedClient.client_id} shopId={shopBarber.shop_id} mode="full" />
+              </div>
+            )}
             <div className="flex gap-3">
               {(selectedClient as any).clients?.phone && (
                 <a href={`tel:${(selectedClient as any).clients.phone}`}
