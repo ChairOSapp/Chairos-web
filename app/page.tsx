@@ -62,8 +62,10 @@ type VerticalSection = {
   headlineLines: string[]
   subline: string
   proof: string
-  image: string
-  imageAlt: string
+  tileImage: string
+  tileAlt: string
+  sectionImage: string
+  sectionAlt: string
   sectionBg: 'light' | 'dark'
 }
 
@@ -73,10 +75,12 @@ const VERTICAL_SECTIONS: VerticalSection[] = [
     label: 'Barbershops',
     eyebrow: 'BARBERSHOPS',
     headlineLines: ["A barber builds his own book on your chair.", "Then he leaves with it."],
-    subline: "Client Lock ties every client to your shop from their second visit, so you know exactly what you're exposed to before anyone walks.",
+    subline: "The second time a client books, Client Lock records it under your shop's system, not a barber's personal phone. If a barber walks, his regulars are still sitting in your dashboard the next morning, ready to rebook.",
     proof: 'Floor visibility for every chair. Commission or booth rent tracked automatically. Live Client Lock counts, updated in real time.',
-    image: '/landing/barbershop-dashboard.png',
-    imageAlt: 'Downtown Fade Co. owner dashboard showing two barbers on the floor and Client Lock counts',
+    tileImage: '/landing/barbershop-staff.png',
+    tileAlt: "Downtown Fade Co. booking page: choose your barber, showing Jake Rivera and Tony Alvarez",
+    sectionImage: '/landing/barbershop-services.png',
+    sectionAlt: 'Downtown Fade Co. real service menu: Line-Up/Edge-Up $25, Youth Cut $40, Beard Sculpt $40',
     sectionBg: 'light',
   },
   {
@@ -84,10 +88,12 @@ const VERTICAL_SECTIONS: VerticalSection[] = [
     label: 'Salons',
     eyebrow: 'SALONS',
     headlineLines: ["Your stylist's clients.", "Not theirs."],
-    subline: "Client Lock ties every client to your salon, not just to whoever's holding the color brush. When a stylist gives notice, you already know whose book is walking with them.",
+    subline: "Every color formula and service note gets logged against your salon, not just the stylist who did the work. When a stylist gives her two weeks, you can see her whole locked client list before her last day, not after.",
     proof: 'One flat fee for the whole salon, not one per stylist seat. Color, cut, and highlight booking built for how a salon actually runs.',
-    image: '/landing/salon-dashboard.png',
-    imageAlt: 'Willow & Rose Salon owner dashboard showing two stylists on the floor and Client Lock counts',
+    tileImage: '/landing/salon-staff.png',
+    tileAlt: 'Willow & Rose Salon booking page: choose your stylist, showing Nina Coleman and Priya Desai',
+    sectionImage: '/landing/salon-services.png',
+    sectionAlt: 'Willow & Rose Salon real service menu: Cut $55, Color $95, Highlights $145',
     sectionBg: 'light',
   },
   {
@@ -95,14 +101,16 @@ const VERTICAL_SECTIONS: VerticalSection[] = [
     label: 'Tattoo Studios',
     eyebrow: 'TATTOO STUDIOS',
     headlineLines: ["Your artist's client left with them."],
-    subline: "Client Lock ties every client to your studio from their second visit, so an artist can't walk out the door with a book they built on your chair.",
+    subline: "A sleeve takes a dozen sessions over a couple of years with the same artist. Client Lock tracks that entire relationship under your studio from visit two, so if an artist leaves mid-project, you know exactly which multi-session clients and dollars just walked out the door.",
     // Deposits (Phase 4) and consent forms (Phase 5) are both live in production, but neither has cleared
     // the verification bar the team set for making public claims about them (a real Square sandbox charge,
     // a real attorney-sourced consent PDF run through UAT). Swap this line for the fuller one once both clear:
     // 'Deposits collected before the chair's held. Consent forms signed and stored automatically. Setup and cleanup time blocked so your artist never rushes a station.'
     proof: 'Sessions and consultations booked the way a studio actually works, with real setup and cleanup time built in.',
-    image: '/landing/tattoo-dashboard.png',
-    imageAlt: 'Ironclad Tattoo Studio owner dashboard showing two artists on the floor and Client Lock counts',
+    tileImage: '/landing/tattoo-staff.png',
+    tileAlt: 'Ironclad Tattoo Studio booking page: choose your artist, showing Skyler Monroe and Reese Talbot',
+    sectionImage: '/landing/tattoo-services.png',
+    sectionAlt: 'Ironclad Tattoo Studio real service menu: Consultation $0, Piercing $35, Touch-up $60, Session (hourly) $200',
     sectionBg: 'light',
   },
 ]
@@ -290,8 +298,8 @@ export default function LandingPage() {
                     transition: 'background 0.2s ease',
                   }}>
                     <ScreenshotCard
-                      src={v.image}
-                      alt={v.imageAlt}
+                      src={v.tileImage}
+                      alt={v.tileAlt}
                       chromeLabel={`${v.label} · live`}
                       imgHeight={168}
                     />
@@ -366,7 +374,7 @@ export default function LandingPage() {
                 {v.proof}
               </div>
               <div data-anim style={{ maxWidth: '560px' }}>
-                <ScreenshotCard src={v.image} alt={v.imageAlt} chromeLabel="Owner dashboard · live" imgHeight={340} />
+                <ScreenshotCard src={v.sectionImage} alt={v.sectionAlt} chromeLabel="Booking page · live" imgHeight={340} />
               </div>
             </div>
           </section>
