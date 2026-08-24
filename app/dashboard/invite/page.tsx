@@ -50,7 +50,7 @@ export default function InviteBarber() {
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
-    if (!email || !selectedBarber) { setError(`Select a ${staffLabel.toLowerCase()} and enter their email`); return }
+    if (!email || !selectedBarber) { setError(`Select ${/^[aeiou]/i.test(staffLabel) ? 'an' : 'a'} ${staffLabel.toLowerCase()} and enter their email`); return }
     setSending(true)
     setError('')
     setSuccess('')

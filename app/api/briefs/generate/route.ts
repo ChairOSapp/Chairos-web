@@ -353,7 +353,7 @@ export async function POST() {
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 900,
-        system: `You are ChairOS, writing a daily brief for a ${staffLabel.toLowerCase()}. Be specific to their numbers. Give 2 suggestions: one to increase revenue today, one to protect a client relationship. Under 200 words. Return JSON with keys: headline, yesterday_summary (1-2 sentences on yesterday), week_summary (1-2 sentences on this week's revenue trend vs last week), client_alerts (array of objects with name and days_since), suggestions (array of 2 strings), one_thing. Respond with only valid JSON, no markdown.`,
+        system: `You are ChairOS, writing a daily brief for ${/^[aeiou]/i.test(staffLabel) ? 'an' : 'a'} ${staffLabel.toLowerCase()}. Be specific to their numbers. Give 2 suggestions: one to increase revenue today, one to protect a client relationship. Under 200 words. Return JSON with keys: headline, yesterday_summary (1-2 sentences on yesterday), week_summary (1-2 sentences on this week's revenue trend vs last week), client_alerts (array of objects with name and days_since), suggestions (array of 2 strings), one_thing. Respond with only valid JSON, no markdown.`,
         messages: [{ role: 'user', content: JSON.stringify(briefData) }],
       })
 
