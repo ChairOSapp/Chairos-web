@@ -238,20 +238,40 @@ function BookingPageInner() {
     // owner/staff-scoped (it holds PII), so an anonymous booker can't
     // read back a row they just inserted -- hence the lookup RPC, and
     // generating the id client-side so the insert never needs a
-    // RETURNING/select-after-insert that RLS would block.
+    // RETURNING/select-after-insert that RLS would block. A plain
+    // update also works fine as anon (verified directly), but
+    // INSERT ... ON CONFLICT DO UPDATE does not: Postgres needs an
+    // implicit SELECT-visibility check to detect the conflict, which
+    // the owner/staff-scoped SELECT policy blocks for anon -- so this
+    // branches into an explicit insert-or-update instead of a upsert.
     const normalizedPhone = clientPhone.replace(/\D/g, '')
     let clientId: string | null = null
     const { data: rpcData } = await supabase
       .rpc('find_client_for_booking', { p_phone: normalizedPhone, p_shop_id: shop.id })
     const existingClient = rpcData?.[0]
 
+    const consentNow = new Date().toISOString()
+    const clientFields: Record<string, any> = {
+      full_name: clientName,
+      email: clientEmail || null,
+    }
+    if (smsConsent && !existingClient?.sms_consent) {
+      clientFields.sms_consent = true
+      clientFields.sms_consent_at = consentNow
+    }
+    if (emailConsent && clientEmail && !existingClient?.email_consent) {
+      clientFields.email_consent = true
+      clientFields.email_consent_at = consentNow
+    }
+
     if (existingClient?.client_id) {
       clientId = existingClient.client_id
+      await supabase.from('clients').update(clientFields).eq('id', clientId)
     } else {
       const newId = crypto.randomUUID()
       const { error: newClientErr } = await supabase
         .from('clients')
-        .insert({ id: newId, full_name: clientName, phone: normalizedPhone })
+        .insert({ id: newId, phone: normalizedPhone, ...clientFields })
       if (newClientErr) { setError('Failed to create client record. Please try again.'); setSubmitting(false); return }
       clientId = newId
     }
@@ -271,23 +291,6 @@ function BookingPageInner() {
     if (period === 'PM' && h !== 12) h += 12
     if (period === 'AM' && h === 12) h = 0
     const time24 = `${h.toString().padStart(2,'0')}:${minutes}:00`
-
-    const consentNow = new Date().toISOString()
-
-    const clientUpsert: Record<string, any> = {
-      phone: normalizedPhone,
-      full_name: clientName,
-      email: clientEmail || null,
-    }
-    if (smsConsent && !existingClient?.sms_consent) {
-      clientUpsert.sms_consent = true
-      clientUpsert.sms_consent_at = consentNow
-    }
-    if (emailConsent && clientEmail && !existingClient?.email_consent) {
-      clientUpsert.email_consent = true
-      clientUpsert.email_consent_at = consentNow
-    }
-    await supabase.from('clients').upsert(clientUpsert, { onConflict: 'phone', ignoreDuplicates: false })
 
     // Create appointment first so we have an ID for Square payment.
     // appointments' SELECT policy is barber-scoped (auth.uid() = barber_id),
