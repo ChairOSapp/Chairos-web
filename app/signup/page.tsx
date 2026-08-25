@@ -112,7 +112,7 @@ export default function Signup() {
                 Shop Owner
               </div>
               <div className="text-xs text-charcoal-500">
-                I run a barbershop and manage a team — $79/mo after trial
+                I run a barbershop, salon, or tattoo studio and manage a team — $79/mo after trial
               </div>
             </button>
 
@@ -126,10 +126,10 @@ export default function Signup() {
               }`}
             >
               <div className={`font-semibold text-sm mb-0.5 ${role === 'barber' ? 'text-od-green' : 'text-charcoal-900'}`}>
-                Independent Barber
+                Independent Professional
               </div>
               <div className="text-xs text-charcoal-500">
-                I'm a solo barber managing my own clients and bookings — $25/mo after trial
+                I work solo (barber, stylist, or artist) managing my own clients and bookings — $25/mo after trial
               </div>
             </button>
           </div>
