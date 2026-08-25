@@ -1,5 +1,6 @@
 import { schedules, tasks } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
+import { logger } from "@/lib/logger"
 
 function getSupabase() {
   return createClient(
@@ -176,7 +177,7 @@ export const clientLapseDetection = schedules.task({
           .eq('phone', cleanPhone)
           .maybeSingle()
         if (!clientConsent?.sms_consent) {
-          console.log(`[client-lapse-detection] no SMS consent for ${client.client_name}, skipping SMS`)
+          logger.info('lapse_sms_skipped_no_consent', { shopId: client.shop_id, clientId: client.client_id })
           continue
         }
         const vertical = shop?.vertical || 'barbershop'
@@ -200,12 +201,14 @@ export const clientLapseDetection = schedules.task({
 
     // Batch insert lapse_alerts
     if (newLapseAlerts.length > 0) {
-      await supabase.from('lapse_alerts').insert(newLapseAlerts)
+      const { error: alertsErr } = await supabase.from('lapse_alerts').insert(newLapseAlerts)
+      if (alertsErr) logger.error('lapse_alerts_insert_failed', { message: alertsErr.message, count: newLapseAlerts.length })
     }
 
     // Batch insert notifications
     if (newNotifications.length > 0) {
-      await supabase.from('notifications').insert(newNotifications)
+      const { error: notifErr } = await supabase.from('notifications').insert(newNotifications)
+      if (notifErr) logger.error('lapse_notifications_insert_failed', { message: notifErr.message, count: newNotifications.length })
     }
 
     // Trigger SMS tasks
@@ -213,7 +216,7 @@ export const clientLapseDetection = schedules.task({
       await tasks.trigger('rebooking-sms', payload)
     }
 
-    console.log(`[client-lapse-detection] alerts created: ${alertsCreated}, SMS triggered: ${smsTriggered}`)
+    logger.info('client_lapse_detection_run_complete', { alertsCreated, smsTriggered, clientsEvaluated: clientMap.size })
     return { alertsCreated, smsTriggered }
   },
 })

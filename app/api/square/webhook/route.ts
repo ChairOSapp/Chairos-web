@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
+import * as Sentry from '@sentry/nextjs'
 import { resolveSquareCredentials, refundSquarePayment } from '@/lib/square'
 import { notifySlack } from '@/lib/slack'
+import { logger } from '@/lib/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,15 +32,21 @@ async function notifyClientSlotExpired(appointment: { client_name: string; clien
   }
   const digitsOnly = (appointment.client_phone || '').replace(/\D/g, '')
   const normalized = digitsOnly.length === 10 ? `+1${digitsOnly}` : `+${digitsOnly}`
+  const last4 = digitsOnly.slice(-4)
   const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!)
   try {
-    await twilioClient.messages.create({
+    const msg = await twilioClient.messages.create({
       body: `Hi ${appointment.client_name}, your reserved appointment slot expired before we received your deposit payment. You've been refunded in full — please rebook when ready.`,
       from: process.env.TWILIO_PHONE_NUMBER!,
       to: normalized,
     })
-  } catch {
-    // Best-effort notification — the refund and log entry are the source of truth, not the SMS.
+    logger.info('slot_expired_sms_sent', { to: last4, messageSid: msg.sid })
+  } catch (err: any) {
+    // Best-effort notification — the refund and log entry are the source of
+    // truth, not the SMS — but a silent failure here previously left no
+    // trail at all, so it's still worth capturing.
+    logger.error('slot_expired_sms_failed', { to: last4, message: err.message })
+    Sentry.captureException(err, { tags: { job: 'square_webhook_slot_expired_sms' }, extra: { clientId: appointment.client_id } })
   }
 }
 
@@ -87,8 +95,12 @@ async function handleDepositPayment(payment: any, depositId: string) {
           'Deposit hold expired before payment confirmed'
         )
         refundResult = 'refunded'
+        logger.info('deposit_late_payment_refunded', { depositId: deposit.id, paymentId: payment.id })
       } catch (err: any) {
         refundResult = `refund_failed:${err.message}`
+        logger.error('deposit_late_payment_refund_failed', { depositId: deposit.id, paymentId: payment.id, message: err.message })
+        Sentry.captureException(err, { tags: { job: 'square_webhook_deposit_refund' }, extra: { depositId: deposit.id, paymentId: payment.id } })
+        await notifySlack(`🚨 Square refund failed for expired deposit ${deposit.id} (payment ${payment.id}):\n${err.message}`, 'square/webhook')
       }
     }
 
@@ -121,11 +133,13 @@ async function handleDepositPayment(payment: any, depositId: string) {
       .update({ status: 'confirmed' })
       .eq('id', deposit.appointment_id)
       .eq('status', 'pending')
+    logger.info('deposit_paid', { depositId: deposit.id, paymentId: payment.id })
     return
   }
 
   // deposit.status === 'paid' with a different payment id than we have on
   // record — an anomaly worth a record, but not something to act on blindly.
+  logger.warn('deposit_webhook_anomaly', { depositId: deposit.id, existingStatus: deposit.status, incomingPaymentId: payment.id })
   await supabase.from('automation_logs').insert({
     type: 'deposit_webhook_anomaly',
     payload: { depositId: deposit.id, existingStatus: deposit.status, incomingPaymentId: payment.id },
@@ -138,11 +152,13 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get('x-square-hmacsha256-signature') || ''
 
   if (!process.env.SQUARE_WEBHOOK_SIGNATURE_KEY) {
-    console.error('[square/webhook] SQUARE_WEBHOOK_SIGNATURE_KEY not configured')
+    logger.error('square_webhook_misconfigured', { reason: 'SQUARE_WEBHOOK_SIGNATURE_KEY not set' })
+    Sentry.captureMessage('Square webhook misconfigured: SQUARE_WEBHOOK_SIGNATURE_KEY is not set', 'error')
     await notifySlack('🚨 Square webhook misconfigured: SQUARE_WEBHOOK_SIGNATURE_KEY is not set. All incoming events are being rejected.', 'square/webhook')
     return NextResponse.json({ error: 'Webhook key not configured' }, { status: 500 })
   }
   if (!verifySignature(body, signature, process.env.SQUARE_WEBHOOK_SIGNATURE_KEY, req.url)) {
+    logger.warn('square_webhook_invalid_signature')
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
@@ -180,10 +196,12 @@ export async function POST(req: NextRequest) {
               : null,
           })
           .eq('id', payment.reference_id)
+        logger.info('square_payment_updated', { appointmentId: payment.reference_id, paymentStatus })
       }
     }
   } catch (err: any) {
-    console.error(`[square/webhook] Unhandled error processing ${event.type}:`, err.message)
+    logger.error('square_webhook_unhandled_error', { type: event.type, message: err.message })
+    Sentry.captureException(err, { tags: { event_type: event.type } })
     await notifySlack(`🚨 Square webhook error processing ${event.type}:\n${err.message}`, 'square/webhook')
   }
 

@@ -6,6 +6,7 @@ import StaffNav from '@/components/StaffNav'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
+import WalkInQueue from '@/components/WalkInQueue'
 import { getBillingStatus } from '@/lib/billing'
 
 function getWeekDays(): Date[] {
@@ -376,6 +377,16 @@ export default function BarberDashboard() {
         />
 
         <BriefCard recipientName={profile?.full_name} />
+
+        {shopId && (
+          <WalkInQueue
+            shopId={shopId}
+            actingBarberId={barberId}
+            barbers={shopBarber ? [{ id: shopBarber.id, barber_id: shopBarber.barber_id, barber_name: shopBarber.barber_name, alias: shopBarber.alias }] : []}
+            services={services}
+            onConverted={() => barberId && shopId && loadLiveData(barberId, shopId)}
+          />
+        )}
 
         <div className="mb-6">
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">{greeting}, {firstName}</h1>

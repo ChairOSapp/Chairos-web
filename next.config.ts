@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -23,7 +24,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
               "frame-src 'self' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com",
               "frame-ancestors 'self'",
               "base-uri 'self'",
@@ -44,4 +45,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  // No org/project/authToken configured yet -- the plugin skips source
+  // map upload gracefully when these are unset (errors still get
+  // captured, just with minified stack traces until they're added).
+  widenClientFileUpload: true,
+});

@@ -2,6 +2,9 @@
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams, useSearchParams } from 'next/navigation'
+import Turnstile from '@/components/Turnstile'
+
+const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 function BookingPageInner() {
   const params = useParams()
@@ -33,6 +36,7 @@ function BookingPageInner() {
   const [emailConsent, setEmailConsent] = useState(false)
   const [error, setError] = useState('')
   const [returningClient, setReturningClient] = useState<any>(null)
+  const [captchaToken, setCaptchaToken] = useState('')
   // Public page — no logged-in user, so labels come from this shop's own
   // vertical (already loaded with the shop row), not useVerticalLabels()
   // which resolves via the current session and doesn't apply here.
@@ -207,9 +211,23 @@ function BookingPageInner() {
   async function handleBook() {
     if (!clientName || !clientPhone) { setError('Name and phone are required'); return }
     if (clientPhone && !smsConsent) { setError('Please consent to SMS messages to receive your booking confirmation'); return }
+    if (CAPTCHA_ENABLED && !captchaToken) { setError('Please complete the verification check'); return }
     setSubmitting(true)
     setError('')
     setPaymentError('')
+
+    if (CAPTCHA_ENABLED) {
+      const captchaRes = await fetch('/api/book/verify-captcha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: captchaToken }),
+      })
+      if (!captchaRes.ok) {
+        setError('Verification failed, please try again')
+        setSubmitting(false)
+        return
+      }
+    }
 
     // Tokenize card if the shop requires it, or a deposit must be collected
     let sourceId: string | null = null
@@ -844,9 +862,15 @@ function BookingPageInner() {
               </label>
             </div>
 
+            {CAPTCHA_ENABLED && (
+              <div className="mb-4">
+                <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+              </div>
+            )}
+
             <div className="flex gap-3 items-center">
               <button onClick={() => setStep(3)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
-              <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (!!clientPhone && !smsConsent)}
+              <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (!!clientPhone && !smsConsent) || (CAPTCHA_ENABLED && !captchaToken)}
                 className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
                 style={{ background: brand }}>
                 {submitting ? 'Processing...' : requiresDeposit ? `Confirm & Pay Deposit $${depositAmountEstimate}` : `Confirm & Pay $${selectedService?.price}`}

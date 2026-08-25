@@ -278,7 +278,11 @@ export default function ClientsPage() {
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
             {sorted.length === 0 ? (
               <div className="p-10 text-center text-charcoal-500 text-sm">
-                {search ? 'No clients match your search.' : 'No clients in this view.'}
+                {search
+                  ? 'No clients match your search.'
+                  : counts.all === 0
+                    ? 'No clients yet — clients appear here after their first booking or walk-in.'
+                    : 'No clients in this view.'}
               </div>
             ) : (
               <div className="overflow-x-auto lg:overflow-visible">

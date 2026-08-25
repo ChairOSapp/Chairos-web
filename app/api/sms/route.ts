@@ -3,6 +3,8 @@ import twilio from 'twilio'
 import { createServerClient } from '@supabase/ssr'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import * as Sentry from '@sentry/nextjs'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
@@ -110,9 +112,11 @@ export async function POST(req: NextRequest) {
       to: phone
     })
 
+    logger.info('sms_sent', { to: phone.slice(-4), messageSid: result.sid })
     return NextResponse.json({ success: true, sid: result.sid })
   } catch (err: any) {
-    console.error('SMS error:', err)
+    logger.error('sms_send_failed', { message: err.message })
+    Sentry.captureException(err, { tags: { job: 'sms_send' } })
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

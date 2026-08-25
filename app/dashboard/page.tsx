@@ -7,6 +7,7 @@ import MobileNav from '@/components/MobileNav'
 import TrialCountdownBanner from '@/components/TrialCountdownBanner'
 import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
+import WalkInQueue from '@/components/WalkInQueue'
 import { getBillingStatus } from '@/lib/billing'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
@@ -345,6 +346,16 @@ export default function Dashboard() {
 
         <BriefCard recipientName={ownerName} />
 
+        {shopId && (
+          <WalkInQueue
+            shopId={shopId}
+            actingBarberId={null}
+            barbers={barbers}
+            services={services}
+            onConverted={() => loadSchedule(shopId)}
+          />
+        )}
+
         {/* 2. HEADER */}
         <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-0.5">
@@ -458,29 +469,36 @@ export default function Dashboard() {
                 {allBarbers.filter((b: any) => b.on_floor && b.barber_id).length} of {allBarbers.filter((b: any) => !!b.barber_id).length} {staffLabelPlural.toLowerCase()} in
               </span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {allBarbers.map((b: any) => {
-                const isLinked = !!b.barber_id
-                const isOn = b.on_floor && isLinked
-                const isAtRisk = isLinked && !!barberRiskMap[b.barber_id]
-                return (
-                  <div key={b.id}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                      isAtRisk
-                        ? 'bg-red-500/10 border-red-500/20 text-red-500'
-                        : isOn
-                          ? 'bg-green-500/10 border-green-500/20 text-green-600'
-                          : isLinked
-                            ? 'bg-warm-200 border-warm-300 text-charcoal-500'
-                            : 'bg-warm-200 border-warm-300 text-charcoal-400'
-                    }`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${isAtRisk ? 'bg-red-500' : isOn ? 'bg-green-500' : 'bg-warm-400'}`} />
-                    {b.barber_name || b.alias}
-                    {isAtRisk && <span className="ml-0.5 text-red-400" title="Booking volume declining">↓</span>}
-                  </div>
-                )
-              })}
-            </div>
+            {allBarbers.length === 0 ? (
+              <p className="text-xs text-charcoal-500">
+                No {staffLabelPlural.toLowerCase()} yet — invite your first one from{' '}
+                <button onClick={() => router.push('/dashboard/staff')} className="text-od-green hover:underline">Staff</button>.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {allBarbers.map((b: any) => {
+                  const isLinked = !!b.barber_id
+                  const isOn = b.on_floor && isLinked
+                  const isAtRisk = isLinked && !!barberRiskMap[b.barber_id]
+                  return (
+                    <div key={b.id}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                        isAtRisk
+                          ? 'bg-red-500/10 border-red-500/20 text-red-500'
+                          : isOn
+                            ? 'bg-green-500/10 border-green-500/20 text-green-600'
+                            : isLinked
+                              ? 'bg-warm-200 border-warm-300 text-charcoal-500'
+                              : 'bg-warm-200 border-warm-300 text-charcoal-400'
+                      }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${isAtRisk ? 'bg-red-500' : isOn ? 'bg-green-500' : 'bg-warm-400'}`} />
+                      {b.barber_name || b.alias}
+                      {isAtRisk && <span className="ml-0.5 text-red-400" title="Booking volume declining">↓</span>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
 

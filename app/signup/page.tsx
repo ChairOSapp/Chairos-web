@@ -41,6 +41,12 @@ export default function Signup() {
 
     if (signUpError) { setError(signUpError.message); setLoading(false); return }
 
+    fetch('/api/email/welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name, role }),
+    }).catch(() => {})
+
     // Save SMS consent if given (profile row may not exist yet if email confirmation required)
     if (smsConsent && signUpData.user) {
       const consentNow = new Date().toISOString()

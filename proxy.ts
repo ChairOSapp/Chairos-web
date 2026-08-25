@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { checkRateLimit, getClientIp, getRateLimitBucket } from '@/lib/rate-limit'
 
 const ADMIN_EMAILS = ['tbbryant07@gmail.com']
 
@@ -8,6 +9,7 @@ const PUBLIC_PATHS = ['/', '/login', '/signup', '/join', '/subscribe', '/privacy
 function isPublic(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true
   if (pathname.startsWith('/book/')) return true
+  if (pathname.startsWith('/kiosk/')) return true
   if (pathname.startsWith('/shop/')) return true
   if (pathname.startsWith('/consent/')) return true
   if (pathname.startsWith('/api/stripe/')) return true
@@ -16,6 +18,8 @@ function isPublic(pathname: string) {
   if (pathname.startsWith('/api/email/')) return true
   if (pathname.startsWith('/api/consent/')) return true
   if (pathname.startsWith('/api/book/')) return true
+  if (pathname.startsWith('/api/kiosk/')) return true
+  if (pathname.startsWith('/api/waitlist')) return true
   if (pathname.startsWith('/_next/')) return true
   if (pathname.startsWith('/favicon')) return true
   if (pathname.startsWith('/landing/')) return true
@@ -25,7 +29,20 @@ function isPublic(pathname: string) {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (isPublic(pathname)) return NextResponse.next({ request })
+  if (isPublic(pathname)) {
+    const bucket = getRateLimitBucket(pathname)
+    if (bucket) {
+      const ip = getClientIp(request)
+      const result = await checkRateLimit(bucket, ip)
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: 'Too many requests, please try again shortly.' },
+          { status: 429, headers: { 'Retry-After': String(result.retryAfterSeconds) } }
+        )
+      }
+    }
+    return NextResponse.next({ request })
+  }
 
   let supabaseResponse = NextResponse.next({ request })
 

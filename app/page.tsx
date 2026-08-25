@@ -209,10 +209,18 @@ export default function LandingPage() {
 
   async function handleJoin() {
     if (!email || !email.includes('@')) { setEmailError(true); return }
-    const { error } = await supabase.from('waitlist').insert({ email })
-    if (error && error.code !== '23505') { setEmailError(true); return }
-    setEmailError(false)
-    setJoined(true)
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) { setEmailError(true); return }
+      setEmailError(false)
+      setJoined(true)
+    } catch {
+      setEmailError(true)
+    }
   }
 
   const FEATURES = [
