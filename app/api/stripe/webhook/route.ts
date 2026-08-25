@@ -197,6 +197,15 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe, supabase: any) {
               .update({ subscription_status: 'grace_period', subscription_end_date: graceEnd, grace_period_ends_at: graceEnd })
               .in('id', barberIds)
           }
+
+          await supabase.from('audit_events').insert({
+            shop_id: shop.id,
+            actor_user_id: ownerProfile.id,
+            action: 'subscription.cancelled',
+            entity_type: 'profile',
+            entity_id: ownerProfile.id,
+            metadata: { stripe_customer_id: customerId, grace_period_ends_at: graceEnd },
+          })
         }
       }
 

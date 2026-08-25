@@ -9,6 +9,14 @@ import { useVerticalLabels } from '@/lib/VerticalContext'
 const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 
+function logAudit(shopId: string, action: string, entityId: string, metadata: Record<string, unknown>) {
+  fetch('/api/audit/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ shopId, action, entityType: 'shop_barber', entityId, metadata }),
+  }).catch(() => {})
+}
+
 export default function ManageBarbers() {
   const { staffLabel, staffLabelPlural } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
@@ -124,6 +132,22 @@ export default function ManageBarbers() {
       const { error } = await supabase.from('shop_barbers').update(payload).eq('id', editingId)
       if (error) { setError(error.message); setSaving(false); return }
       shopBarberId = editingId
+      const before = barbers.find(b => b.id === editingId)
+      logAudit(shop.id, 'staff.compensation_updated', editingId, {
+        barber_name: payload.barber_name,
+        before: before ? {
+          compensation_type: before.compensation_type,
+          commission_rate: before.commission_rate,
+          tip_split_rate: before.tip_split_rate,
+          booth_rent_amount: before.booth_rent_amount,
+        } : null,
+        after: {
+          compensation_type: payload.compensation_type,
+          commission_rate: payload.commission_rate,
+          tip_split_rate: payload.tip_split_rate,
+          booth_rent_amount: payload.booth_rent_amount,
+        },
+      })
     } else {
       const { data, error } = await supabase.from('shop_barbers').insert({
         ...payload,
@@ -186,6 +210,10 @@ export default function ManageBarbers() {
     if (current && !confirm(`Deactivate this ${staffLabel.toLowerCase()}? They will no longer appear in bookings.`)) return
     const { error } = await supabase.from('shop_barbers').update({ active: !current }).eq('id', id)
     if (error) { setError(error.message); return }
+    if (current) {
+      const b = barbers.find(x => x.id === id)
+      logAudit(shop.id, 'staff.removed', id, { barber_name: b?.barber_name || b?.alias || null })
+    }
     await loadData()
   }
 

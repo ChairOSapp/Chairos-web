@@ -6,6 +6,14 @@ import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels, withIndefiniteArticle } from '@/lib/VerticalContext'
 
+function logAudit(shopId: string, action: string, entityId: string, metadata: Record<string, unknown>) {
+  fetch('/api/audit/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ shopId, action, entityType: 'client_lock', entityId, metadata }),
+  }).catch(() => {})
+}
+
 export default function ClientLocksPage() {
   const { staffLabel } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
@@ -52,6 +60,8 @@ export default function ClientLocksPage() {
     setReassigning(lockId)
     const barber = barbers.find(b => b.barber_id === newBarberId)
     if (!barber) { setReassigning(null); return }
+    const lock = clientLocks.find(l => l.id === lockId)
+    const previousBarber = barbers.find(b => b.barber_id === lock?.barber_id)
 
     const { error } = await supabase.from('client_locks').update({
       barber_id: newBarberId,
@@ -65,6 +75,12 @@ export default function ClientLocksPage() {
       return
     }
 
+    logAudit(shop.id, 'client_lock.reassigned', lockId, {
+      client_name: lock?.clients?.full_name || null,
+      from_barber: previousBarber?.barber_name || previousBarber?.alias || null,
+      to_barber: barber.barber_name || barber.alias || null,
+    })
+
     setSuccess('Client reassigned.')
     setTimeout(() => setSuccess(''), 3000)
     setReassigning(null)
@@ -73,6 +89,7 @@ export default function ClientLocksPage() {
 
   async function releaseClient(lockId: string) {
     if (!confirm(`Release this client lock? They will become floating and available to any ${staffLabel.toLowerCase()}.`)) return
+    const lock = clientLocks.find(l => l.id === lockId)
     const { error } = await supabase.from('client_locks').update({
       locked: false,
       updated_at: new Date().toISOString()
@@ -81,6 +98,7 @@ export default function ClientLocksPage() {
       alert(`Failed to release lock: ${error.message}`)
       return
     }
+    logAudit(shop.id, 'client_lock.released', lockId, { client_name: lock?.clients?.full_name || null })
     setSuccess('Client lock released.')
     setTimeout(() => setSuccess(''), 3000)
     await loadData()

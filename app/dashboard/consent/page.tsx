@@ -12,6 +12,14 @@ interface Template {
   uploaded_at: string
 }
 
+function logAudit(shopId: string, action: string, entityId: string, metadata: Record<string, unknown>) {
+  fetch('/api/audit/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ shopId, action, entityType: 'consent_form_template', entityId, metadata }),
+  }).catch(() => {})
+}
+
 interface SignatureRecord {
   id: string
   signed_at: string
@@ -79,7 +87,9 @@ export default function ConsentFormsPage() {
       .upload(path, file, { contentType: 'application/pdf' })
     if (uploadErr) { setError(uploadErr.message); setUploading(false); return }
 
+    const newTemplateId = crypto.randomUUID()
     const { error: insertErr } = await supabase.from('consent_form_templates').insert({
+      id: newTemplateId,
       shop_id: shop.id,
       vertical: shop.vertical,
       file_path: path,
@@ -95,6 +105,8 @@ export default function ConsentFormsPage() {
       .update({ is_active: false })
       .eq('shop_id', shop.id)
       .neq('version', nextVersion)
+
+    logAudit(shop.id, 'consent_template.uploaded', newTemplateId, { version: nextVersion, file_name: file.name })
 
     setSuccess(`Version ${nextVersion} uploaded and activated.`)
     if (fileRef.current) fileRef.current.value = ''
