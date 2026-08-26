@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
 declare global {
   interface Window {
@@ -26,35 +26,56 @@ function loadTurnstileScript(): Promise<void> {
   return scriptPromise
 }
 
+export type TurnstileHandle = { reset: () => void }
+
 // Renders nothing if NEXT_PUBLIC_TURNSTILE_SITE_KEY isn't set, so auth
 // forms keep working locally/in preview before the key is configured.
-export default function Turnstile({ onVerify, onExpire }: { onVerify: (token: string) => void; onExpire?: () => void }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const widgetIdRef = useRef<string | null>(null)
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+//
+// Turnstile tokens are single-use and expire after ~5 minutes -- once
+// submitted to Supabase's captcha check (or /api/book/verify-captcha),
+// the token is consumed regardless of whether the surrounding request
+// (login/signup/booking) actually succeeded. Any caller that lets the
+// user retry after a failure MUST call reset() first, or the retry
+// resubmits a dead token and gets rejected with "timeout-or-duplicate".
+const Turnstile = forwardRef<TurnstileHandle, { onVerify: (token: string) => void; onExpire?: () => void }>(
+  function Turnstile({ onVerify, onExpire }, ref) {
+    const containerRef = useRef<HTMLDivElement>(null)
+    const widgetIdRef = useRef<string | null>(null)
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
-  useEffect(() => {
-    if (!siteKey || !containerRef.current) return
-    let cancelled = false
+    useImperativeHandle(ref, () => ({
+      reset: () => {
+        if (widgetIdRef.current && window.turnstile) {
+          window.turnstile.reset(widgetIdRef.current)
+        }
+      },
+    }), [])
 
-    loadTurnstileScript().then(() => {
-      if (cancelled || !window.turnstile || !containerRef.current) return
-      widgetIdRef.current = window.turnstile.render(containerRef.current, {
-        sitekey: siteKey,
-        callback: onVerify,
-        'expired-callback': onExpire,
-      })
-    }).catch(() => {})
+    useEffect(() => {
+      if (!siteKey || !containerRef.current) return
+      let cancelled = false
 
-    return () => {
-      cancelled = true
-      if (widgetIdRef.current && window.turnstile) {
-        window.turnstile.remove(widgetIdRef.current)
+      loadTurnstileScript().then(() => {
+        if (cancelled || !window.turnstile || !containerRef.current) return
+        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+          sitekey: siteKey,
+          callback: onVerify,
+          'expired-callback': onExpire,
+        })
+      }).catch(() => {})
+
+      return () => {
+        cancelled = true
+        if (widgetIdRef.current && window.turnstile) {
+          window.turnstile.remove(widgetIdRef.current)
+        }
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteKey])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [siteKey])
 
-  if (!siteKey) return null
-  return <div ref={containerRef} className="flex justify-center" />
-}
+    if (!siteKey) return null
+    return <div ref={containerRef} className="flex justify-center" />
+  }
+)
+
+export default Turnstile

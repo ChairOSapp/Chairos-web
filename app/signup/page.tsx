@@ -1,8 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
-import Turnstile from '@/components/Turnstile'
+import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 
 type Step = 'credentials' | 'role' | 'confirmed'
 
@@ -21,6 +21,7 @@ export default function Signup() {
   const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const turnstileRef = useRef<TurnstileHandle>(null)
   const supabase = createClient()
 
   function handleCredentialsSubmit(e: React.FormEvent) {
@@ -39,7 +40,16 @@ export default function Signup() {
       options: { data: { full_name: name, role }, captchaToken: captchaToken || undefined },
     })
 
-    if (signUpError) { setError(signUpError.message); setLoading(false); return }
+    if (signUpError) {
+      // Turnstile tokens are single-use -- force a fresh challenge before
+      // the user can retry, or the retry reuses a consumed token and gets
+      // rejected as "timeout-or-duplicate".
+      setError(signUpError.message)
+      setLoading(false)
+      setCaptchaToken('')
+      turnstileRef.current?.reset()
+      return
+    }
 
     fetch('/api/email/welcome', {
       method: 'POST',
@@ -155,7 +165,7 @@ export default function Signup() {
 
           {CAPTCHA_ENABLED && (
             <div className="mb-4">
-              <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+              <Turnstile ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
             </div>
           )}
 

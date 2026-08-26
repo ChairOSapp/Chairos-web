@@ -1,8 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
-import Turnstile from '@/components/Turnstile'
+import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -12,6 +12,7 @@ export default function ForgotPassword() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
   const [captchaToken, setCaptchaToken] = useState('')
+  const turnstileRef = useRef<TurnstileHandle>(null)
   const supabase = createClient()
 
   async function handleSubmit(e: React.FormEvent) {
@@ -26,7 +27,16 @@ export default function ForgotPassword() {
     // Always show the same success state regardless of whether the email
     // matched an account — confirming/denying an email's existence here
     // would let an attacker enumerate registered accounts.
-    if (error) { setError(error.message) } else { setSent(true) }
+    if (error) {
+      // Turnstile tokens are single-use -- force a fresh challenge before
+      // the user can retry, or the retry reuses a consumed token and gets
+      // rejected as "timeout-or-duplicate".
+      setError(error.message)
+      setCaptchaToken('')
+      turnstileRef.current?.reset()
+    } else {
+      setSent(true)
+    }
   }
 
   if (sent) return (
@@ -61,7 +71,7 @@ export default function ForgotPassword() {
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
           </div>
           {CAPTCHA_ENABLED && (
-            <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+            <Turnstile ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
           )}
           <button type="submit" disabled={loading || (CAPTCHA_ENABLED && !captchaToken)}
             className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg transition-colors text-sm tracking-wide disabled:opacity-60">

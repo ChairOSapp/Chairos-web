@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams, useSearchParams } from 'next/navigation'
-import Turnstile from '@/components/Turnstile'
+import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -37,6 +37,7 @@ function BookingPageInner() {
   const [error, setError] = useState('')
   const [returningClient, setReturningClient] = useState<any>(null)
   const [captchaToken, setCaptchaToken] = useState('')
+  const turnstileRef = useRef<TurnstileHandle>(null)
   // Public page — no logged-in user, so labels come from this shop's own
   // vertical (already loaded with the shop row), not useVerticalLabels()
   // which resolves via the current session and doesn't apply here.
@@ -216,6 +217,18 @@ function BookingPageInner() {
     setError('')
     setPaymentError('')
 
+    // Turnstile tokens are single-use -- any failure between here and the
+    // appointment actually being created leaves the user retrying the same
+    // button, which would resubmit a token /api/book/verify-captcha (or
+    // Cloudflare) already consumed and reject as "timeout-or-duplicate".
+    // Force a fresh challenge on every such early-exit.
+    function resetCaptcha() {
+      if (CAPTCHA_ENABLED) {
+        setCaptchaToken('')
+        turnstileRef.current?.reset()
+      }
+    }
+
     if (CAPTCHA_ENABLED) {
       const captchaRes = await fetch('/api/book/verify-captcha', {
         method: 'POST',
@@ -225,6 +238,7 @@ function BookingPageInner() {
       if (!captchaRes.ok) {
         setError('Verification failed, please try again')
         setSubmitting(false)
+        resetCaptcha()
         return
       }
     }
@@ -239,6 +253,7 @@ function BookingPageInner() {
         const msg = result.errors?.[0]?.message || 'Card error'
         setPaymentError(msg)
         setSubmitting(false)
+        resetCaptcha()
         return
       }
     }
@@ -247,6 +262,7 @@ function BookingPageInner() {
     if ((shop?.require_card_to_book || requiresDeposit) && !sourceId) {
       setPaymentError('Card form not ready. Please refresh and try again.')
       setSubmitting(false)
+      resetCaptcha()
       return
     }
 
@@ -290,7 +306,7 @@ function BookingPageInner() {
       const { error: newClientErr } = await supabase
         .from('clients')
         .insert({ id: newId, phone: normalizedPhone, ...clientFields })
-      if (newClientErr) { setError('Failed to create client record. Please try again.'); setSubmitting(false); return }
+      if (newClientErr) { setError('Failed to create client record. Please try again.'); setSubmitting(false); resetCaptcha(); return }
       clientId = newId
     }
 
@@ -335,7 +351,7 @@ function BookingPageInner() {
       payment_status: 'unpaid',
     })
 
-    if (bookErr) { setError(bookErr.message || 'Booking failed'); setSubmitting(false); return }
+    if (bookErr) { setError(bookErr.message || 'Booking failed'); setSubmitting(false); resetCaptcha(); return }
 
     if (sourceId && requiresDeposit) {
       // Deposit path: charges the deposit amount (not the full price) and,
@@ -864,7 +880,7 @@ function BookingPageInner() {
 
             {CAPTCHA_ENABLED && (
               <div className="mb-4">
-                <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+                <Turnstile ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
               </div>
             )}
 

@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getBillingStatus } from '@/lib/billing'
-import Turnstile from '@/components/Turnstile'
+import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -14,6 +14,7 @@ export default function Login() {
   const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const turnstileRef = useRef<TurnstileHandle>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -68,7 +69,17 @@ export default function Login() {
       password,
       options: { captchaToken: captchaToken || undefined },
     })
-    if (error) { setError(error.message); setLoading(false); return }
+    if (error) {
+      // Turnstile tokens are single-use -- the token was already consumed
+      // by this attempt regardless of why login failed, so a retry with
+      // the same token would be rejected as "timeout-or-duplicate". Force
+      // a fresh challenge before the user can submit again.
+      setError(error.message)
+      setLoading(false)
+      setCaptchaToken('')
+      turnstileRef.current?.reset()
+      return
+    }
     if (data.user) await routeUser(data.user.id)
   }
 
@@ -95,7 +106,7 @@ export default function Login() {
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
           </div>
           {CAPTCHA_ENABLED && (
-            <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+            <Turnstile ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
           )}
           <button type="submit" disabled={loading || (CAPTCHA_ENABLED && !captchaToken)}
             className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg transition-colors text-sm tracking-wide disabled:opacity-50 disabled:cursor-not-allowed">
