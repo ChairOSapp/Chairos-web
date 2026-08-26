@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import ClientNotes from '@/components/ClientNotes'
 
 interface Appointment {
   id: string
@@ -207,6 +208,16 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
           <div className="pt-1 text-charcoal-500 italic">{appointment.notes}</div>
         )}
       </div>
+
+      {/* Client notes: cut preference, color formula, session notes — visible
+          to the whole shop, not just whoever wrote them. Available here
+          regardless of Client Lock status so a first-time client's first
+          visit can still get a note for next time. */}
+      {appointment.client_id && appointment.shop_id && (
+        <div className="px-3 pt-2.5 border-b border-warm-200">
+          <ClientNotes clientId={appointment.client_id} shopId={appointment.shop_id} mode="add-only" />
+        </div>
+      )}
 
       {/* Reschedule section */}
       {rescheduling && (
