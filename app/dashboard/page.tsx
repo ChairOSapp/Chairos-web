@@ -104,6 +104,7 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState<string>(() => toDateStr(new Date()))
   const [toast, setToast] = useState<{msg: string; type: 'success'|'error'} | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [kioskLinkCopied, setKioskLinkCopied] = useState(false)
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 
@@ -349,6 +350,7 @@ export default function Dashboard() {
         {shopId && (
           <WalkInQueue
             shopId={shopId}
+            shopCode={shop?.shop_code}
             actingBarberId={null}
             barbers={barbers}
             services={services}
@@ -622,11 +624,32 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center justify-between px-5 py-3">
+                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Kiosk check-in link</div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-od-green">
+                    chairos.cc/kiosk/{shop?.shop_code}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const link = `https://chairos.cc/kiosk/${shop?.shop_code}`
+                      navigator.clipboard.writeText(link)
+                      setKioskLinkCopied(true)
+                      setTimeout(() => setKioskLinkCopied(false), 2000)
+                    }}
+                    className="text-xs font-semibold text-od-green hover:text-od-green-light transition-colors">
+                    {kioskLinkCopied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between px-5 py-3">
                 <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Shop code</div>
                 <div className="font-mono text-sm text-charcoal-900">{shop?.shop_code}</div>
               </div>
             </div>
           </div>
+          <p className="text-xs text-charcoal-500 mt-2 px-1">
+            Open the kiosk link on a tablet or iPad at the front counter so walk-ins can check themselves in — they'll show up in the Walk-in Queue above.
+          </p>
         </div>
 
       </div>

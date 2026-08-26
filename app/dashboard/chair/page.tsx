@@ -381,6 +381,7 @@ export default function BarberDashboard() {
         {shopId && (
           <WalkInQueue
             shopId={shopId}
+            shopCode={shop?.shop_code}
             actingBarberId={barberId}
             barbers={shopBarber ? [{ id: shopBarber.id, barber_id: shopBarber.barber_id, barber_name: shopBarber.barber_name, alias: shopBarber.alias }] : []}
             services={services}

@@ -24,12 +24,14 @@ type Service = { id: string; name: string; price: number }
 // staff member).
 export default function WalkInQueue({
   shopId,
+  shopCode,
   actingBarberId,
   barbers,
   services,
   onConverted,
 }: {
   shopId: string
+  shopCode?: string | null
   actingBarberId?: string | null
   barbers: Barber[]
   services: Service[]
@@ -119,7 +121,16 @@ export default function WalkInQueue({
     await load()
   }
 
-  if (queue.length === 0) return null
+  if (queue.length === 0) {
+    if (!shopCode) return null
+    return (
+      <div className="bg-warm-100 border border-warm-200 rounded-xl px-5 py-4 mb-6">
+        <p className="text-xs text-charcoal-500">
+          No walk-ins waiting. Open <span className="font-mono text-od-green">chairos.cc/kiosk/{shopCode}</span> on a tablet at the front counter so people can check themselves in.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-6">
