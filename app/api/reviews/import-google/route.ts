@@ -50,28 +50,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'place_id is required. Save your Google Place ID in Shop Settings or provide it here.' }, { status: 400 })
   }
 
-  // Call Google Places API
-  const url = new URL('https://maps.googleapis.com/maps/api/place/details/json')
-  url.searchParams.set('place_id', resolvedPlaceId)
-  url.searchParams.set('fields', 'reviews,rating,user_ratings_total')
-  url.searchParams.set('key', process.env.GOOGLE_PLACES_API_KEY!)
-
-  let placesData: any
+  // Call Places API (New) -- the legacy Places API
+  // (maps.googleapis.com/maps/api/place/details/json) this route used to
+  // call returns REQUEST_DENIED for this project's key ("This API key is
+  // not authorized to use this service or API"), confirmed directly
+  // against Google's endpoint: only Places API (New) is enabled here.
+  // New API auth/fields work differently -- API key and field mask go in
+  // headers, not query params, and there's no top-level "status" field to
+  // check; a non-2xx response is the failure signal instead.
+  let placesRes: Response
   try {
-    const placesRes = await fetch(url.toString())
-    placesData = await placesRes.json()
+    placesRes = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(resolvedPlaceId)}`, {
+      headers: {
+        'X-Goog-Api-Key': process.env.GOOGLE_PLACES_API_KEY!,
+        'X-Goog-FieldMask': 'id,rating,userRatingCount,reviews',
+      },
+    })
   } catch (err: any) {
     return NextResponse.json({ error: 'Failed to reach Google Places API' }, { status: 502 })
   }
 
-  if (placesData.status !== 'OK') {
+  const placesData: any = await placesRes.json()
+
+  if (!placesRes.ok) {
     return NextResponse.json(
-      { error: `Google Places API error: ${placesData.status}`, detail: placesData.error_message },
+      { error: `Google Places API error: ${placesData.error?.status ?? placesRes.status}`, detail: placesData.error?.message },
       { status: 502 }
     )
   }
 
-  const googleReviews: any[] = placesData.result?.reviews ?? []
+  const googleReviews: any[] = placesData.reviews ?? []
 
   if (googleReviews.length === 0) {
     return NextResponse.json({ imported: 0, skipped: 0 })
@@ -81,10 +89,10 @@ export async function POST(req: NextRequest) {
     shop_id: shop.id,
     barber_id: null,
     source: 'google',
-    reviewer_name: review.author_name,
+    reviewer_name: review.authorAttribution?.displayName ?? 'Google User',
     rating: review.rating,
-    body: review.text,
-    review_date: new Date(review.time * 1000).toISOString().split('T')[0],
+    body: review.text?.text ?? '',
+    review_date: review.publishTime.split('T')[0],
     visible: true,
   }))
 
