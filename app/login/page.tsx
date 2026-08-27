@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getBillingStatus } from '@/lib/billing'
+import { isAdminEmail } from '@/lib/admin'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
@@ -34,6 +35,11 @@ export default function Login() {
     if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) { router.push(redirect); return }
 
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+
+    // Founder allowlist — bypass shop-creation/subscribe routing entirely,
+    // regardless of role or billing state. /admin itself doesn't check
+    // billing either (see proxy.ts), so this is the only gate that matters.
+    if (isAdminEmail(prof?.email)) { router.push('/admin'); return }
 
     if (prof?.role === 'barber') {
       const { data: sb } = await supabase.from('shop_barbers').select('id').eq('barber_id', userId).eq('active', true).maybeSingle()
