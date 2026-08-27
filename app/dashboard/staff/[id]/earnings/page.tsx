@@ -13,6 +13,8 @@ export default function BarberEarnings() {
   const [tips, setTips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [year, setYear] = useState(new Date().getFullYear())
+  const [hasTaxInfo, setHasTaxInfo] = useState<boolean | null>(null)
+  const [generating, setGenerating] = useState(false)
   const router = useRouter()
   const params = useParams()
   const barberId = params.id as string
@@ -34,6 +36,13 @@ export default function BarberEarnings() {
     const { data: barber } = await supabase
       .from('shop_barbers').select('*').eq('id', barberId).maybeSingle()
     setBarber(barber)
+
+    if (barber?.barber_id) {
+      fetch(`/api/staff/tax-info-status?shopId=${shop.id}&barberId=${barber.barber_id}`)
+        .then(r => r.json())
+        .then(d => setHasTaxInfo(!!d.hasTaxInfo))
+        .catch(() => setHasTaxInfo(null))
+    }
 
     const startDate = `${year}-01-01`
     const endDate = `${year}-12-31`
@@ -59,6 +68,33 @@ export default function BarberEarnings() {
     setTips(tips || [])
 
     setLoading(false)
+  }
+
+  async function handleGenerateReport() {
+    if (!shop || !barber?.barber_id) return
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/reports/earnings-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId: shop.id,
+          barberId: barber.barber_id,
+          startDate: `${year}-01-01`,
+          endDate: `${year}-12-31`,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to generate report')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `unofficial-1099-${barber?.barber_name || barber?.alias || 'staff'}-${year}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setGenerating(false)
+    }
   }
 
   if (loading) return (
@@ -100,6 +136,10 @@ export default function BarberEarnings() {
             className="px-4 py-1.5 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-xs transition-colors">
             Print / Save PDF
           </button>
+          <button onClick={handleGenerateReport} disabled={generating}
+            className="px-4 py-1.5 bg-warm-200 border border-warm-300 hover:border-od-green text-charcoal-900 font-semibold rounded-lg text-xs transition-colors disabled:opacity-50">
+            {generating ? 'Generating...' : 'Generate 1099 Summary'}
+          </button>
           <button onClick={() => router.push('/dashboard/staff')} className="btn-chairos-outline">{staffLabelPlural}</button>
         </div>
       </header>
@@ -119,6 +159,12 @@ export default function BarberEarnings() {
               className="w-8 h-8 bg-warm-200 border border-warm-300 rounded-lg text-charcoal-400 hover:text-charcoal-900 transition-colors text-sm disabled:opacity-30">→</button>
           </div>
         </div>
+
+        {hasTaxInfo === false && (
+          <div className="no-print bg-amber-950/40 border border-amber-900 rounded-xl p-4 mb-6 text-xs text-amber-300">
+            This person hasn't entered their tax info yet — ask them to fill it in under their profile settings for a complete report. You can still generate one; missing fields will show as placeholders.
+          </div>
+        )}
 
         {/* SUMMARY */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">

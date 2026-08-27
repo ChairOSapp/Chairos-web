@@ -32,6 +32,8 @@ export default function BarberEarningsPage() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [drillMode, setDrillMode] = useState<DrillMode>(null)
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('month')
+  const [userId, setUserId] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -40,6 +42,7 @@ export default function BarberEarningsPage() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
+    setUserId(user.id)
 
     const { data: sb } = await supabase
       .from('shop_barbers').select('*, shops(*)')
@@ -147,6 +150,33 @@ export default function BarberEarningsPage() {
     { key: 'all', label: 'All' },
   ]
 
+  async function handleGenerateReport() {
+    if (!shopBarber || !userId) return
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/reports/earnings-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId: shopBarber.shop_id,
+          barberId: userId,
+          startDate: `${year}-01-01`,
+          endDate: `${year}-12-31`,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to generate report')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `unofficial-1099-${year}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
       <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
@@ -157,11 +187,19 @@ export default function BarberEarningsPage() {
     <div className="min-h-screen bg-warm-50">
       <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
         <span className="font-serif text-od-green text-lg">ChairOS</span>
-        {drillMode ? (
-          <button onClick={() => setDrillMode(null)} className="btn-chairos-outline">Back</button>
-        ) : (
-          <button onClick={() => router.push('/dashboard/chair')} className="btn-chairos-outline">Dashboard</button>
-        )}
+        <div className="flex items-center gap-2">
+          {!drillMode && (
+            <button onClick={handleGenerateReport} disabled={generating}
+              className="px-3 py-1.5 bg-warm-200 border border-warm-300 hover:border-od-green text-charcoal-900 font-semibold rounded-lg text-xs transition-colors disabled:opacity-50">
+              {generating ? 'Generating...' : 'Generate 1099 Summary'}
+            </button>
+          )}
+          {drillMode ? (
+            <button onClick={() => setDrillMode(null)} className="btn-chairos-outline">Back</button>
+          ) : (
+            <button onClick={() => router.push('/dashboard/chair')} className="btn-chairos-outline">Dashboard</button>
+          )}
+        </div>
       </header>
 
       <div className="p-6 max-w-2xl mx-auto pb-24">

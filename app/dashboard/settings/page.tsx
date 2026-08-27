@@ -52,6 +52,15 @@ export default function ShopSettings() {
   const [heroUrl, setHeroUrl] = useState('')
   const [hours, setHours] = useState<typeof DEFAULT_HOURS>(DEFAULT_HOURS)
 
+  // Business tax info — used only by the unofficial 1099-style earnings
+  // summary (app/api/reports/earnings-summary). Optional until a report is
+  // generated, saved separately from the rest of shop settings.
+  const [legalBusinessName, setLegalBusinessName] = useState('')
+  const [businessAddress, setBusinessAddress] = useState('')
+  const [ein, setEin] = useState('')
+  const [savingTaxInfo, setSavingTaxInfo] = useState(false)
+  const [taxInfoSuccess, setTaxInfoSuccess] = useState('')
+
   const logoRef = useRef<HTMLInputElement>(null)
   const heroRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -92,6 +101,9 @@ export default function ShopSettings() {
     setDepositAmount(String(shop.deposit_amount ?? 20))
     setDepositRefundWindowHours(String(shop.deposit_refund_window_hours ?? 48))
     setGooglePlaceId(shop.google_place_id || '')
+    setLegalBusinessName(shop.legal_business_name || '')
+    setBusinessAddress(shop.business_address || '')
+    setEin(shop.ein || '')
 
     const { data: sq } = await supabase
       .from('square_accounts').select('square_merchant_id, square_location_id, connected_at').eq('user_id', user.id).maybeSingle()
@@ -208,6 +220,19 @@ export default function ShopSettings() {
     setSuccess('Settings saved.')
     setSaving(false)
     setTimeout(() => setSuccess(''), 3000)
+  }
+
+  async function handleSaveTaxInfo() {
+    setSavingTaxInfo(true)
+    const { error: saveErr } = await supabase.from('shops').update({
+      legal_business_name: legalBusinessName || null,
+      business_address: businessAddress || null,
+      ein: ein || null,
+    }).eq('id', shop.id)
+    setSavingTaxInfo(false)
+    if (saveErr) { setError(saveErr.message); return }
+    setTaxInfoSuccess('Saved.')
+    setTimeout(() => setTaxInfoSuccess(''), 3000)
   }
 
   if (loading) return (
@@ -640,6 +665,36 @@ export default function ShopSettings() {
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
+
+        {/* BUSINESS TAX INFO */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Business Tax Info</div>
+          <p className="text-xs text-charcoal-500 mb-4">
+            Used only to fill in the payer section of the unofficial 1099-style earnings summaries you can generate for your {staffLabelPlural.toLowerCase()}. Optional until you generate your first report.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Legal Business Name</label>
+              <input type="text" value={legalBusinessName} onChange={e => setLegalBusinessName(e.target.value)}
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Business Address</label>
+              <input type="text" value={businessAddress} onChange={e => setBusinessAddress(e.target.value)}
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">EIN</label>
+              <input type="text" value={ein} onChange={e => setEin(e.target.value)} placeholder="XX-XXXXXXX"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+            </div>
+          </div>
+          <button onClick={handleSaveTaxInfo} disabled={savingTaxInfo}
+            className="mt-4 px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-900 hover:border-od-green transition-colors disabled:opacity-50">
+            {savingTaxInfo ? 'Saving...' : 'Save Tax Info'}
+          </button>
+          {taxInfoSuccess && <span className="ml-3 text-xs text-od-green">{taxInfoSuccess}</span>}
+        </div>
 
         {/* BILLING */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">

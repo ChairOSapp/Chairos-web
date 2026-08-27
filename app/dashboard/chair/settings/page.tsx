@@ -27,6 +27,24 @@ function BarberSettingsInner() {
   const [bio, setBio] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
 
+  // Personal tax info -- own row, used only by the unofficial 1099-style
+  // earnings summary. Optional until a report is generated.
+  const [taxLegalName, setTaxLegalName] = useState('')
+  const [taxAddress, setTaxAddress] = useState('')
+  const [taxTin, setTaxTin] = useState('')
+  const [savingTaxInfo, setSavingTaxInfo] = useState(false)
+  const [taxInfoSuccess, setTaxInfoSuccess] = useState('')
+
+  // Business tax info -- only shown when this barber also owns the shop
+  // (a "solo chair" is just a shop_barbers row whose shop's owner_id is
+  // themself, there's no separate solo schema). Lets a solo chair enter
+  // their own payer info without needing the owner-only settings page.
+  const [legalBusinessName, setLegalBusinessName] = useState('')
+  const [businessAddress, setBusinessAddress] = useState('')
+  const [ein, setEin] = useState('')
+  const [savingBusinessInfo, setSavingBusinessInfo] = useState(false)
+  const [businessInfoSuccess, setBusinessInfoSuccess] = useState('')
+
   const photoRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -69,11 +87,23 @@ function BarberSettingsInner() {
     // Fetch shop directly to ensure barbers_collect_own_payments is included
     const { data: shopData } = await supabase
       .from('shops').select('*').eq('id', shopBarber.shop_id).maybeSingle()
-    setShop(shopData || shopBarber.shops)
+    const resolvedShop = shopData || shopBarber.shops
+    setShop(resolvedShop)
+    if (resolvedShop?.owner_id === user.id) {
+      setLegalBusinessName(resolvedShop.legal_business_name || '')
+      setBusinessAddress(resolvedShop.business_address || '')
+      setEin(resolvedShop.ein || '')
+    }
 
     setAlias(shopBarber.alias || '')
     setBio(shopBarber.bio || '')
     setPhotoUrl(shopBarber.photo_url || '')
+
+    const { data: taxInfo } = await supabase
+      .from('staff_tax_info').select('*').eq('barber_id', user.id).maybeSingle()
+    setTaxLegalName(taxInfo?.legal_name || '')
+    setTaxAddress(taxInfo?.address || '')
+    setTaxTin(taxInfo?.tin || '')
 
     const { data: sq } = await supabase
       .from('square_accounts').select('square_merchant_id, square_location_id, connected_at').eq('user_id', user.id).maybeSingle()
@@ -137,6 +167,35 @@ function BarberSettingsInner() {
     setSuccess('Profile updated.')
     setSaving(false)
     setTimeout(() => setSuccess(''), 3000)
+  }
+
+  async function handleSaveTaxInfo() {
+    setSavingTaxInfo(true)
+    const { error: err } = await supabase.from('staff_tax_info').upsert({
+      barber_id: userId,
+      legal_name: taxLegalName || null,
+      address: taxAddress || null,
+      tin: taxTin || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'barber_id' })
+    setSavingTaxInfo(false)
+    if (err) { setError(err.message); return }
+    setTaxInfoSuccess('Saved.')
+    setTimeout(() => setTaxInfoSuccess(''), 3000)
+  }
+
+  async function handleSaveBusinessInfo() {
+    if (!shop) return
+    setSavingBusinessInfo(true)
+    const { error: err } = await supabase.from('shops').update({
+      legal_business_name: legalBusinessName || null,
+      business_address: businessAddress || null,
+      ein: ein || null,
+    }).eq('id', shop.id)
+    setSavingBusinessInfo(false)
+    if (err) { setError(err.message); return }
+    setBusinessInfoSuccess('Saved.')
+    setTimeout(() => setBusinessInfoSuccess(''), 3000)
   }
 
   async function handleDisconnectSquare() {
@@ -361,6 +420,68 @@ function BarberSettingsInner() {
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
+
+        {/* MY TAX INFO */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">My Tax Info</div>
+          <p className="text-xs text-charcoal-500 mb-4">
+            Only used to fill in your own recipient section on an unofficial 1099-style earnings summary. This is yours to control — your shop owner cannot browse it, only generate a report with it.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Legal Name</label>
+              <input value={taxLegalName} onChange={e => setTaxLegalName(e.target.value)}
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Address</label>
+              <input value={taxAddress} onChange={e => setTaxAddress(e.target.value)}
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">TIN (SSN or EIN)</label>
+              <input value={taxTin} onChange={e => setTaxTin(e.target.value)} placeholder="XXX-XX-XXXX"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+            </div>
+          </div>
+          <button onClick={handleSaveTaxInfo} disabled={savingTaxInfo}
+            className="mt-4 px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-900 hover:border-od-green transition-colors disabled:opacity-50">
+            {savingTaxInfo ? 'Saving...' : 'Save Tax Info'}
+          </button>
+          {taxInfoSuccess && <span className="ml-3 text-xs text-od-green">{taxInfoSuccess}</span>}
+        </div>
+
+        {/* BUSINESS TAX INFO -- only for a solo chair who owns their own shop */}
+        {shop?.owner_id === userId && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Business Tax Info</div>
+            <p className="text-xs text-charcoal-500 mb-4">
+              Since you're independent, this fills in the payer section of your own earnings summary.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Legal Business Name</label>
+                <input value={legalBusinessName} onChange={e => setLegalBusinessName(e.target.value)}
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Business Address</label>
+                <input value={businessAddress} onChange={e => setBusinessAddress(e.target.value)}
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">EIN</label>
+                <input value={ein} onChange={e => setEin(e.target.value)} placeholder="XX-XXXXXXX"
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+              </div>
+            </div>
+            <button onClick={handleSaveBusinessInfo} disabled={savingBusinessInfo}
+              className="mt-4 px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-900 hover:border-od-green transition-colors disabled:opacity-50">
+              {savingBusinessInfo ? 'Saving...' : 'Save Business Info'}
+            </button>
+            {businessInfoSuccess && <span className="ml-3 text-xs text-od-green">{businessInfoSuccess}</span>}
+          </div>
+        )}
 
         {/* SERVICES */}
         {shop && (
