@@ -8,7 +8,7 @@ import ThemeProvider from '@/components/ThemeProvider'
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' })
 const dmSerif = DM_Serif_Display({ subsets: ['latin'], weight: '400', variable: '--font-dm-serif' })
 
-const TITLE = 'ChairOS: The OS for Barbershop, Salon & Tattoo Owners'
+const TITLE = 'ChairOS | Shop Management Software for Barbers, Salons & Tattoo Studios'
 const DESCRIPTION = 'Manage your shop, retain your team, and grow your revenue with ChairOS. Built for barbershops, salons, and tattoo studios.'
 
 export const metadata: Metadata = {

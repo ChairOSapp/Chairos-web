@@ -1,7 +1,47 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { track } from '@vercel/analytics'
 import { createClient } from '@/lib/supabase'
+
+const FAQ_ITEMS: { question: string; answer: string }[] = [
+  {
+    question: 'Does each staff member need their own subscription?',
+    answer: 'No. One Shop Owner subscription covers your whole shop, however many staff you add.',
+  },
+  {
+    question: 'Can I have booth renters and commission staff in the same shop?',
+    answer: 'Yes. Each staff member is set up as commission or booth rent individually, so a shop can freely mix both at once.',
+  },
+  {
+    question: 'Do my clients need to download an app?',
+    answer: 'No. Clients book through a plain web page at your shop\'s own booking link, no app or account required on their end.',
+  },
+  {
+    question: 'Can clients book online?',
+    answer: 'Yes, that public booking page is how most appointments come in.',
+  },
+  {
+    question: 'How does Client Lock work?',
+    answer: 'From a client\'s second visit with the same staff member, Client Lock records that relationship under your shop, not that person\'s personal phone, so you always know which clients belong to which staff member.',
+  },
+  {
+    question: 'Can staff see other staff members\' clients?',
+    answer: 'No. A staff member\'s dashboard only shows the clients locked to them. Owners see the full shop-wide list.',
+  },
+  {
+    question: 'Can I customize my booking page?',
+    answer: 'Yes. Your logo, cover image, brand color, bio, and hours are all yours to set, and they show up on your real public booking page.',
+  },
+  {
+    question: 'What happens to my information if I cancel?',
+    answer: 'Cancelling stops billing and starts a 7-day grace period, then blocks dashboard access. Your shop\'s data is not deleted. A separate, explicit data-deletion request is reviewed by our team rather than processed automatically.',
+  },
+  {
+    question: 'Do you process payments?',
+    answer: 'Yes. Stripe handles your ChairOS subscription, and Square handles the payments your clients make for appointments and deposits.',
+  },
+]
 
 const PLANS = [
   {
@@ -40,6 +80,7 @@ export default function Subscribe() {
   const [loading, setLoading] = useState<'owner' | 'barber' | null>(null)
   const [error, setError] = useState('')
   const [authChecked, setAuthChecked] = useState(false)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 
@@ -55,6 +96,18 @@ export default function Subscribe() {
     checkAuth()
   }, [supabase, router])
 
+  useEffect(() => {
+    if (authChecked) track('pricing_view')
+  }, [authChecked])
+
+  function toggleFaq(i: number) {
+    setOpenFaq(prev => {
+      const next = prev === i ? null : i
+      if (next !== null) track('faq_open', { question: FAQ_ITEMS[i].question })
+      return next
+    })
+  }
+
   if (!authChecked) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
       <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
@@ -62,6 +115,7 @@ export default function Subscribe() {
   )
 
   async function handleSelect(plan: 'owner' | 'barber') {
+    track('pricing_cta_click', { plan })
     setLoading(plan)
     setError('')
     try {
@@ -111,7 +165,7 @@ export default function Subscribe() {
                 <p className="text-charcoal-400 text-sm">{plan.description}</p>
               </div>
 
-              <ul className="space-y-2.5 mb-8 flex-1">
+              <ul className="space-y-2.5 mb-3 flex-1">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2.5 text-sm text-charcoal-700">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5320" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
@@ -121,6 +175,12 @@ export default function Subscribe() {
                   </li>
                 ))}
               </ul>
+
+              {plan.id === 'owner' && (
+                <p className="text-xs text-charcoal-500 mb-5">
+                  Most shops run 5 to 10 staff. That's as little as $7.90 per staff, per month.
+                </p>
+              )}
 
               <button
                 onClick={() => handleSelect(plan.id)}
@@ -139,6 +199,26 @@ export default function Subscribe() {
             Sign in
           </button>
         </p>
+
+        <div className="mt-14 max-w-xl mx-auto">
+          <h3 className="font-serif text-lg text-charcoal-900 text-center mb-5">Questions</h3>
+          <div className="space-y-2">
+            {FAQ_ITEMS.map((item, i) => (
+              <div key={item.question} className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleFaq(i)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold text-charcoal-900">{item.question}</span>
+                  <span className="text-charcoal-400 text-sm flex-shrink-0">{openFaq === i ? '−' : '+'}</span>
+                </button>
+                {openFaq === i && (
+                  <p className="px-4 pb-4 text-sm text-charcoal-500 leading-relaxed">{item.answer}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { track } from '@vercel/analytics'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
@@ -158,6 +159,7 @@ export default function ManageBarbers() {
       }).select().single()
       if (error) { setError(error.message); setSaving(false); return }
       shopBarberId = data?.id || null
+      track('staff_added', { count: 1, source: 'dashboard' })
     }
 
     // If email provided and this is a new barber, create invite

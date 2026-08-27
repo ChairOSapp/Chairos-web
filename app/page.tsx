@@ -1,6 +1,7 @@
 'use client'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { track } from '@vercel/analytics'
 import { createClient } from '@/lib/supabase'
 import LandingNav from '@/components/LandingNav'
 
@@ -52,6 +53,7 @@ export default function LandingPage() {
       if (user) { router.push('/dashboard'); return }
     }
     checkAuth()
+    track('landing_view')
 
     // Old anchor links from the previous single-page layout
     // (chairos.cc/#barbershops etc.) now route to the dedicated pages.
@@ -70,11 +72,14 @@ export default function LandingPage() {
         <div style={{ fontSize: 'clamp(38px, 8vw, 58px)', lineHeight: 1.08, fontWeight: 400, letterSpacing: '-2px', marginBottom: '20px' }}>
           Own your shop.<br />Lock your clients.<br /><span style={{ color: '#4B5320' }}>Scale your business.</span>
         </div>
-        <div style={{ fontSize: '18px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '32px', maxWidth: '540px' }}>
+        <div style={{ fontSize: '18px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '12px', maxWidth: '540px' }}>
           Built by a barber who watched clients walk out the door with the people who cut their hair. Now built for salons and tattoo studios too.
         </div>
+        <div style={{ fontSize: '14px', color: '#65655F', lineHeight: 1.6, marginBottom: '32px', maxWidth: '540px' }}>
+          Think of it as the operating system for independent shops.
+        </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' as const, alignItems: 'center' }}>
-          <button onClick={() => router.push('/signup')} style={{ background: '#4B5320', color: '#fff', fontSize: '15px', fontWeight: 700, padding: '15px 32px', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(75,83,32,0.3)' }}>
+          <button onClick={() => { track('hero_cta_click', { location: 'top' }); router.push('/signup') }} style={{ background: '#4B5320', color: '#fff', fontSize: '15px', fontWeight: 700, padding: '15px 32px', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(75,83,32,0.3)' }}>
             Start free trial
           </button>
           <span style={{ fontSize: '13px', color: '#65655F' }}>30 days free. No card required to start.</span>
@@ -113,8 +118,23 @@ export default function LandingPage() {
           <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#4B5320', marginBottom: '14px' }}>
             Client Lock
           </div>
-          <p style={{ fontSize: '17px', color: '#33332f', lineHeight: 1.7 }}>
+          <p style={{ fontSize: '17px', color: '#33332f', lineHeight: 1.7, marginBottom: '32px' }}>
             Every shop loses clients when staff leave. Client Lock tracks which clients belong to which staff member from their second visit, so you always know who is at risk before someone walks out the door. It runs automatically in the background, no extra work for you or your team.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', maxWidth: '460px', margin: '0 auto' }}>
+            {[
+              { value: '15', label: 'Locked clients' },
+              { value: '0', label: 'At risk right now' },
+              { value: '$2,275', label: 'Revenue protected' },
+            ].map((stat, i) => (
+              <div key={i} style={{ background: '#FAFAF7', border: '1px solid #D8D5C8', borderRadius: '12px', padding: '16px 8px' }}>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: '#4B5320', marginBottom: '4px' }}>{stat.value}</div>
+                <div style={{ fontSize: '11px', color: '#65655F', letterSpacing: '0.02em' }}>{stat.label}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: '12px', color: '#8a8a82', marginTop: '14px' }}>
+            Real numbers from a live ChairOS shop.
           </p>
         </div>
       </div>
@@ -129,7 +149,7 @@ export default function LandingPage() {
             Cancel anytime.
           </div>
           <button
-            onClick={() => router.push('/signup')}
+            onClick={() => { track('hero_cta_click', { location: 'bottom' }); router.push('/signup') }}
             style={{ background: '#FAFAF7', color: '#4B5320', fontSize: '15px', fontWeight: 700, padding: '15px 34px', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
           >
             Start free trial

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { track } from '@vercel/analytics'
 import Link from 'next/link'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 
@@ -26,6 +27,7 @@ export default function Signup() {
 
   function handleCredentialsSubmit(e: React.FormEvent) {
     e.preventDefault()
+    track('signup_started')
     setStep('role')
   }
 
@@ -50,6 +52,8 @@ export default function Signup() {
       turnstileRef.current?.reset()
       return
     }
+
+    track('signup_completed', { role })
 
     fetch('/api/email/welcome', {
       method: 'POST',

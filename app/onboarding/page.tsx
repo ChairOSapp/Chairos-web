@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { track } from '@vercel/analytics'
 import { withIndefiniteArticle } from '@/lib/VerticalContext'
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
@@ -154,6 +155,9 @@ export default function Onboarding() {
       if (!shop) throw new Error('Failed to create shop — please try again.')
       const createdShop = shop as any
 
+      track('shop_created', { vertical })
+      track('booking_page_published', { vertical })
+
       if (barbers.length > 0) {
         const { error: bErr } = await supabase.from('shop_barbers').insert(
           barbers.map(b => ({
@@ -172,6 +176,7 @@ export default function Onboarding() {
           }))
         )
         if (bErr) throw bErr
+        track('staff_added', { count: barbers.length, source: 'onboarding' })
       }
 
       router.push('/subscribe?plan=owner')

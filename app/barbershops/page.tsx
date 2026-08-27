@@ -3,6 +3,7 @@ import VerticalLandingPage from '@/components/VerticalLandingPage'
 export default function BarbershopsPage() {
   return (
     <VerticalLandingPage
+      vertical="barbershop"
       eyebrow="Barbershops"
       headlineLines={["A barber builds his own book on your chair.", "Then he leaves with it."]}
       subline="The second time a client books, Client Lock records it under your shop's system, not a barber's personal phone. If a barber walks, his regulars are still sitting in your dashboard the next morning, ready to rebook."
@@ -14,6 +15,7 @@ export default function BarbershopsPage() {
       screenshotSrc="/landing/barbershop-services.png"
       screenshotAlt="Downtown Fade Co. real service menu: Line-Up/Edge-Up $25, Youth Cut $40, Beard Sculpt $40"
       founderLine="Built by a licensed barber and former shop owner who lived this exact problem before writing a line of code."
+      clientLockStats={{ locked: 15, atRisk: 0, revenueProtected: '$2,275' }}
     />
   )
 }

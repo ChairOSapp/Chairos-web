@@ -3,6 +3,7 @@ import VerticalLandingPage from '@/components/VerticalLandingPage'
 export default function TattooPage() {
   return (
     <VerticalLandingPage
+      vertical="tattoo"
       eyebrow="Tattoo Studios"
       headlineLines={["Your artist's client left with them."]}
       subline="A sleeve takes a dozen sessions over a couple of years with the same artist. Client Lock tracks that entire relationship under your studio from visit two, so if an artist leaves mid-project, you know exactly which multi-session clients and dollars just walked out the door."
@@ -14,6 +15,7 @@ export default function TattooPage() {
       screenshotSrc="/landing/tattoo-services.png"
       screenshotAlt="Ironclad Tattoo Studio real service menu: Consultation $0, Piercing $35, Touch-up $60, Session (hourly) $200"
       founderLine="Built by a barber, adapted for how a tattoo studio actually runs: long sessions, deposits, and consent, not a walk-in haircut."
+      clientLockStats={{ locked: 17, atRisk: 0, revenueProtected: '$5,010' }}
     />
   )
 }

@@ -3,6 +3,7 @@ import VerticalLandingPage from '@/components/VerticalLandingPage'
 export default function SalonsPage() {
   return (
     <VerticalLandingPage
+      vertical="salon"
       eyebrow="Salons"
       headlineLines={["Your stylist's clients.", "Not theirs."]}
       subline="Every color formula and service note gets logged against your salon, not just the stylist who did the work. When a stylist gives her two weeks, you can see her whole locked client list before her last day, not after."
@@ -14,6 +15,7 @@ export default function SalonsPage() {
       screenshotSrc="/landing/salon-services.png"
       screenshotAlt="Willow & Rose Salon real service menu: Cut $55, Color $95, Highlights $145"
       founderLine="Built first for barbershops by a working barber, now built out for salons the same way: for the owner, not just the booking calendar."
+      clientLockStats={{ locked: 15, atRisk: 0, revenueProtected: '$2,960' }}
     />
   )
 }
