@@ -61,11 +61,16 @@ export async function POST(req: NextRequest) {
     if (sq?.square_access_token) { accessToken = sq.square_access_token; locationId = sq.square_location_id || locationId }
   }
 
+  // maxRetries is the SDK's own transport-level retry -- it resends the
+  // exact same already-built request on a transient failure, including
+  // whatever idempotencyKey the card-create call below set once, so it
+  // can't end up saving the same card twice.
   const squareClient = new SquareClient({
     token: accessToken,
     environment: process.env.SQUARE_ENVIRONMENT === 'production'
       ? SquareEnvironment.Production
       : SquareEnvironment.Sandbox,
+    maxRetries: 3,
   })
 
   try {

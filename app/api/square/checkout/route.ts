@@ -3,6 +3,7 @@ import { SquareClient, SquareEnvironment } from 'square'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { withRetry } from '@/lib/retry'
 
 const admin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,11 +11,16 @@ const admin = createAdmin(
 )
 
 function getSquareClient(token: string) {
+  // maxRetries is the SDK's own transport-level retry -- it resends the
+  // exact same already-built request (including whatever idempotencyKey
+  // was set once), so it can't duplicate a payment/card the way retrying
+  // in application code and rebuilding the request each time could.
   return new SquareClient({
     token,
     environment: process.env.SQUARE_ENVIRONMENT === 'production'
       ? SquareEnvironment.Production
       : SquareEnvironment.Sandbox,
+    maxRetries: 3,
   })
 }
 
@@ -176,7 +182,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { payment } = await squareClient.payments.create(paymentPayload)
+    // squareClient's own maxRetries only retries on 408/429/5xx responses;
+    // this outer retry additionally covers connection-level failures (DNS,
+    // timeout, refused connection) that never get an HTTP response at all.
+    // Safe to retry either way -- idempotencyKey is stable (appointmentId),
+    // so Square dedupes a retry against an earlier attempt that actually
+    // succeeded server-side, rather than double-charging.
+    const { payment } = await withRetry('square_payment_create', () => squareClient.payments.create(paymentPayload))
 
     const paid = payment?.status === 'COMPLETED'
 

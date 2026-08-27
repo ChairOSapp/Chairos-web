@@ -11,8 +11,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Stripe is not configured. Add STRIPE_SECRET_KEY to your environment variables.' }, { status: 500 })
     }
 
+    // maxNetworkRetries uses Stripe's own SDK-level retry -- it attaches a
+    // stable idempotency key to retried requests automatically, so a
+    // retried checkout.sessions.create can't create a second session if
+    // the first attempt actually succeeded server-side.
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: '2026-05-27.dahlia' as any,
+      maxNetworkRetries: 3,
     })
 
     const PRICES: Record<string, string> = {

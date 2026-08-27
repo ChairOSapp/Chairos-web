@@ -1,14 +1,19 @@
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
+import { logger } from '@/lib/logger'
 
 // Vercel's "Upstash for Redis" marketplace integration names env vars
 // either KV_REST_API_* (legacy Vercel KV naming) or UPSTASH_REDIS_REST_*
-// depending on how it was connected -- support both. Until either pair is
-// set, rate limiting fails open (allows the request) rather than blocking
-// all public traffic on a misconfigured/missing integration.
+// depending on how it was connected -- support both.
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
 const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
 const redis = url && token ? new Redis({ url, token }) : null
+
+if (!redis) {
+  logger.error('rate_limit_redis_not_configured', {
+    reason: 'Neither KV_REST_API_URL/TOKEN nor UPSTASH_REDIS_REST_URL/TOKEN is set -- security-sensitive buckets (failClosed: true) will block all traffic until this is fixed.',
+  })
+}
 
 export type RateLimitBucket =
   | 'login'
@@ -20,15 +25,21 @@ export type RateLimitBucket =
   | 'kioskStatus'
   | 'waitlist'
 
-const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters<typeof Ratelimit.slidingWindow>[1] }> = {
-  login: { limit: 5, window: '60 s' },
-  bookApi: { limit: 20, window: '60 s' },
-  squarePayment: { limit: 10, window: '60 s' },
-  sms: { limit: 10, window: '60 s' },
-  bookPage: { limit: 60, window: '60 s' },
-  kioskCheckin: { limit: 12, window: '60 s' },
-  kioskStatus: { limit: 30, window: '60 s' },
-  waitlist: { limit: 5, window: '60 s' },
+// failClosed controls what happens when Redis is unreachable or not
+// configured at all: true means the request is blocked (safer default for
+// endpoints that gate account access or let one physical device spam
+// writes); false means the request is allowed through (availability over
+// strictness, for buckets where blocking real users on a Redis blip would
+// be worse than a temporarily-unprotected window).
+const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters<typeof Ratelimit.slidingWindow>[1]; failClosed: boolean }> = {
+  login: { limit: 5, window: '60 s', failClosed: true },
+  bookApi: { limit: 20, window: '60 s', failClosed: false },
+  squarePayment: { limit: 10, window: '60 s', failClosed: false },
+  sms: { limit: 10, window: '60 s', failClosed: false },
+  bookPage: { limit: 60, window: '60 s', failClosed: false },
+  kioskCheckin: { limit: 12, window: '60 s', failClosed: true },
+  kioskStatus: { limit: 30, window: '60 s', failClosed: false },
+  waitlist: { limit: 5, window: '60 s', failClosed: false },
 }
 
 const limiters = new Map<RateLimitBucket, Ratelimit>()
@@ -51,12 +62,30 @@ function getLimiter(bucket: RateLimitBucket): Ratelimit | null {
 
 export type RateLimitResult = { ok: true } | { ok: false; retryAfterSeconds: number }
 
+const REDIS_DOWN_RESULT: RateLimitResult = { ok: false, retryAfterSeconds: 30 }
+
 export async function checkRateLimit(bucket: RateLimitBucket, identifier: string): Promise<RateLimitResult> {
+  const { failClosed } = BUCKET_CONFIG[bucket]
   const limiter = getLimiter(bucket)
-  if (!limiter) return { ok: true }
-  const { success, reset } = await limiter.limit(identifier)
-  if (success) return { ok: true }
-  return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((reset - Date.now()) / 1000)) }
+
+  // Redis not configured at all (missing env vars).
+  if (!limiter) return failClosed ? REDIS_DOWN_RESULT : { ok: true }
+
+  try {
+    const { success, reset } = await limiter.limit(identifier)
+    if (success) return { ok: true }
+    return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((reset - Date.now()) / 1000)) }
+  } catch (err) {
+    // Redis configured but unreachable at request time (network blip,
+    // instance down, etc). A misconfigured/unavailable Redis should
+    // degrade to the bucket's configured failure mode, not silently
+    // grant unlimited access to a security-sensitive endpoint.
+    logger.error('rate_limit_check_failed', {
+      bucket,
+      message: err instanceof Error ? err.message : String(err),
+    })
+    return failClosed ? REDIS_DOWN_RESULT : { ok: true }
+  }
 }
 
 export function getClientIp(request: Request): string {

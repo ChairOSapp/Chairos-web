@@ -85,7 +85,10 @@ export async function POST() {
     const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
     const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+    // maxRetries uses the SDK's own retry/backoff (also respects Retry-After
+    // on 429s) -- safe here since messages.create has no side effects of
+    // its own, the brief row is only inserted once after a response comes back.
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY!, maxRetries: 3 })
 
     let parsed: any = null
     let shopId: string | null = null

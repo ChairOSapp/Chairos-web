@@ -6,6 +6,7 @@ import { Resend } from 'resend'
 import twilio from 'twilio'
 import { buildEmailTemplate } from '@/lib/emailTemplates'
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken'
+import { withRetry } from '@/lib/retry'
 
 function appendStop(message: string): string {
   const suffix = ' Reply STOP to unsubscribe.'
@@ -163,11 +164,11 @@ export async function POST(req: NextRequest) {
 
     if (needsSms && client.phone && client.sms_consent && twilioClient) {
       try {
-        await twilioClient.messages.create({
+        await withRetry('campaign_sms', () => twilioClient.messages.create({
           body: appendStop(campaign.sms_message ?? ''),
           from: process.env.TWILIO_PHONE_NUMBER!,
           to: client.phone,
-        })
+        }))
         if (rowId) await admin.from('campaign_recipients').update({ sms_status: 'sent', sent_at: new Date().toISOString() }).eq('id', rowId)
         totalSent++
       } catch (err: any) {

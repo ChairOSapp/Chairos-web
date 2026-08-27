@@ -5,6 +5,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import * as Sentry from '@sentry/nextjs'
 import { logger } from '@/lib/logger'
+import { withRetry } from '@/lib/retry'
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
@@ -106,11 +107,11 @@ export async function POST(req: NextRequest) {
 
     const phone = e164
 
-    const result = await twilioClient.messages.create({
+    const result = await withRetry('twilio_sms', () => twilioClient.messages.create({
       body: message,
       from: process.env.TWILIO_PHONE_NUMBER!,
       to: phone
-    })
+    }))
 
     logger.info('sms_sent', { to: phone.slice(-4), messageSid: result.sid })
     return NextResponse.json({ success: true, sid: result.sid })
