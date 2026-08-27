@@ -4,7 +4,7 @@ import { checkRateLimit, getClientIp, getRateLimitBucket } from '@/lib/rate-limi
 
 const ADMIN_EMAILS = ['tbbryant07@gmail.com']
 
-const PUBLIC_PATHS = ['/', '/login', '/signup', '/join', '/subscribe', '/privacy', '/terms', '/sms-optout', '/forgot-password', '/reset-password']
+const PUBLIC_PATHS = ['/', '/login', '/signup', '/join', '/subscribe', '/privacy', '/terms', '/sms-optout', '/forgot-password', '/reset-password', '/barbershops', '/salons', '/tattoo']
 
 function isPublic(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true
