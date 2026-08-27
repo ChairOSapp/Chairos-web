@@ -5,16 +5,16 @@ export default function SalonsPage() {
     <VerticalLandingPage
       vertical="salon"
       eyebrow="Salons"
-      headlineLines={["Your stylist's clients.", "Not theirs."]}
-      subline="Every color formula and service note gets logged against your salon, not just the stylist who did the work. When a stylist gives her two weeks, you can see her whole locked client list before her last day, not after."
+      headlineLines={["Your stylist's clients.", "Not hers."]}
+      subline="Every color formula and service note logs against your salon, not just the stylist who did the work. A stylist gives her two weeks, you already have her whole locked client list before her last day, not after."
       proofPoints={[
-        "One flat fee for the whole salon, not a per-stylist seat charge. Add your fifth stylist and the price doesn't change.",
-        "Booking built around real service time. Color and chemical processing time is blocked automatically, so a stylist's afternoon doesn't get double-booked.",
-        "Every client's color formula and service history saved to their profile, visible to whichever stylist picks them up next.",
+        "One flat fee for the whole salon, never a per-stylist seat charge. Add a fifth stylist tomorrow. The price doesn't move.",
+        "Booking that understands real service time. Color and chemical processing blocks automatically, so no stylist's afternoon gets double-booked.",
+        "Every color formula and service history saved to the client's profile. Any stylist who picks them up next sees it instantly.",
       ]}
-      screenshotSrc="/landing/salon-services.png"
-      screenshotAlt="Willow & Rose Salon real service menu: Cut $55, Color $95, Highlights $145"
-      founderLine="Built first for barbershops by a working barber, now built out for salons the same way: for the owner, not just the booking calendar."
+      screenshotSrc="/landing/salon-booking-color.png"
+      screenshotAlt="Willow & Rose Salon real booking: Nina Coleman, Color, Fri Aug 28, 11:00 AM, $95"
+      founderLine="Built first for barbershops by a working barber, then built out for salons the same way. For the owner, not just the booking calendar."
       clientLockStats={{ locked: 15, atRisk: 0, revenueProtected: '$2,960' }}
     />
   )

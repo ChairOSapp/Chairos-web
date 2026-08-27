@@ -5,16 +5,16 @@ export default function TattooPage() {
     <VerticalLandingPage
       vertical="tattoo"
       eyebrow="Tattoo Studios"
-      headlineLines={["Your artist's client left with them."]}
-      subline="A sleeve takes a dozen sessions over a couple of years with the same artist. Client Lock tracks that entire relationship under your studio from visit two, so if an artist leaves mid-project, you know exactly which multi-session clients and dollars just walked out the door."
+      headlineLines={["Your artist left.", "Your client left with them."]}
+      subline="A sleeve takes a dozen sessions over a couple of years with the same artist. Client Lock claims that entire relationship for your studio from visit two. An artist leaves mid-project, you know exactly which multi-session clients and dollars just walked out the door."
       proofPoints={[
-        "Deposits collected before the chair's ever held. No more no-shows eating a three-hour block you turned other work away for.",
-        "Consent forms signed and stored automatically, tied to the client and the session, not a paper folder in a drawer.",
-        "Sessions and consultations booked the way a studio actually works, with real setup and cleanup time built in around every appointment.",
+        "Collect the deposit before the chair's ever held. Kill the no-show that eats a three-hour block you already turned other work away for.",
+        "Consent signed and stored automatically, tied to the client and the session. Not a paper folder in a drawer.",
+        "Sessions and consultations booked the way a studio actually runs, with real setup and cleanup time built into every appointment.",
       ]}
-      screenshotSrc="/landing/tattoo-services.png"
-      screenshotAlt="Ironclad Tattoo Studio real service menu: Consultation $0, Piercing $35, Touch-up $60, Session (hourly) $200"
-      founderLine="Built by a barber, adapted for how a tattoo studio actually runs: long sessions, deposits, and consent, not a walk-in haircut."
+      screenshotSrc="/landing/tattoo-deposit.png"
+      screenshotAlt="Ironclad Tattoo Studio real booking: Reese Talbot, Session (hourly), $200 total, $40 deposit due now"
+      founderLine="Built by a barber, adapted for how a tattoo studio actually runs. Long sessions, deposits, consent. Not a walk-in haircut."
       clientLockStats={{ locked: 17, atRisk: 0, revenueProtected: '$5,010' }}
     />
   )

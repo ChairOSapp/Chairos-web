@@ -5,16 +5,16 @@ export default function BarbershopsPage() {
     <VerticalLandingPage
       vertical="barbershop"
       eyebrow="Barbershops"
-      headlineLines={["A barber builds his own book on your chair.", "Then he leaves with it."]}
-      subline="The second time a client books, Client Lock records it under your shop's system, not a barber's personal phone. If a barber walks, his regulars are still sitting in your dashboard the next morning, ready to rebook."
+      headlineLines={["A barber builds his own book on your chair.", "Then he walks out the door with it."]}
+      subline="The second time a client books, Client Lock claims them for your shop, not a barber's personal phone. A barber walks, his regulars are still sitting in your dashboard the next morning, ready to rebook."
       proofPoints={[
-        "Floor visibility for every chair. See who's in, who's off, and who's about to finish, all live, from your phone or the front desk.",
-        "Commission or booth rent, tracked automatically. Tips split per barber. No spreadsheet at the end of the week.",
-        "A booking page branded to your shop, not to any one barber. Clients book with your shop's name in their calendar.",
+        "See every chair in real time. Who's in, who's off, who's about to finish, from your phone or the front desk.",
+        "Commission or booth rent, tracked automatically. Tips split per barber, automatically. No spreadsheet, ever.",
+        "Your booking page, your brand, not any one barber's. Clients book under your shop's name, every time.",
       ]}
-      screenshotSrc="/landing/barbershop-services.png"
-      screenshotAlt="Downtown Fade Co. real service menu: Line-Up/Edge-Up $25, Youth Cut $40, Beard Sculpt $40"
-      founderLine="Built by a licensed barber and former shop owner who lived this exact problem before writing a line of code."
+      screenshotSrc="/landing/barbershop-client-lock.png"
+      screenshotAlt="Downtown Fade Co. Client Locks dashboard: 15 locked clients, 0 at risk, 5 floating"
+      founderLine="Built by a licensed barber and shop owner who lived this exact problem before writing a line of code."
       clientLockStats={{ locked: 15, atRisk: 0, revenueProtected: '$2,275' }}
     />
   )

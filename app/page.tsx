@@ -73,10 +73,10 @@ export default function LandingPage() {
           Own your shop.<br />Lock your clients.<br /><span style={{ color: '#4B5320' }}>Scale your business.</span>
         </div>
         <div style={{ fontSize: '18px', color: '#4F4F48', lineHeight: 1.65, marginBottom: '12px', maxWidth: '540px' }}>
-          Built by a barber who watched clients walk out the door with the people who cut their hair. Now built for salons and tattoo studios too.
+          A barber built this after watching clients walk out the door with the people who cut their hair. Now it runs salons and tattoo studios too.
         </div>
         <div style={{ fontSize: '14px', color: '#65655F', lineHeight: 1.6, marginBottom: '32px', maxWidth: '540px' }}>
-          Think of it as the operating system for independent shops.
+          The operating system for independent shops.
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' as const, alignItems: 'center' }}>
           <button onClick={() => { track('hero_cta_click', { location: 'top' }); router.push('/signup') }} style={{ background: '#4B5320', color: '#fff', fontSize: '15px', fontWeight: 700, padding: '15px 32px', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(75,83,32,0.3)' }}>
@@ -119,7 +119,7 @@ export default function LandingPage() {
             Client Lock
           </div>
           <p style={{ fontSize: '17px', color: '#33332f', lineHeight: 1.7, marginBottom: '32px' }}>
-            Every shop loses clients when staff leave. Client Lock tracks which clients belong to which staff member from their second visit, so you always know who is at risk before someone walks out the door. It runs automatically in the background, no extra work for you or your team.
+            Every shop loses clients when staff leave. Client Lock locks each client to a staff member from their second visit, so you know exactly who is at risk before anyone walks out the door. It runs itself. No extra work, ever.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', maxWidth: '460px', margin: '0 auto' }}>
             {[
