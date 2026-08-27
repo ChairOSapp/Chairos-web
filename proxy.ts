@@ -1,8 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { checkRateLimit, getClientIp, getRateLimitBucket } from '@/lib/rate-limit'
-
-const ADMIN_EMAILS = ['tbbryant07@gmail.com']
+import { isAdminEmail } from '@/lib/admin'
 
 const PUBLIC_PATHS = ['/', '/login', '/signup', '/join', '/subscribe', '/privacy', '/terms', '/sms-optout', '/forgot-password', '/reset-password', '/barbershops', '/salons', '/tattoo']
 
@@ -80,9 +79,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // Admin routes — email allowlist only
+  // Admin routes — hardcoded founder allowlist only, regardless of role
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
-    if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
+    if (!isAdminEmail(user.email)) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
     return supabaseResponse

@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-
-const ADMIN_EMAILS = [
-  ...(process.env.ADMIN_EMAIL ? [process.env.ADMIN_EMAIL] : []),
-  'tbbryant07@gmail.com',
-]
+import { isAdminEmail } from '@/lib/admin'
 
 function getAdminSupabase() {
   return createClient(
@@ -51,7 +47,7 @@ export interface AdminUser {
 
 export async function GET(req: NextRequest) {
   const user = await getRequestUser(req)
-  if (!user?.email || !ADMIN_EMAILS.includes(user.email)) {
+  if (!isAdminEmail(user?.email)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -29,18 +29,39 @@ interface Metrics {
   activeShops: number
   activeSolo: number
   newSignups: number
+  newSignupsWeek: number
   churnedCount: number
   revenueLostToChurn: number
   totalProfiles: number
+  paidCount: number
+  trialingCount: number
+  conversionRate: number | null
+  verticalBreakdown: Record<string, number>
+  appointmentsWeek: number
+  appointmentsMonth: number
+  lockedRelationships: number
+  recentErrors: {
+    status: 'live' | 'pending' | 'error'
+    count?: number
+    issues?: { title: string; culprit: string; lastSeen: string; count: string }[]
+    reason?: string
+  }
 }
 
-interface ShopGroup {
+interface AdminShop {
   id: string
   name: string
-  code: string | null
-  owner: AdminUser | null
-  barbers: AdminUser[]
-  health: HealthStatus
+  vertical: string | null
+  shopCode: string | null
+  createdAt: string
+  ownerEmail: string | null
+  ownerName: string | null
+  subscriptionStatus: string | null
+  lastActiveAt: string | null
+  appointmentCount: number
+  revenueTotal: number
+  clientCount: number
+  lockedCount: number
 }
 
 const HEALTH_STYLES: Record<HealthStatus, { badge: string; dot: string }> = {
@@ -97,6 +118,8 @@ export default function AdminPage() {
   const [healthFilter, setHealthFilter] = useState<HealthStatus | 'all'>('all')
 
   // Shops tab state
+  const [shops, setShops] = useState<AdminShop[]>([])
+  const [loadingShops, setLoadingShops] = useState(true)
   const [shopSearch, setShopSearch] = useState('')
   const [expandedShopId, setExpandedShopId] = useState<string | null>(null)
 
@@ -131,10 +154,24 @@ export default function AdminPage() {
     }
   }
 
+  async function fetchShops() {
+    setLoadingShops(true)
+    try {
+      const res = await fetch('/api/admin/shops')
+      if (res.ok) {
+        const data = await res.json()
+        setShops(data.shops ?? [])
+      }
+    } finally {
+      setLoadingShops(false)
+    }
+  }
+
   useEffect(() => {
     if (!authed) return
     fetchMetrics()
     fetchUsers()
+    fetchShops()
   }, [authed])
 
   async function rerunHealthChecks() {
@@ -170,38 +207,22 @@ export default function AdminPage() {
     critical: users.filter(u => u.health === 'critical').length,
   }), [users])
 
-  // ── Shops tab derived data ──
-  const shopGroups = useMemo(() => {
-    const map: Record<string, ShopGroup> = {}
-    for (const u of users) {
-      if (!u.shop_id || !u.shop_name) continue
-      if (!map[u.shop_id]) {
-        map[u.shop_id] = { id: u.shop_id, name: u.shop_name, code: u.shop_code, owner: null, barbers: [], health: 'healthy' }
-      }
-      if (u.role === 'owner') {
-        map[u.shop_id].owner = u
-        if (u.health === 'critical') map[u.shop_id].health = 'critical'
-        else if (u.health === 'warning' && map[u.shop_id].health !== 'critical') map[u.shop_id].health = 'warning'
-      } else {
-        map[u.shop_id].barbers.push(u)
-      }
-    }
-    return Object.values(map)
-  }, [users])
-
+  // ── Shops tab derived data ── read-only rows straight from
+  // /api/admin/shops, one per shop, not grouped by account.
   const filteredShops = useMemo(() => {
-    let list = shopGroups
+    let list = shops
     if (shopSearch) {
       const q = shopSearch.toLowerCase()
       list = list.filter(s =>
         s.name.toLowerCase().includes(q) ||
-        (s.code || '').toLowerCase().includes(q) ||
-        (s.owner?.email || '').toLowerCase().includes(q) ||
-        (s.owner?.full_name || '').toLowerCase().includes(q)
+        (s.shopCode || '').toLowerCase().includes(q) ||
+        (s.ownerEmail || '').toLowerCase().includes(q) ||
+        (s.ownerName || '').toLowerCase().includes(q) ||
+        (s.vertical || '').toLowerCase().includes(q)
       )
     }
     return [...list].sort((a, b) => a.name.localeCompare(b.name))
-  }, [shopGroups, shopSearch])
+  }, [shops, shopSearch])
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortAsc(a => !a)
@@ -258,20 +279,45 @@ export default function AdminPage() {
                   : undefined}
                 highlight
               />
-              <MetricCard label="Active Shops" value={metrics.activeShops} sub="Owner-tier subscriptions" />
-              <MetricCard label="Active Solo Barbers" value={metrics.activeSolo} sub="Solo-tier subscriptions" />
+              <MetricCard label="Active Shops" value={metrics.activeShops} sub="Owner-tier, active or trialing" />
+              <MetricCard label="Active Solo Barbers" value={metrics.activeSolo} sub="Solo-tier, active or trialing" />
               <MetricCard label="Total Accounts" value={metrics.totalProfiles} />
-              <MetricCard label="New Signups" value={metrics.newSignups} sub="This calendar month" />
+              <MetricCard label="New Signups" value={metrics.newSignups} sub={`This month · ${metrics.newSignupsWeek} this week`} />
+              <MetricCard
+                label="Trials vs. Paid"
+                value={`${metrics.trialingCount} / ${metrics.paidCount}`}
+                sub={metrics.conversionRate !== null ? `${metrics.conversionRate.toFixed(0)}% converted (snapshot)` : 'No subscriptions yet'}
+              />
+              <MetricCard
+                label="Appointments Booked"
+                value={metrics.appointmentsWeek}
+                sub={`This week · ${metrics.appointmentsMonth} this month`}
+              />
+              <MetricCard
+                label="Client Lock Relationships"
+                value={metrics.lockedRelationships}
+                sub="Platform-wide, currently locked"
+              />
               <MetricCard
                 label="Churned This Month"
                 value={metrics.churnedCount}
                 sub={metrics.churnedCount > 0 ? `$${metrics.revenueLostToChurn}/mo lost` : 'No churn this month'}
               />
-              <MetricCard
-                label="Revenue Lost to Churn"
-                value={`$${metrics.revenueLostToChurn}`}
-                sub="Monthly equivalent"
-              />
+              <div className="rounded-xl border border-warm-200 bg-warm-100 p-4">
+                <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-2">Shops by Vertical</div>
+                {Object.keys(metrics.verticalBreakdown).length === 0 ? (
+                  <div className="text-charcoal-500 text-sm">No active shops yet</div>
+                ) : (
+                  <div className="space-y-1">
+                    {Object.entries(metrics.verticalBreakdown).map(([vertical, count]) => (
+                      <div key={vertical} className="flex items-center justify-between text-xs">
+                        <span className="text-charcoal-600 capitalize">{vertical}</span>
+                        <span className="font-serif text-charcoal-900">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="rounded-xl border border-warm-200 bg-warm-100 p-4 flex flex-col justify-center">
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`text-lg font-serif ${healthCounts.critical > 0 ? 'text-red-400' : healthCounts.warning > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
@@ -288,6 +334,25 @@ export default function AdminPage() {
                   <span className="text-[10px] text-yellow-400">{healthCounts.warning} warning</span>
                   <span className="text-[10px] text-red-400">{healthCounts.critical} critical</span>
                 </div>
+              </div>
+              <div className="rounded-xl border border-warm-200 bg-warm-100 p-4 col-span-2 md:col-span-4">
+                <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-2">Recent Errors (Sentry)</div>
+                {metrics.recentErrors.status === 'pending' ? (
+                  <div className="text-charcoal-500 text-sm">Pending — {metrics.recentErrors.reason}</div>
+                ) : metrics.recentErrors.status === 'error' ? (
+                  <div className="text-red-400 text-sm">Could not load from Sentry — {metrics.recentErrors.reason}</div>
+                ) : metrics.recentErrors.count === 0 ? (
+                  <div className="text-green-400 text-sm">No unresolved errors in the last 24 hours.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {metrics.recentErrors.issues?.map((issue, i) => (
+                      <div key={i} className="text-xs border-b border-warm-200 last:border-0 pb-2 last:pb-0">
+                        <div className="text-charcoal-900 font-medium">{issue.title}</div>
+                        <div className="text-charcoal-500">{issue.culprit} · {issue.count} events · last seen {new Date(issue.lastSeen).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -308,7 +373,7 @@ export default function AdminPage() {
               >
                 {t === 'accounts'
                   ? `Accounts${!loadingUsers ? ` (${users.length})` : ''}`
-                  : `Shops${!loadingUsers ? ` (${shopGroups.length})` : ''}`}
+                  : `Shops${!loadingShops ? ` (${shops.length})` : ''}`}
               </button>
             ))}
           </div>
@@ -492,17 +557,17 @@ export default function AdminPage() {
             <div className="mb-3">
               <input
                 type="text"
-                placeholder="Search by shop name, code, or owner…"
+                placeholder="Search by shop name, code, vertical, or owner…"
                 value={shopSearch}
                 onChange={e => setShopSearch(e.target.value)}
                 className="w-full bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-900 placeholder-charcoal-400 focus:outline-none focus:border-od-green/50"
               />
             </div>
-            {!loadingUsers && (
-              <div className="text-xs text-charcoal-500 mb-2">{filteredShops.length} of {shopGroups.length} shops</div>
+            {!loadingShops && (
+              <div className="text-xs text-charcoal-500 mb-2">{filteredShops.length} of {shops.length} shops</div>
             )}
 
-            {loadingUsers ? (
+            {loadingShops ? (
               <div className="flex items-center gap-2 text-charcoal-500 text-sm py-8 justify-center">
                 <div className="w-4 h-4 border-2 border-od-green border-t-transparent rounded-full animate-spin" />
                 Loading shops…
@@ -512,124 +577,94 @@ export default function AdminPage() {
                 {shopSearch ? 'No shops match your search.' : 'No shops found.'}
               </div>
             ) : (
-              <div className="space-y-2">
-                {filteredShops.map(shop => {
-                  const expanded = expandedShopId === shop.id
-                  return (
-                    <div key={shop.id} className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
-                      <div
-                        className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-warm-200/40 transition-colors"
-                        onClick={() => setExpandedShopId(expanded ? null : shop.id)}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-od-green/10 border border-od-green/20 flex items-center justify-center font-serif text-od-green font-bold text-sm flex-shrink-0">
-                            {shop.name[0].toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-charcoal-900 text-sm">{shop.name}</span>
-                              {shop.code && (
-                                <span className="font-mono text-[10px] bg-warm-200 border border-warm-300 text-charcoal-600 px-1.5 py-0.5 rounded tracking-widest">
-                                  {shop.code}
-                                </span>
-                              )}
-                              <HealthBadge status={shop.health} />
-                            </div>
-                            <div className="text-xs text-charcoal-500 mt-0.5 flex items-center gap-2 flex-wrap">
-                              {shop.owner ? (
-                                <>
-                                  <span>{shop.owner.full_name || shop.owner.email}</span>
-                                  <span className={`font-semibold ${SUB_STATUS_COLOR[shop.owner.subscription_status ?? ''] ?? 'text-charcoal-400'}`}>
-                                    {shop.owner.subscription_status ?? 'no sub'}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-red-400">No owner linked</span>
-                              )}
-                              <span>· {shop.barbers.length} barber{shop.barbers.length !== 1 ? 's' : ''}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-xs text-charcoal-400 flex-shrink-0">{expanded ? '↑' : '↓'}</span>
-                      </div>
+              <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm" style={{ minWidth: '760px' }}>
+                    <thead>
+                      <tr className="border-b border-warm-200 bg-warm-200/30">
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-widest uppercase text-charcoal-400">Name</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-widest uppercase text-charcoal-400">Vertical</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-widest uppercase text-charcoal-400">Signup Date</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-widest uppercase text-charcoal-400">Subscription</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-bold tracking-widest uppercase text-charcoal-400">Last Active</th>
+                        <th className="px-4 py-2.5" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredShops.map(shop => (
+                        <tr
+                          key={shop.id}
+                          className={`border-b border-warm-200 last:border-0 hover:bg-warm-200/40 transition-colors cursor-pointer ${expandedShopId === shop.id ? 'bg-warm-200/20' : ''}`}
+                          onClick={() => setExpandedShopId(expandedShopId === shop.id ? null : shop.id)}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-charcoal-900">{shop.name}</div>
+                            {shop.shopCode && (
+                              <div className="font-mono text-[10px] text-charcoal-400 mt-0.5 tracking-widest">{shop.shopCode}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-charcoal-700 capitalize">{shop.vertical || '—'}</td>
+                          <td className="px-4 py-3 text-xs text-charcoal-500 whitespace-nowrap">
+                            {new Date(shop.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs font-semibold ${SUB_STATUS_COLOR[shop.subscriptionStatus ?? ''] ?? 'text-charcoal-500'}`}>
+                              {shop.subscriptionStatus ?? 'none'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-charcoal-500 whitespace-nowrap">
+                            {shop.lastActiveAt
+                              ? new Date(shop.lastActiveAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              : 'No activity yet'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={e => { e.stopPropagation(); setExpandedShopId(expandedShopId === shop.id ? null : shop.id) }}
+                              className="text-xs text-charcoal-400 hover:text-od-green transition-colors font-semibold px-2 py-1 rounded"
+                            >
+                              {expandedShopId === shop.id ? '↑ Hide' : 'View'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
 
-                      {expanded && (
-                        <div className="border-t border-warm-200 px-4 py-4 space-y-4">
-                          {shop.owner && (
-                            <div>
-                              <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-2">Owner</div>
-                              <div className="bg-warm-200/50 rounded-lg p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                                <div>
-                                  <div className="text-charcoal-400 mb-0.5">Name</div>
-                                  <div className="text-charcoal-900 font-medium">{shop.owner.full_name || '—'}</div>
-                                </div>
-                                <div>
-                                  <div className="text-charcoal-400 mb-0.5">Email</div>
-                                  <div className="text-charcoal-700 break-all">{shop.owner.email}</div>
-                                </div>
-                                <div>
-                                  <div className="text-charcoal-400 mb-0.5">Plan</div>
-                                  <div className="text-charcoal-700">{shop.owner.plan_type || '—'}</div>
-                                </div>
-                                <div>
-                                  <div className="text-charcoal-400 mb-0.5">Subscription</div>
-                                  <div className={`font-semibold ${SUB_STATUS_COLOR[shop.owner.subscription_status ?? ''] ?? 'text-charcoal-500'}`}>
-                                    {shop.owner.subscription_status ?? 'none'}
-                                  </div>
-                                </div>
-                                {shop.owner.stripe_subscription_id && (
-                                  <div className="col-span-2 md:col-span-4">
-                                    <div className="text-charcoal-400 mb-0.5">Stripe Sub ID</div>
-                                    <div className="font-mono text-charcoal-600 text-[10px]">{shop.owner.stripe_subscription_id}</div>
-                                  </div>
-                                )}
+                      {/* Read-only shop key numbers — no edit affordance anywhere here by design */}
+                      {filteredShops.map(shop => expandedShopId !== shop.id ? null : (
+                        <tr key={`${shop.id}-detail`} className="border-b border-warm-200 bg-warm-200/20">
+                          <td colSpan={6} className="px-4 py-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs mb-3">
+                              <div>
+                                <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Owner</div>
+                                <div className="text-charcoal-900 font-medium">{shop.ownerName || '—'}</div>
+                                <div className="text-charcoal-500">{shop.ownerEmail || '—'}</div>
                               </div>
-                              {shop.owner.health_reasons.length > 0 && (
-                                <ul className="mt-2 space-y-1">
-                                  {shop.owner.health_reasons.map((r, i) => (
-                                    <li key={i} className="flex items-start gap-1.5 text-xs">
-                                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${shop.owner!.health === 'critical' ? 'bg-red-400' : 'bg-yellow-400'}`} />
-                                      <span className="text-charcoal-600">{r}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          )}
-
-                          {shop.barbers.length > 0 && (
-                            <div>
-                              <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-2">Barbers ({shop.barbers.length})</div>
-                              <div className="space-y-2">
-                                {shop.barbers.map(b => (
-                                  <div key={b.id} className="bg-warm-200/50 rounded-lg p-3 flex items-center justify-between gap-4 text-xs">
-                                    <div>
-                                      <div className="font-medium text-charcoal-900">{b.full_name || '—'}</div>
-                                      <div className="text-charcoal-500 mt-0.5">{b.email}</div>
-                                    </div>
-                                    <div className="text-right flex-shrink-0">
-                                      <HealthBadge status={b.health} />
-                                      {b.subscription_status && (
-                                        <div className={`text-[10px] mt-1 font-semibold ${SUB_STATUS_COLOR[b.subscription_status] ?? 'text-charcoal-400'}`}>
-                                          {b.subscription_status}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
+                              <div>
+                                <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Appointments (all-time)</div>
+                                <div className="font-serif text-lg text-charcoal-900">{shop.appointmentCount}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Revenue (completed)</div>
+                                <div className="font-serif text-lg text-charcoal-900">${shop.revenueTotal.toLocaleString()}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Clients</div>
+                                <div className="font-serif text-lg text-charcoal-900">{shop.clientCount}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Client Lock Relationships</div>
+                                <div className="font-serif text-lg text-charcoal-900">{shop.lockedCount}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Shop ID</div>
+                                <div className="font-mono text-charcoal-500 text-[10px] break-all">{shop.id}</div>
                               </div>
                             </div>
-                          )}
-
-                          <div>
-                            <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Shop ID</div>
-                            <div className="font-mono text-[10px] text-charcoal-500">{shop.id}</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
