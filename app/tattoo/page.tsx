@@ -12,8 +12,6 @@ export default function TattooPage() {
         "Consent signed and stored automatically, tied to the client and the session. Not a paper folder in a drawer.",
         "Sessions and consultations booked the way a studio actually runs, with real setup and cleanup time built into every appointment.",
       ]}
-      screenshotSrc="/landing/tattoo-deposit.png"
-      screenshotAlt="Ironclad Tattoo Studio real booking: Reese Talbot, Session (hourly), $200 total, $40 deposit due now"
       founderLine="Built by a barber, adapted for how a tattoo studio actually runs. Long sessions, deposits, consent. Not a walk-in haircut."
       clientLockStats={{ locked: 17, atRisk: 0, revenueProtected: '$5,010' }}
     />

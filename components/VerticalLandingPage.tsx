@@ -4,26 +4,12 @@ import { useRouter } from 'next/navigation'
 import { track } from '@vercel/analytics'
 import LandingNav from '@/components/LandingNav'
 
-function ScreenshotCard({ src, alt, chromeLabel }: { src: string; alt: string; chromeLabel: string }) {
-  return (
-    <div style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}>
-      <div style={{ background: '#EAE8E0', borderBottom: '0.5px solid #D8D5C8', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-        {['#ff5f57', '#ffbd2e', '#28ca41'].map((c, i) => <div key={i} style={{ width: '10px', height: '10px', borderRadius: '50%', background: c }} />)}
-        <span style={{ fontSize: '11px', color: '#65655F', marginLeft: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{chromeLabel}</span>
-      </div>
-      <img src={src} alt={alt} style={{ width: '100%', height: 320, objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
-    </div>
-  )
-}
-
 export type VerticalPageProps = {
   vertical: 'barbershop' | 'salon' | 'tattoo'
   eyebrow: string
   headlineLines: string[]
   subline: string
   proofPoints: string[]
-  screenshotSrc: string
-  screenshotAlt: string
   founderLine: string
   clientLockStats: { locked: number; atRisk: number; revenueProtected: string }
 }
@@ -34,8 +20,6 @@ export default function VerticalLandingPage({
   headlineLines,
   subline,
   proofPoints,
-  screenshotSrc,
-  screenshotAlt,
   founderLine,
   clientLockStats,
 }: VerticalPageProps) {
@@ -63,13 +47,6 @@ export default function VerticalLandingPage({
           <div style={{ fontSize: '17px', color: '#4F4F48', lineHeight: 1.65, maxWidth: '560px' }}>
             {subline}
           </div>
-        </div>
-      </div>
-
-      {/* SCREENSHOT */}
-      <div style={{ padding: '0 24px 48px' }}>
-        <div style={{ maxWidth: '620px', margin: '0 auto' }}>
-          <ScreenshotCard src={screenshotSrc} alt={screenshotAlt} chromeLabel="Live in production" />
         </div>
       </div>
 

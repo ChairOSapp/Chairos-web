@@ -9,20 +9,20 @@ const VERTICAL_TILES = [
   {
     href: '/barbershops',
     label: 'Barbershops',
-    image: '/landing/barbershop-staff.png',
-    alt: 'Downtown Fade Co. booking page: choose your barber, showing Jake Rivera and Tony Alvarez',
+    initial: 'B',
+    description: 'Chair tracking, commission, and a booking page that stays yours when a barber leaves.',
   },
   {
     href: '/salons',
     label: 'Salons',
-    image: '/landing/salon-staff.png',
-    alt: 'Willow & Rose Salon booking page: choose your stylist, showing Nina Coleman and Priya Desai',
+    initial: 'S',
+    description: 'Color and chemical service times built into booking, one flat fee no matter how many stylists.',
   },
   {
     href: '/tattoo',
     label: 'Tattoo Studios',
-    image: '/landing/tattoo-staff.png',
-    alt: 'Ironclad Tattoo Studio booking page: choose your artist, showing Skyler Monroe and Reese Talbot',
+    initial: 'T',
+    description: 'Deposits collected at booking, consent signed and stored automatically, sessions built for real setup time.',
   },
 ]
 
@@ -30,17 +30,6 @@ const HASH_REDIRECTS: Record<string, string> = {
   '#barbershops': '/barbershops',
   '#salons': '/salons',
   '#tattoo': '/tattoo',
-}
-
-function ScreenshotCard({ src, alt }: { src: string; alt: string }) {
-  return (
-    <div style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.10)' }}>
-      <div style={{ background: '#EAE8E0', borderBottom: '0.5px solid #D8D5C8', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-        {['#ff5f57', '#ffbd2e', '#28ca41'].map((c, i) => <div key={i} style={{ width: '10px', height: '10px', borderRadius: '50%', background: c }} />)}
-      </div>
-      <img src={src} alt={alt} style={{ width: '100%', height: 168, objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
-    </div>
-  )
 }
 
 export default function LandingPage() {
@@ -86,8 +75,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* VISUAL VERTICAL PICKER: real screenshots from the three seeded test
-          shops. Each tile is a route change to its own dedicated page. */}
+      {/* VERTICAL PICKER: each tile routes to its own dedicated page. */}
       <div style={{ padding: '0 24px 56px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center' as const, fontSize: '13px', fontWeight: 600, color: '#65655F', letterSpacing: '0.04em', marginBottom: '20px' }}>
@@ -99,13 +87,14 @@ export default function LandingPage() {
                 key={v.href}
                 onClick={() => router.push(v.href)}
                 className="vertical-tile"
-                style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left' as const, cursor: 'pointer', font: 'inherit', color: 'inherit' }}
+                style={{ background: '#F4F2EC', border: '1px solid #D8D5C8', borderRadius: '16px', padding: '28px 24px', textAlign: 'left' as const, cursor: 'pointer', font: 'inherit', color: 'inherit' }}
               >
-                <ScreenshotCard src={v.image} alt={v.alt} />
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px' }}>
-                  <div style={{ fontSize: '16px', fontWeight: 600, color: '#1A1A18' }}>{v.label}</div>
-                  <span style={{ fontSize: '13px', color: '#4B5320', fontWeight: 600 }}>View →</span>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#4B5320', color: '#FAFAF7', fontSize: '17px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px' }}>
+                  {v.initial}
                 </div>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: '#1A1A18', marginBottom: '8px' }}>{v.label}</div>
+                <div style={{ fontSize: '13.5px', color: '#65655F', lineHeight: 1.55, marginBottom: '16px' }}>{v.description}</div>
+                <span style={{ fontSize: '13px', color: '#4B5320', fontWeight: 600 }}>View →</span>
               </button>
             ))}
           </div>

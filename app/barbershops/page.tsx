@@ -12,8 +12,6 @@ export default function BarbershopsPage() {
         "Commission or booth rent, tracked automatically. Tips split per barber, automatically. No spreadsheet, ever.",
         "Your booking page, your brand, not any one barber's. Clients book under your shop's name, every time.",
       ]}
-      screenshotSrc="/landing/barbershop-client-lock.png"
-      screenshotAlt="Downtown Fade Co. Client Locks dashboard: 15 locked clients, 0 at risk, 5 floating"
       founderLine="Built by a licensed barber and shop owner who lived this exact problem before writing a line of code."
       clientLockStats={{ locked: 15, atRisk: 0, revenueProtected: '$2,275' }}
     />

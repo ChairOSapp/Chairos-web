@@ -12,8 +12,6 @@ export default function SalonsPage() {
         "Booking that understands real service time. Color and chemical processing blocks automatically, so no stylist's afternoon gets double-booked.",
         "Every color formula and service history saved to the client's profile. Any stylist who picks them up next sees it instantly.",
       ]}
-      screenshotSrc="/landing/salon-booking-color.png"
-      screenshotAlt="Willow & Rose Salon real booking: Nina Coleman, Color, Fri Aug 28, 11:00 AM, $95"
       founderLine="Built first for barbershops by a working barber, then built out for salons the same way. For the owner, not just the booking calendar."
       clientLockStats={{ locked: 15, atRisk: 0, revenueProtected: '$2,960' }}
     />
