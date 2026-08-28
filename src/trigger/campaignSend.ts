@@ -118,9 +118,10 @@ export const campaignSend = task({
 
             let emailStatus = 'failed'
             let errMsg: string | null = null
+            let resendEmailId: string | null = null
 
             try {
-              const { error } = await getResend().emails.send({
+              const { data, error } = await getResend().emails.send({
                 from: process.env.RESEND_FROM_EMAIL!,
                 to: recipient.email,
                 subject: campaign.email_subject ?? '',
@@ -128,6 +129,7 @@ export const campaignSend = task({
               })
               if (error) throw new Error(error.message)
               emailStatus = 'sent'
+              resendEmailId = data?.id ?? null
               totalSent++
             } catch (err: any) {
               errMsg = err.message
@@ -138,6 +140,7 @@ export const campaignSend = task({
               email_status: emailStatus,
               sent_at: emailStatus === 'sent' ? new Date().toISOString() : null,
               error: errMsg,
+              resend_email_id: resendEmailId,
             }).eq('id', recipient.id)
           }
         }

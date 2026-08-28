@@ -181,14 +181,16 @@ export async function POST(req: NextRequest) {
       try {
         const unsubToken = client.id ? generateUnsubscribeToken(client.id) : generateUnsubscribeToken(client.email)
         const html = buildEmailTemplate(campaign.email_body ?? '', `${siteUrl}/api/email/unsubscribe?token=${unsubToken}`)
-        const { error } = await resend.emails.send({
+        const { data: sendData, error } = await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL!,
           to: client.email,
           subject: campaign.email_subject ?? '(no subject)',
           html,
         })
         if (error) throw new Error(error.message)
-        if (rowId) await admin.from('campaign_recipients').update({ email_status: 'sent', sent_at: new Date().toISOString() }).eq('id', rowId)
+        // Store the Resend message id so the /api/webhooks/resend handler can
+        // match open/click events back to this recipient row.
+        if (rowId) await admin.from('campaign_recipients').update({ email_status: 'sent', sent_at: new Date().toISOString(), resend_email_id: sendData?.id ?? null }).eq('id', rowId)
         totalSent++
       } catch (err: any) {
         if (rowId) await admin.from('campaign_recipients').update({ email_status: 'failed', error: err.message }).eq('id', rowId)

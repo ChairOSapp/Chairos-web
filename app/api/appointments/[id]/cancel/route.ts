@@ -12,6 +12,14 @@ const supabase = createClient(
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: appointmentId } = await params
 
+  let reason: string | undefined
+  try {
+    const body = await req.json()
+    reason = typeof body?.reason === 'string' ? body.reason.slice(0, 500) : undefined
+  } catch {
+    // No body / not JSON — reason is optional, proceed without one.
+  }
+
   const cookieStore = await cookies()
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -88,7 +96,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', appointmentId)
+  await supabase.from('appointments').update({
+    status: 'cancelled',
+    ...(reason ? { cancellation_reason: reason } : {}),
+  }).eq('id', appointmentId)
 
   return NextResponse.json({ cancelled: true, refunded })
 }

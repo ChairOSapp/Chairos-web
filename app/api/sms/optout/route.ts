@@ -151,6 +151,25 @@ export async function POST(req: NextRequest) {
     return twiml(`ChairOS Alerts: Appt reminders & updates from ${displayName}. Msg freq varies. Msg & data rates may apply. Reply STOP to unsubscribe. Support: support@chairos.cc`)
   }
 
-  // Unrecognized keyword — no DB change, empty TwiML acknowledgement.
+  // Unrecognized keyword — treat as a genuine reply for campaign engagement
+  // tracking (SMS has no "open" concept, so a reply is the closest signal to
+  // an email click), then acknowledge with empty TwiML either way.
+  if (isTwilio && client) {
+    const { data: recentRecipient } = await supabase
+      .from('campaign_recipients')
+      .select('id, click_count, clicked_at')
+      .eq('client_id', client.id)
+      .not('sent_at', 'is', null)
+      .order('sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (recentRecipient) {
+      await supabase.from('campaign_recipients').update({
+        clicked_at: recentRecipient.clicked_at ?? new Date().toISOString(),
+        click_count: (recentRecipient.click_count ?? 0) + 1,
+      }).eq('id', recentRecipient.id)
+    }
+  }
+
   return twimlEmpty()
 }

@@ -55,6 +55,8 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
   const [rescheduling, setRescheduling] = useState(false)
   const [newDate, setNewDate] = useState(appointment.date)
   const [newTime, setNewTime] = useState(appointment.time.slice(0, 5))
+  const [reasonPromptFor, setReasonPromptFor] = useState<'noshow' | 'cancel' | null>(null)
+  const [reasonText, setReasonText] = useState('')
   const [consentSignature, setConsentSignature] = useState<{ signed_pdf_path: string; signed_at: string } | null | undefined>(undefined)
   const ref = useRef<HTMLDivElement>(null)
   const supabase = useMemo(() => createClient(), [])
@@ -112,10 +114,15 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
     return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClick) }
   }, [onClose])
 
-  async function updateStatus(status: string) {
+  async function updateStatus(status: string, cancellationReason?: string) {
     setSaving(true)
-    await supabase.from('appointments').update({ status }).eq('id', appointment.id)
+    await supabase.from('appointments').update({
+      status,
+      ...(cancellationReason ? { cancellation_reason: cancellationReason } : {}),
+    }).eq('id', appointment.id)
     setSaving(false)
+    setReasonPromptFor(null)
+    setReasonText('')
     onUpdated()
     onClose()
   }
@@ -132,16 +139,21 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
     onClose()
   }
 
-  async function cancel() {
-    if (!confirm('Cancel this appointment?')) return
+  async function cancel(cancellationReason?: string) {
     setSaving(true)
     try {
-      const res = await fetch(`/api/appointments/${appointment.id}/cancel`, { method: 'POST' })
+      const res = await fetch(`/api/appointments/${appointment.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: cancellationReason || undefined }),
+      })
       const result = await res.json()
       if (!res.ok) { alert(result.error || 'Failed to cancel appointment'); return }
       if (result.refunded) alert('Appointment cancelled and deposit refunded.')
     } finally {
       setSaving(false)
+      setReasonPromptFor(null)
+      setReasonText('')
       onUpdated()
       onClose()
     }
@@ -240,8 +252,40 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
         </div>
       )}
 
+      {/* Reason prompt: shown before confirming a cancel or no-show, optional */}
+      {reasonPromptFor && (
+        <div className="px-4 py-3 border-b border-warm-200 space-y-2">
+          <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">
+            {reasonPromptFor === 'cancel' ? 'Reason for cancelling (optional)' : 'Reason for no-show (optional)'}
+          </div>
+          <input
+            type="text"
+            value={reasonText}
+            onChange={e => setReasonText(e.target.value)}
+            placeholder="e.g. client rescheduled elsewhere"
+            autoFocus
+            className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-1.5 text-sm text-charcoal-900 outline-none focus:border-od-green"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => reasonPromptFor === 'cancel' ? cancel(reasonText.trim() || undefined) : updateStatus('noshow', reasonText.trim() || undefined)}
+              disabled={saving}
+              className="flex-1 bg-od-green text-white text-xs font-semibold py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {saving ? 'Saving…' : 'Confirm'}
+            </button>
+            <button
+              onClick={() => { setReasonPromptFor(null); setReasonText('') }}
+              className="flex-1 bg-warm-200 text-charcoal-600 text-xs font-semibold py-1.5 rounded-lg hover:bg-warm-300 transition-colors"
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
-      {!rescheduling && (
+      {!rescheduling && !reasonPromptFor && (
         <div className="px-3 py-2.5 flex flex-wrap gap-1.5">
           {/* POS Checkout — primary CTA for unpaid/not-done appointments */}
           {notDone && unpaid && (
@@ -259,7 +303,7 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
             </button>
           )}
           {appointment.status !== 'noshow' && (
-            <button onClick={() => updateStatus('noshow')} disabled={saving}
+            <button onClick={() => setReasonPromptFor('noshow')} disabled={saving}
               className="flex-1 min-w-[100px] py-1.5 rounded-lg text-[11px] font-semibold bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors">
               ✗ No Show
             </button>
@@ -269,7 +313,7 @@ export default function AppointmentPopover({ appointment, barberName, x, y, isOw
             ↔ Reschedule
           </button>
           {isOwner && appointment.status !== 'cancelled' && (
-            <button onClick={cancel} disabled={saving}
+            <button onClick={() => setReasonPromptFor('cancel')} disabled={saving}
               className="flex-1 min-w-[100px] py-1.5 rounded-lg text-[11px] font-semibold text-charcoal-400 hover:text-red-400 hover:border-red-200 border border-warm-300 transition-colors">
               Cancel
             </button>

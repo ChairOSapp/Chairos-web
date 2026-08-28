@@ -82,7 +82,7 @@ export default function WalkInQueue({
       const newId = crypto.randomUUID()
       const { error: newClientErr } = await supabase
         .from('clients')
-        .insert({ id: newId, full_name: walkIn.client_name, phone: normalizedPhone })
+        .insert({ id: newId, full_name: walkIn.client_name, phone: normalizedPhone, source: 'walk_in' })
       clientId = newClientErr ? null : newId
     }
 
@@ -94,7 +94,7 @@ export default function WalkInQueue({
       }).catch(() => {})
     }
 
-    await supabase.from('appointments').insert({
+    const { data: newAppt } = await supabase.from('appointments').insert({
       shop_id: shopId,
       barber_id: barberId,
       service_id: walkIn.service_id,
@@ -105,9 +105,15 @@ export default function WalkInQueue({
       time: time24,
       price: service?.price ?? 0,
       status: 'confirmed',
-    })
+      source: 'walk_in',
+    }).select('id').single()
 
-    await supabase.from('walk_ins').update({ status: 'in_service', called_at: new Date().toISOString() }).eq('id', walkIn.id)
+    await supabase.from('walk_ins').update({
+      status: 'in_service',
+      called_at: new Date().toISOString(),
+      appointment_id: newAppt?.id ?? null,
+      client_id: clientId,
+    }).eq('id', walkIn.id)
 
     setBusy(prev => ({ ...prev, [walkIn.id]: false }))
     await load()

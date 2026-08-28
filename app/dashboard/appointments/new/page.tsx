@@ -102,7 +102,8 @@ export default function NewAppointment() {
       time: time24,
       price: parseFloat(price),
       status: 'confirmed',
-      notes: notes || null
+      notes: notes || null,
+      source: 'manual'
     })
 
     if (bookErr) { setError(bookErr.message); setSaving(false); return }

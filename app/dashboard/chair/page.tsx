@@ -263,7 +263,7 @@ export default function BarberDashboard() {
       const newId = crypto.randomUUID()
       const { error: newWalkInErr } = await supabase
         .from('clients')
-        .insert({ id: newId, full_name: bookingName, phone: normalizedPhone })
+        .insert({ id: newId, full_name: bookingName, phone: normalizedPhone, source: 'walk_in' })
       walkinClientId = newWalkInErr ? null : newId
     }
 
@@ -286,6 +286,7 @@ export default function BarberDashboard() {
       time: time24,
       price: parseFloat(bookingPrice) || svc?.price || 0,
       status: 'confirmed',
+      source: 'walk_in',
     })
 
     if (insertError) {

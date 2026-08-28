@@ -92,6 +92,7 @@ export default function QuickBookModal({
           full_name: clientName,
           phone,
           total_visits: 0,
+          source: 'manual',
         }).select('id').single()
         clientId = newClient?.id || null
       }
@@ -110,6 +111,7 @@ export default function QuickBookModal({
       price: parseFloat(price) || svc?.price || 0,
       status: 'confirmed',
       notes: notes || null,
+      source: 'manual',
     })
 
     setSubmitting(false)

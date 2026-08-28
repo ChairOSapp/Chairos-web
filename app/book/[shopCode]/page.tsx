@@ -305,7 +305,7 @@ function BookingPageInner() {
       const newId = crypto.randomUUID()
       const { error: newClientErr } = await supabase
         .from('clients')
-        .insert({ id: newId, phone: normalizedPhone, ...clientFields })
+        .insert({ id: newId, phone: normalizedPhone, source: 'online_booking', ...clientFields })
       if (newClientErr) { setError('Failed to create client record. Please try again.'); setSubmitting(false); resetCaptcha(); return }
       clientId = newId
     }
@@ -349,6 +349,7 @@ function BookingPageInner() {
       status: 'pending',
       notes: notes || null,
       payment_status: 'unpaid',
+      source: 'online_booking',
     })
 
     if (bookErr) { setError(bookErr.message || 'Booking failed'); setSubmitting(false); resetCaptcha(); return }
