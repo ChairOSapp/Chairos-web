@@ -115,7 +115,9 @@ export async function computeRecommendations(admin: SupabaseClient, shopId: stri
   }
 
   // --- Pricing signals: only when there's real comparable-service data ---
-  const pricedServices = serviceList.filter(s => s.price != null && s.duration_minutes != null)
+  // Exclude $0 services — those are intentionally free (e.g. consultations),
+  // not underpriced, so comparing them against paid services is meaningless.
+  const pricedServices = serviceList.filter(s => s.price != null && Number(s.price) > 0 && s.duration_minutes != null)
   for (const svc of pricedServices) {
     const comparable = pricedServices.filter(s =>
       s.id !== svc.id && Math.abs((s.duration_minutes ?? 0) - (svc.duration_minutes ?? 0)) <= 15
