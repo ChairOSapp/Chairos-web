@@ -7,6 +7,7 @@ import MobileNav from '@/components/MobileNav'
 import TrialCountdownBanner from '@/components/TrialCountdownBanner'
 import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
+import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
 import { getBillingStatus } from '@/lib/billing'
 import { useVerticalLabels } from '@/lib/VerticalContext'
@@ -346,6 +347,8 @@ export default function Dashboard() {
         />
 
         <BriefCard recipientName={ownerName} />
+
+        {shopId && <RecommendationsPanel shopId={shopId} />}
 
         {shopId && (
           <WalkInQueue

@@ -26,6 +26,21 @@ type Barber = {
   alias: string
 }
 
+type ReviewResponse = {
+  id: string
+  review_id: string
+  draft_text: string
+  edited_text: string | null
+  status: 'pending' | 'approved' | 'posted' | 'dismissed'
+}
+
+const RESPONSE_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  pending: { label: 'Draft', cls: 'bg-warm-200 text-charcoal-500 border border-warm-300' },
+  approved: { label: 'Approved', cls: 'bg-amber-500/10 text-amber-500 border border-amber-500/20' },
+  posted: { label: 'Posted', cls: 'bg-green-500/10 text-green-500 border border-green-500/20' },
+  dismissed: { label: 'Dismissed', cls: 'bg-red-500/10 text-red-400 border border-red-500/20' },
+}
+
 const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
   google: { label: 'Google', cls: 'bg-blue-500/10 text-blue-500 border border-blue-500/20' },
   booksy: { label: 'Booksy', cls: 'bg-purple-500/10 text-purple-400 border border-purple-500/20' },
@@ -76,6 +91,12 @@ export default function ReviewsPage() {
   const [profile, setProfile] = useState<any>(null)
   const [userId, setUserId] = useState<string | null>(null)
 
+  // Draft responses, keyed by review_id
+  const [responses, setResponses] = useState<Record<string, ReviewResponse>>({})
+  const [responseDrafts, setResponseDrafts] = useState<Record<string, string>>({})
+  const [responseBusy, setResponseBusy] = useState<Record<string, boolean>>({})
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
   // Import modal
   const [showImportModal, setShowImportModal] = useState(false)
   const [importPlaceId, setImportPlaceId] = useState('')
@@ -120,13 +141,17 @@ export default function ReviewsPage() {
     if (!shopData) { router.push('/onboarding'); return }
     setShop(shopData)
 
-    const [{ data: reviewsData }, { data: barbersData }] = await Promise.all([
+    const [{ data: reviewsData }, { data: barbersData }, { data: responsesData }] = await Promise.all([
       supabase.from('reviews').select('*').eq('shop_id', shopData.id).order('created_at', { ascending: false }),
       supabase.from('shop_barbers').select('id, barber_id, barber_name, alias').eq('shop_id', shopData.id).eq('active', true),
+      supabase.from('review_responses').select('id, review_id, draft_text, edited_text, status').eq('shop_id', shopData.id),
     ])
 
     setReviews(reviewsData || [])
     setBarbers(barbersData || [])
+    const responseMap = Object.fromEntries((responsesData || []).map(r => [r.review_id, r]))
+    setResponses(responseMap)
+    setResponseDrafts(Object.fromEntries((responsesData || []).map(r => [r.review_id, r.edited_text ?? r.draft_text])))
     setLoading(false)
   }
 
@@ -153,8 +178,75 @@ export default function ReviewsPage() {
 
   async function reloadReviews() {
     if (!shop) return
-    const { data } = await supabase.from('reviews').select('*').eq('shop_id', shop.id).order('created_at', { ascending: false })
+    const [{ data }, { data: responsesData }] = await Promise.all([
+      supabase.from('reviews').select('*').eq('shop_id', shop.id).order('created_at', { ascending: false }),
+      supabase.from('review_responses').select('id, review_id, draft_text, edited_text, status').eq('shop_id', shop.id),
+    ])
     setReviews(data || [])
+    const responseMap = Object.fromEntries((responsesData || []).map(r => [r.review_id, r]))
+    setResponses(responseMap)
+    setResponseDrafts(prev => ({
+      ...Object.fromEntries((responsesData || []).map(r => [r.review_id, r.edited_text ?? r.draft_text])),
+      ...prev,
+    }))
+  }
+
+  async function generateResponse(reviewId: string) {
+    setResponseBusy(b => ({ ...b, [reviewId]: true }))
+    try {
+      const res = await fetch(`/api/reviews/${reviewId}/response`, { method: 'POST' })
+      const json = await res.json()
+      if (res.ok && json.response) {
+        setResponses(prev => ({ ...prev, [reviewId]: json.response }))
+        setResponseDrafts(prev => ({ ...prev, [reviewId]: json.response.edited_text ?? json.response.draft_text }))
+      }
+    } finally {
+      setResponseBusy(b => ({ ...b, [reviewId]: false }))
+    }
+  }
+
+  async function saveResponseEdit(reviewId: string) {
+    const text = responseDrafts[reviewId]
+    if (text === undefined) return
+    setResponseBusy(b => ({ ...b, [reviewId]: true }))
+    try {
+      const res = await fetch(`/api/reviews/${reviewId}/response`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ edited_text: text }),
+      })
+      const json = await res.json()
+      if (res.ok && json.response) setResponses(prev => ({ ...prev, [reviewId]: json.response }))
+    } finally {
+      setResponseBusy(b => ({ ...b, [reviewId]: false }))
+    }
+  }
+
+  async function setResponseStatus(reviewId: string, status: 'approved' | 'posted' | 'dismissed') {
+    setResponseBusy(b => ({ ...b, [reviewId]: true }))
+    try {
+      const text = responseDrafts[reviewId]
+      const res = await fetch(`/api/reviews/${reviewId}/response`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, ...(text !== undefined ? { edited_text: text } : {}) }),
+      })
+      const json = await res.json()
+      if (res.ok && json.response) setResponses(prev => ({ ...prev, [reviewId]: json.response }))
+    } finally {
+      setResponseBusy(b => ({ ...b, [reviewId]: false }))
+    }
+  }
+
+  async function copyResponse(reviewId: string) {
+    const text = responseDrafts[reviewId] ?? ''
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedId(reviewId)
+      setTimeout(() => setCopiedId(id => (id === reviewId ? null : id)), 2000)
+    } catch {
+      // Clipboard API can fail without permission — the textarea remains selectable/copyable manually.
+    }
   }
 
   async function handleManualSubmit() {
@@ -334,6 +426,81 @@ export default function ReviewsPage() {
                       className="ml-auto text-xs font-semibold text-red-400 hover:text-red-300 border border-red-400/30 hover:border-red-400/60 px-3 py-1.5 rounded-lg transition-colors">
                       Delete
                     </button>
+                  </div>
+
+                  {/* Row 4: AI response draft */}
+                  <div className="mt-3 pt-3 border-t border-warm-200">
+                    {(() => {
+                      const response = responses[review.id]
+                      const busy = !!responseBusy[review.id]
+                      if (!response) {
+                        return (
+                          <button
+                            onClick={() => generateResponse(review.id)}
+                            disabled={busy}
+                            className="text-xs font-semibold text-od-green hover:text-od-green-light transition-colors disabled:opacity-50">
+                            {busy ? 'Generating…' : '✦ Generate AI response draft'}
+                          </button>
+                        )
+                      }
+                      const statusBadge = RESPONSE_STATUS_BADGE[response.status] ?? RESPONSE_STATUS_BADGE.pending
+                      const draftValue = responseDrafts[review.id] ?? response.edited_text ?? response.draft_text
+                      const dirty = draftValue !== (response.edited_text ?? response.draft_text)
+                      return (
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-semibold tracking-widest uppercase text-charcoal-400">Response Draft</span>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusBadge.cls}`}>{statusBadge.label}</span>
+                          </div>
+                          <textarea
+                            value={draftValue}
+                            onChange={e => setResponseDrafts(prev => ({ ...prev, [review.id]: e.target.value }))}
+                            rows={2}
+                            disabled={response.status === 'dismissed'}
+                            className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors resize-none disabled:opacity-60"
+                          />
+                          <p className="text-xs text-charcoal-500 mt-1">
+                            AI-drafted — edit freely. ChairOS doesn't post replies to Google automatically yet, so approve it, then copy and paste it as your reply on Google (or wherever the review lives).
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap mt-2">
+                            {dirty && (
+                              <button onClick={() => saveResponseEdit(review.id)} disabled={busy}
+                                className="text-xs font-semibold text-charcoal-900 bg-warm-200 border border-warm-300 hover:border-warm-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                                Save Edit
+                              </button>
+                            )}
+                            {response.status === 'pending' && (
+                              <button onClick={() => setResponseStatus(review.id, 'approved')} disabled={busy}
+                                className="text-xs font-semibold text-od-green bg-od-green/10 border border-od-green/30 hover:bg-od-green/20 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                                Approve
+                              </button>
+                            )}
+                            {(response.status === 'approved' || response.status === 'pending') && (
+                              <button onClick={() => copyResponse(review.id)}
+                                className="text-xs font-semibold text-charcoal-900 bg-warm-200 border border-warm-300 hover:border-warm-400 px-3 py-1.5 rounded-lg transition-colors">
+                                {copiedId === review.id ? 'Copied ✓' : 'Copy'}
+                              </button>
+                            )}
+                            {response.status === 'approved' && (
+                              <button onClick={() => setResponseStatus(review.id, 'posted')} disabled={busy}
+                                className="text-xs font-semibold text-charcoal-900 bg-warm-200 border border-warm-300 hover:border-warm-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                                Mark as Posted
+                              </button>
+                            )}
+                            {response.status !== 'dismissed' && response.status !== 'posted' && (
+                              <button onClick={() => setResponseStatus(review.id, 'dismissed')} disabled={busy}
+                                className="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors disabled:opacity-50">
+                                Dismiss
+                              </button>
+                            )}
+                            <button onClick={() => generateResponse(review.id)} disabled={busy}
+                              className="text-xs font-semibold text-charcoal-500 hover:text-charcoal-900 transition-colors disabled:opacity-50 ml-auto">
+                              {busy ? '...' : '↻ Regenerate'}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )

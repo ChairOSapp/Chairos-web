@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { generateReviewResponseDraft } from '@/lib/reviewResponseAI'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
   // Get owner's shop (include google_place_id as fallback)
   const { data: shop, error: shopErr } = await supabase
     .from('shops')
-    .select('id, google_place_id')
+    .select('id, name, vertical, google_place_id')
     .eq('owner_id', user.id)
     .limit(1)
     .maybeSingle()
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
   const { data: upserted, error: upsertErr } = await supabase
     .from('reviews')
     .upsert(rows, { onConflict: 'shop_id,reviewer_name,review_date', ignoreDuplicates: true })
-    .select('id')
+    .select('id, reviewer_name, rating, body, barber_id')
 
   if (upsertErr) {
     return NextResponse.json({ error: upsertErr.message }, { status: 500 })
@@ -107,6 +108,29 @@ export async function POST(req: NextRequest) {
 
   const imported = upserted?.length ?? 0
   const skipped = rows.length - imported
+
+  // Best-effort draft response generation for each newly-imported review only
+  // (ignoreDuplicates means `upserted` already excludes rows that already existed).
+  for (const review of upserted ?? []) {
+    try {
+      const draftText = await generateReviewResponseDraft({
+        shopName: shop.name,
+        vertical: shop.vertical,
+        reviewerName: review.reviewer_name,
+        rating: review.rating,
+        body: review.body,
+      })
+      await supabase.from('review_responses').insert({
+        review_id: review.id,
+        shop_id: shop.id,
+        draft_text: draftText,
+        status: 'pending',
+        ai_generated: true,
+      })
+    } catch {
+      // Draft generation is a convenience, not a requirement for the import to succeed.
+    }
+  }
 
   return NextResponse.json({ imported, skipped })
 }

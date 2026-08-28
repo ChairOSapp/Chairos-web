@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { generateReviewResponseDraft } from '@/lib/reviewResponseAI'
 
 const VALID_SOURCES = ['google', 'booksy', 'manual', 'chairos'] as const
 
@@ -100,6 +101,33 @@ export async function POST(req: NextRequest) {
 
   if (insertErr) {
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
+  }
+
+  // Best-effort draft response generation — a review is still saved even if this fails.
+  try {
+    const { data: shopDetails } = await supabase.from('shops').select('name, vertical').eq('id', shop.id).maybeSingle()
+    let staffName: string | null = null
+    if (barber_id) {
+      const { data: staff } = await supabase.from('shop_barbers').select('barber_name, alias').eq('shop_id', shop.id).eq('barber_id', barber_id).maybeSingle()
+      staffName = staff?.barber_name || staff?.alias || null
+    }
+    const draftText = await generateReviewResponseDraft({
+      shopName: shopDetails?.name ?? 'the shop',
+      vertical: shopDetails?.vertical ?? null,
+      reviewerName: review.reviewer_name,
+      rating: review.rating,
+      body: review.body,
+      staffName,
+    })
+    await supabase.from('review_responses').insert({
+      review_id: review.id,
+      shop_id: shop.id,
+      draft_text: draftText,
+      status: 'pending',
+      ai_generated: true,
+    })
+  } catch {
+    // Draft generation is a convenience, not a requirement for saving the review.
   }
 
   return NextResponse.json({ review })
