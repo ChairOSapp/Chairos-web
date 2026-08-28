@@ -84,17 +84,36 @@ export default function QuickBookModal({
 
     let clientId = foundClientId
     if (!clientId) {
-      const { data: existing } = await supabase.from('clients').select('id').eq('phone', phone).maybeSingle()
-      if (existing) {
-        clientId = existing.id
+      // clients' SELECT policy only allows reading rows already linked to
+      // this shop via client_shop_memberships, so a brand-new client can't
+      // be read back right after insert (same RLS shape documented in
+      // WalkInQueue.tsx / the public booking page) -- use the same
+      // lookup-by-membership RPC and client-generated-id insert pattern,
+      // and actually create the membership afterward so this client shows
+      // up in the shop's client list at all.
+      const { data: rpcData } = await supabase
+        .rpc('find_client_for_booking', { p_phone: phone, p_shop_id: shopId })
+      const existing = rpcData?.[0]
+      if (existing?.client_id) {
+        clientId = existing.client_id
       } else {
-        const { data: newClient } = await supabase.from('clients').insert({
+        const newId = crypto.randomUUID()
+        const { error: newClientErr } = await supabase.from('clients').insert({
+          id: newId,
           full_name: clientName,
           phone,
           total_visits: 0,
           source: 'manual',
-        }).select('id').single()
-        clientId = newClient?.id || null
+        })
+        clientId = newClientErr ? null : newId
+      }
+
+      if (clientId) {
+        fetch('/api/book/membership', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId, shopId }),
+        }).catch(() => {})
       }
     }
 
