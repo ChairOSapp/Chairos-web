@@ -13,6 +13,7 @@ function isPublic(pathname: string) {
   if (pathname.startsWith('/consent/')) return true
   if (pathname.startsWith('/api/stripe/')) return true
   if (pathname.startsWith('/api/square/')) return true
+  if (pathname.startsWith('/api/webhooks/')) return true
   if (pathname.startsWith('/api/sms')) return true
   if (pathname.startsWith('/api/email/')) return true
   if (pathname.startsWith('/api/consent/')) return true
