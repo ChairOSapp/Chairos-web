@@ -389,7 +389,11 @@ function BarberSettingsInner() {
             </svg>
             <div>
               <div className="text-sm font-semibold text-charcoal-900">Payments handled by shop</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">Your shop owner processes payments and tips. No Square connection needed on your end.</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">
+                {shop?.owner_id === userId
+                  ? 'Connect Square from Shop Settings to accept appointment payments.'
+                  : 'Your shop owner processes payments and tips. No Square connection needed on your end.'}
+              </div>
             </div>
           </div>
         )}
@@ -404,12 +408,16 @@ function BarberSettingsInner() {
                 </svg>
               </div>
               <div>
-                <div className="font-serif text-charcoal-900 text-sm">My Reviews</div>
-                <div className="text-xs text-charcoal-500">Reviews assigned to you by your shop owner</div>
+                <div className="font-serif text-charcoal-900 text-sm">{shop?.owner_id === userId ? 'Reviews' : 'My Reviews'}</div>
+                <div className="text-xs text-charcoal-500">
+                  {shop?.owner_id === userId
+                    ? 'Import from Google, manage visibility, approve AI response drafts'
+                    : 'Reviews assigned to you by your shop owner'}
+                </div>
               </div>
             </div>
             <button
-              onClick={() => router.push('/dashboard/chair/reviews')}
+              onClick={() => router.push(shop?.owner_id === userId ? '/dashboard/reviews' : '/dashboard/chair/reviews')}
               className="px-3 py-1.5 bg-od-green text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap">
               View Reviews
             </button>

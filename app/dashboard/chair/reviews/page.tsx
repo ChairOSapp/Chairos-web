@@ -35,6 +35,9 @@ export default function BarberReviewsPage() {
         .maybeSingle()
 
       if (!sb) { router.push('/join'); return }
+      // A Solo Chair owns their own shop, so "assigned to you by your shop
+      // owner" is nonsensical here -- send them to the real management page.
+      if (sb.shops?.owner_id === user.id) { router.push('/dashboard/reviews'); return }
       setShopBarber(sb)
       setShopName(sb.shops?.name || '')
 
