@@ -211,7 +211,6 @@ function BookingPageInner() {
 
   async function handleBook() {
     if (!clientName || !clientPhone) { setError('Name and phone are required'); return }
-    if (clientPhone && !smsConsent) { setError('Please consent to SMS messages to receive your booking confirmation'); return }
     if (CAPTCHA_ENABLED && !captchaToken) { setError('Please complete the verification check'); return }
     setSubmitting(true)
     setError('')
@@ -862,7 +861,7 @@ function BookingPageInner() {
                   className="mt-0.5 w-4 h-4 flex-shrink-0 accent-od-green"
                 />
                 <span className="text-xs text-charcoal-500 leading-relaxed">
-                  I consent to receive SMS appointment confirmations and reminders from {shop.name}. Message & data rates may apply. Reply STOP to opt out. View our{' '}
+                  Text me appointment reminders and updates (optional). Message & data rates may apply. Reply STOP to opt out. View our{' '}
                   <a href="/privacy" className="underline hover:text-charcoal-300">Privacy Policy</a>.
                 </span>
               </label>
@@ -887,7 +886,7 @@ function BookingPageInner() {
 
             <div className="flex gap-3 items-center">
               <button onClick={() => setStep(3)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
-              <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (!!clientPhone && !smsConsent) || (CAPTCHA_ENABLED && !captchaToken)}
+              <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (CAPTCHA_ENABLED && !captchaToken)}
                 className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
                 style={{ background: brand }}>
                 {submitting ? 'Processing...' : requiresDeposit ? `Confirm & Pay Deposit $${depositAmountEstimate}` : `Confirm & Pay $${selectedService?.price}`}

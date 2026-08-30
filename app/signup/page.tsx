@@ -162,7 +162,7 @@ export default function Signup() {
               className="mt-0.5 w-4 h-4 flex-shrink-0 accent-od-green"
             />
             <span className="text-xs text-charcoal-500 leading-relaxed">
-              I consent to receive SMS notifications from ChairOS (booking alerts, reminders). Message & data rates may apply. Reply STOP to opt out. View our{' '}
+              Text me booking alerts and reminders (optional). Message & data rates may apply. Reply STOP to opt out. View our{' '}
               <a href="/privacy" className="underline hover:text-charcoal-300">Privacy Policy</a>.
             </span>
           </label>
