@@ -24,9 +24,10 @@ export async function POST() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
-  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (profile?.role !== 'owner') return NextResponse.json({ error: 'Owner only' }, { status: 403 })
 
+  // Whoever owns the shop can check its recommendations -- a Solo Chair
+  // (profiles.role='barber') owns their own shop the same way an owner
+  // role does, so this is a shop-ownership check, not a role check.
   const { data: shop } = await admin.from('shops').select('id').eq('owner_id', user.id).maybeSingle()
   if (!shop) return NextResponse.json({ error: 'No shop found' }, { status: 404 })
 

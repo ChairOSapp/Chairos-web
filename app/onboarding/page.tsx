@@ -24,6 +24,8 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(true)
   const [error, setError] = useState('')
+  const [isSolo, setIsSolo] = useState(false)
+  const [profileName, setProfileName] = useState('')
 
   const [shopName, setShopName] = useState('')
   const [shopAddress, setShopAddress] = useState('')
@@ -61,12 +63,24 @@ export default function Onboarding() {
     async function checkShop() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, full_name')
+        .eq('id', user.id)
+        .maybeSingle()
+      const solo = profile?.role === 'barber'
+      setIsSolo(solo)
+      setProfileName(profile?.full_name || '')
+
       const { data: shop } = await supabase
         .from('shops')
         .select('id')
         .eq('owner_id', user.id)
         .maybeSingle()
-      if (shop) { router.push('/dashboard'); return }
+      // Already set up (e.g. re-visiting this URL after finishing) --
+      // send them to the dashboard that actually matches their role.
+      if (shop) { router.push(solo ? '/dashboard/chair' : '/dashboard'); return }
       setChecking(false)
     }
     checkShop()
@@ -158,7 +172,27 @@ export default function Onboarding() {
       track('shop_created', { vertical })
       track('booking_page_published', { vertical })
 
-      if (barbers.length > 0) {
+      if (isSolo) {
+        // Solo Chair has no separate staff to add -- they ARE the one
+        // chair. Every downstream feature (calendar, walk-in queue,
+        // Client Lock, insights, earnings) resolves a barber through a
+        // shop_barbers row, so this self-record is what makes the rest
+        // of the app work for them, not a "staff roster" in the owner
+        // sense. 100% commission since there's no separate owner/shop
+        // cut to split.
+        const { error: selfErr } = await supabase.from('shop_barbers').insert({
+          shop_id: createdShop.id,
+          barber_id: user.id,
+          barber_name: profileName || 'Me',
+          alias: profileName || 'Me',
+          color: BARBER_COLORS[0],
+          compensation_type: 'commission',
+          commission_rate: 1.0,
+          tip_split_rate: 1.0,
+          active: true,
+        })
+        if (selfErr) throw selfErr
+      } else if (barbers.length > 0) {
         const { error: bErr } = await supabase.from('shop_barbers').insert(
           barbers.map(b => ({
             shop_id: createdShop.id,
@@ -179,7 +213,7 @@ export default function Onboarding() {
         track('staff_added', { count: barbers.length, source: 'onboarding' })
       }
 
-      router.push('/subscribe?plan=owner')
+      router.push(isSolo ? '/subscribe?plan=barber' : '/subscribe?plan=owner')
     } catch (err: any) {
       setError(err.message)
       setLoading(false)
@@ -190,7 +224,7 @@ export default function Onboarding() {
   const staffLabel = verticalMeta[activeVertical].staff_label
   const staffLabelPlural = verticalMeta[activeVertical].staff_label_plural
 
-  const stepLabel = ['Shop Info', 'Services', staffLabelPlural]
+  const stepLabel = isSolo ? ['Shop Info', 'Services'] : ['Shop Info', 'Services', staffLabelPlural]
 
   if (checking) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
@@ -351,14 +385,20 @@ export default function Onboarding() {
               <button onClick={() => setStep(1)} className="px-6 py-3 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
                 Back
               </button>
-              <button onClick={() => setStep(3)} className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm">
-                Continue →
-              </button>
+              {isSolo ? (
+                <button onClick={handleLaunch} disabled={loading} className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm disabled:opacity-50">
+                  {loading ? 'Setting up...' : 'Finish Setup →'}
+                </button>
+              ) : (
+                <button onClick={() => setStep(3)} className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm">
+                  Continue →
+                </button>
+              )}
             </div>
           </div>
         )}
 
-        {step === 3 && (
+        {!isSolo && step === 3 && (
           <div>
             <div className="mb-5">
               <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your {staffLabelPlural.toLowerCase()}</h2>

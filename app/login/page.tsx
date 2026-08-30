@@ -44,10 +44,18 @@ export default function Login() {
     if (prof?.role === 'barber') {
       const { data: sb } = await supabase.from('shop_barbers').select('id').eq('barber_id', userId).eq('active', true).maybeSingle()
       if (sb) { router.push('/dashboard/chair'); return }
-      // Solo barbers with an active subscription go straight to their dashboard
-      const soloActive = prof?.plan_type === 'solo' &&
-        (prof?.subscription_status === 'active' || prof?.subscription_status === 'trialing')
-      router.push(soloActive ? '/dashboard/chair' : '/join')
+
+      // No shop_barbers link yet. A genuine "join someone else's shop"
+      // case always arrives here with an invite token or shop code still
+      // attached to the redirect param (handled above), so reaching this
+      // point with no redirect means either a brand-new Solo Chair
+      // signup (send to onboarding) or one who finished onboarding but
+      // hasn't been billed yet (send to subscribe) -- never /join, which
+      // was a dead end for solo since it only offers "enter a shop code."
+      const { data: ownShop } = await supabase.from('shops').select('id').eq('owner_id', userId).maybeSingle()
+      if (!ownShop) { router.push('/onboarding'); return }
+      if (getBillingStatus(prof) === 'blocked') { router.push('/subscribe'); return }
+      router.push('/dashboard/chair')
       return
     }
 

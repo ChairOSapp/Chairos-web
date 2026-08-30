@@ -1,5 +1,5 @@
 'use client'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import NotificationBell from '@/components/NotificationBell'
@@ -17,22 +17,56 @@ export default function StaffNav({ shopName, barberName, color, initial, photoUr
   const router = useRouter()
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
+  // Solo Chair is role='barber' but owns the shop they're the sole
+  // barber_id of -- unlike hired staff, they need the shop-management
+  // pages (Campaigns, Insights) an owner would otherwise reach through
+  // OwnerNav, since there's no separate owner account for them to use.
+  const [isSoloOwner, setIsSoloOwner] = useState(false)
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    async function check() {
+      const { data: shopBarber } = await supabase
+        .from('shop_barbers')
+        .select('shops(owner_id)')
+        .eq('barber_id', userId)
+        .eq('active', true)
+        .maybeSingle()
+      const shopRow = (shopBarber as any)?.shops
+      const ownerId = Array.isArray(shopRow) ? shopRow[0]?.owner_id : shopRow?.owner_id
+      if (!cancelled) setIsSoloOwner(ownerId === userId)
+    }
+    check()
+    return () => { cancelled = true }
+  }, [userId, supabase])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
+  const navItems = [
+    { label: 'My Schedule', href: '/dashboard/chair' },
+    { label: 'Calendar', href: '/dashboard/chair/calendar' },
+    { label: 'Earnings', href: '/dashboard/chair/earnings' },
+    ...(isSoloOwner ? [
+      { label: 'Campaigns', href: '/dashboard/campaigns' },
+      { label: 'Insights', href: '/dashboard/insights' },
+      { label: 'Shop Settings', href: '/dashboard/settings' },
+    ] : []),
+    { label: 'My Profile', href: '/dashboard/chair/settings' },
+    // Solo Chair owns their shop's reviews outright (import from Google,
+    // add manually, approve AI response drafts) -- send them to the full
+    // management page instead of the read-only "your barbers" view.
+    { label: isSoloOwner ? 'Reviews' : 'My Reviews', href: isSoloOwner ? '/dashboard/reviews' : '/dashboard/chair/reviews' },
+  ]
+
   return (
     <header className="bg-warm-100 dark:bg-[#1E1E1B] border-b border-warm-200 dark:border-[#2A2A26] px-4 h-14 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-1">
         <span className="font-serif text-od-green text-lg mr-4">ChairOS</span>
-        {[
-          { label: 'My Schedule', href: '/dashboard/chair' },
-          { label: 'Calendar', href: '/dashboard/chair/calendar' },
-          { label: 'My Profile', href: '/dashboard/chair/settings' },
-          { label: 'My Reviews', href: '/dashboard/chair/reviews' },
-        ].map(item => {
+        {navItems.map(item => {
           const active = pathname === item.href
           return (
             <button key={item.href} onClick={() => router.push(item.href)}

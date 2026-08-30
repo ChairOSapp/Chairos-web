@@ -6,6 +6,7 @@ import StaffNav from '@/components/StaffNav'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
+import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
 import { getBillingStatus } from '@/lib/billing'
 
@@ -378,6 +379,11 @@ export default function BarberDashboard() {
         />
 
         <BriefCard recipientName={profile?.full_name} />
+
+        {/* Recommendations are shop-level (underbooked services, pricing
+            signals); only meaningful for a Solo Chair, who owns their own
+            shop, not for hired staff at someone else's. */}
+        {shopId && shop?.owner_id === barberId && <RecommendationsPanel shopId={shopId} />}
 
         {shopId && (
           <WalkInQueue

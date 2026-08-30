@@ -38,9 +38,6 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (profile?.role !== 'owner') return NextResponse.json({ error: 'Owner only' }, { status: 403 })
-
   const { campaignId } = await req.json()
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
 

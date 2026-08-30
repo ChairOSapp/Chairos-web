@@ -701,7 +701,7 @@ export default function InsightsPage() {
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Insights</div>
             <h1 className="font-serif text-2xl text-charcoal-900">{shop?.name || 'Your Shop'}</h1>
           </div>
-          <button onClick={() => router.push('/dashboard')} className="btn-chairos-outline">Dashboard</button>
+          <button onClick={() => router.push(role === 'barber' ? '/dashboard/chair' : '/dashboard')} className="btn-chairos-outline">Dashboard</button>
         </div>
 
         {/* TAB SWITCHER */}

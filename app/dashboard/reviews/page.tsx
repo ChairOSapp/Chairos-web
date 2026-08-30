@@ -131,14 +131,20 @@ export default function ReviewsPage() {
       .from('profiles').select('*').eq('id', user.id).maybeSingle()
     setProfile(prof)
 
-    if (prof?.role === 'barber') { router.push('/dashboard/chair'); return }
-    if (prof?.role !== 'owner') { router.push('/login'); return }
+    if (prof?.role !== 'owner' && prof?.role !== 'barber') { router.push('/login'); return }
 
     const { data: shops } = await supabase
       .from('shops').select('*').eq('owner_id', user.id)
       .order('created_at', { ascending: true }).limit(1)
     const shopData = shops?.[0] || null
-    if (!shopData) { router.push('/onboarding'); return }
+
+    // A Solo Chair (role='barber') owns their own one-person shop and
+    // manages reviews the same way an owner would; hired staff (role=
+    // 'barber', no shop of their own) use the read-only view instead.
+    if (!shopData) {
+      router.push(prof?.role === 'barber' ? '/dashboard/chair' : '/onboarding')
+      return
+    }
     setShop(shopData)
 
     const [{ data: reviewsData }, { data: barbersData }, { data: responsesData }] = await Promise.all([
