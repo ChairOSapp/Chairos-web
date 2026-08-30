@@ -21,6 +21,10 @@ export default function InvitePage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      // A Solo Chair has no per-seat billing for additional staff -- send
+      // them back rather than let them generate a real invite/shop code.
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (prof?.role === 'barber') { router.push('/dashboard/settings'); return }
       const { data: shops } = await supabase
         .from('shops').select('id, name, invite_code').eq('owner_id', user.id).limit(1)
       setShop(shops?.[0] || null)

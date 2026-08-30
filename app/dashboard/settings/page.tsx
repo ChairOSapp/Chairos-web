@@ -737,13 +737,20 @@ export default function ShopSettings() {
               </button>
             )}
           </div>
-          <div className="mt-4 pt-4 border-t border-warm-200 flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold text-charcoal-900">{staffLabel} Invites</div>
-              <div className="text-xs text-charcoal-500 mt-0.5">All {staffLabelPlural.toLowerCase()} in your shop are covered by your plan</div>
+          {/* A Solo Chair (profile.role === 'barber') is the shop's only
+              service provider by design -- the $25/mo solo plan has no
+              per-seat billing for additional staff, so inviting one here
+              would silently add a second barber the plan was never priced
+              or built for. Only a Shop Owner sees this. */}
+          {profile?.role !== 'barber' && (
+            <div className="mt-4 pt-4 border-t border-warm-200 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-charcoal-900">{staffLabel} Invites</div>
+                <div className="text-xs text-charcoal-500 mt-0.5">All {staffLabelPlural.toLowerCase()} in your shop are covered by your plan</div>
+              </div>
+              <button onClick={() => router.push('/dashboard/settings/invite')} className="btn-chairos">Invite {staffLabelPlural}</button>
             </div>
-            <button onClick={() => router.push('/dashboard/settings/invite')} className="btn-chairos">Invite {staffLabelPlural}</button>
-          </div>
+          )}
         </div>
 
         {/* SERVICES */}
