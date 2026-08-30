@@ -5,6 +5,19 @@
 :root {
   --background: #FAFAF7;
   --foreground: #1A1A18;
+
+  /* ChairOS semantic color tokens */
+  --color-primary: #4B5320;
+  --color-primary-hover: #3A4019;
+  --color-primary-light: rgba(75, 83, 32, 0.08);
+  --color-background: #FAFAF7;
+  --color-card: #ffffff;
+  --color-text-primary: #1A1A18;
+  --color-text-secondary: #65655F;
+  --color-success: #4B5320;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-border: #EAE8E0;
 }
 
 .dark {
@@ -72,21 +85,6 @@ body {
 }
 .animate-slide-in {
   animation: slide-in 0.2s ease-out;
-}
-
-/* ChairOS semantic color tokens */
-:root {
-  --color-primary: #4B5320;
-  --color-primary-hover: #3A4019;
-  --color-primary-light: rgba(75, 83, 32, 0.08);
-  --color-background: #FAFAF7;
-  --color-card: #ffffff;
-  --color-text-primary: #1A1A18;
-  --color-text-secondary: #65655F;
-  --color-success: #4B5320;
-  --color-warning: #d97706;
-  --color-danger: #dc2626;
-  --color-border: #EAE8E0;
 }
 
 /* ChairOS button utility classes */
