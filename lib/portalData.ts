@@ -34,15 +34,33 @@ export async function resolvePortalClient(admin: SupabaseClient, phone: string):
 
   if (!client) return null
 
-  const { data: memberships } = await admin
-    .from('client_shop_memberships')
-    .select('shops(id, name, shop_code, vertical)')
-    .eq('client_id', client.id)
+  // client_shop_memberships is populated by one specific call in the
+  // online booking flow (fire-and-forget, non-fatal on failure per its own
+  // comment) -- it under-represents real relationships for anything
+  // created another way (walk-ins, manually-entered appointments, etc).
+  // Union it with the shops this client actually has appointments at, so
+  // "shops you have a relationship with" reflects real history, not just
+  // whether that one membership call happened to succeed.
+  const [{ data: memberships }, { data: apptShopIds }] = await Promise.all([
+    admin.from('client_shop_memberships').select('shops(id, name, shop_code, vertical)').eq('client_id', client.id),
+    admin.from('appointments').select('shop_id').eq('client_id', client.id),
+  ])
 
-  const shops: PortalShop[] = (memberships || [])
+  const shopIdsFromMemberships = (memberships || [])
     .map((m: any) => Array.isArray(m.shops) ? m.shops[0] : m.shops)
     .filter(Boolean)
     .map((s: any) => ({ shopId: s.id, shopName: s.name, shopCode: s.shop_code, vertical: s.vertical }))
+
+  const knownShopIds = new Set(shopIdsFromMemberships.map(s => s.shopId))
+  const missingShopIds = [...new Set((apptShopIds || []).map(a => a.shop_id))].filter(id => id && !knownShopIds.has(id))
+
+  let shopsFromAppointments: PortalShop[] = []
+  if (missingShopIds.length > 0) {
+    const { data: extraShops } = await admin.from('shops').select('id, name, shop_code, vertical').in('id', missingShopIds)
+    shopsFromAppointments = (extraShops || []).map(s => ({ shopId: s.id, shopName: s.name, shopCode: s.shop_code, vertical: s.vertical }))
+  }
+
+  const shops: PortalShop[] = [...shopIdsFromMemberships, ...shopsFromAppointments]
 
   return {
     clientId: client.id,
