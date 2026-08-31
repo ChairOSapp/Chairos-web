@@ -9,6 +9,7 @@ type PortalClient = {
   phone: string
   squareCardBrand: string | null
   squareCardLast4: string | null
+  referralCode: string
   shops: PortalShop[]
 }
 type Appointment = {
@@ -52,6 +53,7 @@ export default function ClientPortalPage() {
   const [authError, setAuthError] = useState('')
 
   const [tab, setTab] = useState<Tab>('home')
+  const [copiedReferralShopId, setCopiedReferralShopId] = useState<string | null>(null)
   const [upcoming, setUpcoming] = useState<Appointment[]>([])
   const [past, setPast] = useState<Appointment[]>([])
   const [apptsLoading, setApptsLoading] = useState(false)
@@ -383,6 +385,37 @@ export default function ClientPortalPage() {
 
         {tab === 'loyalty' && (
           <div>
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Refer a Friend</div>
+            {client.shops.length === 0 ? (
+              <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm mb-6">Book somewhere first to get your referral link.</div>
+            ) : (
+              <div className="space-y-2 mb-6">
+                {client.shops.map(s => {
+                  const link = s.shopCode ? `${window.location.origin}/book/${s.shopCode}?ref=${client.referralCode}` : null
+                  return (
+                    <div key={s.shopId} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
+                      <div className="text-sm font-semibold text-charcoal-900 mb-1">{s.shopName}</div>
+                      {link ? (
+                        <>
+                          <div className="text-xs text-charcoal-500 mb-2">Share this link — you'll both get a reward when your friend books their first visit.</div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-700 text-xs break-all font-mono">{link}</div>
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(link); setCopiedReferralShopId(s.shopId); setTimeout(() => setCopiedReferralShopId(null), 2000) }}
+                              className="flex-shrink-0 px-3 py-2 bg-od-green text-black text-xs font-semibold rounded-lg hover:opacity-90 transition-opacity">
+                              {copiedReferralShopId === s.shopId ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-xs text-charcoal-500">Referral link unavailable for this shop.</div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Loyalty</div>
             {client.shops.length === 0 ? (
               <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm">Book somewhere first to start earning.</div>

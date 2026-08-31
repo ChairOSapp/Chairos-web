@@ -22,13 +22,14 @@ export interface PortalClient {
   phone: string
   squareCardBrand: string | null
   squareCardLast4: string | null
+  referralCode: string
   shops: PortalShop[]
 }
 
 export async function resolvePortalClient(admin: SupabaseClient, phone: string): Promise<PortalClient | null> {
   const { data: client } = await admin
     .from('clients')
-    .select('id, full_name, email, phone, square_card_brand, square_card_last4')
+    .select('id, full_name, email, phone, square_card_brand, square_card_last4, referral_code')
     .eq('phone', phone)
     .maybeSingle()
 
@@ -69,6 +70,7 @@ export async function resolvePortalClient(admin: SupabaseClient, phone: string):
     phone: client.phone,
     squareCardBrand: client.square_card_brand,
     squareCardLast4: client.square_card_last4,
+    referralCode: client.referral_code,
     shops,
   }
 }

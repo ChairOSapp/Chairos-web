@@ -37,6 +37,8 @@ function BookingPageInner() {
   const [emailConsent, setEmailConsent] = useState(false)
   const [error, setError] = useState('')
   const [returningClient, setReturningClient] = useState<any>(null)
+  const [activeReward, setActiveReward] = useState<{ id: string; type: string; value: number } | null>(null)
+  const refCode = searchParams.get('ref')
   const [captchaToken, setCaptchaToken] = useState('')
   // Reused across the whole visit so the abandoned-booking sweep has one
   // row to update rather than a new one on every field change. If we
@@ -67,8 +69,23 @@ function BookingPageInner() {
   const requiresDeposit = !!shop && !!selectedService &&
     (shop.vertical === 'tattoo' || (shop.vertical === 'salon' && shop.deposits_enabled)) &&
     selectedService.deposit_required === true
-  const depositAmountEstimate = requiresDeposit && selectedService?.price != null
-    ? (shop.deposit_type === 'flat' ? Number(shop.deposit_amount) : Math.round(selectedService.price * (Number(shop.deposit_amount) / 100) * 100) / 100)
+
+  // A referral reward (checked via checkReturningClient once the phone
+  // matches an existing client) discounts the price before the deposit
+  // is calculated off it, so someone with a $10-off reward on a required
+  // deposit pays a deposit against the discounted total, not the sticker price.
+  const finalPrice = selectedService?.price != null
+    ? (activeReward
+        ? Math.max(0, Math.round(
+            (activeReward.type === 'percent_off'
+              ? selectedService.price * (1 - activeReward.value / 100)
+              : selectedService.price - activeReward.value) * 100
+          ) / 100)
+        : selectedService.price)
+    : null
+
+  const depositAmountEstimate = requiresDeposit && finalPrice != null
+    ? (shop.deposit_type === 'flat' ? Number(shop.deposit_amount) : Math.round(finalPrice * (Number(shop.deposit_amount) / 100) * 100) / 100)
     : null
 
   useEffect(() => {
@@ -288,6 +305,14 @@ function BookingPageInner() {
       const matchedBarber = barbers.find(b => b.id === client.locked_barber_id)
       if (matchedBarber) setSelectedBarber(matchedBarber)
     }
+
+    // Referral reward, if this client referred someone who's since
+    // completed their first visit here -- no PII in the return, safe
+    // for this anonymous flow.
+    const { data: rewardRows } = await supabase
+      .rpc('get_active_referral_reward', { p_client_id: client.client_id, p_shop_id: shop.id })
+    const reward = rewardRows?.[0]
+    setActiveReward(reward ? { id: reward.reward_id, type: reward.reward_type, value: reward.reward_value } : null)
   }
 
   async function handleBook() {
@@ -388,6 +413,17 @@ function BookingPageInner() {
         .insert({ id: newId, phone: normalizedPhone, source: 'online_booking', ...clientFields })
       if (newClientErr) { setError('Failed to create client record. Please try again.'); setSubmitting(false); resetCaptcha(); return }
       clientId = newId
+
+      // Attribute the referral, if any — non-fatal, and only for a
+      // genuinely new client (an existing client reusing a ?ref= link
+      // isn't "referred" by it).
+      if (refCode && shop?.id) {
+        fetch('/api/book/referral', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId: newId, shopId: shop.id, refCode }),
+        }).catch(() => {})
+      }
     }
 
     // Record shop membership for this client (new or returning) — non-fatal
@@ -425,7 +461,7 @@ function BookingPageInner() {
       client_email: clientEmail || null,
       date: selectedDate,
       time: time24,
-      price: selectedService.price,
+      price: finalPrice,
       status: 'pending',
       notes: notes || null,
       payment_status: 'unpaid',
@@ -433,6 +469,16 @@ function BookingPageInner() {
     })
 
     if (bookErr) { setError(bookErr.message || 'Booking failed'); setSubmitting(false); resetCaptcha(); return }
+
+    // Mark the reward redeemed now that a real booking used it —
+    // non-fatal, the discount is already reflected in the price above.
+    if (activeReward && clientId && shop?.id) {
+      fetch('/api/book/redeem-reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, shopId: shop.id, rewardId: activeReward.id }),
+      }).catch(() => {})
+    }
 
     // Mark the recovery session completed so the abandoned-booking sweep
     // never fires a recovery text for a booking that already went through — non-fatal
@@ -537,8 +583,8 @@ function BookingPageInner() {
       }
     }
 
-    trackMetaEvent('Schedule', { content_name: selectedService.name, value: selectedService.price, currency: 'USD' })
-    trackGoogleEvent('generate_lead', { value: selectedService.price, currency: 'USD' })
+    trackMetaEvent('Schedule', { content_name: selectedService.name, value: finalPrice, currency: 'USD' })
+    trackGoogleEvent('generate_lead', { value: finalPrice, currency: 'USD' })
 
     setSuccess(true)
     setSubmitting(false)
@@ -597,7 +643,7 @@ function BookingPageInner() {
           <div className="bg-warm-200 rounded-lg p-4 mb-6 text-left space-y-2">
             {[
               { label: 'Service', value: selectedService.name },
-              { label: 'Price', value: `$${selectedService.price}`, colored: true },
+              { label: 'Price', value: `$${finalPrice}`, colored: true },
               { label: 'Duration', value: `${selectedService.duration_minutes} mins` },
               { label: staffLabel, value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
             ].map((row, i) => (
@@ -608,6 +654,14 @@ function BookingPageInner() {
                 </span>
               </div>
             ))}
+            {activeReward && (
+              <div className="flex justify-between text-sm">
+                <span className="text-charcoal-400">Referral reward</span>
+                <span className="font-mono font-semibold text-od-green">
+                  -{activeReward.type === 'percent_off' ? `${activeReward.value}%` : `$${activeReward.value}`}
+                </span>
+              </div>
+            )}
           </div>
           <p className="text-charcoal-600 text-xs">
             {smsConsent ? `Confirmation text sent to ${clientPhone}.` : 'Booking confirmed.'} Powered by ChairOS.
@@ -847,9 +901,17 @@ function BookingPageInner() {
                   <span className="text-charcoal-900">{row.value}</span>
                 </div>
               ))}
+              {activeReward && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-charcoal-400">Referral reward</span>
+                  <span className="font-mono font-semibold text-od-green">
+                    -{activeReward.type === 'percent_off' ? `${activeReward.value}%` : `$${activeReward.value}`}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-sm border-t border-warm-200 pt-2 mt-2">
                 <span className="text-charcoal-400">Total</span>
-                <span className="font-mono font-semibold" style={{ color: brand }}>${selectedService?.price}</span>
+                <span className="font-mono font-semibold" style={{ color: brand }}>${finalPrice}</span>
               </div>
               {requiresDeposit && depositAmountEstimate != null && (
                 <div className="flex justify-between text-sm">
@@ -903,7 +965,7 @@ function BookingPageInner() {
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     {[
                       { key: 'save', label: 'Save for later', sub: 'Pay at checkout' },
-                      { key: 'charge', label: 'Charge now', sub: `$${selectedService?.price} today` },
+                      { key: 'charge', label: 'Charge now', sub: `$${finalPrice} today` },
                     ].map(opt => (
                       <button
                         key={opt.key}
@@ -946,7 +1008,7 @@ function BookingPageInner() {
                     ? `A $${depositAmountEstimate} deposit is charged now to hold this slot. Your slot is held for 15 minutes — if payment doesn't go through in that window, it's released. The rest is due at the shop.`
                     : cardMode === 'save'
                     ? 'Your card is saved securely by Square and charged at checkout.'
-                    : `Your card is charged $${selectedService?.price} now. Tip is added at the shop.`}
+                    : `Your card is charged $${finalPrice} now. Tip is added at the shop.`}
                   {' '}We do not store your full card number.
                 </p>
               </div>
@@ -990,7 +1052,7 @@ function BookingPageInner() {
               <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (CAPTCHA_ENABLED && !captchaToken)}
                 className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
                 style={{ background: brand }}>
-                {submitting ? 'Processing...' : requiresDeposit ? `Confirm & Pay Deposit $${depositAmountEstimate}` : `Confirm & Pay $${selectedService?.price}`}
+                {submitting ? 'Processing...' : requiresDeposit ? `Confirm & Pay Deposit $${depositAmountEstimate}` : `Confirm & Pay $${finalPrice}`}
               </button>
             </div>
             <p className="text-charcoal-600 text-xs text-center mt-6">Powered by ChairOS</p>

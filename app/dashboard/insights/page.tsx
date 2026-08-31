@@ -19,7 +19,7 @@ import { useVerticalLabels } from '@/lib/VerticalContext'
 
 type RevPeriod = 'today' | 'week' | 'month' | 'year'
 type AnalyticsPeriod = '30' | '90' | 'year'
-type TabId = 'revenue' | 'analytics' | 'ai'
+type TabId = 'revenue' | 'analytics' | 'ai' | 'referrals'
 
 // Superset of both pages' Appointment interfaces
 interface RevAppointment {
@@ -281,6 +281,9 @@ export default function InsightsPage() {
   const { staffLabel } = useVerticalLabels()
   const [tab, setTab] = useState<TabId>('revenue')
   const analyticsLoaded = useRef(false)
+  const referralsLoaded = useRef(false)
+  const [referralRewards, setReferralRewards] = useState<any[]>([])
+  const [referralsLoading, setReferralsLoading] = useState(false)
 
   // Auth/profile state
   const [userId, setUserId] = useState<string>('')
@@ -434,6 +437,32 @@ export default function InsightsPage() {
     analyticsLoaded.current = true
     fetchAnalyticsData()
   }, [tab, shop])
+
+  // Referral activity — load lazily on first switch to the Referrals tab.
+  useEffect(() => {
+    if (tab !== 'referrals' || referralsLoaded.current || !shop) return
+    referralsLoaded.current = true
+    fetchReferralRewards()
+  }, [tab, shop])
+
+  async function fetchReferralRewards() {
+    if (!shop) return
+    setReferralsLoading(true)
+    try {
+      const { data } = await supabase
+        .from('referral_rewards')
+        .select(`
+          id, status, reward_type, reward_value, created_at, earned_at, redeemed_at,
+          referring:clients!referral_rewards_referring_client_id_fkey(full_name, phone),
+          referred:clients!referral_rewards_referred_client_id_fkey(full_name, phone)
+        `)
+        .eq('shop_id', shop.id)
+        .order('created_at', { ascending: false })
+      setReferralRewards(data || [])
+    } finally {
+      setReferralsLoading(false)
+    }
+  }
 
   async function fetchAnalyticsData() {
     if (!shop) return
@@ -727,6 +756,7 @@ export default function InsightsPage() {
             { key: 'revenue', label: 'Revenue' },
             { key: 'analytics', label: 'Analytics' },
             { key: 'ai', label: 'AI Insights' },
+            { key: 'referrals', label: 'Referrals' },
           ] as { key: TabId; label: string }[]).map(t => (
             <button
               key={t.key}
@@ -1400,6 +1430,57 @@ export default function InsightsPage() {
             <BriefCard recipientName={profile?.full_name} />
             <p className="text-xs text-charcoal-400 text-center">Daily briefs generate at 7am ET from the previous day&apos;s data.</p>
           </div>
+        )}
+
+        {/* ---- REFERRALS TAB ---- */}
+        {tab === 'referrals' && (
+          <>
+            {!shop?.referral_program_enabled && (
+              <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-4 text-sm text-charcoal-500">
+                The referral program is off. Turn it on in Shop Settings to start tracking referrals.
+              </div>
+            )}
+            {referralsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
+              </div>
+            ) : referralRewards.length === 0 ? (
+              <div className="bg-warm-100 border border-warm-200 rounded-xl p-8 text-center text-charcoal-500 text-sm">
+                No referral activity yet.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {referralRewards.map((r: any) => {
+                  const referring = Array.isArray(r.referring) ? r.referring[0] : r.referring
+                  const referred = Array.isArray(r.referred) ? r.referred[0] : r.referred
+                  const statusStyle: Record<string, string> = {
+                    pending: 'bg-warm-200 text-charcoal-500',
+                    earned: 'bg-amber-950/40 text-amber-400',
+                    redeemed: 'bg-od-green/10 text-od-green',
+                  }
+                  const rewardLabel = r.reward_type === 'percent_off' ? `${r.reward_value}% off` : `$${r.reward_value} off`
+                  return (
+                    <div key={r.id} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-charcoal-900">
+                          <span className="font-semibold">{referring?.full_name || 'Unknown'}</span> referred{' '}
+                          <span className="font-semibold">{referred?.full_name || 'Unknown'}</span>
+                        </span>
+                        <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full ${statusStyle[r.status] || ''}`}>
+                          {r.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-charcoal-500">
+                        Reward: {rewardLabel} · Referred {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {r.earned_at && ` · Earned ${new Date(r.earned_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                        {r.redeemed_at && ` · Redeemed ${new Date(r.redeemed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
         )}
 
       </div>

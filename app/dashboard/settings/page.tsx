@@ -39,6 +39,9 @@ export default function ShopSettings() {
   const [depositType, setDepositType] = useState<'flat' | 'percent'>('percent')
   const [depositAmount, setDepositAmount] = useState('20')
   const [depositRefundWindowHours, setDepositRefundWindowHours] = useState('48')
+  const [referralProgramEnabled, setReferralProgramEnabled] = useState(false)
+  const [referralRewardType, setReferralRewardType] = useState<'percent_off' | 'flat_credit'>('percent_off')
+  const [referralRewardValue, setReferralRewardValue] = useState('10')
   const [googlePlaceId, setGooglePlaceId] = useState('')
   const [metaPixelId, setMetaPixelId] = useState('')
   const [googleTagId, setGoogleTagId] = useState('')
@@ -112,6 +115,9 @@ export default function ShopSettings() {
     setDepositType(shop.deposit_type || 'percent')
     setDepositAmount(String(shop.deposit_amount ?? 20))
     setDepositRefundWindowHours(String(shop.deposit_refund_window_hours ?? 48))
+    setReferralProgramEnabled(!!shop.referral_program_enabled)
+    setReferralRewardType(shop.referral_reward_type || 'percent_off')
+    setReferralRewardValue(String(shop.referral_reward_value ?? 10))
     setGooglePlaceId(shop.google_place_id || '')
     setMetaPixelId(shop.meta_pixel_id || '')
     setGoogleTagId(shop.google_tag_id || '')
@@ -230,6 +236,9 @@ export default function ShopSettings() {
       deposit_type: depositType,
       deposit_amount: parseFloat(depositAmount) || 0,
       deposit_refund_window_hours: parseInt(depositRefundWindowHours) || 0,
+      referral_program_enabled: referralProgramEnabled,
+      referral_reward_type: referralRewardType,
+      referral_reward_value: parseFloat(referralRewardValue) || 0,
     }).eq('id', shop.id)
 
     if (saveErr) { setError(saveErr.message); setSaving(false); return }
@@ -647,6 +656,52 @@ export default function ShopSettings() {
             </div>
           </div>
         )}
+
+        {/* REFERRAL PROGRAM */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200 flex items-start justify-between gap-4">
+            <div>
+              <div className="font-serif text-charcoal-900 text-sm">Referral Program</div>
+              <div className="text-xs text-charcoal-500">Reward clients for bringing in new business</div>
+            </div>
+            <button
+              onClick={() => setReferralProgramEnabled(v => !v)}
+              style={{ background: referralProgramEnabled ? '#4B5320' : '#d4c9b8' }}
+              className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
+              <span
+                style={{ transform: referralProgramEnabled ? 'translateX(22px)' : 'translateX(2px)' }}
+                className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
+            </button>
+          </div>
+          {referralProgramEnabled && (
+            <div className="p-5">
+              <p className="text-xs text-charcoal-500 mb-4">
+                Every client gets their own referral link. When someone new books using it and completes their first visit, the referring client's reward is applied to their next booking automatically. They're also texted their own link after their first completed visit here.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Reward Type</label>
+                  <select value={referralRewardType} onChange={e => setReferralRewardType(e.target.value as 'percent_off' | 'flat_credit')}
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green">
+                    <option value="percent_off">Percent off next visit</option>
+                    <option value="flat_credit">Flat dollar credit</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
+                    Reward Value {referralRewardType === 'percent_off' ? '(%)' : '($)'}
+                  </label>
+                  <input type="number" min="0" step={referralRewardType === 'percent_off' ? '1' : '0.01'} value={referralRewardValue}
+                    onChange={e => setReferralRewardValue(e.target.value)}
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                </div>
+              </div>
+              <div className="text-xs text-charcoal-500 mt-4">
+                Applies to whoever referred the new client only, not the new client's first visit itself.
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* REVIEWS */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
