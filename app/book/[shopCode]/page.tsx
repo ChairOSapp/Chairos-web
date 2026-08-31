@@ -923,13 +923,17 @@ function BookingPageInner() {
                 )}
 
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4">
+                  {/* Square's attach() needs the target element actually laid out
+                      (not display:none) while it runs, so this stays mounted and
+                      visible the whole time -- the spinner overlays it instead of
+                      hiding it. */}
                   {cardLoading && (
                     <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
                       <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
                       Loading card form...
                     </div>
                   )}
-                  <div id="square-card-container" className={cardLoading ? 'hidden' : ''} />
+                  <div id="square-card-container" />
                   {!cardLoading && !cardReady && !paymentError && (
                     <p className="text-neutral-500 text-xs py-2">Card form unavailable — you can pay at the shop.</p>
                   )}
