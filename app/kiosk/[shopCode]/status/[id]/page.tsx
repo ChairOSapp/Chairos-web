@@ -1,11 +1,15 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 
 type StatusData = { status: string; position: number; shopName: string }
 
+const RETURN_TO_KIOSK_MS = 10000
+
 export default function KioskStatus() {
   const params = useParams()
+  const router = useRouter()
+  const shopCode = (params.shopCode as string)?.toUpperCase()
   const id = params.id as string
   const [data, setData] = useState<StatusData | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -25,6 +29,14 @@ export default function KioskStatus() {
     intervalRef.current = setInterval(poll, 15000)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [id])
+
+  // This is a shared tablet, not the walk-in's own phone -- it needs to
+  // free up for the next person rather than sit on one customer's queue
+  // position indefinitely.
+  useEffect(() => {
+    const timer = setTimeout(() => router.push(`/kiosk/${shopCode}`), RETURN_TO_KIOSK_MS)
+    return () => clearTimeout(timer)
+  }, [router, shopCode])
 
   if (notFound) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
@@ -54,6 +66,7 @@ export default function KioskStatus() {
           {data.status === 'waiting' && (
             <p className="text-charcoal-400 text-sm mt-2">We'll be ready for you shortly.</p>
           )}
+          <p className="text-charcoal-300 text-xs mt-6">Have a seat -- this screen is for the next check-in.</p>
         </div>
       </div>
     </div>

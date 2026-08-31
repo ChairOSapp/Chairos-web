@@ -21,8 +21,8 @@ export type RateLimitBucket =
   | 'squarePayment'
   | 'sms'
   | 'bookPage'
-  | 'kioskCheckin'
   | 'kioskStatus'
+  | 'kioskOtp'
   | 'waitlist'
 
 // failClosed controls what happens when Redis is unreachable or not
@@ -37,8 +37,14 @@ const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters
   squarePayment: { limit: 10, window: '60 s', failClosed: false },
   sms: { limit: 10, window: '60 s', failClosed: false },
   bookPage: { limit: 60, window: '60 s', failClosed: false },
-  kioskCheckin: { limit: 12, window: '60 s', failClosed: true },
   kioskStatus: { limit: 30, window: '60 s', failClosed: false },
+  // Sends a real SMS per request -- costs money and is a prime abuse
+  // target on a public unauthenticated endpoint, so it fails closed like
+  // login. Used both IP-scoped (via the middleware bucket lookup below)
+  // and phone-scoped (called directly inside the send route) so neither
+  // one IP cycling through numbers nor one number hit from many IPs can
+  // run up the SMS bill.
+  kioskOtp: { limit: 6, window: '60 s', failClosed: true },
   waitlist: { limit: 5, window: '60 s', failClosed: false },
 }
 
@@ -97,8 +103,8 @@ export function getClientIp(request: Request): string {
 // Ordered by specificity -- checked top to bottom, first match wins.
 export function getRateLimitBucket(pathname: string): RateLimitBucket | null {
   if (pathname === '/login') return 'login'
-  if (pathname.startsWith('/api/kiosk/checkin')) return 'kioskCheckin'
   if (pathname.startsWith('/api/kiosk/status')) return 'kioskStatus'
+  if (pathname.startsWith('/api/kiosk/otp')) return 'kioskOtp'
   if (pathname.startsWith('/api/waitlist')) return 'waitlist'
   if (
     pathname.startsWith('/api/square/save-card') ||
