@@ -30,6 +30,7 @@ In Vercel → your project → Settings → Environment Variables, add:
 - `TRIGGER_PROJECT_REF`
 - `ANTHROPIC_API_KEY`
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` (if not already there)
+- `BOOKING_ABANDON_TIMEOUT_MINUTES` (optional, default 20) — how long a booking page can sit idle before it's swept as abandoned
 
 ## 4. Deploy tasks to Trigger.dev
 
@@ -39,32 +40,27 @@ npm run trigger:deploy
 
 Run this command after **every change** to a file in `src/trigger/`. Tasks run on Trigger.dev's own infrastructure — Vercel does not need to change.
 
-## 5. Wiring up abandoned booking recovery
+## 5. Abandoned booking recovery
 
-The `triggerAbandonedBooking` server action is in `app/actions/triggerAbandonedBooking.ts`.
-Call it from the booking flow when a session goes stale:
+Unlike the other automations, this one isn't triggered from application
+code at all -- it follows the same scan-based pattern as
+`depositHoldExpiration`. The public booking page (`app/book/[shopCode]/page.tsx`)
+writes an in-progress session to `booking_sessions` via `POST /api/book/session`
+as soon as the visitor has entered name + phone + a selected service/date/time,
+and marks it `completed` via `POST /api/book/session/complete` once a real
+appointment is created.
 
-```typescript
-import { triggerAbandonedBooking } from '@/app/actions/triggerAbandonedBooking'
+`src/trigger/abandonedBookingSweep.ts` runs on a cron (every 5 minutes) and
+finds sessions still `in_progress` after `BOOKING_ABANDON_TIMEOUT_MINUTES`
+(default 20) of inactivity, marks them `abandoned`, and sends one recovery
+text per session:
 
-// When the user leaves step 3 without completing the booking:
-await triggerAbandonedBooking({
-  bookingSessionId: sessionId,   // store in booking_sessions with status='abandoned' first
-  clientPhone: phone,
-  clientName: name,
-  shopName: shop.name,
-  barberId: selectedBarber.id,
-  barberName: selectedBarber.barber_name,
-})
-```
-
-Mark the session completed when booking succeeds:
-```typescript
-await supabase
-  .from('booking_sessions')
-  .update({ status: 'completed' })
-  .eq('session_id', sessionId)
-```
+- Deposit-required service: a reminder with a link back to the booking
+  page (`/book/[shopCode]?session=<id>`) that restores their selections
+  and drops them at the payment step.
+- No deposit required: a text asking them to reply YES/BOOK/CONFIRM,
+  handled by the inbound-reply branch added to `app/api/sms/optout/route.ts`
+  (the same webhook Twilio is already configured to call for STOP/START/HELP).
 
 ## 6. Triggering personalized rebooking SMS manually
 

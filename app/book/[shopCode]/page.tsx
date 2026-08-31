@@ -37,6 +37,13 @@ function BookingPageInner() {
   const [error, setError] = useState('')
   const [returningClient, setReturningClient] = useState<any>(null)
   const [captchaToken, setCaptchaToken] = useState('')
+  // Reused across the whole visit so the abandoned-booking sweep has one
+  // row to update rather than a new one on every field change. If we
+  // arrived via a recovery-text link (?session=...), reuse that same
+  // session id so restored selections keep updating the original row
+  // instead of forking a second one.
+  const [sessionId] = useState(() => searchParams.get('session') || crypto.randomUUID())
+  const [prefillLoaded, setPrefillLoaded] = useState(!searchParams.get('session'))
   const turnstileRef = useRef<TurnstileHandle>(null)
   // Public page — no logged-in user, so labels come from this shop's own
   // vertical (already loaded with the shop row), not useVerticalLabels()
@@ -96,6 +103,38 @@ function BookingPageInner() {
         .eq('shop_id', shop.id).eq('active', true)
         .order('price', { ascending: true })
       setServices(services || [])
+
+      // Restore selections from an abandoned-booking recovery link
+      // (?session=...) -- the deposit-required recovery text sends people
+      // here instead of a reply-to-book flow, since a deposit still needs
+      // real payment info.
+      const sessionParam = searchParams.get('session')
+      if (sessionParam) {
+        try {
+          const res = await fetch(`/api/book/session?sessionId=${encodeURIComponent(sessionParam)}`)
+          if (res.ok) {
+            const { session } = await res.json()
+            const matchedBarber = session.barber_id ? (barbers || []).find((b: any) => b.barber_id === session.barber_id) : null
+            const matchedService = (services || []).find((s: any) => s.id === session.service_id)
+            if (matchedBarber) setSelectedBarber(matchedBarber)
+            if (matchedService) setSelectedService(matchedService)
+            setSelectedDate(session.date || '')
+            setSelectedTime('')
+            setClientName(session.client_name || '')
+            setClientPhone(session.client_phone || '')
+            setClientEmail(session.client_email || '')
+            // Land on the date/time step rather than jumping straight to
+            // payment -- the original slot may no longer be free, and
+            // re-selecting a time re-runs the real availability check.
+            if (matchedService) setStep(3)
+          }
+        } catch {
+          // Prefill is a convenience, not a hard requirement -- fall back
+          // to a normal empty booking flow on any failure.
+        } finally {
+          setPrefillLoaded(true)
+        }
+      }
 
       // Fetch top reviews for the shop preview
       let reviewsData: any[] | null = null
@@ -191,6 +230,45 @@ function BookingPageInner() {
       .finally(() => { if (!cancelled) setLoadingSlots(false) })
     return () => { cancelled = true }
   }, [selectedDate, selectedService, selectedBarber, shopCode])
+
+  // Captures the in-progress booking as soon as there's enough to recover
+  // -- name, phone, and a selected service/date/time -- so the abandoned-
+  // booking sweep has real data to text about instead of nothing.
+  // Debounced so it doesn't fire on every keystroke, and skipped while a
+  // recovery-link prefill is still loading so it can't overwrite the
+  // session with a half-populated state.
+  useEffect(() => {
+    if (!prefillLoaded || !shop || success) return
+    if (!clientName || clientPhone.replace(/\D/g, '').length < 10) return
+    if (!selectedService || !selectedDate || !selectedTime) return
+
+    const timer = setTimeout(() => {
+      const [time, period] = selectedTime.split(' ')
+      const [hours, minutes] = time.split(':')
+      let h = parseInt(hours)
+      if (period === 'PM' && h !== 12) h += 12
+      if (period === 'AM' && h === 12) h = 0
+      const time24 = `${h.toString().padStart(2, '0')}:${minutes}:00`
+
+      fetch('/api/book/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          shopId: shop.id,
+          barberId: selectedBarber?.barber_id || null,
+          serviceId: selectedService.id,
+          date: selectedDate,
+          time: time24,
+          clientName,
+          clientPhone,
+          clientEmail: clientEmail || null,
+        }),
+      }).catch(() => {})
+    }, 800)
+
+    return () => clearTimeout(timer)
+  }, [prefillLoaded, shop, success, clientName, clientPhone, clientEmail, selectedService, selectedDate, selectedTime, selectedBarber, sessionId])
 
   async function checkReturningClient(phone: string) {
     if (phone.replace(/\D/g, '').length < 10) return
@@ -352,6 +430,14 @@ function BookingPageInner() {
     })
 
     if (bookErr) { setError(bookErr.message || 'Booking failed'); setSubmitting(false); resetCaptcha(); return }
+
+    // Mark the recovery session completed so the abandoned-booking sweep
+    // never fires a recovery text for a booking that already went through — non-fatal
+    fetch('/api/book/session/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, appointmentId: newApptId }),
+    }).catch(() => {})
 
     if (sourceId && requiresDeposit) {
       // Deposit path: charges the deposit amount (not the full price) and,
@@ -779,6 +865,11 @@ function BookingPageInner() {
                     className="w-full bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none transition-colors"
                     onFocus={e => e.target.style.borderColor = brand}
                     onBlur={e => e.target.style.borderColor = '#404040'} />
+                  {f.label === 'Phone Number *' && (
+                    <p className="text-charcoal-600 text-xs mt-2 leading-relaxed">
+                      If you don't finish booking, we may text you a reminder to complete it.
+                    </p>
+                  )}
                   {f.label === 'Phone Number *' && returningClient && (
                     <div className="bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 flex items-center gap-3 mt-2">
                       <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
