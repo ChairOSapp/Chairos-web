@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams, useSearchParams } from 'next/navigation'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
+import { initMetaPixel, initGoogleTag, trackMetaEvent, trackGoogleEvent } from '@/lib/tracking'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -76,6 +77,8 @@ function BookingPageInner() {
         .from('shops').select('*').eq('shop_code', shopCode).maybeSingle()
       if (!shop) { setNotFound(true); setLoading(false); return }
       setShop(shop)
+      initMetaPixel(shop.meta_pixel_id)
+      initGoogleTag(shop.google_tag_id)
 
       const { data: verticalMeta } = await supabase
         .from('vertical_config').select('staff_label').eq('vertical', shop.vertical).maybeSingle()
@@ -533,6 +536,9 @@ function BookingPageInner() {
         // SMS failure is non-fatal
       }
     }
+
+    trackMetaEvent('Schedule', { content_name: selectedService.name, value: selectedService.price, currency: 'USD' })
+    trackGoogleEvent('generate_lead', { value: selectedService.price, currency: 'USD' })
 
     setSuccess(true)
     setSubmitting(false)

@@ -23,6 +23,7 @@ function audienceLabels(staffLabel: string): Record<string, string> {
     specific_barber: `By ${staffLabel}`,
     specific_service: 'By Service',
     no_booking_since: 'No Booking Since',
+    has_tag: 'Has Tag',
     manual_list: 'Manual Entry (type emails/phones)',
   }
 }
@@ -77,6 +78,8 @@ function CampaignsInner() {
   const [selectedBarberId, setSelectedBarberId] = useState('')
   const [serviceFilter, setServiceFilter] = useState('')
   const [noBookingSinceDate, setNoBookingSinceDate] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
+  const [shopTags, setShopTags] = useState<string[]>([])
   const [manualEmails, setManualEmails] = useState('')
   const [manualPhones, setManualPhones] = useState('')
   const [channel, setChannel] = useState<'sms' | 'email' | 'both'>('sms')
@@ -113,6 +116,9 @@ function CampaignsInner() {
 
           const { data: c } = await supabase.from('campaigns').select('*').eq('shop_id', s.id).order('created_at', { ascending: false })
           setCampaigns(c ?? [])
+
+          const { data: tags } = await supabase.from('client_tags').select('tag').eq('shop_id', s.id)
+          setShopTags([...new Set((tags ?? []).map((t: any) => t.tag))].sort())
         }
 
         setLoading(false)
@@ -147,6 +153,7 @@ function CampaignsInner() {
     setSelectedBarberId('')
     setServiceFilter('')
     setNoBookingSinceDate('')
+    setTagFilter('')
     setManualEmails('')
     setManualPhones('')
     setChannel('sms')
@@ -211,6 +218,7 @@ function CampaignsInner() {
     if (audienceType === 'specific_barber') return { barber_id: selectedBarberId }
     if (audienceType === 'specific_service') return { service: serviceFilter }
     if (audienceType === 'no_booking_since') return { date: noBookingSinceDate }
+    if (audienceType === 'has_tag') return { tag: tagFilter }
     if (audienceType === 'manual_list') return {
       emails: manualEmails.split('\n').map(s => s.trim()).filter(Boolean),
       phones: manualPhones.split('\n').map(s => s.trim()).filter(Boolean),
@@ -565,6 +573,20 @@ function CampaignsInner() {
                       <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">No Booking Since</label>
                       <input type="date" value={noBookingSinceDate} onChange={e => setNoBookingSinceDate(e.target.value)}
                         className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+                    </div>
+                  )}
+                  {audienceType === 'has_tag' && (
+                    <div>
+                      <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Tag</label>
+                      {shopTags.length > 0 ? (
+                        <select value={tagFilter} onChange={e => setTagFilter(e.target.value)}
+                          className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
+                          <option value="">Select a tag</option>
+                          {shopTags.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      ) : (
+                        <p className="text-xs text-charcoal-500">No tags yet — add tags to clients from their profile page first.</p>
+                      )}
                     </div>
                   )}
                   {audienceType === 'manual_list' && (

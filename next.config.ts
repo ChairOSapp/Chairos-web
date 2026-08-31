@@ -20,11 +20,14 @@ const nextConfig: NextConfig = {
               // React/webpack use eval() for dev-mode-only debugging features
               // (stack rewriting, HMR) and never in production — scope
               // unsafe-eval to dev so the production policy stays tight.
-              `script-src 'self' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ''}`,
+              // connect.facebook.net / googletagmanager.com: shop-level Meta
+              // Pixel / Google tag, injected only on that shop's own public
+              // booking page (app/book/[shopCode]/page.tsx), never site-wide.
+              `script-src 'self' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com https://connect.facebook.net https://www.googletagmanager.com${isDev ? " 'unsafe-eval'" : ''}`,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://www.facebook.com https://connect.facebook.net https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com",
               "frame-src 'self' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com",
               "frame-ancestors 'self'",
               "base-uri 'self'",

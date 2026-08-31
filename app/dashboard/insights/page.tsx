@@ -11,6 +11,7 @@ import BarberPerformanceTable from '@/components/insights/BarberPerformanceTable
 import ClientHealthDashboard from '@/components/insights/ClientHealthDashboard'
 import RevenueIntelligence from '@/components/insights/RevenueIntelligence'
 import OpportunitiesSection from '@/components/insights/OpportunitiesSection'
+import CrmInsightsPanel from '@/components/insights/CrmInsightsPanel'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
 // ---- Shared types ----
@@ -921,6 +922,13 @@ export default function InsightsPage() {
                     />
                   </>
                 )}
+
+                {/* CRM insights (acquisition source, campaign attribution, cancellation
+                    reasons, tags) — shop-wide data, so gated to whoever actually owns
+                    the shop rather than role === 'owner': a Solo Chair has role
+                    'barber' but owns their own shop the same way an owner does, while
+                    a hired barber at someone else's shop should not see it. */}
+                {shopOwnerId === userId && <CrmInsightsPanel shopId={shop?.id || ''} />}
 
                 {/* PERIOD SELECTOR */}
                 <div className="flex gap-1 mb-6 bg-warm-100 border border-warm-200 rounded-xl p-1 mt-6">

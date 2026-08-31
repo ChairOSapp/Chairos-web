@@ -2,7 +2,16 @@ import { schedules } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
 import twilio from "twilio"
 import { logger } from "@/lib/logger"
-import { computeDepositAmount } from "@/lib/square"
+
+// Deliberately not importing lib/square here -- it pulls in the full
+// `square` SDK for one trivial arithmetic helper, and that import was the
+// prime suspect for this task silently dying before ever reaching Twilio
+// (no automation_logs row on any exit path, in an environment with no
+// SQUARE_* vars configured at all). Inlining the one line of math it
+// actually needs removes the dependency entirely.
+function computeDepositAmount(depositType: 'flat' | 'percent', depositAmount: number, servicePrice: number): number {
+  return depositType === 'flat' ? depositAmount : Math.round(servicePrice * (depositAmount / 100) * 100) / 100
+}
 
 // Replaces the old wait.for()-based abandonedBookingRecovery task, which
 // was never actually triggered by anything (the booking page never called

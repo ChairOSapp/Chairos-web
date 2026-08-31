@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import ClientNotes from '@/components/ClientNotes'
+import ClientTags from '@/components/ClientTags'
 
 interface Client {
   id: string
@@ -190,6 +191,13 @@ export default function ClientProfilePage() {
             </span>
           )}
         </div>
+
+        {/* TAGS */}
+        {shop?.id && (
+          <div className="mb-6">
+            <ClientTags clientId={client.id} shopId={shop.id} />
+          </div>
+        )}
 
         {/* STATS GRID */}
         <div className="grid grid-cols-2 gap-3 mb-6">

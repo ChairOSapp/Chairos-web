@@ -131,6 +131,22 @@ export async function POST(req: NextRequest) {
     const { data } = await admin.from('clients').select(clientSelect).in('id', allIds)
     clients = data ?? []
 
+  } else if (audienceType === 'has_tag') {
+    const tag = (audienceFilters?.tag ?? '').trim().toLowerCase()
+    if (!tag) return NextResponse.json({ clients: [], count: 0 })
+
+    const { data: tagged } = await admin
+      .from('client_tags')
+      .select('client_id')
+      .eq('shop_id', shopId)
+      .eq('tag', tag)
+
+    const taggedIds = [...new Set((tagged ?? []).map((t: any) => t.client_id))]
+    if (taggedIds.length === 0) return NextResponse.json({ clients: [], count: 0 })
+
+    const { data } = await admin.from('clients').select(clientSelect).in('id', taggedIds)
+    clients = data ?? []
+
   } else if (audienceType === 'manual_list') {
     const clientIds: string[] = audienceFilters?.clientIds ?? []
     if (clientIds.length === 0) return NextResponse.json({ clients: [], count: 0 })

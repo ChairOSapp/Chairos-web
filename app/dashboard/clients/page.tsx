@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { tagColor } from '@/components/ClientTags'
 
 type SortKey = 'name' | 'lastVisit' | 'daysSince' | 'barber' | 'lock' | 'visits' | 'spend'
 type SortDir = 'asc' | 'desc'
@@ -22,6 +23,7 @@ interface ClientRow {
   locked: boolean
   lockedToBarberId: string | null
   appts: { date: string; price: number; barber_id: string | null }[]
+  tags: string[]
 }
 
 function daysAgoLabel(days: number | null) {
@@ -52,6 +54,17 @@ export default function ClientsPage() {
   const [allAppts, setAllAppts] = useState<any[]>([])
   const [lockMap, setLockMap] = useState<Record<string, { locked: boolean; barber_id: string | null }>>({})
   const [barberMap, setBarberMap] = useState<Record<string, string>>({})
+  const [tagMap, setTagMap] = useState<Record<string, string[]>>({})
+  const [allTags, setAllTags] = useState<string[]>([])
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+
+  // Reads ?tag= from a link like the CRM insights panel's tag chips.
+  // Plain window.location read (not useSearchParams) so this page doesn't
+  // need a Suspense boundary just for a one-time initial value.
+  useEffect(() => {
+    const tag = new URLSearchParams(window.location.search).get('tag')
+    if (tag) setTagFilter(tag)
+  }, [])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<FilterTab>('all')
@@ -76,7 +89,7 @@ export default function ClientsPage() {
       if (!shopData) { router.push('/onboarding'); return }
       setShop(shopData)
 
-      const [{ data: appts }, { data: locks }, { data: barbers }] = await Promise.all([
+      const [{ data: appts }, { data: locks }, { data: barbers }, { data: tags }] = await Promise.all([
         supabase.from('appointments')
           .select('id, date, price, barber_id, client_id, client_name, client_phone')
           .eq('shop_id', shopData.id)
@@ -90,6 +103,9 @@ export default function ClientsPage() {
           .select('barber_id, barber_name, alias')
           .eq('shop_id', shopData.id)
           .eq('active', true),
+        supabase.from('client_tags')
+          .select('client_id, tag')
+          .eq('shop_id', shopData.id),
       ])
 
       setAllAppts(appts || [])
@@ -105,6 +121,16 @@ export default function ClientsPage() {
         if (b.barber_id) bm[b.barber_id] = b.barber_name || b.alias || staffLabel
       }
       setBarberMap(bm)
+
+      const tm: Record<string, string[]> = {}
+      for (const t of tags || []) {
+        if (!t.client_id) continue
+        if (!tm[t.client_id]) tm[t.client_id] = []
+        tm[t.client_id].push(t.tag)
+      }
+      setTagMap(tm)
+      setAllTags([...new Set((tags || []).map(t => t.tag))].sort())
+
       setLoading(false)
     }
     load()
@@ -127,6 +153,7 @@ export default function ClientsPage() {
           locked: false,
           lockedToBarberId: null,
           appts: [],
+          tags: tagMap[a.client_id] || [],
         }
       }
       const row = map[a.client_id]
@@ -151,7 +178,7 @@ export default function ClientsPage() {
       }
     }
     return Object.values(map)
-  }, [allAppts, lockMap])
+  }, [allAppts, lockMap, tagMap])
 
   const counts = useMemo(() => ({
     all: clients.length,
@@ -169,8 +196,9 @@ export default function ClientsPage() {
     else if (tab === 'unlocked') rows = rows.filter(r => !r.locked)
     else if (tab === 'fading') rows = rows.filter(r => r.daysSince !== null && r.daysSince >= 30 && r.daysSince < 60)
     else if (tab === 'cold') rows = rows.filter(r => r.daysSince !== null && r.daysSince >= 60)
+    if (tagFilter) rows = rows.filter(r => r.tags.includes(tagFilter))
     return rows
-  }, [clients, search, tab])
+  }, [clients, search, tab, tagFilter])
 
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     let va: any, vb: any
@@ -275,6 +303,28 @@ export default function ClientsPage() {
             ))}
           </div>
 
+          {allTags.length > 0 && (
+            <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
+              <span className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 flex-shrink-0">Tag</span>
+              {allTags.map(t => (
+                <button
+                  key={t}
+                  onClick={() => { setTagFilter(prev => prev === t ? null : t); setPage(1) }}
+                  className={`flex-shrink-0 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                    tagFilter === t ? tagColor(t) : 'bg-warm-100 border-warm-200 text-charcoal-500 hover:text-charcoal-900'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+              {tagFilter && (
+                <button onClick={() => { setTagFilter(null); setPage(1) }} className="flex-shrink-0 text-xs text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
             {sorted.length === 0 ? (
               <div className="p-10 text-center text-charcoal-500 text-sm">
@@ -313,6 +363,13 @@ export default function ClientsPage() {
                             <td className="px-3 py-3">
                               <div className="font-medium text-charcoal-900">{row.name}</div>
                               {row.phone && <div className="text-xs text-charcoal-400 mt-0.5">{row.phone}</div>}
+                              {row.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {row.tags.map(t => (
+                                    <span key={t} className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${tagColor(t)}`}>{t}</span>
+                                  ))}
+                                </div>
+                              )}
                             </td>
                             <td className="px-3 py-3 text-charcoal-600 text-xs">{row.lastVisit ? fmtDate(row.lastVisit) : '—'}</td>
                             <td className="px-3 py-3">

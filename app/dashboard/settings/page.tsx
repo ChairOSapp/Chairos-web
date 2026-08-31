@@ -38,6 +38,8 @@ export default function ShopSettings() {
   const [depositAmount, setDepositAmount] = useState('20')
   const [depositRefundWindowHours, setDepositRefundWindowHours] = useState('48')
   const [googlePlaceId, setGooglePlaceId] = useState('')
+  const [metaPixelId, setMetaPixelId] = useState('')
+  const [googleTagId, setGoogleTagId] = useState('')
 
   // Form state
   const [name, setName] = useState('')
@@ -101,6 +103,8 @@ export default function ShopSettings() {
     setDepositAmount(String(shop.deposit_amount ?? 20))
     setDepositRefundWindowHours(String(shop.deposit_refund_window_hours ?? 48))
     setGooglePlaceId(shop.google_place_id || '')
+    setMetaPixelId(shop.meta_pixel_id || '')
+    setGoogleTagId(shop.google_tag_id || '')
     setLegalBusinessName(shop.legal_business_name || '')
     setBusinessAddress(shop.business_address || '')
     setEin(shop.ein || '')
@@ -210,6 +214,8 @@ export default function ShopSettings() {
       barbers_collect_own_payments: barbersCollectOwnPayments,
       require_card_to_book: requireCardToBook,
       google_place_id: googlePlaceId.trim() || null,
+      meta_pixel_id: metaPixelId.trim() || null,
+      google_tag_id: googleTagId.trim() || null,
       deposits_enabled: depositsEnabled,
       deposit_type: depositType,
       deposit_amount: parseFloat(depositAmount) || 0,
@@ -660,6 +666,39 @@ export default function ShopSettings() {
           </div>
         </div>
 
+        {/* AD TRACKING */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200">
+            <div className="font-serif text-charcoal-900 text-sm">Ad Tracking</div>
+            <div className="text-xs text-charcoal-500">Track bookings from your Meta and Google ad campaigns. Only fires on your public booking page.</div>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Meta Pixel ID</label>
+              <input
+                value={metaPixelId}
+                onChange={e => setMetaPixelId(e.target.value)}
+                placeholder="123456789012345"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm font-mono outline-none focus:border-od-green transition-colors"
+              />
+              <p className="text-xs text-charcoal-500 mt-2">
+                From Meta Events Manager. Fires a PageView on your booking page and a Schedule event when a booking completes.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Google Tag ID</label>
+              <input
+                value={googleTagId}
+                onChange={e => setGoogleTagId(e.target.value)}
+                placeholder="AW-123456789 or G-XXXXXXXXXX"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm font-mono outline-none focus:border-od-green transition-colors"
+              />
+              <p className="text-xs text-charcoal-500 mt-2">
+                From Google Ads or Google Analytics. Fires a page_view on your booking page and a generate_lead event when a booking completes.
+              </p>
+            </div>
+          </div>
+        </div>
 
         <button onClick={handleSave} disabled={saving}
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
