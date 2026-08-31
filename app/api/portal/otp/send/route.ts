@@ -13,25 +13,28 @@ function getAdmin() {
   )
 }
 
-function normalizePhone(raw: string): string {
+// clients.phone is stored bare (10 digits) app-wide -- that's the key
+// used everywhere in this table and in client_accounts/client_portal_otp_codes.
+// E.164 is only ever constructed transiently for the actual Twilio call.
+function normalizeBare(raw: string): string {
   const digits = raw.replace(/\D/g, '')
-  const bare = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
-  return `+1${bare}`
+  return digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
 }
 
 export async function POST(req: NextRequest) {
   const { phone } = await req.json()
   if (!phone) return NextResponse.json({ error: 'phone is required' }, { status: 400 })
 
-  const e164 = normalizePhone(phone)
-  if (e164.length !== 12) {
+  const bare = normalizeBare(phone)
+  if (bare.length !== 10) {
     return NextResponse.json({ error: 'Enter a valid 10-digit phone number' }, { status: 400 })
   }
+  const e164 = `+1${bare}`
 
   // IP-based abuse is covered by proxy.ts (the 'portalOtp' bucket applied
   // to every /api/portal/otp/* path); this second check is phone-scoped so
   // one number can't be targeted repeatedly from rotating IPs.
-  const phoneLimit = await checkRateLimit('portalOtp', `phone:${e164}`)
+  const phoneLimit = await checkRateLimit('portalOtp', `phone:${bare}`)
   if (!phoneLimit.ok) {
     return NextResponse.json(
       { error: 'Too many code requests for this number. Try again shortly.' },
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
   const { error: upsertError } = await admin.from('client_portal_otp_codes').upsert({
-    phone: e164,
+    phone: bare,
     code_hash: codeHash,
     attempts: 0,
     expires_at: expiresAt,
