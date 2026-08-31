@@ -25,6 +25,7 @@ export type RateLimitBucket =
   | 'kioskOtp'
   | 'waitlist'
   | 'bookingReply'
+  | 'portalOtp'
 
 // failClosed controls what happens when Redis is unreachable or not
 // configured at all: true means the request is blocked (safer default for
@@ -52,6 +53,9 @@ const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters
   // the /api/sms/optout webhook handler before matching a session, so one
   // number can't hammer availability checks or spam booking attempts.
   bookingReply: { limit: 5, window: '60 s', failClosed: true },
+  // Sends a real SMS per request on a public, unauthenticated endpoint --
+  // same reasoning and shape as kioskOtp.
+  portalOtp: { limit: 6, window: '60 s', failClosed: true },
 }
 
 const limiters = new Map<RateLimitBucket, Ratelimit>()
@@ -111,6 +115,7 @@ export function getRateLimitBucket(pathname: string): RateLimitBucket | null {
   if (pathname === '/login') return 'login'
   if (pathname.startsWith('/api/kiosk/status')) return 'kioskStatus'
   if (pathname.startsWith('/api/kiosk/otp')) return 'kioskOtp'
+  if (pathname.startsWith('/api/portal/otp')) return 'portalOtp'
   if (pathname.startsWith('/api/waitlist')) return 'waitlist'
   if (
     pathname.startsWith('/api/square/save-card') ||
