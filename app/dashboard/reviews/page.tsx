@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
@@ -24,6 +25,8 @@ type Barber = {
   barber_id: string | null
   barber_name: string
   alias: string
+  color: string | null
+  photo_url: string | null
 }
 
 type ReviewResponse = {
@@ -149,7 +152,7 @@ export default function ReviewsPage() {
 
     const [{ data: reviewsData }, { data: barbersData }, { data: responsesData }] = await Promise.all([
       supabase.from('reviews').select('*').eq('shop_id', shopData.id).order('created_at', { ascending: false }),
-      supabase.from('shop_barbers').select('id, barber_id, barber_name, alias').eq('shop_id', shopData.id).eq('active', true),
+      supabase.from('shop_barbers').select('id, barber_id, barber_name, alias, color, photo_url').eq('shop_id', shopData.id).eq('active', true),
       supabase.from('review_responses').select('id, review_id, draft_text, edited_text, status').eq('shop_id', shopData.id),
     ])
 
@@ -307,6 +310,11 @@ export default function ReviewsPage() {
 
   const initials = profile?.full_name?.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() || 'OS'
   const ownerName = profile?.full_name || shop?.name || ''
+  // Solo Chair (role='barber') reaches this page owning their own shop
+  // (guaranteed by the owner_id-scoped shop query above) -- same top nav
+  // they see everywhere else, not the owner's.
+  const myBarberRow = barbers.find(b => b.barber_id === userId)
+  const soloBarberName = myBarberRow?.barber_name || myBarberRow?.alias || profile?.full_name || 'You'
 
   // Stats
   const avgRating = reviews.length > 0
@@ -324,12 +332,23 @@ export default function ReviewsPage() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <OwnerNav
-        shopName={shop?.name || ''}
-        ownerName={ownerName}
-        initials={initials}
-        userId={userId || undefined}
-      />
+      {profile?.role === 'barber' ? (
+        <StaffNav
+          shopName={shop?.name || ''}
+          barberName={soloBarberName}
+          color={myBarberRow?.color || '#b8861f'}
+          initial={soloBarberName[0]?.toUpperCase() || 'S'}
+          photoUrl={myBarberRow?.photo_url || undefined}
+          userId={userId || undefined}
+        />
+      ) : (
+        <OwnerNav
+          shopName={shop?.name || ''}
+          ownerName={ownerName}
+          initials={initials}
+          userId={userId || undefined}
+        />
+      )}
 
       <div className="p-5 max-w-2xl mx-auto pb-24 md:pb-8">
 

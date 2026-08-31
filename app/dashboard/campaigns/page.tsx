@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { Suspense } from 'react'
 import { useVerticalLabels } from '@/lib/VerticalContext'
@@ -362,12 +363,23 @@ function CampaignsInner() {
 
   return (
     <div className="min-h-screen bg-warm-50">
+      {profile?.role === 'barber' ? (
+        <StaffNav
+          shopName={shop?.name ?? ''}
+          barberName={(() => { const b = barbers.find((x: any) => x.barber_id === profile?.id); return b?.barber_name || b?.alias || profile?.full_name || 'You' })()}
+          color={barbers.find((x: any) => x.barber_id === profile?.id)?.color || '#b8861f'}
+          initial={(profile?.full_name ?? 'S')[0].toUpperCase()}
+          photoUrl={barbers.find((x: any) => x.barber_id === profile?.id)?.photo_url || undefined}
+          userId={profile?.id}
+        />
+      ) : (
       <OwnerNav
         shopName={shop?.name ?? ''}
         ownerName={profile?.full_name ?? ''}
         initials={(profile?.full_name ?? 'O').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
         userId={profile?.id}
       />
+      )}
 
       <div className="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-6 flex gap-6">
 

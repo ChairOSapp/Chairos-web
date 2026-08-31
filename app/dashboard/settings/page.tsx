@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import OwnerNav from '@/components/OwnerNav'
+import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { daysUntil } from '@/lib/billing'
 import ServicesEditor from '@/components/ServicesEditor'
@@ -21,6 +22,7 @@ export default function ShopSettings() {
   const { staffLabel, staffLabelPlural, vertical } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
+  const [myBarberRow, setMyBarberRow] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [deletionRequested, setDeletionRequested] = useState(false)
@@ -85,6 +87,14 @@ export default function ShopSettings() {
     if (!shop) { router.push('/onboarding'); return }
 
     setShop(shop)
+    // Solo Chair (role='barber') sees the same top nav they see
+    // everywhere else, not the owner's -- fetch their own shop_barbers
+    // row for its name/color/photo.
+    if (prof?.role === 'barber') {
+      const { data: sb } = await supabase.from('shop_barbers').select('barber_name, alias, color, photo_url')
+        .eq('shop_id', shop.id).eq('barber_id', user.id).maybeSingle()
+      setMyBarberRow(sb)
+    }
     setName(shop.name || '')
     setTagline(shop.tagline || '')
     setBio(shop.bio || '')
@@ -251,7 +261,18 @@ export default function ShopSettings() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
+      {profile?.role === 'barber' ? (
+        <StaffNav
+          shopName={shop?.name || ''}
+          barberName={myBarberRow?.barber_name || myBarberRow?.alias || profile?.full_name || 'You'}
+          color={myBarberRow?.color || '#b8861f'}
+          initial={(myBarberRow?.barber_name || myBarberRow?.alias || profile?.full_name || 'S')[0].toUpperCase()}
+          photoUrl={myBarberRow?.photo_url || undefined}
+          userId={userId || undefined}
+        />
+      ) : (
+        <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
+      )}
 
       <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
@@ -741,11 +762,15 @@ export default function ShopSettings() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-semibold text-charcoal-900">
-                {profile?.subscription_status === 'active' && 'Shop Plan · $79/mo'}
-                {profile?.subscription_status === 'trialing' && 'Shop Plan · Free Trial'}
-                {profile?.subscription_status === 'past_due' && 'Shop Plan · Payment Failed'}
-                {profile?.subscription_status === 'cancelled' && 'Shop Plan · Cancelled'}
-                {!profile?.subscription_status && 'Shop Plan'}
+                {(() => {
+                  const planLabel = profile?.plan_type === 'solo' ? 'Solo Chair Plan' : 'Shop Plan'
+                  const planPrice = profile?.plan_type === 'solo' ? '$25/mo' : '$79/mo'
+                  if (profile?.subscription_status === 'active') return `${planLabel} · ${planPrice}`
+                  if (profile?.subscription_status === 'trialing') return `${planLabel} · Free Trial`
+                  if (profile?.subscription_status === 'past_due') return `${planLabel} · Payment Failed`
+                  if (profile?.subscription_status === 'cancelled') return `${planLabel} · Cancelled`
+                  return planLabel
+                })()}
               </div>
               <div className="text-xs text-charcoal-500 mt-0.5">
                 {profile?.subscription_status === 'trialing' && profile?.trial_end && (

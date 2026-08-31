@@ -3,6 +3,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { tagColor } from '@/components/ClientTags'
@@ -54,6 +55,7 @@ export default function ClientsPage() {
   const [allAppts, setAllAppts] = useState<any[]>([])
   const [lockMap, setLockMap] = useState<Record<string, { locked: boolean; barber_id: string | null }>>({})
   const [barberMap, setBarberMap] = useState<Record<string, string>>({})
+  const [myBarberRow, setMyBarberRow] = useState<{ barber_name: string | null; alias: string | null; color: string | null; photo_url: string | null } | null>(null)
   const [tagMap, setTagMap] = useState<Record<string, string[]>>({})
   const [allTags, setAllTags] = useState<string[]>([])
   const [tagFilter, setTagFilter] = useState<string | null>(null)
@@ -85,8 +87,14 @@ export default function ClientsPage() {
         supabase.from('shops').select('id, name').eq('owner_id', user.id).maybeSingle(),
       ])
       setProfile(prof)
-      if (prof?.role === 'barber') { router.push('/dashboard/chair'); return }
-      if (!shopData) { router.push('/onboarding'); return }
+      // A Solo Chair (role='barber') owns their own one-person shop and
+      // manages its client list the same way an owner would; a hired
+      // barber (role='barber', no shop of their own) doesn't get a
+      // shop-wide client list at all -- send them to their own dashboard.
+      if (!shopData) {
+        router.push(prof?.role === 'barber' ? '/dashboard/chair' : '/onboarding')
+        return
+      }
       setShop(shopData)
 
       const [{ data: appts }, { data: locks }, { data: barbers }, { data: tags }] = await Promise.all([
@@ -100,7 +108,7 @@ export default function ClientsPage() {
           .select('client_id, locked, barber_id')
           .eq('shop_id', shopData.id),
         supabase.from('shop_barbers')
-          .select('barber_id, barber_name, alias')
+          .select('barber_id, barber_name, alias, color, photo_url')
           .eq('shop_id', shopData.id)
           .eq('active', true),
         supabase.from('client_tags')
@@ -121,6 +129,10 @@ export default function ClientsPage() {
         if (b.barber_id) bm[b.barber_id] = b.barber_name || b.alias || staffLabel
       }
       setBarberMap(bm)
+
+      if (prof?.role === 'barber') {
+        setMyBarberRow((barbers || []).find(b => b.barber_id === user.id) || null)
+      }
 
       const tm: Record<string, string[]> = {}
       for (const t of tags || []) {
@@ -261,7 +273,18 @@ export default function ClientsPage() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <OwnerNav shopName={shop?.name || ''} ownerName={profile?.full_name || ''} initials={initials} userId={profile?.id} />
+      {profile?.role === 'barber' ? (
+        <StaffNav
+          shopName={shop?.name || ''}
+          barberName={myBarberRow?.barber_name || myBarberRow?.alias || profile?.full_name || 'You'}
+          color={myBarberRow?.color || '#b8861f'}
+          initial={(myBarberRow?.barber_name || myBarberRow?.alias || profile?.full_name || 'S')[0].toUpperCase()}
+          photoUrl={myBarberRow?.photo_url || undefined}
+          userId={profile?.id}
+        />
+      ) : (
+        <OwnerNav shopName={shop?.name || ''} ownerName={profile?.full_name || ''} initials={initials} userId={profile?.id} />
+      )}
 
       <div className="lg:ml-64">
         <div className="w-full max-w-7xl mx-auto px-4 lg:px-8 pb-24 lg:pb-8">

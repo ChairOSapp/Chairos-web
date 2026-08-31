@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import StaffMobileNav from '@/components/StaffMobileNav'
+import StaffNav from '@/components/StaffNav'
 
 type Appointment = {
   id: string
@@ -141,6 +142,8 @@ export default function BarberEarningsPage() {
   }, [filteredAppointments, commissionRate])
 
   const color = shopBarber?.color || '#b8861f'
+  const barberName = shopBarber?.barber_name || shopBarber?.alias || 'You'
+  const initial = barberName[0].toUpperCase()
 
   const TIME_FILTERS: { key: TimeFilter; label: string }[] = [
     { key: 'day', label: 'Today' },
@@ -185,9 +188,19 @@ export default function BarberEarningsPage() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
-        <span className="font-serif text-od-green text-lg">ChairOS</span>
-        <div className="flex items-center gap-2">
+      <StaffNav
+        shopName={shopBarber?.shops?.name || ''}
+        barberName={barberName}
+        color={color}
+        initial={initial}
+        photoUrl={shopBarber?.photo_url || undefined}
+        userId={userId || undefined}
+      />
+
+      <div className="p-6 max-w-2xl mx-auto pb-24">
+
+        {/* PAGE ACTIONS */}
+        <div className="flex items-center justify-end gap-2 mb-6">
           {!drillMode && (
             <button onClick={handleGenerateReport} disabled={generating}
               className="px-3 py-1.5 bg-warm-200 border border-warm-300 hover:border-od-green text-charcoal-900 font-semibold rounded-lg text-xs transition-colors disabled:opacity-50">
@@ -200,9 +213,6 @@ export default function BarberEarningsPage() {
             <button onClick={() => router.push('/dashboard/chair')} className="btn-chairos-outline">Dashboard</button>
           )}
         </div>
-      </header>
-
-      <div className="p-6 max-w-2xl mx-auto pb-24">
 
         {/* YEAR + TIME FILTER */}
         <div className="flex items-center justify-between mb-6">

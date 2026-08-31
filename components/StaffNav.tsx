@@ -51,6 +51,7 @@ export default function StaffNav({ shopName, barberName, color, initial, photoUr
     { label: 'Calendar', href: '/dashboard/chair/calendar' },
     { label: 'Earnings', href: '/dashboard/chair/earnings' },
     ...(isSoloOwner ? [
+      { label: 'Clients', href: '/dashboard/clients' },
       { label: 'Campaigns', href: '/dashboard/campaigns' },
       { label: 'Insights', href: '/dashboard/insights' },
       { label: 'Shop Settings', href: '/dashboard/settings' },

@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import BriefCard from '@/components/BriefCard'
 import AIInsightStrip from '@/components/insights/AIInsightStrip'
@@ -678,6 +679,11 @@ export default function InsightsPage() {
 
   const ownerName = profile?.full_name || shop?.name || 'Owner'
   const initials = ownerName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+  // Solo Chair (role='barber', shopOwnerId === userId) sees the same top
+  // nav they see everywhere else, not the owner's.
+  const isSoloChair = role === 'barber' && shopOwnerId === userId
+  const myBarberRow = shopBarbers.find(b => b.barber_id === userId)
+  const soloBarberName = myBarberRow?.barber_name || myBarberRow?.alias || ownerName
 
   if (authLoading) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
@@ -687,12 +693,22 @@ export default function InsightsPage() {
 
   return (
     <div className="min-h-screen bg-warm-50 pb-20 md:pb-0">
-      <OwnerNav
-        shopName={shop?.name || ''}
-        ownerName={ownerName}
-        initials={initials}
-        userId={profile?.id}
-      />
+      {isSoloChair ? (
+        <StaffNav
+          shopName={shop?.name || ''}
+          barberName={soloBarberName}
+          color={myBarberRow?.color || '#b8861f'}
+          initial={soloBarberName[0]?.toUpperCase() || 'S'}
+          userId={profile?.id}
+        />
+      ) : (
+        <OwnerNav
+          shopName={shop?.name || ''}
+          ownerName={ownerName}
+          initials={initials}
+          userId={profile?.id}
+        />
+      )}
 
       <div className="p-6 max-w-3xl mx-auto pb-24 md:pb-8">
 
