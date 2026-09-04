@@ -55,6 +55,7 @@ export default function StaffNav({ shopName, barberName, color, initial, photoUr
       { label: 'Campaigns', href: '/dashboard/campaigns' },
       { label: 'Insights', href: '/dashboard/insights' },
       { label: 'Shop Settings', href: '/dashboard/settings' },
+      { label: 'Kiosk', href: '/dashboard/kiosk' },
     ] : []),
     { label: 'My Profile', href: '/dashboard/chair/settings' },
     // Solo Chair owns their shop's reviews outright (import from Google,
