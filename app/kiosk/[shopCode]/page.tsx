@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { timeStrToMinutes } from '@/lib/availability'
 import { resolveKioskTheme, type KioskConfig } from '@/lib/kioskConfig'
 
-type QueueRow = { id: string; initials: string; status: string; created_at: string }
+type QueueRow = { id: string; display_label: string; status: string; created_at: string }
 type OpenSlotsResponse = {
   date: string
   referenceService: { name: string | null; durationMinutes: number }
@@ -324,12 +324,12 @@ export default function KioskCheckIn() {
                         <div key={q.id} className="flex items-center gap-3 bg-warm-50 border border-warm-200 rounded-lg px-4 py-3">
                           <div className="w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm text-white flex-shrink-0"
                             style={{ background: theme.accent }}>
-                            {q.initials}
+                            {q.display_label[0]?.toUpperCase()}
                           </div>
                           <div className="flex-1">
-                            <div className="text-sm font-medium text-charcoal-900">#{i + 1} in line</div>
+                            <div className="text-sm font-medium text-charcoal-900">{q.display_label}</div>
                             <div className="text-xs text-charcoal-500">
-                              {q.status === 'called' ? "Being called now" : `~${i * avgServiceMinutes} min estimated wait`}
+                              {q.status === 'called' ? "Being called now" : `#${i + 1} in line — ~${i * avgServiceMinutes} min estimated wait`}
                             </div>
                           </div>
                         </div>
