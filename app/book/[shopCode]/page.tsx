@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase'
 import { useParams, useSearchParams } from 'next/navigation'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 import { initMetaPixel, initGoogleTag, trackMetaEvent, trackGoogleEvent } from '@/lib/tracking'
+import { timeStrToMinutes } from '@/lib/availability'
+import { DAY_NAMES, findApplicablePricingRule, promoActiveOn, isPromoRule, ruleLabel, type PricingRule } from '@/lib/pricing'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -16,6 +18,7 @@ function BookingPageInner() {
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
+  const [pricingRules, setPricingRules] = useState<PricingRule[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [shopReviews, setShopReviews] = useState<any[]>([])
@@ -70,18 +73,35 @@ function BookingPageInner() {
     (shop.vertical === 'tattoo' || (shop.vertical === 'salon' && shop.deposits_enabled)) &&
     selectedService.deposit_required === true
 
+  // A peak/off-peak or promo pricing_rules match for the selected
+  // service+date+time -- only one rule ever applies (promos win over
+  // recurring rules for the same slot; see findApplicablePricingRule), so
+  // this never stacks multiple adjustments.
+  const pricingMatch = selectedService?.price != null && selectedDate && selectedTime
+    ? findApplicablePricingRule(pricingRules, {
+        serviceId: selectedService.id,
+        price: selectedService.price,
+        dateStr: selectedDate,
+        dayName: DAY_NAMES[new Date(selectedDate + 'T12:00:00').getDay()],
+        timeMinutes: timeStrToMinutes(selectedTime),
+      })
+    : null
+  const priceAfterRule = selectedService?.price != null
+    ? (pricingMatch ? pricingMatch.finalPrice : selectedService.price)
+    : null
+
   // A referral reward (checked via checkReturningClient once the phone
   // matches an existing client) discounts the price before the deposit
   // is calculated off it, so someone with a $10-off reward on a required
   // deposit pays a deposit against the discounted total, not the sticker price.
-  const finalPrice = selectedService?.price != null
+  const finalPrice = priceAfterRule != null
     ? (activeReward
         ? Math.max(0, Math.round(
             (activeReward.type === 'percent_off'
-              ? selectedService.price * (1 - activeReward.value / 100)
-              : selectedService.price - activeReward.value) * 100
+              ? priceAfterRule * (1 - activeReward.value / 100)
+              : priceAfterRule - activeReward.value) * 100
           ) / 100)
-        : selectedService.price)
+        : priceAfterRule)
     : null
 
   const depositAmountEstimate = requiresDeposit && finalPrice != null
@@ -123,6 +143,11 @@ function BookingPageInner() {
         .eq('shop_id', shop.id).eq('active', true)
         .order('price', { ascending: true })
       setServices(services || [])
+
+      const { data: pricingRules } = await supabase
+        .from('pricing_rules').select('*')
+        .eq('shop_id', shop.id).eq('active', true)
+      setPricingRules((pricingRules || []) as PricingRule[])
 
       // Restore selections from an abandoned-booking recovery link
       // (?session=...) -- the deposit-required recovery text sends people
@@ -654,6 +679,14 @@ function BookingPageInner() {
                 </span>
               </div>
             ))}
+            {pricingMatch && (
+              <div className="flex justify-between text-sm">
+                <span className="text-charcoal-400">{pricingMatch.label}</span>
+                <span className="font-mono font-semibold text-od-green">
+                  {pricingMatch.finalPrice < pricingMatch.originalPrice ? '-' : '+'}${Math.abs(pricingMatch.finalPrice - pricingMatch.originalPrice).toFixed(2)}
+                </span>
+              </div>
+            )}
             {activeReward && (
               <div className="flex justify-between text-sm">
                 <span className="text-charcoal-400">Referral reward</span>
@@ -815,20 +848,33 @@ function BookingPageInner() {
             <h2 className="font-serif text-xl text-charcoal-900 mb-1">Choose a service</h2>
             <p className="text-charcoal-500 text-sm mb-6">Select what you'd like done today.</p>
             <div className="space-y-2 mb-6">
-              {services.map((s) => (
-                <div key={s.id}
-                  onClick={() => { setSelectedService(s); setStep(3) }}
-                  className="bg-warm-100 border-2 rounded-xl p-4 cursor-pointer transition-all flex items-center justify-between"
-                  style={{ borderColor: selectedService?.id === s.id ? brand : '#262626' }}
-                  onMouseEnter={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#404040' }}
-                  onMouseLeave={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#262626' }}>
-                  <div>
-                    <div className="text-sm font-semibold text-charcoal-900">{s.name}</div>
-                    <div className="text-xs text-charcoal-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
+              {services.map((s) => {
+                // Today-only preview of an active promo -- the actual price
+                // (including any recurring peak/off-peak rule) is finalized
+                // once a date and time are picked in the next step.
+                const todayPromo = pricingRules.find(r =>
+                  (r.service_id == null || r.service_id === s.id) && isPromoRule(r) && promoActiveOn(r, today)
+                )
+                return (
+                  <div key={s.id}
+                    onClick={() => { setSelectedService(s); setStep(3) }}
+                    className="bg-warm-100 border-2 rounded-xl p-4 cursor-pointer transition-all flex items-center justify-between"
+                    style={{ borderColor: selectedService?.id === s.id ? brand : '#262626' }}
+                    onMouseEnter={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#404040' }}
+                    onMouseLeave={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#262626' }}>
+                    <div>
+                      <div className="text-sm font-semibold text-charcoal-900 flex items-center gap-2">
+                        {s.name}
+                        {todayPromo && (
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-od-green/10 text-od-green">{ruleLabel(todayPromo)}</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-charcoal-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
+                    </div>
+                    <div className="font-serif text-lg ml-4 flex-shrink-0 font-semibold" style={{ color: brand }}>${s.price}</div>
                   </div>
-                  <div className="font-serif text-lg ml-4 flex-shrink-0 font-semibold" style={{ color: brand }}>${s.price}</div>
-                </div>
-              ))}
+                )
+              })}
             </div>
             <button onClick={() => setStep(1)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
           </div>
@@ -871,6 +917,12 @@ function BookingPageInner() {
                   )}
                 </div>
               )}
+              {pricingMatch && (
+                <div className="text-sm rounded-lg px-3 py-2 bg-od-green/10 text-od-green">
+                  {pricingMatch.label}: {pricingMatch.finalPrice < pricingMatch.originalPrice ? '-' : '+'}
+                  ${Math.abs(pricingMatch.finalPrice - pricingMatch.originalPrice).toFixed(2)} — now ${pricingMatch.finalPrice}
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
               <button onClick={() => setStep(2)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
@@ -901,6 +953,14 @@ function BookingPageInner() {
                   <span className="text-charcoal-900">{row.value}</span>
                 </div>
               ))}
+              {pricingMatch && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-charcoal-400">{pricingMatch.label}</span>
+                  <span className="font-mono font-semibold text-od-green">
+                    {pricingMatch.finalPrice < pricingMatch.originalPrice ? '-' : '+'}${Math.abs(pricingMatch.finalPrice - pricingMatch.originalPrice).toFixed(2)}
+                  </span>
+                </div>
+              )}
               {activeReward && (
                 <div className="flex justify-between text-sm">
                   <span className="text-charcoal-400">Referral reward</span>
