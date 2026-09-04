@@ -217,12 +217,12 @@ export default function KioskCheckIn() {
 
   const checkInForm = (
     <div className="w-full">
-      <div className="text-center mb-6">
-        <p className="text-charcoal-400 text-sm">Check in for a walk-in visit</p>
-      </div>
-
       {step === 'details' ? (
-        <form onSubmit={handleSendCode} className="bg-warm-100 border border-warm-200 rounded-xl p-8 space-y-4">
+        <form onSubmit={handleSendCode} className="bg-warm-100 border border-warm-200 rounded-xl p-6 md:p-8 space-y-4">
+          <div className="mb-2">
+            <h2 className="font-serif text-lg" style={{ color: theme.primary }}>Check In</h2>
+            <p className="text-charcoal-500 text-xs mt-1">Here for a walk-in visit? Enter your info below.</p>
+          </div>
           {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3">{error}</p>}
           <div>
             <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Your Name</label>
@@ -266,11 +266,12 @@ export default function KioskCheckIn() {
           </button>
         </form>
       ) : (
-        <form onSubmit={handleVerify} className="bg-warm-100 border border-warm-200 rounded-xl p-8 space-y-4">
-          {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3">{error}</p>}
-          <div className="text-center">
-            <p className="text-charcoal-600 text-sm">We texted a code to <span className="font-semibold text-charcoal-900">{phone}</span></p>
+        <form onSubmit={handleVerify} className="bg-warm-100 border border-warm-200 rounded-xl p-6 md:p-8 space-y-4">
+          <div className="mb-2">
+            <h2 className="font-serif text-lg" style={{ color: theme.primary }}>Verify Your Number</h2>
+            <p className="text-charcoal-500 text-xs mt-1">We texted a code to <span className="font-semibold text-charcoal-700">{phone}</span></p>
           </div>
+          {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3">{error}</p>}
           <div>
             <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Enter Code</label>
             <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={code}
@@ -297,7 +298,7 @@ export default function KioskCheckIn() {
 
   return (
     <div className="min-h-screen bg-warm-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-6 md:mb-8">
           {kioskLogo ? (
             <img src={kioskLogo} alt={shop.name} className="w-12 h-12 md:w-14 md:h-14 rounded-xl object-cover flex-shrink-0" />
@@ -378,7 +379,7 @@ export default function KioskCheckIn() {
             </div>
           )}
 
-          <div className={showLobby ? 'w-full md:w-96 flex-shrink-0' : 'w-full max-w-md'}>
+          <div className={showLobby ? 'w-full md:w-[420px] flex-shrink-0' : 'w-full max-w-md'}>
             {checkInForm}
           </div>
         </div>
