@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import StaffNav from '@/components/StaffNav'
@@ -36,6 +36,12 @@ export default function BarberDashboard() {
   const [tips, setTips] = useState<any[]>([])
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [boothRent, setBoothRent] = useState<any>(null)
+  const [showRentCardForm, setShowRentCardForm] = useState(false)
+  const [rentCardReady, setRentCardReady] = useState(false)
+  const [rentCardLoading, setRentCardLoading] = useState(false)
+  const [savingRentCard, setSavingRentCard] = useState(false)
+  const [rentCardError, setRentCardError] = useState('')
+  const rentCardRef = useRef<any>(null)
   const [showEarnings, setShowEarnings] = useState(false)
   const [onFloor, setOnFloor] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -187,6 +193,77 @@ export default function BarberDashboard() {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [barberId, shopId, supabase, loadLiveData])
+
+  // Square Web Payments SDK init for saving a booth-rent card on file --
+  // mirrors the public booking page's pattern (dynamic import, attach to
+  // a container, tokenize on submit). The platform-level app id/location
+  // env vars only initialize the widget; the actual save routes server-
+  // side to the shop owner's connected Square account (saveCardForBarber).
+  useEffect(() => {
+    if (!showRentCardForm) return
+    if (rentCardRef.current) return
+
+    let isMounted = true
+    async function init() {
+      const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
+      const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID
+      if (!appId || !locationId) { setRentCardError('Card form is not configured.'); return }
+
+      setRentCardLoading(true)
+      try {
+        const { payments } = await import('@square/web-sdk')
+        if (!isMounted) return
+        const paymentsInstance = await payments(appId!, locationId!)
+        if (!isMounted || !paymentsInstance) throw new Error('Square payments init returned null')
+        const card = await paymentsInstance.card()
+        if (!isMounted) return
+        await card.attach('#rent-card-container')
+        if (!isMounted) return
+        rentCardRef.current = card
+        setRentCardReady(true)
+      } catch {
+        if (!isMounted) return
+        setRentCardError('Card form failed to load.')
+      } finally {
+        if (isMounted) setRentCardLoading(false)
+      }
+    }
+    init()
+    return () => {
+      isMounted = false
+      if (rentCardRef.current) {
+        rentCardRef.current.destroy?.().catch(() => {})
+        rentCardRef.current = null
+        setRentCardReady(false)
+      }
+    }
+  }, [showRentCardForm])
+
+  async function saveRentCard() {
+    if (!rentCardRef.current) return
+    setSavingRentCard(true)
+    setRentCardError('')
+    try {
+      const result = await rentCardRef.current.tokenize()
+      if (result.status !== 'OK') {
+        setRentCardError(result.errors?.[0]?.message || 'Card error')
+        return
+      }
+      const res = await fetch('/api/square/save-barber-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceId: result.token }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setRentCardError(data.error || 'Could not save card'); return }
+      setShopBarber((prev: typeof shopBarber) => prev ? { ...prev, square_card_brand: data.brand, square_card_last4: data.last4 } : prev)
+      setShowRentCardForm(false)
+    } catch {
+      setRentCardError('Could not save card right now')
+    } finally {
+      setSavingRentCard(false)
+    }
+  }
 
   async function toggleFloor() {
     const newStatus = !onFloor
@@ -461,6 +538,39 @@ export default function BarberDashboard() {
                 Mark Paid
               </button>
             </div>
+          </div>
+        )}
+
+        {/* BOOTH RENT CARD ON FILE */}
+        {shopBarber?.compensation_type === 'booth_rent' && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-2">Booth Rent Auto-Pay</div>
+            {shopBarber.square_card_last4 && !showRentCardForm ? (
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-charcoal-900">
+                  {shopBarber.square_card_brand} ending {shopBarber.square_card_last4} on file — rent is charged automatically.
+                </div>
+                <button onClick={() => setShowRentCardForm(true)} className="text-xs text-od-green font-semibold hover:underline">Update card</button>
+              </div>
+            ) : showRentCardForm ? (
+              <div>
+                <div id="rent-card-container" className="mb-3" />
+                {rentCardLoading && <p className="text-xs text-charcoal-500 mb-2">Loading card form…</p>}
+                {rentCardError && <p className="text-xs text-red-400 mb-2">{rentCardError}</p>}
+                <div className="flex gap-2">
+                  <button onClick={saveRentCard} disabled={!rentCardReady || savingRentCard}
+                    className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors disabled:opacity-50">
+                    {savingRentCard ? 'Saving…' : 'Save Card'}
+                  </button>
+                  <button onClick={() => setShowRentCardForm(false)} className="text-xs text-charcoal-500 hover:text-charcoal-900">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-charcoal-500">No card on file — rent is collected manually until you add one.</div>
+                <button onClick={() => setShowRentCardForm(true)} className="text-xs text-od-green font-semibold hover:underline">Add card</button>
+              </div>
+            )}
           </div>
         )}
 

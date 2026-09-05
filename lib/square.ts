@@ -85,6 +85,69 @@ export async function saveCardForClient(
   }
 }
 
+/**
+ * Tokenizes and saves a card on file for a renting barber, against the
+ * shop owner's Square account (the owner is who collects rent, regardless
+ * of barbers_collect_own_payments -- that setting only affects who
+ * collects client payments). Mirrors saveCardForClient's shape.
+ */
+export async function saveCardForBarber(
+  admin: SupabaseClient,
+  shopBarberId: string,
+  sourceId: string
+): Promise<SaveCardResult> {
+  const { data: shopBarber } = await admin
+    .from('shop_barbers')
+    .select('id, shop_id, barber_name, alias, square_customer_id')
+    .eq('id', shopBarberId)
+    .maybeSingle()
+  if (!shopBarber) return { ok: false, error: 'Staff record not found', status: 404 }
+
+  const { data: shop } = await admin.from('shops').select('owner_id').eq('id', shopBarber.shop_id).maybeSingle()
+  if (!shop?.owner_id) return { ok: false, error: 'Shop not found', status: 404 }
+
+  const { data: ownerSquare } = await admin
+    .from('square_accounts')
+    .select('square_access_token')
+    .eq('user_id', shop.owner_id)
+    .maybeSingle()
+  if (!ownerSquare?.square_access_token) return { ok: false, error: 'Shop owner has not connected Square', status: 400 }
+
+  const squareClient = new SquareClient({
+    token: ownerSquare.square_access_token,
+    environment: squareEnvironment(),
+    maxRetries: 3,
+  })
+
+  try {
+    let customerId = shopBarber.square_customer_id
+    if (!customerId) {
+      const { customer } = await squareClient.customers.create({
+        givenName: shopBarber.barber_name || shopBarber.alias || 'Staff',
+      })
+      customerId = customer?.id || null
+    }
+    if (!customerId) return { ok: false, error: 'Could not create Square customer', status: 500 }
+
+    const { card } = await squareClient.cards.create({
+      idempotencyKey: `save-barber-${shopBarberId}-${Date.now()}`,
+      sourceId,
+      card: { customerId },
+    })
+
+    await admin.from('shop_barbers').update({
+      square_customer_id: customerId,
+      square_card_id: card?.id ?? null,
+      square_card_brand: card?.cardBrand ?? null,
+      square_card_last4: card?.last4 ?? null,
+    }).eq('id', shopBarberId)
+
+    return { ok: true, last4: card?.last4, brand: card?.cardBrand }
+  } catch (err: any) {
+    return { ok: false, error: err.message, status: 500 }
+  }
+}
+
 export function squareEnvironment() {
   return process.env.SQUARE_ENVIRONMENT === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
 }
