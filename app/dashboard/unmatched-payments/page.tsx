@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
+import MobileNav from '@/components/MobileNav'
 
 interface UnmatchedPayment {
   id: string
@@ -179,6 +180,8 @@ export default function UnmatchedPaymentsPage() {
           </div>
         )}
       </div>
+
+      <MobileNav />
     </div>
   )
 }

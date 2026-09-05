@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import StaffNav from '@/components/StaffNav'
+import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
 interface WaitlistEntry {
@@ -243,6 +244,8 @@ export default function WaitlistPage() {
           </>
         )}
       </div>
+
+      <MobileNav />
     </div>
   )
 }
