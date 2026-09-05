@@ -31,6 +31,7 @@ export default function ShopSettings() {
   const [uploadingHero, setUploadingHero] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
+  const [tab, setTab] = useState<'profile' | 'payments' | 'booking' | 'services' | 'advanced'>('profile')
   const [squareAccount, setSquareAccount] = useState<any>(null)
   const [disconnectingSquare, setDisconnectingSquare] = useState(false)
   const [barbersCollectOwnPayments, setBarbersCollectOwnPayments] = useState(false)
@@ -39,6 +40,7 @@ export default function ShopSettings() {
   const [depositType, setDepositType] = useState<'flat' | 'percent'>('percent')
   const [depositAmount, setDepositAmount] = useState('20')
   const [depositRefundWindowHours, setDepositRefundWindowHours] = useState('48')
+  const [waitlistMinNoticeHours, setWaitlistMinNoticeHours] = useState('4')
   const [referralProgramEnabled, setReferralProgramEnabled] = useState(false)
   const [referralRewardType, setReferralRewardType] = useState<'percent_off' | 'flat_credit'>('percent_off')
   const [referralRewardValue, setReferralRewardValue] = useState('10')
@@ -115,6 +117,7 @@ export default function ShopSettings() {
     setDepositType(shop.deposit_type || 'percent')
     setDepositAmount(String(shop.deposit_amount ?? 20))
     setDepositRefundWindowHours(String(shop.deposit_refund_window_hours ?? 48))
+    setWaitlistMinNoticeHours(String(shop.waitlist_min_notice_hours ?? 4))
     setReferralProgramEnabled(!!shop.referral_program_enabled)
     setReferralRewardType(shop.referral_reward_type || 'percent_off')
     setReferralRewardValue(String(shop.referral_reward_value ?? 10))
@@ -148,9 +151,19 @@ export default function ShopSettings() {
       setError(`File too large. Maximum size is ${Math.round(maxBytes / 1024 / 1024)}MB`)
       return null
     }
-    const { error } = await supabase.storage
+    // getSession() refreshes an expired access token before we use it. Without
+    // this, a session that went stale while the tab sat idle (backgrounded
+    // mobile browser, sleeping laptop) sends the old JWT straight to Storage,
+    // which just evaluates auth.uid() as null and rejects the RLS check —
+    // surfacing as an opaque "new row violates row-level security policy".
+    await supabase.auth.getSession()
+    let { error } = await supabase.storage
       .from(bucket)
       .upload(path, file, { upsert: true })
+    if (error?.message?.includes('row-level security')) {
+      await supabase.auth.refreshSession()
+      ;({ error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true }))
+    }
     if (error) { setError(error.message); return null }
     const { data } = supabase.storage.from(bucket).getPublicUrl(path)
     // Append timestamp to bust CDN/browser cache on re-upload of same path
@@ -236,6 +249,7 @@ export default function ShopSettings() {
       deposit_type: depositType,
       deposit_amount: parseFloat(depositAmount) || 0,
       deposit_refund_window_hours: parseInt(depositRefundWindowHours) || 0,
+      waitlist_min_notice_hours: parseInt(waitlistMinNoticeHours) || 0,
       referral_program_enabled: referralProgramEnabled,
       referral_reward_type: referralRewardType,
       referral_reward_value: parseFloat(referralRewardValue) || 0,
@@ -291,6 +305,23 @@ export default function ShopSettings() {
 
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
         {success && <p className="text-green-400 text-sm bg-green-950 border border-green-900 rounded-lg p-3 mb-6">{success}</p>}
+
+        <div className="flex gap-1 bg-warm-200 rounded-lg p-1 mb-6 w-fit flex-wrap">
+          {([
+            { key: 'profile', label: 'Shop Profile' },
+            { key: 'payments', label: 'Payments & Billing' },
+            { key: 'booking', label: 'Booking Rules' },
+            { key: 'services', label: 'Services' },
+            { key: 'advanced', label: 'Advanced' },
+          ] as { key: typeof tab; label: string }[]).map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`px-4 py-2 rounded-md text-xs font-semibold transition-all ${tab === t.key ? 'bg-warm-300 text-charcoal-900' : 'text-charcoal-500'}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'profile' && (<>
 
         {/* BRANDING */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
@@ -512,6 +543,10 @@ export default function ShopSettings() {
           </div>
         </div>
 
+        </>)}
+
+        {tab === 'payments' && (<>
+
         {/* SQUARE PAYMENTS */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-warm-200 flex items-center gap-3">
@@ -657,6 +692,24 @@ export default function ShopSettings() {
           </div>
         )}
 
+        </>)}
+
+        {tab === 'booking' && (<>
+
+        {/* WAITLIST */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200">
+            <div className="font-serif text-charcoal-900 text-sm">Waitlist</div>
+            <div className="text-xs text-charcoal-500">When a fully-booked appointment is cancelled, text the next waitlisted client the open slot</div>
+          </div>
+          <div className="p-5">
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Minimum Notice (hours before appointment)</label>
+            <input type="number" min="1" value={waitlistMinNoticeHours} onChange={e => setWaitlistMinNoticeHours(e.target.value)}
+              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+            <div className="text-xs text-charcoal-500 mt-2">A cancellation with less than this much notice never reaches out to the waitlist -- there's no realistic way for someone to make it in on a last-minute scramble text.</div>
+          </div>
+        </div>
+
         {/* REFERRAL PROGRAM */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-warm-200 flex items-start justify-between gap-4">
@@ -742,6 +795,10 @@ export default function ShopSettings() {
           </div>
         </div>
 
+        </>)}
+
+        {tab === 'advanced' && (<>
+
         {/* AD TRACKING */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-warm-200">
@@ -776,10 +833,14 @@ export default function ShopSettings() {
           </div>
         </div>
 
+        </>)}
+
         <button onClick={handleSave} disabled={saving}
           className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
+
+        {tab === 'advanced' && (<>
 
         {/* BUSINESS TAX INFO */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
@@ -810,6 +871,10 @@ export default function ShopSettings() {
           </button>
           {taxInfoSuccess && <span className="ml-3 text-xs text-od-green">{taxInfoSuccess}</span>}
         </div>
+
+        </>)}
+
+        {tab === 'payments' && (<>
 
         {/* BILLING */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
@@ -856,21 +921,26 @@ export default function ShopSettings() {
               </button>
             )}
           </div>
-          {/* A Solo Chair (profile.role === 'barber') is the shop's only
-              service provider by design -- the $25/mo solo plan has no
-              per-seat billing for additional staff, so inviting one here
-              would silently add a second barber the plan was never priced
-              or built for. Only a Shop Owner sees this. */}
-          {profile?.role !== 'barber' && (
-            <div className="mt-4 pt-4 border-t border-warm-200 flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-charcoal-900">{staffLabel} Invites</div>
-                <div className="text-xs text-charcoal-500 mt-0.5">All {staffLabelPlural.toLowerCase()} in your shop are covered by your plan</div>
-              </div>
-              <button onClick={() => router.push('/dashboard/settings/invite')} className="btn-chairos">Invite {staffLabelPlural}</button>
-            </div>
-          )}
         </div>
+
+        {/* A Solo Chair (profile.role === 'barber') is the shop's only
+            service provider by design -- the $25/mo solo plan has no
+            per-seat billing for additional staff, so inviting one here
+            would silently add a second barber the plan was never priced
+            or built for. Only a Shop Owner sees this. */}
+        {profile?.role !== 'barber' && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">{staffLabelPlural} Invites</div>
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-charcoal-500">All {staffLabelPlural.toLowerCase()} in your shop are covered by your plan</div>
+              <button onClick={() => router.push('/dashboard/settings/invite')} className="btn-chairos whitespace-nowrap">Invite {staffLabelPlural}</button>
+            </div>
+          </div>
+        )}
+
+        </>)}
+
+        {tab === 'services' && (<>
 
         {/* SERVICES */}
         {shop && (
@@ -880,6 +950,10 @@ export default function ShopSettings() {
             <ServicesEditor shopId={shop.id} />
           </div>
         )}
+
+        </>)}
+
+        {tab === 'advanced' && (<>
 
         {/* APPEARANCE */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
@@ -918,6 +992,8 @@ export default function ShopSettings() {
             {deletionRequested ? 'Deletion requested — we\'ll follow up by email' : 'Request Account Deletion'}
           </button>
         </div>
+
+        </>)}
       </div>
 
       <MobileNav />

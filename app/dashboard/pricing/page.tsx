@@ -104,6 +104,13 @@ export default function ManagePricing() {
 
     setSaving(true); setError('')
 
+    // getSession() refreshes an expired access token before we use it. Without
+    // this, a session that went stale while the tab sat idle sends the old JWT
+    // straight to Postgres, which evaluates auth.uid() as null and rejects the
+    // owner_id RLS check -- surfacing as an opaque "new row violates row-level
+    // security policy" instead of actually saving the rule.
+    await supabase.auth.getSession()
+
     const payload: any = {
       name: tab === 'promo' ? ruleName.trim() : ruleName.trim(),
       promo_name: tab === 'promo' ? ruleName.trim() : null,
@@ -117,13 +124,15 @@ export default function ManagePricing() {
       percent_adjustment: adjustMode === 'percent' ? parseFloat(percentValue) : null,
     }
 
-    let saveError = null
-    if (editingId) {
-      const { error } = await supabase.from('pricing_rules').update(payload).eq('id', editingId)
-      saveError = error
-    } else {
-      const { error } = await supabase.from('pricing_rules').insert({ ...payload, shop_id: shop.id, active: true })
-      saveError = error
+    async function save() {
+      if (editingId) return supabase.from('pricing_rules').update(payload).eq('id', editingId)
+      return supabase.from('pricing_rules').insert({ ...payload, shop_id: shop.id, active: true })
+    }
+
+    let { error: saveError } = await save()
+    if (saveError?.message?.includes('row-level security')) {
+      await supabase.auth.refreshSession()
+      ;({ error: saveError } = await save())
     }
 
     if (saveError) { setError(saveError.message); setSaving(false); return }
@@ -133,7 +142,12 @@ export default function ManagePricing() {
   }
 
   async function toggleActive(id: string, current: boolean) {
-    const { error } = await supabase.from('pricing_rules').update({ active: !current }).eq('id', id)
+    await supabase.auth.getSession()
+    let { error } = await supabase.from('pricing_rules').update({ active: !current }).eq('id', id)
+    if (error?.message?.includes('row-level security')) {
+      await supabase.auth.refreshSession()
+      ;({ error } = await supabase.from('pricing_rules').update({ active: !current }).eq('id', id))
+    }
     if (error) { setError(error.message); return }
     await loadData()
   }

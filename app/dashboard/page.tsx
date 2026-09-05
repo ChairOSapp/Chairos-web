@@ -377,7 +377,7 @@ export default function Dashboard() {
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Today at a glance</div>
             <div className="flex gap-2">
               <button onClick={() => router.push('/dashboard/revenue')} className="btn-chairos">Revenue</button>
-              <button onClick={() => router.push('/dashboard/analytics')} className="btn-chairos-outline">CRM</button>
+              <button onClick={() => router.push('/dashboard/insights')} className="btn-chairos-outline">CRM</button>
             </div>
           </div>
           <div className="font-serif text-5xl text-charcoal-900 leading-none mb-4">
@@ -511,7 +511,7 @@ export default function Dashboard() {
         <div className="mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Client lock</div>
-            <button onClick={() => router.push('/dashboard/analytics')} className="btn-chairos-outline">Analytics</button>
+            <button onClick={() => router.push('/dashboard/insights')} className="btn-chairos-outline">Analytics</button>
           </div>
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
             <div className="grid grid-cols-3 divide-x divide-warm-200">
@@ -566,7 +566,7 @@ export default function Dashboard() {
           <div className="mb-5">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{staffLabel} Performance</div>
-              <button onClick={() => router.push('/dashboard/analytics')} className="btn-chairos-outline">Full Analytics</button>
+              <button onClick={() => router.push('/dashboard/insights')} className="btn-chairos-outline">Full Analytics</button>
             </div>
             <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
               <div className="grid grid-cols-4 px-4 py-2 border-b border-warm-200 text-[10px] font-semibold tracking-widest uppercase text-charcoal-400">
