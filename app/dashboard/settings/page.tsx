@@ -306,19 +306,33 @@ export default function ShopSettings() {
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
         {success && <p className="text-green-400 text-sm bg-green-950 border border-green-900 rounded-lg p-3 mb-6">{success}</p>}
 
-        <div className="flex gap-1 bg-warm-200 rounded-lg p-1 mb-6 w-fit flex-wrap">
-          {([
-            { key: 'profile', label: 'Shop Profile' },
-            { key: 'payments', label: 'Payments & Billing' },
-            { key: 'booking', label: 'Booking Rules' },
-            { key: 'services', label: 'Services' },
-            { key: 'advanced', label: 'Advanced' },
-          ] as { key: typeof tab; label: string }[]).map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-4 py-2 rounded-md text-xs font-semibold transition-all ${tab === t.key ? 'bg-warm-300 text-charcoal-900' : 'text-charcoal-500'}`}>
-              {t.label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+          <div className="flex gap-1 bg-warm-200 rounded-lg p-1 w-fit flex-wrap">
+            {([
+              { key: 'profile', label: 'Shop Profile' },
+              { key: 'payments', label: 'Payments & Billing' },
+              { key: 'booking', label: 'Booking Rules' },
+              { key: 'services', label: 'Services' },
+              { key: 'advanced', label: 'Advanced' },
+            ] as { key: typeof tab; label: string }[]).map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`px-4 py-2 rounded-md text-xs font-semibold transition-all ${tab === t.key ? 'bg-warm-300 text-charcoal-900' : 'text-charcoal-500'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Theme toggle stays visible regardless of tab -- it's the only
+              place in the app to control light/dark/system, so it can't be
+              buried behind a tab click the way the rarer settings can. */}
+          <div className="flex gap-1 bg-warm-200 rounded-lg p-1 w-fit">
+            {(['light', 'dark', 'system'] as const).map(t => (
+              <button key={t} onClick={() => setTheme(t)}
+                className={`px-3 py-2 rounded-md text-xs font-semibold transition-all ${theme === t ? 'bg-warm-300 text-charcoal-900' : 'text-charcoal-500'}`}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {tab === 'profile' && (<>
@@ -954,23 +968,6 @@ export default function ShopSettings() {
         </>)}
 
         {tab === 'advanced' && (<>
-
-        {/* APPEARANCE */}
-        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">Appearance</div>
-          <div className="flex gap-3">
-            {(['light', 'dark', 'system'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setTheme(t)}
-                className={theme === t ? 'btn-chairos' : 'btn-chairos-outline'}
-              >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-charcoal-500 mt-2">System follows your device setting. Default is System.</p>
-        </div>
 
         {/* DANGER ZONE */}
         <div className="bg-warm-100 border border-red-900/40 rounded-xl p-6 mt-6">
