@@ -146,28 +146,29 @@ export default function ShopSettings() {
     setLoading(false)
   }
 
-  async function uploadFile(file: File, bucket: string, path: string, maxBytes: number): Promise<string | null> {
-    if (file.size > maxBytes) {
-      setError(`File too large. Maximum size is ${Math.round(maxBytes / 1024 / 1024)}MB`)
+  // Uploading straight from the browser to Storage using the client's own
+  // session token turned out to be unreliable -- a session that goes stale
+  // (backgrounded mobile tab, long-idle session) doesn't always get refreshed
+  // in time, and the request lands as an opaque "new row violates row-level
+  // security policy" instead of an upload. Routed through a server route
+  // (app/api/shop/upload-asset) that verifies ownership once and writes with
+  // the service role key, which isn't subject to the browser session at all.
+  async function uploadAsset(file: File, kind: 'logo' | 'hero'): Promise<string | null> {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('kind', kind)
+    const res = await fetch('/api/shop/upload-asset', { method: 'POST', body })
+    // A dead session (refresh token itself expired/revoked, not just the
+    // access token) gets caught upstream by proxy.ts, which redirects to
+    // /login -- fetch() follows that silently and lands on 200 + login-page
+    // HTML rather than our JSON, so res.ok alone can't be trusted here.
+    if (res.redirected || !res.headers.get('content-type')?.includes('application/json')) {
+      setError('Your session has expired. Please refresh the page and log in again.')
       return null
     }
-    // getSession() refreshes an expired access token before we use it. Without
-    // this, a session that went stale while the tab sat idle (backgrounded
-    // mobile browser, sleeping laptop) sends the old JWT straight to Storage,
-    // which just evaluates auth.uid() as null and rejects the RLS check —
-    // surfacing as an opaque "new row violates row-level security policy".
-    await supabase.auth.getSession()
-    let { error } = await supabase.storage
-      .from(bucket)
-      .upload(path, file, { upsert: true })
-    if (error?.message?.includes('row-level security')) {
-      await supabase.auth.refreshSession()
-      ;({ error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true }))
-    }
-    if (error) { setError(error.message); return null }
-    const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-    // Append timestamp to bust CDN/browser cache on re-upload of same path
-    return `${data.publicUrl}?t=${Date.now()}`
+    const json = await res.json().catch(() => ({ error: 'Upload failed' }))
+    if (!res.ok) { setError(json.error || 'Upload failed'); return null }
+    return json.url as string
   }
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -175,10 +176,9 @@ export default function ShopSettings() {
     if (!file) return
     setUploadingLogo(true)
     setError('')
-    const url = await uploadFile(file, 'shop-assets', `${shop.id}/logo`, 2 * 1024 * 1024)
+    const url = await uploadAsset(file, 'logo')
     if (url) {
       setLogoUrl(url)
-      await supabase.from('shops').update({ logo_url: url }).eq('id', shop.id)
     }
     setUploadingLogo(false)
   }
@@ -188,7 +188,7 @@ export default function ShopSettings() {
     if (!file) return
     setUploadingHero(true)
     setError('')
-    const url = await uploadFile(file, 'shop-assets', `${shop.id}/hero`, 5 * 1024 * 1024)
+    const url = await uploadAsset(file, 'hero')
     if (url) {
       setHeroUrl(url)
       await supabase.from('shops').update({ hero_url: url }).eq('id', shop.id)
