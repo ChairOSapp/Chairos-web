@@ -74,10 +74,21 @@ export async function POST(req: NextRequest) {
   const placesData: any = await placesRes.json()
 
   if (!placesRes.ok) {
-    return NextResponse.json(
-      { error: `Google Places API error: ${placesData.error?.status ?? placesRes.status}`, detail: placesData.error?.message },
-      { status: 502 }
-    )
+    // Never surface a raw Google error code/status to the owner -- log the
+    // real detail for us, show them something actionable instead.
+    console.error('Google Places API error on import:', placesData.error)
+    const friendly = placesData.error?.status === 'INVALID_ARGUMENT'
+      ? "That doesn't look like a valid business match. Try searching again above instead of entering a Place ID directly."
+      : "We couldn't reach Google to import your reviews. Try again in a moment."
+    return NextResponse.json({ error: friendly }, { status: 502 })
+  }
+
+  // A place_id that successfully resolves is the ground truth -- if it
+  // differs from what's saved (or nothing was saved), keep the shop record
+  // in sync so future imports and the public booking page's review import
+  // don't need this resolved again.
+  if (resolvedPlaceId !== shop.google_place_id) {
+    await supabase.from('shops').update({ google_place_id: resolvedPlaceId }).eq('id', shop.id)
   }
 
   const googleReviews: any[] = placesData.reviews ?? []

@@ -107,6 +107,14 @@ export default function ReviewsPage() {
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null)
   const [importError, setImportError] = useState('')
 
+  // Business search (replaces raw Place ID entry as the primary flow)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [candidates, setCandidates] = useState<{ id: string; name: string; address: string; rating: number | null; userRatingCount: number | null }[] | null>(null)
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
   // Manual modal
   const [showManualModal, setShowManualModal] = useState(false)
   const [manualForm, setManualForm] = useState({
@@ -164,8 +172,9 @@ export default function ReviewsPage() {
     setLoading(false)
   }
 
-  async function handleImport() {
-    if (!importPlaceId.trim() || !shop) return
+  async function handleImport(placeIdOverride?: string) {
+    const placeId = (placeIdOverride ?? importPlaceId).trim()
+    if (!placeId || !shop) return
     setImportLoading(true)
     setImportError('')
     setImportResult(null)
@@ -173,7 +182,7 @@ export default function ReviewsPage() {
       const res = await fetch('/api/reviews/import-google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ place_id: importPlaceId.trim(), shop_id: shop.id }),
+        body: JSON.stringify({ place_id: placeId, shop_id: shop.id }),
       })
       const json = await res.json()
       if (!res.ok) { setImportError(json.error || 'Import failed'); setImportLoading(false); return }
@@ -183,6 +192,40 @@ export default function ReviewsPage() {
       setImportError(e.message || 'Import failed')
     }
     setImportLoading(false)
+  }
+
+  async function handleSearch() {
+    if (!searchQuery.trim()) return
+    setSearchLoading(true)
+    setSearchError('')
+    setCandidates(null)
+    setSelectedCandidateId(null)
+    try {
+      const res = await fetch('/api/reviews/resolve-place', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: searchQuery.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setSearchError(json.error || "We couldn't find a match."); setSearchLoading(false); return }
+      setCandidates(json.candidates)
+      if (json.candidates.length === 1) setSelectedCandidateId(json.candidates[0].id)
+    } catch {
+      setSearchError("We couldn't reach Google to search for your business. Try again in a moment.")
+    }
+    setSearchLoading(false)
+  }
+
+  function resetImportModal() {
+    setShowImportModal(false)
+    setImportResult(null)
+    setImportError('')
+    setSearchQuery('')
+    setSearchError('')
+    setCandidates(null)
+    setSelectedCandidateId(null)
+    setShowAdvanced(false)
+    setImportPlaceId('')
   }
 
   async function reloadReviews() {
@@ -551,10 +594,39 @@ export default function ReviewsPage() {
                   {importResult.skipped > 0 && `, ${importResult.skipped} already existed`}
                 </div>
               </div>
-            ) : (
+            ) : candidates && !showAdvanced ? (
+              <>
+                <p className="text-xs text-charcoal-500 mb-3">
+                  {candidates.length === 1 ? 'Is this your business?' : `Found ${candidates.length} possible matches — pick yours:`}
+                </p>
+                <div className="space-y-2 mb-3 max-h-64 overflow-y-auto">
+                  {candidates.map(c => (
+                    <label key={c.id}
+                      className={`flex items-start gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${selectedCandidateId === c.id ? 'border-od-green bg-od-green/5' : 'border-warm-300 bg-warm-200'}`}>
+                      <input type="radio" name="candidate" checked={selectedCandidateId === c.id}
+                        onChange={() => setSelectedCandidateId(c.id)} className="mt-1 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-charcoal-900">{c.name}</div>
+                        <div className="text-xs text-charcoal-500">{c.address}</div>
+                        {c.rating != null && (
+                          <div className="text-xs text-amber-500 mt-0.5">★ {c.rating} · {c.userRatingCount ?? 0} reviews</div>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <button onClick={() => { setCandidates(null); setSelectedCandidateId(null); setImportError('') }}
+                  className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors mb-3 block">
+                  ← Search again
+                </button>
+                {importError && (
+                  <p className="text-xs text-red-400 bg-red-950/30 border border-red-900/30 rounded-lg px-3 py-2 mb-4">{importError}</p>
+                )}
+              </>
+            ) : showAdvanced ? (
               <>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
-                  Google Place ID
+                  Google Place ID (advanced)
                 </label>
                 <input
                   type="text"
@@ -564,24 +636,66 @@ export default function ReviewsPage() {
                   autoFocus
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green mb-2"
                 />
-                <p className="text-xs text-charcoal-500 mb-4">
-                  Find your Place ID at maps.google.com — search your shop name, click Share, then copy the ID from the URL (starts with "ChIJ")
+                <p className="text-xs text-charcoal-500 mb-2">
+                  Only needed if search above couldn't find your business. Find it at maps.google.com — search your shop, click Share, Copy Link, then paste the whole link into search instead of using this.
                 </p>
+                <button onClick={() => { setShowAdvanced(false); setImportError('') }}
+                  className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors mb-2 block">
+                  ← Back to search
+                </button>
                 {importError && (
                   <p className="text-xs text-red-400 bg-red-950/30 border border-red-900/30 rounded-lg px-3 py-2 mb-4">{importError}</p>
                 )}
+              </>
+            ) : (
+              <>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
+                  Google Maps link or shop name
+                </label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
+                  placeholder="Paste your Google Maps link, or type your shop name"
+                  autoFocus
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green mb-2"
+                />
+                <p className="text-xs text-charcoal-500 mb-2">
+                  Paste a Google Maps share link (from the Share button on your listing), a maps.app.goo.gl link, or just your shop's name and city.
+                </p>
+                {searchError && (
+                  <p className="text-xs text-red-400 bg-red-950/30 border border-red-900/30 rounded-lg px-3 py-2 mb-2">{searchError}</p>
+                )}
+                <button onClick={() => setShowAdvanced(true)}
+                  className="text-xs text-charcoal-400 hover:text-charcoal-600 underline transition-colors mb-2 block">
+                  Can't find it? Enter a Place ID manually
+                </button>
               </>
             )}
 
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowImportModal(false); setImportResult(null); setImportError('') }}
+                onClick={resetImportModal}
                 className="flex-1 px-4 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
                 {importResult ? 'Done' : 'Cancel'}
               </button>
-              {!importResult && (
+              {!importResult && candidates && !showAdvanced && (
                 <button
-                  onClick={handleImport}
+                  onClick={() => selectedCandidateId && handleImport(selectedCandidateId)}
+                  disabled={importLoading || !selectedCandidateId}
+                  className="flex-1 bg-od-green text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
+                  {importLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      Importing...
+                    </span>
+                  ) : 'Yes, import reviews'}
+                </button>
+              )}
+              {!importResult && showAdvanced && (
+                <button
+                  onClick={() => handleImport()}
                   disabled={importLoading || !importPlaceId.trim()}
                   className="flex-1 bg-od-green text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
                   {importLoading ? (
@@ -590,6 +704,19 @@ export default function ReviewsPage() {
                       Importing...
                     </span>
                   ) : 'Import'}
+                </button>
+              )}
+              {!importResult && !candidates && !showAdvanced && (
+                <button
+                  onClick={handleSearch}
+                  disabled={searchLoading || !searchQuery.trim()}
+                  className="flex-1 bg-od-green text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
+                  {searchLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      Searching...
+                    </span>
+                  ) : 'Find My Business'}
                 </button>
               )}
             </div>
