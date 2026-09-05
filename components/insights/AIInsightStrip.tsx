@@ -93,7 +93,7 @@ export default function AIInsightStrip({ userId }: Props) {
         </div>
         <button
           onClick={dismiss}
-          className="text-charcoal-400 hover:text-charcoal-200 flex-shrink-0 p-0.5 transition-colors"
+          className="text-charcoal-400 hover:text-white flex-shrink-0 p-0.5 transition-colors"
           aria-label="Dismiss brief"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -114,13 +114,13 @@ export default function AIInsightStrip({ userId }: Props) {
           {c.yesterday_summary && (
             <div>
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Yesterday</div>
-              <p className="text-sm text-charcoal-300 leading-relaxed">{c.yesterday_summary}</p>
+              <p className="text-sm text-white/70 leading-relaxed">{c.yesterday_summary}</p>
             </div>
           )}
           {c.week_summary && (
             <div>
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">This Week</div>
-              <p className="text-sm text-charcoal-300 leading-relaxed">{c.week_summary}</p>
+              <p className="text-sm text-white/70 leading-relaxed">{c.week_summary}</p>
             </div>
           )}
           {c.suggestions && c.suggestions.length > 0 && (
@@ -128,7 +128,7 @@ export default function AIInsightStrip({ userId }: Props) {
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Suggestions</div>
               <ol className="space-y-1.5">
                 {c.suggestions.map((s: any, i: number) => (
-                  <li key={i} className="flex gap-2 text-sm text-charcoal-300">
+                  <li key={i} className="flex gap-2 text-sm text-white/70">
                     <span className="text-od-green font-bold flex-shrink-0">{i + 1}.</span>
                     <span>{typeof s === 'string' ? s : s.action ?? s.text ?? JSON.stringify(s)}</span>
                   </li>
@@ -144,7 +144,7 @@ export default function AIInsightStrip({ userId }: Props) {
                   v != null ? (
                     <div key={k} className="flex justify-between text-sm">
                       <dt className="text-charcoal-400">{k.replace(/_/g, ' ')}</dt>
-                      <dd className="font-medium text-charcoal-200">{String(v)}</dd>
+                      <dd className="font-medium text-white/90">{String(v)}</dd>
                     </div>
                   ) : null
                 )}
