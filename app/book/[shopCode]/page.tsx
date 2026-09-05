@@ -32,6 +32,17 @@ function BookingPageInner() {
   const [selectedTime, setSelectedTime] = useState('')
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
+  // Appointment waitlist -- distinct from the main booking flow's contact
+  // step, since a visitor can hit a fully-booked day before ever reaching
+  // step 4. Self-contained state so joining doesn't require finishing (or
+  // even continuing) the regular booking flow.
+  const [wlTime, setWlTime] = useState('')
+  const [wlName, setWlName] = useState('')
+  const [wlPhone, setWlPhone] = useState('')
+  const [wlSubmitting, setWlSubmitting] = useState(false)
+  const [wlJoined, setWlJoined] = useState(false)
+  const [wlPosition, setWlPosition] = useState<number | null>(null)
+  const [wlError, setWlError] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [clientEmail, setClientEmail] = useState('')
@@ -275,6 +286,47 @@ function BookingPageInner() {
       .finally(() => { if (!cancelled) setLoadingSlots(false) })
     return () => { cancelled = true }
   }, [selectedDate, selectedService, selectedBarber, shopCode])
+
+  // A fresh date/barber pick invalidates any "joined the waitlist" state
+  // left over from a previous fully-booked day.
+  function resetWaitlistJoinState() {
+    setWlJoined(false)
+    setWlPosition(null)
+    setWlError('')
+    setWlTime('')
+  }
+
+  async function joinWaitlist() {
+    if (!wlName.trim() || !wlPhone.trim() || !wlTime) {
+      setWlError('Name, phone, and a desired time are required')
+      return
+    }
+    setWlSubmitting(true)
+    setWlError('')
+    try {
+      const res = await fetch('/api/book/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId: shop.id,
+          barberId: selectedBarber?.barber_id || null,
+          serviceId: selectedService.id,
+          date: selectedDate,
+          time: wlTime,
+          clientName: wlName,
+          clientPhone: wlPhone,
+        }),
+      })
+      const result = await res.json()
+      if (!res.ok) { setWlError(result.error || 'Could not join the waitlist'); return }
+      setWlJoined(true)
+      setWlPosition(result.position ?? null)
+    } catch {
+      setWlError('Could not join the waitlist right now')
+    } finally {
+      setWlSubmitting(false)
+    }
+  }
 
   // Captures the in-progress booking as soon as there's enough to recover
   // -- name, phone, and a selected service/date/time -- so the abandoned-
@@ -802,7 +854,7 @@ function BookingPageInner() {
             <p className="text-charcoal-500 text-sm mb-6">Pick who you want or select any available {staffLabelLower}.</p>
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div
-                onClick={() => { setSelectedBarber(null); setStep(2) }}
+                onClick={() => { setSelectedBarber(null); resetWaitlistJoinState(); setStep(2) }}
                 className="bg-warm-100 border-2 border-warm-200 rounded-xl p-4 cursor-pointer transition-all text-center hover:border-warm-400"
                 onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = '#262626')}>
@@ -817,7 +869,7 @@ function BookingPageInner() {
               </div>
               {barbers.map((b, i) => (
                 <div key={b.id}
-                  onClick={() => { setSelectedBarber(b); setStep(2) }}
+                  onClick={() => { setSelectedBarber(b); resetWaitlistJoinState(); setStep(2) }}
                   className="bg-warm-100 border-2 border-warm-200 rounded-xl p-4 cursor-pointer transition-all text-center"
                   onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = '#262626')}>
@@ -888,7 +940,7 @@ function BookingPageInner() {
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Date</label>
                 <input type="date" value={selectedDate} min={today}
-                  onChange={e => setSelectedDate(e.target.value)}
+                  onChange={e => { setSelectedDate(e.target.value); resetWaitlistJoinState() }}
                   className="w-full bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none transition-colors"
                   onFocus={e => e.target.style.borderColor = brand}
                   onBlur={e => e.target.style.borderColor = '#404040'} />
@@ -899,7 +951,40 @@ function BookingPageInner() {
                   {loadingSlots ? (
                     <p className="text-charcoal-500 text-xs py-3">Checking availability…</p>
                   ) : availableSlots.length === 0 ? (
-                    <p className="text-charcoal-500 text-xs py-3">No times available this day — try another date.</p>
+                    <div className="py-3">
+                      <p className="text-charcoal-500 text-xs mb-3">No times available this day — try another date, or join the waitlist for a specific time and we&apos;ll text you if it opens up.</p>
+                      {wlJoined ? (
+                        <div className="bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-xs text-charcoal-900">
+                          You&apos;re on the waitlist{wlPosition ? ` (#${wlPosition} in line)` : ''} for {wlTime} on {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. We&apos;ll text you at {wlPhone} if it opens up.
+                        </div>
+                      ) : (
+                        <div className="bg-warm-100 border border-warm-200 rounded-lg p-4 space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Desired Time</label>
+                              <input type="time" value={wlTime} onChange={e => setWlTime(e.target.value)}
+                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Phone</label>
+                              <input type="tel" value={wlPhone} onChange={e => setWlPhone(e.target.value)} placeholder="(555) 000-0000"
+                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Name</label>
+                            <input type="text" value={wlName} onChange={e => setWlName(e.target.value)} placeholder="Your name"
+                              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                          </div>
+                          {wlError && <p className="text-red-400 text-xs">{wlError}</p>}
+                          <button onClick={joinWaitlist} disabled={wlSubmitting}
+                            className="w-full font-semibold px-4 py-2 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
+                            style={{ background: brand }}>
+                            {wlSubmitting ? 'Joining…' : `Join Waitlist for ${selectedService?.name || 'this service'}`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                   <div className="grid grid-cols-4 gap-2">
                     {availableSlots.map(t => (

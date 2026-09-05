@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { resolveSquareCredentials, refundSquarePayment } from '@/lib/square'
+import { triggerWaitlistOutreach } from '@/lib/waitlistNotify'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: appointment, error: apptErr } = await supabase
     .from('appointments')
-    .select('id, shop_id, barber_id, date, time, status')
+    .select('id, shop_id, barber_id, service_id, date, time, status')
     .eq('id', appointmentId)
     .maybeSingle()
   if (apptErr || !appointment) {
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('owner_id, barbers_collect_own_payments, deposit_refund_window_hours')
+    .select('owner_id, barbers_collect_own_payments, deposit_refund_window_hours, waitlist_min_notice_hours')
     .eq('id', appointment.shop_id)
     .maybeSingle()
   if (!shop) {
@@ -100,6 +101,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     status: 'cancelled',
     ...(reason ? { cancellation_reason: reason } : {}),
   }).eq('id', appointmentId)
+
+  await triggerWaitlistOutreach(supabase, appointment, shop.waitlist_min_notice_hours ?? 4)
 
   return NextResponse.json({ cancelled: true, refunded })
 }

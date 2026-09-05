@@ -26,6 +26,7 @@ export type RateLimitBucket =
   | 'waitlist'
   | 'bookingReply'
   | 'portalOtp'
+  | 'waitlistClaim'
 
 // failClosed controls what happens when Redis is unreachable or not
 // configured at all: true means the request is blocked (safer default for
@@ -56,6 +57,11 @@ const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters
   // Sends a real SMS per request on a public, unauthenticated endpoint --
   // same reasoning and shape as kioskOtp.
   portalOtp: { limit: 6, window: '60 s', failClosed: true },
+  // Inbound SMS replies that can create a real appointment (the
+  // waitlist-claim flow) -- phone-scoped, checked inside the
+  // /api/sms/optout webhook handler before creating an appointment, same
+  // reasoning as bookingReply.
+  waitlistClaim: { limit: 5, window: '60 s', failClosed: true },
 }
 
 const limiters = new Map<RateLimitBucket, Ratelimit>()

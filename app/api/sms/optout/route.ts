@@ -133,21 +133,27 @@ export async function POST(req: NextRequest) {
     return twiml(`You have been unsubscribed from ${displayName} alerts. Reply START to resubscribe.`)
   }
 
-  // Abandoned-booking reply-to-book -- checked before START/HELP because
-  // "YES" is both a booking-confirmation keyword and a carrier-mandated
-  // resubscribe keyword. An active, reply-eligible session for this phone
-  // means the reply is almost certainly about the pending booking
-  // question, not a coincidental resubscribe -- so it takes priority.
-  // STOP is still checked first above and always wins, per compliance.
-  // Only engages when this phone actually has an active session; every
-  // other inbound text (including a genuinely unrecognized reply to a
-  // marketing text) falls through to START/HELP/campaign-click handling
-  // below untouched. This shares the webhook rather than using a separate
-  // route because Twilio only supports one inbound-message URL per phone
-  // number, and this one is already it.
+  // Abandoned-booking reply-to-book and waitlist-claim -- checked before
+  // START/HELP because "YES" is both a booking-confirmation keyword and a
+  // carrier-mandated resubscribe keyword. An active, reply-eligible session
+  // or waitlist offer for this phone means the reply is almost certainly
+  // about that pending question, not a coincidental resubscribe -- so it
+  // takes priority. STOP is still checked first above and always wins, per
+  // compliance. Only engages when this phone actually has an active
+  // session/offer; every other inbound text (including a genuinely
+  // unrecognized reply to a marketing text) falls through to
+  // START/HELP/campaign-click handling below untouched. This shares the
+  // webhook rather than using separate routes because Twilio only supports
+  // one inbound-message URL per phone number, and this one is already it.
+  // An abandoned-booking session takes priority over a waitlist offer if a
+  // phone somehow has both active at once -- the same "whichever question
+  // is pending" precedent as STOP-vs-reply above.
   if (isTwilio && bare) {
     const bookingReply = await handleBookingReply(supabase, e164, bare, keyword)
     if (bookingReply) return bookingReply
+
+    const waitlistReply = await handleWaitlistReply(supabase, e164, bare, keyword)
+    if (waitlistReply) return waitlistReply
   }
 
   if (START_KEYWORDS.includes(keyword)) {
@@ -401,6 +407,157 @@ async function handleBookingReply(
   await supabase.from('automation_logs').insert({
     type: 'abandoned_booking_recovery_confirmed',
     payload: { sessionId: session.session_id, phone: e164, appointmentId: newApptId },
+    result: 'booked',
+  })
+
+  return twiml(`You're booked! ${service.name} on ${dateLabel} at ${timeDisplay}${barberLabel ? ` with ${barberLabel}` : ''} at ${shop.name}. See you soon!`)
+}
+
+// Reverts a claimed-but-failed waitlist offer back to 'waiting' so the
+// entry is still eligible for a future cancellation of this same exact
+// slot, rather than being left stuck on a dead 'claimed'/'notified' row.
+async function reopenWaitlistEntry(supabase: ReturnType<typeof getSupabase>, entryId: string) {
+  await supabase.from('appointment_waitlist').update({
+    status: 'waiting', notified_at: null, notify_expires_at: null, notify_barber_id: null, updated_at: new Date().toISOString(),
+  }).eq('id', entryId)
+}
+
+// Mirrors handleBookingReply above: matches this phone's most recent
+// unexpired waitlist offer, requires the same YES/Y/BOOK/CONFIRM reply,
+// re-checks availability at the moment of reply (same buffer-aware
+// isSlotAvailable check, since the slot could have been filled through
+// normal booking in the meantime), and creates the real appointment --
+// tagged source 'waitlist' rather than 'recovery' so owners can tell the
+// two recovery paths apart in reporting.
+async function handleWaitlistReply(
+  supabase: ReturnType<typeof getSupabase>,
+  e164: string,
+  bare: string,
+  keyword: string
+): Promise<NextResponse | null> {
+  const { data: entry } = await supabase
+    .from('appointment_waitlist')
+    .select('id, shop_id, client_id, client_name, client_phone, service_id, desired_date, desired_time, notify_barber_id, notify_expires_at')
+    .eq('client_phone', bare)
+    .eq('status', 'notified')
+    .gt('notify_expires_at', new Date().toISOString())
+    .order('notified_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  // No active waitlist offer for this number -- not our concern, let the
+  // caller fall through to its normal handling.
+  if (!entry) return null
+
+  const phoneLimit = await checkRateLimit('waitlistClaim', `phone:${bare}`)
+  if (!phoneLimit.ok) {
+    return twiml('Too many requests. Please try again in a minute, or contact the shop directly.')
+  }
+
+  const { data: shop } = await supabase
+    .from('shops').select('id, name, owner_id, shop_code').eq('id', entry.shop_id).maybeSingle()
+  const { data: service } = await supabase
+    .from('services').select('id, name, price, duration_minutes, buffer_before_minutes, buffer_after_minutes').eq('id', entry.service_id).maybeSingle()
+  if (!shop || !service) {
+    return twiml('Sorry, something went wrong finding that offer. Please contact the shop directly.')
+  }
+  const { data: barber } = entry.notify_barber_id
+    ? await supabase.from('shop_barbers').select('barber_name, alias').eq('barber_id', entry.notify_barber_id).eq('shop_id', entry.shop_id).maybeSingle()
+    : { data: null as any }
+  const barberLabel = barber?.barber_name || barber?.alias || null
+  const { dateLabel, timeDisplay } = formatDateTime(entry.desired_date, entry.desired_time)
+
+  if (!CONFIRM_KEYWORDS.includes(keyword)) {
+    return twiml(`Reply YES to claim the ${service.name} spot on ${dateLabel} at ${timeDisplay}${barberLabel ? ` with ${barberLabel}` : ''}, or ignore this text.`)
+  }
+
+  // Claim atomically before doing anything else -- a retried or duplicate
+  // webhook delivery, or a race with the claim-window-expiry sweep, can't
+  // double-claim this offer since only one request can win this
+  // conditional update.
+  const { data: claimed } = await supabase
+    .from('appointment_waitlist')
+    .update({ status: 'claimed', updated_at: new Date().toISOString() })
+    .eq('id', entry.id)
+    .eq('status', 'notified')
+    .select('id')
+    .maybeSingle()
+  if (!claimed) {
+    return twiml('Sorry, that offer just expired or was already claimed.')
+  }
+
+  const available = await isSlotAvailable(supabase, shop.id, entry.notify_barber_id, entry.desired_date, entry.desired_time, service)
+  if (!available) {
+    await reopenWaitlistEntry(supabase, entry.id)
+    return twiml(`Sorry, that time was just booked by someone else. You're still on the waitlist for ${service.name} on ${dateLabel} at ${timeDisplay}.`)
+  }
+
+  const { data: existingClient } = await supabase.from('clients').select('id').eq('phone', bare).maybeSingle()
+  let clientId: string
+  if (existingClient) {
+    clientId = existingClient.id
+  } else {
+    const { data: newClient, error: newClientErr } = await supabase
+      .from('clients')
+      .insert({ phone: bare, full_name: entry.client_name, source: 'online_booking' })
+      .select('id')
+      .single()
+    if (newClientErr || !newClient) {
+      await reopenWaitlistEntry(supabase, entry.id)
+      return twiml('Sorry, something went wrong confirming your booking. Please contact the shop directly.')
+    }
+    clientId = newClient.id
+  }
+
+  const newApptId = randomUUID()
+  const { error: apptErr } = await supabase.from('appointments').insert({
+    id: newApptId,
+    shop_id: shop.id,
+    barber_id: entry.notify_barber_id,
+    service_id: service.id,
+    client_id: clientId,
+    client_name: entry.client_name,
+    client_phone: entry.client_phone,
+    date: entry.desired_date,
+    time: entry.desired_time,
+    price: service.price,
+    status: 'pending',
+    payment_status: 'unpaid',
+    source: 'waitlist',
+  })
+  if (apptErr) {
+    await reopenWaitlistEntry(supabase, entry.id)
+    return twiml('Sorry, something went wrong confirming your booking. Please contact the shop directly.')
+  }
+
+  await supabase.from('appointment_waitlist').update({ claimed_appointment_id: newApptId }).eq('id', entry.id)
+  await supabase.from('client_shop_memberships').upsert(
+    { client_id: clientId, shop_id: shop.id },
+    { onConflict: 'client_id,shop_id', ignoreDuplicates: true }
+  )
+
+  await supabase.from('notifications').insert({
+    user_id: shop.owner_id,
+    shop_id: shop.id,
+    type: 'booking',
+    title: 'Waitlist spot claimed',
+    body: `${entry.client_name} claimed the ${service.name} spot on ${dateLabel} at ${timeDisplay}${barberLabel ? ` with ${barberLabel}` : ''} from the waitlist`,
+    read: false,
+  })
+  if (entry.notify_barber_id) {
+    await supabase.from('notifications').insert({
+      user_id: entry.notify_barber_id,
+      shop_id: shop.id,
+      type: 'booking',
+      title: 'New appointment',
+      body: `${entry.client_name} claimed your open ${service.name} slot on ${dateLabel} at ${timeDisplay} from the waitlist`,
+      read: false,
+    })
+  }
+
+  await supabase.from('automation_logs').insert({
+    type: 'appointment_waitlist_claimed',
+    payload: { waitlistId: entry.id, phone: e164, appointmentId: newApptId },
     result: 'booked',
   })
 
