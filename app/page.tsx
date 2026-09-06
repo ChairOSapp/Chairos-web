@@ -208,10 +208,10 @@ export default function LandingPage() {
           <div style={{ flex: '1 1 260px', minWidth: '240px' }}>
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A18', marginBottom: '6px' }}>Bear Bryant, Founder</div>
             <div style={{ fontSize: '12px', color: '#65655F', marginBottom: '16px', lineHeight: 1.6 }}>
-              US Navy Veteran &middot; IT Specialist &middot; Licensed Barber &middot; Former Shop Owner &middot; Barbering Instructor
+              US Navy Veteran &middot; Licensed Barber &middot; Former Shop Owner &middot; Barbering Instructor &middot; Infrastructure Engineer
             </div>
             <p style={{ fontSize: '14.5px', color: '#4F4F48', lineHeight: 1.7, margin: 0 }}>
-              I built ChairOS after experiencing the same problems independent shop owners deal with every day: disconnected tools, messy compensation, limited visibility, and no real way to understand the client relationships behind the revenue. My background as a Navy IT specialist gave me the skills to build the system myself. ChairOS is the system I wanted when I was running a shop.
+              I built ChairOS after years behind the chair as a licensed barber and shop owner, dealing with the same problems independent shops face every day: disconnected tools, messy compensation, limited visibility, and no real way to understand the client relationships behind the revenue. As a barbering instructor, I kept thinking about the tools I wished I could hand my students. My background as a Navy veteran and my current work as an infrastructure engineer gave me the skills to actually build it. ChairOS is the system I wanted when I was running a shop.
             </p>
           </div>
         </div>
