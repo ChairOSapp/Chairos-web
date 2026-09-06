@@ -1,8 +1,9 @@
 // Evaluates pricing_rules against a chosen booking slot. A rule is a promo
 // when it carries a start_date/end_date (active only within that window);
 // otherwise it's a permanent/recurring rule gated by days_of_week and
-// start_time/end_time. Promos take precedence over recurring rules for the
-// same slot rather than stacking — see findApplicablePricingRule.
+// start_time/end_time. Every active rule whose own conditions match applies
+// simultaneously (a promo and a recurring surcharge can both hit the same
+// slot) — see findApplicablePricing.
 import { timeStrToMinutes } from './availability'
 
 export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -23,12 +24,21 @@ export interface PricingRule {
   active: boolean
 }
 
-export interface AppliedPricing {
+export interface AppliedRule {
   rule: PricingRule
   isPromo: boolean
+  label: string
+  /** This rule's own effect in isolation, purely for display -- e.g. "-20%"
+   *  or "$25". With more than one rule applied, dollar amounts aren't summed
+   *  from these (order would make that ambiguous); see PricingResult.finalPrice
+   *  for the actual combined total. */
+  displayValue: string
+}
+
+export interface PricingResult {
   originalPrice: number
   finalPrice: number
-  label: string
+  appliedRules: AppliedRule[]
 }
 
 export function isPromoRule(rule: Pick<PricingRule, 'start_date' | 'end_date'>): boolean {
@@ -73,40 +83,59 @@ export function ruleLabel(rule: Pick<PricingRule, 'name' | 'promo_name'>): strin
 }
 
 /**
- * Picks the single rule that applies to a service at a given date/day/time,
- * so adjustments never silently stack. Promo rules (date-range) win over
- * recurring (day/time) rules outright; within the same kind, a
- * service-specific rule wins over a shop-wide one, and ties break toward
- * the larger price swing.
+ * Combines every active rule whose own conditions match this service+date+
+ * day+time into one result, instead of picking a single winner. A promo and
+ * a recurring surcharge on the same slot both apply (e.g. "Fall Special
+ * -20%" plus a "Morning Surge +25%").
+ *
+ * At most one flat_price rule can set the base (you can't have two
+ * different "set prices" both win) -- if several match, the most specific
+ * (service-specific over shop-wide) wins, ties break toward whichever
+ * swings furthest from list price. Every matching percent_adjustment rule
+ * then multiplies on top of that base. Percent multipliers commute
+ * (0.8 * 1.25 is the same regardless of order), so the final total is
+ * well-defined even though the rules apply "simultaneously" rather than in
+ * some arbitrary sequence.
  */
-export function findApplicablePricingRule(
+export function findApplicablePricing(
   rules: PricingRule[],
   params: { serviceId: string; price: number; dateStr: string; dayName: string; timeMinutes: number }
-): AppliedPricing | null {
+): PricingResult {
   const { serviceId, price, dateStr, dayName, timeMinutes } = params
   const candidates = rules.filter(r => r.active && ruleAppliesToService(r, serviceId))
 
   const promoMatches = candidates.filter(r => isPromoRule(r) && promoActiveOn(r, dateStr))
-  const pool = promoMatches.length > 0
-    ? promoMatches
-    : candidates.filter(r => !isPromoRule(r) && recurringAppliesAt(r, dayName, timeMinutes))
+  const recurringMatches = candidates.filter(r => !isPromoRule(r) && recurringAppliesAt(r, dayName, timeMinutes))
+  const applicable = [...promoMatches, ...recurringMatches]
 
-  if (pool.length === 0) return null
-
-  const best = pool
-    .map(rule => ({ rule, finalPrice: applyAdjustment(price, rule) }))
-    .sort((a, b) => {
-      const aSpecific = a.rule.service_id ? 1 : 0
-      const bSpecific = b.rule.service_id ? 1 : 0
-      if (aSpecific !== bSpecific) return bSpecific - aSpecific
-      return Math.abs(b.finalPrice - price) - Math.abs(a.finalPrice - price)
-    })[0]
-
-  return {
-    rule: best.rule,
-    isPromo: promoMatches.length > 0,
-    originalPrice: price,
-    finalPrice: best.finalPrice,
-    label: ruleLabel(best.rule),
+  if (applicable.length === 0) {
+    return { originalPrice: price, finalPrice: price, appliedRules: [] }
   }
+
+  const flatRules = applicable.filter(r => r.flat_price != null)
+  const percentRules = applicable.filter(r => r.flat_price == null && r.percent_adjustment != null)
+
+  let base = price
+  const appliedRules: AppliedRule[] = []
+
+  if (flatRules.length > 0) {
+    const bestFlat = [...flatRules].sort((a, b) => {
+      const aSpecific = a.service_id ? 1 : 0
+      const bSpecific = b.service_id ? 1 : 0
+      if (aSpecific !== bSpecific) return bSpecific - aSpecific
+      return Math.abs(b.flat_price! - price) - Math.abs(a.flat_price! - price)
+    })[0]
+    base = Math.round(bestFlat.flat_price! * 100) / 100
+    appliedRules.push({ rule: bestFlat, isPromo: isPromoRule(bestFlat), label: ruleLabel(bestFlat), displayValue: `$${base}` })
+  }
+
+  for (const r of percentRules) {
+    const pct = r.percent_adjustment || 0
+    appliedRules.push({ rule: r, isPromo: isPromoRule(r), label: ruleLabel(r), displayValue: `${pct > 0 ? '+' : ''}${pct}%` })
+  }
+
+  const combinedMultiplier = percentRules.reduce((acc, r) => acc * (1 + (r.percent_adjustment || 0) / 100), 1)
+  const finalPrice = Math.max(0, Math.round(base * combinedMultiplier * 100) / 100)
+
+  return { originalPrice: price, finalPrice, appliedRules }
 }

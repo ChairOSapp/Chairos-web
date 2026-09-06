@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 import { initMetaPixel, initGoogleTag, trackMetaEvent, trackGoogleEvent } from '@/lib/tracking'
 import { timeStrToMinutes } from '@/lib/availability'
-import { DAY_NAMES, findApplicablePricingRule, promoActiveOn, isPromoRule, ruleLabel, type PricingRule } from '@/lib/pricing'
+import { DAY_NAMES, findApplicablePricing, promoActiveOn, isPromoRule, ruleLabel, type PricingRule } from '@/lib/pricing'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -84,12 +84,11 @@ function BookingPageInner() {
     (shop.vertical === 'tattoo' || (shop.vertical === 'salon' && shop.deposits_enabled)) &&
     selectedService.deposit_required === true
 
-  // A peak/off-peak or promo pricing_rules match for the selected
-  // service+date+time -- only one rule ever applies (promos win over
-  // recurring rules for the same slot; see findApplicablePricingRule), so
-  // this never stacks multiple adjustments.
-  const pricingMatch = selectedService?.price != null && selectedDate && selectedTime
-    ? findApplicablePricingRule(pricingRules, {
+  // Every peak/off-peak and promo pricing_rules match for the selected
+  // service+date+time applies at once -- a promo and a recurring surcharge
+  // on the same slot both take effect (see findApplicablePricing).
+  const pricingResult = selectedService?.price != null && selectedDate && selectedTime
+    ? findApplicablePricing(pricingRules, {
         serviceId: selectedService.id,
         price: selectedService.price,
         dateStr: selectedDate,
@@ -98,7 +97,7 @@ function BookingPageInner() {
       })
     : null
   const priceAfterRule = selectedService?.price != null
-    ? (pricingMatch ? pricingMatch.finalPrice : selectedService.price)
+    ? (pricingResult ? pricingResult.finalPrice : selectedService.price)
     : null
 
   // A referral reward (checked via checkReturningClient once the phone
@@ -731,14 +730,12 @@ function BookingPageInner() {
                 </span>
               </div>
             ))}
-            {pricingMatch && (
-              <div className="flex justify-between text-sm">
-                <span className="text-charcoal-400">{pricingMatch.label}</span>
-                <span className="font-mono font-semibold text-od-green">
-                  {pricingMatch.finalPrice < pricingMatch.originalPrice ? '-' : '+'}${Math.abs(pricingMatch.finalPrice - pricingMatch.originalPrice).toFixed(2)}
-                </span>
+            {pricingResult?.appliedRules.map(ar => (
+              <div key={ar.rule.id} className="flex justify-between text-sm">
+                <span className="text-charcoal-400">{ar.label}</span>
+                <span className="font-mono font-semibold text-od-green">{ar.displayValue}</span>
               </div>
-            )}
+            ))}
             {activeReward && (
               <div className="flex justify-between text-sm">
                 <span className="text-charcoal-400">Referral reward</span>
@@ -1010,10 +1007,12 @@ function BookingPageInner() {
                   )}
                 </div>
               )}
-              {pricingMatch && (
-                <div className="text-sm rounded-lg px-3 py-2 bg-od-green/10 text-od-green">
-                  {pricingMatch.label}: {pricingMatch.finalPrice < pricingMatch.originalPrice ? '-' : '+'}
-                  ${Math.abs(pricingMatch.finalPrice - pricingMatch.originalPrice).toFixed(2)} — now ${pricingMatch.finalPrice}
+              {pricingResult && pricingResult.appliedRules.length > 0 && (
+                <div className="text-sm rounded-lg px-3 py-2 bg-od-green/10 text-od-green space-y-0.5">
+                  {pricingResult.appliedRules.map(ar => (
+                    <div key={ar.rule.id}>{ar.label}: {ar.displayValue}</div>
+                  ))}
+                  <div className="font-semibold">Now ${pricingResult.finalPrice}</div>
                 </div>
               )}
             </div>
@@ -1046,14 +1045,12 @@ function BookingPageInner() {
                   <span className="text-charcoal-900">{row.value}</span>
                 </div>
               ))}
-              {pricingMatch && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-charcoal-400">{pricingMatch.label}</span>
-                  <span className="font-mono font-semibold text-od-green">
-                    {pricingMatch.finalPrice < pricingMatch.originalPrice ? '-' : '+'}${Math.abs(pricingMatch.finalPrice - pricingMatch.originalPrice).toFixed(2)}
-                  </span>
+              {pricingResult?.appliedRules.map(ar => (
+                <div key={ar.rule.id} className="flex justify-between text-sm">
+                  <span className="text-charcoal-400">{ar.label}</span>
+                  <span className="font-mono font-semibold text-od-green">{ar.displayValue}</span>
                 </div>
-              )}
+              ))}
               {activeReward && (
                 <div className="flex justify-between text-sm">
                   <span className="text-charcoal-400">Referral reward</span>
