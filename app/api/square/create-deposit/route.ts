@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptErr } = await supabase
       .from('appointments')
-      .select('id, shop_id, barber_id, client_name, status, services(name, price, deposit_required)')
+      .select('id, shop_id, barber_id, client_name, status, price, services(name, deposit_required)')
       .eq('id', appointmentId)
       .maybeSingle()
 
@@ -76,11 +76,16 @@ export async function POST(req: NextRequest) {
     if (!requiresDeposit) {
       return NextResponse.json({ error: 'Deposit not required for this booking' }, { status: 400 })
     }
-    if (service.price === null || service.price === undefined) {
+    if (appointment.price === null || appointment.price === undefined) {
       return NextResponse.json({ error: 'This service has no price set yet — ask the shop to set one before booking' }, { status: 400 })
     }
 
-    const amount = computeDepositAmount(shop.deposit_type, Number(shop.deposit_amount), Number(service.price))
+    // Use the appointment's stored price, not the service's list price — the
+    // appointment price already has any applicable pricing_rules adjustment
+    // and referral discount baked in from booking time (see
+    // app/book/[shopCode]/page.tsx), and the deposit must be a percentage of
+    // what the client actually owes, not the pre-discount sticker price.
+    const amount = computeDepositAmount(shop.deposit_type, Number(shop.deposit_amount), Number(appointment.price))
     depositId = randomUUID()
     const expiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString()
 
