@@ -27,7 +27,7 @@ export default function ManagePricing() {
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const [ruleName, setRuleName] = useState('')
-  const [serviceId, setServiceId] = useState('')
+  const [serviceIds, setServiceIds] = useState<string[]>([])
   const [days, setDays] = useState<string[]>([])
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
@@ -67,9 +67,13 @@ export default function ManagePricing() {
   }
 
   function resetForm() {
-    setRuleName(''); setServiceId(''); setDays([]); setStartTime(''); setEndTime('')
+    setRuleName(''); setServiceIds([]); setDays([]); setStartTime(''); setEndTime('')
     setStartDate(''); setEndDate(''); setAdjustMode('percent'); setPercentValue(''); setFlatPriceValue('')
     setEditingId(null); setError('')
+  }
+
+  function toggleService(id: string) {
+    setServiceIds(prev => prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id])
   }
 
   function openCreate(kind: 'recurring' | 'promo') {
@@ -79,7 +83,7 @@ export default function ManagePricing() {
   function openEdit(r: PricingRule) {
     setEditingId(r.id)
     setRuleName(isPromoRule(r) ? (r.promo_name || '') : r.name)
-    setServiceId(r.service_id || '')
+    setServiceIds(r.service_id ? [r.service_id] : [])
     setDays(r.days_of_week || [])
     setStartTime(r.start_time ? r.start_time.slice(0, 5) : '')
     setEndTime(r.end_time ? r.end_time.slice(0, 5) : '')
@@ -111,10 +115,10 @@ export default function ManagePricing() {
     // security policy" instead of actually saving the rule.
     await supabase.auth.getSession()
 
-    const payload: any = {
+    const basePayload = (service_id: string | null): any => ({
       name: tab === 'promo' ? ruleName.trim() : ruleName.trim(),
       promo_name: tab === 'promo' ? ruleName.trim() : null,
-      service_id: serviceId || null,
+      service_id,
       days_of_week: tab === 'recurring' && days.length > 0 ? days : null,
       start_time: tab === 'recurring' && startTime ? startTime : null,
       end_time: tab === 'recurring' && endTime ? endTime : null,
@@ -122,11 +126,23 @@ export default function ManagePricing() {
       end_date: tab === 'promo' ? endDate : null,
       flat_price: adjustMode === 'flat_price' ? parseFloat(flatPriceValue) : null,
       percent_adjustment: adjustMode === 'percent' ? parseFloat(percentValue) : null,
-    }
+    })
+
+    // "All services" (serviceIds empty) is one row with service_id = null.
+    // Specific services are mutually exclusive with "All" in the UI, and
+    // pricing_rules only has a single nullable service_id column, so each
+    // checked service becomes its own row -- independently editable/
+    // toggleable, which is the DB's existing per-service granularity.
+    const targetServiceIds: (string | null)[] = serviceIds.length > 0 ? serviceIds : [null]
 
     async function save() {
-      if (editingId) return supabase.from('pricing_rules').update(payload).eq('id', editingId)
-      return supabase.from('pricing_rules').insert({ ...payload, shop_id: shop.id, active: true })
+      if (editingId) {
+        const [first, ...rest] = targetServiceIds
+        const { error } = await supabase.from('pricing_rules').update(basePayload(first)).eq('id', editingId)
+        if (error || rest.length === 0) return { error }
+        return supabase.from('pricing_rules').insert(rest.map(sid => ({ ...basePayload(sid), shop_id: shop.id, active: true })))
+      }
+      return supabase.from('pricing_rules').insert(targetServiceIds.map(sid => ({ ...basePayload(sid), shop_id: shop.id, active: true })))
     }
 
     let { error: saveError } = await save()
@@ -136,7 +152,8 @@ export default function ManagePricing() {
     }
 
     if (saveError) { setError(saveError.message); setSaving(false); return }
-    setSuccess(editingId ? 'Rule updated.' : (tab === 'promo' ? 'Promo created.' : 'Rule added.'))
+    const multi = !editingId && targetServiceIds.length > 1
+    setSuccess(editingId ? 'Rule updated.' : (tab === 'promo' ? `Promo created${multi ? ` for ${targetServiceIds.length} services` : ''}.` : `Rule added${multi ? ` for ${targetServiceIds.length} services` : ''}.`))
     setTimeout(() => setSuccess(''), 3000)
     resetForm(); setShowForm(false); await loadData(); setSaving(false)
   }
@@ -216,11 +233,25 @@ export default function ManagePricing() {
               </div>
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Applies To</label>
-                <select value={serviceId} onChange={e => setServiceId(e.target.value)}
-                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green">
-                  <option value="">All services</option>
-                  {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <div className="border border-warm-300 rounded-lg bg-warm-200 max-h-40 overflow-y-auto divide-y divide-warm-300">
+                  <label className="flex items-center gap-2 px-4 py-2.5 cursor-pointer">
+                    <input type="checkbox" checked={serviceIds.length === 0}
+                      onChange={() => setServiceIds([])}
+                      className="accent-od-green" />
+                    <span className="text-sm font-semibold text-charcoal-900">All services</span>
+                  </label>
+                  {services.map(s => (
+                    <label key={s.id} className="flex items-center gap-2 px-4 py-2.5 cursor-pointer">
+                      <input type="checkbox" checked={serviceIds.includes(s.id)}
+                        onChange={() => toggleService(s.id)}
+                        className="accent-od-green" />
+                      <span className="text-sm text-charcoal-900">{s.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-charcoal-500 mt-1">
+                  {serviceIds.length === 0 ? 'Applies to every service.' : `Applies to ${serviceIds.length} selected service${serviceIds.length === 1 ? '' : 's'}.`}
+                </p>
               </div>
             </div>
 
