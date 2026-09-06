@@ -774,15 +774,23 @@ function BookingPageInner() {
               className="w-14 h-14 rounded-xl object-cover flex-shrink-0 shadow-lg border border-white/10" />
           ) : (
             <div className="w-14 h-14 rounded-xl flex items-center justify-center font-serif text-xl font-bold flex-shrink-0 shadow-lg"
-              style={{ background: brandMid, color: brand, border: `2px solid ${brand}40` }}>
+              style={{ background: brandMid, color: `color-mix(in srgb, ${brand} 55%, white)`, border: `2px solid ${brand}40` }}>
               {shop.name[0]}
             </div>
           )}
           <div className="flex-1">
-            <h1 className="font-serif text-xl text-charcoal-900">{shop.name}</h1>
-            {shop.tagline && <p className="text-xs mt-0.5" style={{ color: brand }}>{shop.tagline}</p>}
+            {/* This header sits on a fixed-dark backdrop -- solid near-black
+                when there's no hero photo, or a photo darkened with a black
+                gradient (below) when there is. Text here can't use the
+                theme-reactive charcoal-* classes (dark-in-light-mode) or the
+                raw brand color unblended -- either can end up dark-on-dark
+                for a light-mode visitor or a shop with a dark brand color. */}
+            <h1 className="font-serif text-xl text-white">{shop.name}</h1>
+            {shop.tagline && (
+              <p className="text-xs mt-0.5" style={{ color: `color-mix(in srgb, ${brand} 55%, white)` }}>{shop.tagline}</p>
+            )}
             {(shop.address || shop.city) && (
-              <p className="text-charcoal-500 text-xs mt-0.5">
+              <p className="text-white/60 text-xs mt-0.5">
                 {[shop.address, shop.city].filter(Boolean).join(' · ')}
               </p>
             )}
@@ -790,7 +798,7 @@ function BookingPageInner() {
         </div>
         {shop.bio && (
           <div className="max-w-2xl mx-auto mt-3">
-            <p className="text-charcoal-400 text-xs leading-relaxed">{shop.bio}</p>
+            <p className="text-white/50 text-xs leading-relaxed">{shop.bio}</p>
           </div>
         )}
       </div>
