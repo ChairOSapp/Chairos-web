@@ -233,3 +233,5 @@ Supabase side (isolated branches, baseline fix, seed data) are done and
 independently verifiable right now. The deploy-and-rollback verification
 in this section needs Vercel linked first (Section 2) — nothing to test
 against yet without that.
+
+<!-- verified: first Vercel auto-deploy trigger, 2026-09-09T14:37:27Z -->
