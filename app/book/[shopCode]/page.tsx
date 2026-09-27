@@ -94,6 +94,11 @@ function BookingPageInner() {
   const [pendingApptId, setPendingApptId] = useState<string | null>(null)
   const [failedChargeKind, setFailedChargeKind] = useState<'deposit' | 'charge' | null>(null)
   const [retrying, setRetrying] = useState(false)
+  // What this booking actually did about money, so the success screen can
+  // state the payment truth ("Deposit paid $25", "Due at the shop $55")
+  // instead of letting "You're booked" imply a charge happened. Set in
+  // doBook / retryPayment right where each payment branch settles.
+  const [paidSummary, setPaidSummary] = useState<{ kind: 'deposit' | 'charge' | 'save' | 'none', amount: number } | null>(null)
   // Synchronous double-submit guards -- React state updates don't settle
   // between two rapid taps, so `submitting`/`retrying` alone can't stop a
   // double-tap from running the booking twice (two bookingKeys -> two
@@ -173,6 +178,29 @@ function BookingPageInner() {
     ? `$${depositAmountEstimate}`
     : null
   const chargeDisplay = finalPrice != null ? `$${finalPrice}` : null
+
+  // What the Confirm button will actually do about money when tapped --
+  // the label must match this exactly. chargeDisplay is just the price
+  // and is set for every priced service, so it must NOT drive the label
+  // on its own: "Confirm & Pay $55" on a pay-at-the-shop booking is what
+  // made a customer believe they'd paid when no charge happened.
+  const willChargeDeposit = requiresDeposit && !!depositDisplay
+  const willChargeNow = !willChargeDeposit && !!shop?.require_card_to_book && cardMode === 'charge' && (finalPrice ?? 0) > 0
+  const willSaveCard = !willChargeDeposit && !willChargeNow && !!shop?.require_card_to_book && cardMode === 'save'
+
+  // Hero info: average rating (reviews are already loaded) and today's
+  // hours from the shop's weekly schedule, so the header earns its space.
+  const avgRating = shopReviews.length > 0
+    ? shopReviews.reduce((s: number, r: any) => s + (r.rating || 0), 0) / shopReviews.length
+    : null
+  const todayHoursLabel = (() => {
+    const hours = shop?.hours
+    if (!Array.isArray(hours)) return null
+    const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+    const entry = (hours as Array<{ day: string; open: boolean; from: string; to: string }>).find(h => h.day === dayName)
+    if (!entry) return null
+    return entry.open ? `Open today ${entry.from} – ${entry.to}` : 'Closed today'
+  })()
 
   useEffect(() => {
     async function load() {
@@ -627,6 +655,10 @@ function BookingPageInner() {
       setPaymentFailed(false)
       setPendingApptId(null)
       setFailedChargeKind(null)
+      setPaidSummary({
+        kind: failedChargeKind,
+        amount: failedChargeKind === 'deposit' ? (depositAmountEstimate ?? 0) : (finalPrice ?? 0),
+      })
       await finalizeBooking(apptId)
       setSuccess(true)
     } finally {
@@ -652,6 +684,7 @@ function BookingPageInner() {
     setConfirmedBarberName(null)
     setReturningClient(null)
     setActiveReward(null)
+    setPaidSummary(null)
     setCaptchaToken('')
     setCaptchaLoadFailed(false)
     setSuccess(false)
@@ -895,6 +928,7 @@ function BookingPageInner() {
         setPaymentError(result.message)
         return
       }
+      setPaidSummary({ kind: 'deposit', amount: depositAmountEstimate ?? 0 })
     } else if (sourceId && cardMode === 'charge' && (finalPrice ?? 0) > 0) {
       // Charge card immediately if one-time mode (need appointmentId for Square).
       // A $0 total (free service or a reward covering everything) skips
@@ -907,6 +941,7 @@ function BookingPageInner() {
         setPaymentError(result.message)
         return
       }
+      setPaidSummary({ kind: 'charge', amount: finalPrice ?? 0 })
     } else if (sourceId && cardMode === 'save' && clientId) {
       // Save card on file if client chose save mode -- and only claim it
       // worked if the server said so. Requires the explicit card-on-file
@@ -922,7 +957,14 @@ function BookingPageInner() {
       }).catch(() => null)
       if (!saveRes?.ok) {
         setError('We couldn’t save your card for later — please bring it to your appointment.')
+        setPaidSummary({ kind: 'none', amount: 0 })
+      } else {
+        setPaidSummary({ kind: 'save', amount: 0 })
       }
+    } else {
+      // No card was taken now (pay at the shop, or a $0 total) -- record
+      // that explicitly so the success screen can't imply a charge.
+      setPaidSummary({ kind: 'none', amount: 0 })
     }
 
     // Fully settled (paid, or no payment required) -- notify everyone,
@@ -1035,6 +1077,34 @@ function BookingPageInner() {
                 </span>
               </div>
             )}
+            {/* Payment truth: never let "You're booked" imply a charge that
+                didn't happen. */}
+            {paidSummary?.kind === 'deposit' && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-charcoal-400">Deposit paid</span>
+                  <span className="font-mono font-semibold" style={{ color: brand }}>${paidSummary.amount}</span>
+                </div>
+                {(finalPrice ?? 0) > paidSummary.amount && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-charcoal-400">Due at the shop</span>
+                    <span className="font-mono font-semibold text-charcoal-900">${(finalPrice ?? 0) - paidSummary.amount}</span>
+                  </div>
+                )}
+              </>
+            )}
+            {paidSummary?.kind === 'charge' && (
+              <div className="flex justify-between text-sm">
+                <span className="text-charcoal-400">Paid today</span>
+                <span className="font-mono font-semibold" style={{ color: brand }}>${paidSummary.amount}</span>
+              </div>
+            )}
+            {(paidSummary?.kind === 'save' || paidSummary?.kind === 'none') && (finalPrice ?? 0) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-charcoal-400">{paidSummary.kind === 'save' ? 'Card on file — due at the shop' : 'Due at the shop'}</span>
+                <span className="font-mono font-semibold text-charcoal-900">${finalPrice}</span>
+              </div>
+            )}
           </div>
           <p className="text-charcoal-600 text-xs">
             {smsConsent && smsSent ? `Confirmation text sent to ${clientPhone}.` : 'Booking confirmed.'} Powered by ChairOS.
@@ -1059,41 +1129,72 @@ function BookingPageInner() {
     <div className="min-h-screen bg-warm-50">
 
       {shop.hero_url && (
-        <div className="w-full h-48 md:h-64 overflow-hidden relative">
+        <div className="w-full h-36 md:h-44 overflow-hidden relative">
           <img src={shop.hero_url} alt={shop.name} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/30 to-black/75" />
         </div>
       )}
 
       <div style={{ background: shop.hero_url ? 'transparent' : `linear-gradient(135deg, color-mix(in srgb, ${brand} 38%, #0a0a0a), #0a0a0a)` }}
-        className={`px-6 py-5 border-b border-warm-200 ${shop.hero_url ? '-mt-20 relative z-10' : ''}`}>
-        <div className="max-w-2xl mx-auto flex items-center gap-4">
-          {shop.logo_url ? (
-            <img src={shop.logo_url} alt={shop.name}
-              className="w-14 h-14 rounded-xl object-cover flex-shrink-0 shadow-lg border border-white/10" />
-          ) : (
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center font-serif text-xl font-bold flex-shrink-0 shadow-lg"
-              style={{ background: brandMid, color: `color-mix(in srgb, ${brand} 55%, white)`, border: `2px solid ${brand}40` }}>
-              {shop.name[0]}
+        className={`px-6 pt-4 pb-5 border-b border-warm-200 ${shop.hero_url ? '-mt-16 relative z-10' : ''}`}>
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center gap-4">
+            {shop.logo_url ? (
+              <img src={shop.logo_url} alt={shop.name}
+                className="w-16 h-16 rounded-2xl object-cover flex-shrink-0 shadow-lg border border-white/10" />
+            ) : (
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-serif text-2xl font-bold flex-shrink-0 shadow-lg"
+                style={{ background: brandMid, color: `color-mix(in srgb, ${brand} 55%, white)`, border: `2px solid ${brand}40` }}>
+                {shop.name[0]}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              {/* This header sits on a fixed-dark backdrop -- solid near-black
+                  when there's no hero photo, or a photo darkened with a black
+                  gradient (below) when there is. Text here can't use the
+                  theme-reactive charcoal-* classes (dark-in-light-mode) or the
+                  raw brand color unblended -- either can end up dark-on-dark
+                  for a light-mode visitor or a shop with a dark brand color. */}
+              <h1 className="font-serif text-xl text-white leading-tight">{shop.name}</h1>
+              {avgRating != null && (
+                <p className="text-xs mt-1 text-white/80">
+                  <span className="text-amber-400">★</span> {avgRating.toFixed(1)} · {shopReviews.length} review{shopReviews.length !== 1 ? 's' : ''}
+                </p>
+              )}
+              {shop.tagline && (
+                <p className="text-xs mt-0.5 truncate" style={{ color: `color-mix(in srgb, ${brand} 55%, white)` }}>{shop.tagline}</p>
+              )}
+            </div>
+          </div>
+          {(shop.address || shop.city || shop.phone || todayHoursLabel) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3">
+              {(shop.address || shop.city) && (
+                <span className="inline-flex items-center gap-1.5 text-white/60 text-xs">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  {[shop.address, shop.city].filter(Boolean).join(' · ')}
+                </span>
+              )}
+              {shop.phone && (
+                <a href={`tel:${shop.phone.replace(/\D/g, '')}`}
+                  className="inline-flex items-center gap-1.5 text-xs text-white underline decoration-white/30 underline-offset-2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.85a16 16 0 0 0 6.29 6.29l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                  {shop.phone}
+                </a>
+              )}
+              {todayHoursLabel && (
+                <span className="inline-flex items-center gap-1.5 text-white/60 text-xs">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {todayHoursLabel}
+                </span>
+              )}
             </div>
           )}
-          <div className="flex-1">
-            {/* This header sits on a fixed-dark backdrop -- solid near-black
-                when there's no hero photo, or a photo darkened with a black
-                gradient (below) when there is. Text here can't use the
-                theme-reactive charcoal-* classes (dark-in-light-mode) or the
-                raw brand color unblended -- either can end up dark-on-dark
-                for a light-mode visitor or a shop with a dark brand color. */}
-            <h1 className="font-serif text-xl text-white">{shop.name}</h1>
-            {shop.tagline && (
-              <p className="text-xs mt-0.5" style={{ color: `color-mix(in srgb, ${brand} 55%, white)` }}>{shop.tagline}</p>
-            )}
-            {(shop.address || shop.city) && (
-              <p className="text-white/60 text-xs mt-0.5">
-                {[shop.address, shop.city].filter(Boolean).join(' · ')}
-              </p>
-            )}
-          </div>
         </div>
         {shop.bio && (
           <div className="max-w-2xl mx-auto mt-3">
@@ -1130,7 +1231,7 @@ function BookingPageInner() {
             <div className="bg-warm-100 border border-warm-200 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-charcoal-900">
-                  ★ {(shopReviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / shopReviews.length).toFixed(1)} · {shopReviews.length} review{shopReviews.length !== 1 ? 's' : ''}
+                  ★ {(avgRating ?? 0).toFixed(1)} · {shopReviews.length} review{shopReviews.length !== 1 ? 's' : ''}
                 </div>
                 {shop?.slug && (
                   <a href={`/shop/${shop.slug}/reviews`} className="text-xs font-semibold" style={{ color: brand }}>
@@ -1398,7 +1499,7 @@ function BookingPageInner() {
                 </div>
               )}
               <div className="flex justify-between text-sm border-t border-warm-200 pt-2 mt-2">
-                <span className="text-charcoal-400">Total</span>
+                <span className="text-charcoal-400">{willChargeDeposit || willChargeNow ? 'Total' : 'Due at the shop'}</span>
                 <span className="font-mono font-semibold" style={{ color: brand }}>{chargeDisplay ?? 'Pay at shop'}</span>
               </div>
               {requiresDeposit && depositDisplay && (
@@ -1408,6 +1509,11 @@ function BookingPageInner() {
                 </div>
               )}
             </div>
+            {!willChargeDeposit && !willChargeNow && (finalPrice ?? 0) > 0 && (
+              <p className="text-charcoal-500 text-xs mt-3 leading-relaxed">
+                Nothing due today — pay {chargeDisplay} at the shop.
+              </p>
+            )}
             <div className="space-y-4 mb-6">
               {[
                 { label: 'Full Name *', value: clientName, set: setClientName, type: 'text', placeholder: 'Your name' },
@@ -1590,7 +1696,11 @@ function BookingPageInner() {
                 <button onClick={handleBook} disabled={submitting || !contactValid || (CAPTCHA_ENABLED && !captchaToken)}
                   className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors disabled:opacity-50"
                   style={{ background: brand, color: onBrand }}>
-                  {submitting ? 'Processing...' : depositDisplay ? `Confirm & Pay Deposit ${depositDisplay}` : chargeDisplay ? `Confirm & Pay ${chargeDisplay}` : 'Confirm & Book'}
+                  {submitting ? 'Processing...'
+                    : willChargeDeposit ? `Confirm & Pay Deposit ${depositDisplay}`
+                    : willChargeNow ? `Confirm & Pay ${chargeDisplay}`
+                    : willSaveCard ? 'Confirm & Save Card'
+                    : 'Confirm Booking'}
                 </button>
               )}
             </div>
