@@ -5,6 +5,9 @@ export interface EarningsSummary {
   compensation: number
   totalTips: number
   appointmentCount: number
+  compensationType: string | null
+  commissionRate: number | null
+  boothRentPaid: number
 }
 
 // Same formula already used in app/dashboard/staff/[id]/earnings/page.tsx --
@@ -44,16 +47,29 @@ export async function computeEarningsSummary(
     .gte('created_at', startDate)
     .lte('created_at', `${endDate}T23:59:59`)
 
+  const { data: rentPayments } = await supabase
+    .from('booth_rent_payments')
+    .select('total_due')
+    .eq('shop_id', shopId)
+    .eq('barber_id', barberId)
+    .eq('paid', true)
+    .gte('paid_at', startDate)
+    .lte('paid_at', `${endDate}T23:59:59`)
+
   const totalRevenue = (appointments ?? []).reduce((sum, a) => sum + (parseFloat(a.price) || 0), 0)
   const compensationBase = shopBarber?.compensation_type === 'commission'
     ? totalRevenue * (shopBarber?.commission_rate || 0.7)
     : totalRevenue
   const totalTips = (tips ?? []).reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+  const boothRentPaid = (rentPayments ?? []).reduce((sum, r) => sum + (parseFloat(r.total_due) || 0), 0)
 
   return {
     totalRevenue,
     compensation: compensationBase + totalTips,
     totalTips,
     appointmentCount: (appointments ?? []).length,
+    compensationType: shopBarber?.compensation_type ?? null,
+    commissionRate: shopBarber?.commission_rate ?? null,
+    boothRentPaid,
   }
 }

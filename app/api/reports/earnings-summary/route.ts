@@ -28,11 +28,19 @@ async function getRequestUser(req: NextRequest) {
   return user
 }
 
-const NOT_PROVIDED_PAYER = 'Not provided — enter in Shop Settings'
-const NOT_PROVIDED_RECIPIENT = 'Not provided — ask this person to enter it in their profile'
-
 function fmt(n: number) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// Clean up raw address strings for a formal document: title-case words and
+// uppercase a trailing two-letter state code ("123 main st jacksonville, fl."
+// -> "123 Main St Jacksonville, FL."). Missing data stays a plain
+// "Not provided" -- prompts to fill in profile info belong in the app UI,
+// never printed on someone's tax paperwork.
+function prettyAddress(s: string | null | undefined): string {
+  if (!s || !s.trim()) return 'Not provided'
+  const titled = s.trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+  return titled.replace(/,\s*([A-Za-z]{2})\.?\s*$/, (_, st: string) => `, ${st.toUpperCase()}.`)
 }
 
 // Generates an unofficial, 1099-NEC-shaped earnings summary PDF. Two
@@ -94,51 +102,114 @@ export async function POST(req: NextRequest) {
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   const { width } = page.getSize()
   const margin = 50
-  let y = 740
 
-  // Disclaimer banner
-  page.drawRectangle({ x: margin, y: y - 44, width: width - margin * 2, height: 54, color: rgb(0.98, 0.95, 0.85), borderColor: rgb(0.7, 0.55, 0.1), borderWidth: 1 })
+  const OLIVE = rgb(0.48, 0.55, 0.23)
+  const CHARCOAL = rgb(0.09, 0.09, 0.10)
+  const WHITE = rgb(1, 1, 1)
+  const GREY = rgb(0.38, 0.38, 0.38)
+  const LIGHT_GREY = rgb(0.55, 0.55, 0.55)
+
+  // --- Brand header band ---
+  page.drawRectangle({ x: 0, y: 712, width, height: 80, color: CHARCOAL })
+  page.drawText('ChairOS', { x: margin, y: 752, size: 24, font: boldFont, color: OLIVE })
+  page.drawText('Earnings Summary', { x: margin, y: 730, size: 13, font, color: WHITE })
+  const yearLabel = `${startDate.slice(0, 4)}`
+  const yearWidth = boldFont.widthOfTextAtSize(yearLabel, 13)
+  page.drawText(yearLabel, { x: width - margin - yearWidth, y: 742, size: 13, font: boldFont, color: WHITE })
+
+  let y = 688
+
+  // --- Disclaimer banner ---
+  page.drawRectangle({
+    x: margin, y: y - 52, width: width - margin * 2, height: 62,
+    color: rgb(0.99, 0.96, 0.88), borderColor: rgb(0.75, 0.60, 0.20), borderWidth: 1,
+  })
   page.drawText('UNOFFICIAL EARNINGS SUMMARY — NOT A FILED TAX DOCUMENT', {
-    x: margin + 10, y: y - 14, size: 11, font: boldFont, color: rgb(0.4, 0.28, 0.05),
+    x: margin + 12, y: y - 14, size: 10, font: boldFont, color: rgb(0.45, 0.32, 0.08),
   })
-  page.drawText('Provided for reference only. Consult a licensed accountant or tax preparer before filing.', {
-    x: margin + 10, y: y - 30, size: 9, font, color: rgb(0.4, 0.28, 0.05), maxWidth: width - margin * 2 - 20,
+  page.drawText('Provided for reference only. Amounts reflect ChairOS-recorded', {
+    x: margin + 12, y: y - 30, size: 9, font, color: rgb(0.45, 0.32, 0.08),
   })
-  y -= 80
+  page.drawText('transactions only. Consult a licensed accountant or tax preparer before filing.', {
+    x: margin + 12, y: y - 42, size: 9, font, color: rgb(0.45, 0.32, 0.08),
+  })
+  y -= 84
 
-  page.drawText('Nonemployee Compensation — Reference Summary', { x: margin, y, size: 16, font: boldFont })
+  // --- Title ---
+  page.drawText('Nonemployee Compensation', { x: margin, y, size: 17, font: boldFont, color: CHARCOAL })
+  y -= 18
+  page.drawText('Reference summary in the shape of IRS Form 1099-NEC', { x: margin, y, size: 10, font, color: GREY })
   y -= 30
 
-  // Payer section
-  page.drawText('PAYER', { x: margin, y, size: 10, font: boldFont, color: rgb(0.4, 0.4, 0.4) })
+  // --- Payer ---
+  page.drawText('PAYER', { x: margin, y, size: 10, font: boldFont, color: LIGHT_GREY })
   y -= 16
-  page.drawText(shop?.legal_business_name || `${shop?.name ?? 'Unknown shop'} (${NOT_PROVIDED_PAYER})`, { x: margin, y, size: 11, font })
+  page.drawText(shop?.legal_business_name || shop?.name || 'Not provided', { x: margin, y, size: 11, font, color: CHARCOAL })
   y -= 15
-  page.drawText(shop?.business_address || NOT_PROVIDED_PAYER, { x: margin, y, size: 11, font })
+  page.drawText(prettyAddress(shop?.business_address), { x: margin, y, size: 11, font, color: CHARCOAL })
   y -= 15
-  page.drawText(`EIN: ${shop?.ein || NOT_PROVIDED_PAYER}`, { x: margin, y, size: 11, font })
+  page.drawText(`EIN: ${shop?.ein || 'Not provided'}`, { x: margin, y, size: 11, font, color: CHARCOAL })
   y -= 32
 
-  // Recipient section
-  const displayName = taxInfo?.legal_name || shopBarber?.barber_name || shopBarber?.alias || 'Unknown recipient'
-  page.drawText('RECIPIENT', { x: margin, y, size: 10, font: boldFont, color: rgb(0.4, 0.4, 0.4) })
+  // --- Recipient ---
+  const displayName = taxInfo?.legal_name || shopBarber?.barber_name || shopBarber?.alias || 'Not provided'
+  page.drawText('RECIPIENT', { x: margin, y, size: 10, font: boldFont, color: LIGHT_GREY })
   y -= 16
-  page.drawText(displayName, { x: margin, y, size: 11, font })
+  page.drawText(displayName, { x: margin, y, size: 11, font, color: CHARCOAL })
   y -= 15
-  page.drawText(taxInfo?.address || NOT_PROVIDED_RECIPIENT, { x: margin, y, size: 11, font })
+  page.drawText(prettyAddress(taxInfo?.address), { x: margin, y, size: 11, font, color: CHARCOAL })
   y -= 15
-  page.drawText(`TIN: ${taxInfo?.tin || NOT_PROVIDED_RECIPIENT}`, { x: margin, y, size: 11, font })
-  y -= 40
+  page.drawText(`TIN: ${taxInfo?.tin || 'Not provided'}`, { x: margin, y, size: 11, font, color: CHARCOAL })
+  y -= 32
 
-  // Box 1
-  page.drawRectangle({ x: margin, y: y - 50, width: width - margin * 2, height: 50, borderColor: rgb(0, 0, 0), borderWidth: 1 })
-  page.drawText('Box 1 — Nonemployee compensation', { x: margin + 10, y: y - 20, size: 10, font, color: rgb(0.3, 0.3, 0.3) })
-  page.drawText(`$${fmt(summary.compensation)}`, { x: margin + 10, y: y - 40, size: 18, font: boldFont })
-  y -= 80
+  // --- Box 1: compensation ---
+  const serviceComp = summary.compensation - summary.totalTips
+  page.drawRectangle({
+    x: margin, y: y - 58, width: width - margin * 2, height: 58,
+    borderColor: CHARCOAL, borderWidth: 1.5,
+  })
+  page.drawRectangle({ x: margin, y: y - 58, width: 6, height: 58, color: OLIVE, borderColor: OLIVE })
+  page.drawText('Box 1 — Nonemployee compensation', { x: margin + 16, y: y - 20, size: 10, font, color: GREY })
+  page.drawText(`$${fmt(summary.compensation)}`, { x: margin + 16, y: y - 44, size: 20, font: boldFont, color: CHARCOAL })
+  y -= 74
+  page.drawText(`Service compensation: $${fmt(serviceComp)}`, { x: margin, y, size: 10, font, color: GREY })
+  y -= 15
+  page.drawText(`Tips included: $${fmt(summary.totalTips)}`, { x: margin, y, size: 10, font, color: GREY })
+  y -= 15
+  if (summary.compensationType === 'commission' && summary.commissionRate != null) {
+    page.drawText(`Commission rate: ${Math.round(summary.commissionRate * 100)}%`, { x: margin, y, size: 10, font, color: GREY })
+    y -= 15
+  }
+  page.drawText(`${summary.appointmentCount} completed appointments`, { x: margin, y, size: 10, font, color: GREY })
+  y -= 28
 
-  page.drawText(`Period covered: ${startDate} through ${endDate}`, { x: margin, y, size: 10, font, color: rgb(0.3, 0.3, 0.3) })
+  // --- Box 4: withholding (ChairOS never withholds; shown for 1099 parity) ---
+  page.drawText('Box 4 — Federal income tax withheld', { x: margin, y, size: 10, font: boldFont, color: CHARCOAL })
+  y -= 15
+  page.drawText('$0.00  (ChairOS does not withhold taxes)', { x: margin, y, size: 10, font, color: GREY })
+  y -= 28
+
+  // --- Booth rent paid: the other half of a renter's tax picture ---
+  if (summary.compensationType === 'booth_rent') {
+    page.drawRectangle({
+      x: margin, y: y - 58, width: width - margin * 2, height: 58,
+      borderColor: rgb(0.75, 0.75, 0.75), borderWidth: 1,
+    })
+    page.drawText('Booth rent paid', { x: margin + 12, y: y - 20, size: 10, font, color: GREY })
+    page.drawText(`$${fmt(summary.boothRentPaid)}`, { x: margin + 12, y: y - 44, size: 20, font: boldFont, color: CHARCOAL })
+    y -= 74
+    page.drawText('Rent paid is generally a deductible business expense — keep this with your records.', {
+      x: margin, y, size: 10, font, color: GREY,
+    })
+    y -= 28
+  }
+
+  // --- Footer ---
+  page.drawText(`Period covered: ${startDate} through ${endDate}`, { x: margin, y, size: 10, font, color: GREY })
   y -= 16
-  page.drawText(`Generated on: ${now.toISOString().slice(0, 10)}`, { x: margin, y, size: 10, font, color: rgb(0.3, 0.3, 0.3) })
+  page.drawText(`Generated on ${now.toISOString().slice(0, 10)} by ChairOS`, { x: margin, y, size: 10, font, color: GREY })
+  y -= 16
+  page.drawText('Questions about these amounts? Contact the shop directly.', { x: margin, y, size: 10, font, color: GREY })
 
   const bytes = await pdfDoc.save()
 
@@ -146,7 +217,7 @@ export async function POST(req: NextRequest) {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="unofficial-1099-${startDate}-to-${endDate}.pdf"`,
+      'Content-Disposition': `attachment; filename="chairos-earnings-summary-${startDate}-to-${endDate}.pdf"`,
     },
   })
 }
