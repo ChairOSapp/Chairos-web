@@ -109,10 +109,15 @@ export async function POST(req: NextRequest) {
   const GREY = rgb(0.38, 0.38, 0.38)
   const LIGHT_GREY = rgb(0.55, 0.55, 0.55)
 
-  // --- Brand header band ---
+  // --- Brand header band: the SHOP's document. ChairOS moves to a
+  // "Powered by" line in the footer.
+  const headerShopName = shop?.legal_business_name || shop?.name || 'Earnings Summary'
   page.drawRectangle({ x: 0, y: 712, width, height: 80, color: CHARCOAL })
-  page.drawText('ChairOS', { x: margin, y: 752, size: 24, font: boldFont, color: OLIVE })
-  page.drawText('Earnings Summary', { x: margin, y: 730, size: 13, font, color: WHITE })
+  let shopNameSize = 22
+  const maxNameW = width - margin * 2 - 80
+  while (shopNameSize > 14 && boldFont.widthOfTextAtSize(headerShopName, shopNameSize) > maxNameW) shopNameSize -= 2
+  page.drawText(headerShopName, { x: margin, y: 750, size: shopNameSize, font: boldFont, color: WHITE })
+  page.drawText('Earnings Summary', { x: margin, y: 728, size: 13, font, color: OLIVE })
   const yearLabel = `${startDate.slice(0, 4)}`
   const yearWidth = boldFont.widthOfTextAtSize(yearLabel, 13)
   page.drawText(yearLabel, { x: width - margin - yearWidth, y: 742, size: 13, font: boldFont, color: WHITE })
@@ -207,9 +212,13 @@ export async function POST(req: NextRequest) {
   // --- Footer ---
   page.drawText(`Period covered: ${startDate} through ${endDate}`, { x: margin, y, size: 10, font, color: GREY })
   y -= 16
-  page.drawText(`Generated on ${now.toISOString().slice(0, 10)} by ChairOS`, { x: margin, y, size: 10, font, color: GREY })
+  page.drawText(`Generated on ${now.toISOString().slice(0, 10)}`, { x: margin, y, size: 10, font, color: GREY })
   y -= 16
   page.drawText('Questions about these amounts? Contact the shop directly.', { x: margin, y, size: 10, font, color: GREY })
+  y -= 40
+  const poweredBy = 'Powered by ChairOS'
+  const poweredByW = font.widthOfTextAtSize(poweredBy, 10)
+  page.drawText(poweredBy, { x: (width - poweredByW) / 2, y, size: 10, font: boldFont, color: OLIVE })
 
   const bytes = await pdfDoc.save()
 
