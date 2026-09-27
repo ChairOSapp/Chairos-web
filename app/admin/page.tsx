@@ -9,6 +9,7 @@ import ActionQueue from '@/components/admin/ActionQueue'
 import VitalsGrid from '@/components/admin/VitalsGrid'
 import CustomerHealth from '@/components/admin/CustomerHealth'
 import ProductHealth from '@/components/admin/ProductHealth'
+import PlatformHealth from '@/components/admin/PlatformHealth'
 import GrowthSection from '@/components/admin/GrowthSection'
 import AccountsTable from '@/components/admin/AccountsTable'
 import ShopsTable from '@/components/admin/ShopsTable'
@@ -156,6 +157,11 @@ export default function AdminPage() {
         kind: 'component', id: 'product', eyebrow: 'The app', title: 'Product health',
         blurb: 'Is the thing itself behaving? Errors and background jobs, at a glance.',
         render: () => <ProductHealth metrics={metrics} pulse={pulse} />,
+      },
+      {
+        kind: 'component', id: 'platform', eyebrow: 'Under the hood', title: 'Platform health',
+        blurb: 'The pipes everything else runs on — where the site lives and where the data lives.',
+        render: () => <PlatformHealth />,
       },
       {
         kind: 'component', id: 'growth', eyebrow: 'Momentum', title: 'Growth',

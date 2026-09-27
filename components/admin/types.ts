@@ -85,8 +85,7 @@ export interface AdminUserRow {
   health_reasons: string[]
 }
 
-export interface AdminShopRow {
-  id: string
+export interface AdminShopRow {  id: string
   name: string
   vertical: string | null
   shopCode: string | null
@@ -99,4 +98,44 @@ export interface AdminShopRow {
   revenueTotal: number
   clientCount: number
   lockedCount: number
+}
+
+// Platform (infrastructure) health — fed by the Vercel + Supabase APIs via
+// /api/admin/infra. Everything is optional: a provider that isn't wired up
+// yet reports configured:false and the UI shows setup steps instead of data.
+export interface InfraDeployment {
+  state: string
+  createdAt: string
+  commitMessage: string | null
+  commitSha: string | null
+  url: string | null
+  target: string | null
+}
+
+export interface InfraData {
+  generatedAt: string
+  vercel: {
+    configured: boolean
+    ok: boolean
+    error: string | null
+    latest: InfraDeployment | null
+    lastGood: InfraDeployment | null
+    recentFailures: number
+  }
+  supabase: {
+    configured: boolean
+    ok: boolean
+    error: string | null
+    status: string | null
+    name: string | null
+    region: string | null
+  }
+  site: {
+    ok: boolean
+    statusCode: number | null
+    latencyMs: number | null
+    url: string
+    checkedAt: string | null
+    error: string | null
+  }
 }
