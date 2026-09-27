@@ -364,7 +364,7 @@ body {
 
 /* --- iOS safe-area (Capacitor wrapper) --- */
 /* Extends bottom padding by the home-indicator inset on fixed footers.
-   Unlayered so it wins over Tailwind's py-*/pb-* for padding-bottom.
+   Unlayered so it wins over Tailwind padding utilities for padding-bottom.
    Where the inset is 0 these equal the base paddings, so appearance on
    devices without a safe area is unchanged. */
 .pb-safe {
