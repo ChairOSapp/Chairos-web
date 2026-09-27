@@ -187,6 +187,13 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
     calRef.current?.getApi().changeView(v)
   }
 
+  // Date navigation — resolve the FullCalendar API at click time so the ref is
+  // always fresh (never a stale or undefined render-time capture).
+  const goToday = useCallback(() => calRef.current?.getApi().today(), [])
+  const goPrev = useCallback(() => calRef.current?.getApi().prev(), [])
+  const goNext = useCallback(() => calRef.current?.getApi().next(), [])
+  const gotoDate = useCallback((dateStr: string) => calRef.current?.getApi().gotoDate(dateStr), [])
+
   function renderEventContent(arg: EventContentArg) {
     const props = arg.event.extendedProps
 
@@ -276,8 +283,6 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
     )
   }
 
-  const api = calRef.current?.getApi()
-
   return (
     <div className="chairos-cal flex flex-col w-full" style={{ height: 'calc(100vh - 56px)' }}>
       <style>{FC_CSS}</style>
@@ -294,21 +299,33 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
           ))}
         </div>
 
-        {/* Date nav */}
-        <div className="flex items-center gap-1">
-          <button onClick={() => api?.today()}
-            className="px-3 py-2 rounded-xl text-[13px] font-semibold bg-warm-200 text-charcoal-600 hover:bg-warm-300 transition-colors min-h-[40px]">
+        {/* Date nav — one grouped, thumb-friendly control cluster */}
+        <div className="flex items-center gap-1 bg-warm-200 rounded-xl p-1 flex-shrink-0">
+          <button onClick={goToday}
+            className="px-4 py-2 rounded-lg text-[13px] font-bold bg-warm-50 text-charcoal-700 shadow-sm hover:text-od-green transition-colors min-h-[44px]">
             Today
           </button>
-          <button onClick={() => api?.prev()} aria-label="Previous"
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl text-charcoal-500 hover:bg-warm-200 hover:text-charcoal-900 transition-colors">
+          <button onClick={goPrev} aria-label="Previous period"
+            className="w-11 h-11 rounded-lg flex items-center justify-center text-2xl text-charcoal-600 hover:bg-warm-50 hover:text-charcoal-900 transition-colors">
             ‹
           </button>
-          <div className="min-w-[150px] text-center px-1">
-            <div className="text-[15px] font-bold text-charcoal-900 leading-tight">{getDateLabel(view, viewStart)}</div>
-          </div>
-          <button onClick={() => api?.next()} aria-label="Next"
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl text-charcoal-500 hover:bg-warm-200 hover:text-charcoal-900 transition-colors">
+          <label className="relative flex items-center justify-center gap-1.5 px-2 min-h-[44px] rounded-lg cursor-pointer hover:bg-warm-50 transition-colors" title="Jump to a date">
+            <span className="text-[15px] font-bold text-charcoal-900 leading-tight text-center whitespace-nowrap">{getDateLabel(view, viewStart)}</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-charcoal-400 flex-shrink-0" aria-hidden="true">
+              <rect x="3" y="4.5" width="18" height="16" rx="3" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+            </svg>
+            {/* Visually hidden but tappable native date input — opens the OS
+                date picker on mobile Safari. opacity-0 (never display:none). */}
+            <input
+              type="date"
+              value={toDateStr(viewStart)}
+              onChange={(e) => { if (e.target.value) gotoDate(e.target.value); e.target.blur() }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              aria-label="Jump to a date"
+            />
+          </label>
+          <button onClick={goNext} aria-label="Next period"
+            className="w-11 h-11 rounded-lg flex items-center justify-center text-2xl text-charcoal-600 hover:bg-warm-50 hover:text-charcoal-900 transition-colors">
             ›
           </button>
         </div>
