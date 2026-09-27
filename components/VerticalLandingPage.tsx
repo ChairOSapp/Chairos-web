@@ -125,6 +125,7 @@ function Counter({ to, prefix = '', duration = 1500 }: { to: number; prefix?: st
 function Phone({ src, alt, tilt = 'none', glow = false }: { src: string; alt: string; tilt?: string; glow?: boolean }) {
   return (
     <div
+      className="phone"
       style={{
         width: 'min(290px, 68vw)',
         flexShrink: 0,
@@ -306,6 +307,7 @@ export default function VerticalLandingPage(props: VerticalPageProps) {
           @media (max-width: 900px) {
             .hero-grid { grid-template-columns: 1fr !important; }
             .hero-phones { margin-top: 12px; }
+            .hero-phones .phone { width: min(230px, 48vw) !important; }
           }
         `}</style>
       </div>
