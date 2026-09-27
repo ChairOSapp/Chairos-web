@@ -66,6 +66,11 @@ export default function ClientPortalPage() {
   const squareCardRef = useRef<any>(null)
   const [cardReady, setCardReady] = useState(false)
   const [cardLoading, setCardLoading] = useState(false)
+  // This shop's owner hasn't connected Square (fail-closed): no card can
+  // be tokenized or saved here, so the form explains instead of offering
+  // a dead Save button.
+  const [squareNotConnected, setSquareNotConnected] = useState(false)
+  const [squareNotConnectedMsg, setSquareNotConnectedMsg] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<{ ok: boolean; message: string } | null>(null)
   // Card-on-file consent: unchecked by default, required to save.
@@ -125,12 +130,27 @@ export default function ClientPortalPage() {
     if (!appId) return
 
     setCardLoading(true)
+    setSquareNotConnected(false)
+    setSquareNotConnectedMsg('')
     let isMounted = true
     async function initSquare() {
       try {
         const cfgRes = await fetch(`/api/square/widget-config?portalShopId=${selectedShopId}`)
         if (!isMounted) return
-        if (!cfgRes.ok) throw new Error('widget_config_failed')
+        if (!cfgRes.ok) {
+          const errData = await cfgRes.json().catch(() => ({} as any))
+          if (errData.code === 'square_not_connected' || errData.code === 'square_reconnect_required') {
+            // Fail-closed by design: this shop hasn't connected Square, so
+            // no card can be saved here. Say so plainly instead of the
+            // generic "unavailable" dead end.
+            if (isMounted) {
+              setSquareNotConnected(true)
+              setSquareNotConnectedMsg(errData.error || '')
+            }
+            return
+          }
+          throw new Error('widget_config_failed')
+        }
         const { locationId } = await cfgRes.json()
         if (!locationId) throw new Error('widget_config_failed')
         const { payments } = await import('@square/web-sdk')
@@ -486,42 +506,51 @@ export default function ClientPortalPage() {
                 {client.shops.length > 1 && (
                   <div className="mb-4">
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">For which shop?</label>
-                    <select value={selectedShopId} onChange={e => { squareCardRef.current = null; setCardReady(false); setSelectedShopId(e.target.value) }}
+                    <select value={selectedShopId} onChange={e => { squareCardRef.current = null; setCardReady(false); setSquareNotConnected(false); setSelectedShopId(e.target.value) }}
                       className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
                       {client.shops.map(s => <option key={s.shopId} value={s.shopId}>{s.shopName}</option>)}
                     </select>
                   </div>
                 )}
-                <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 mb-3">
-                  {/* Square's attach() needs the target element actually laid out
-                      (not display:none) while it runs, so this stays mounted and
-                      visible the whole time -- the spinner overlays it instead of
-                      hiding it. */}
-                  {cardLoading && (
-                    <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
-                      <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
-                      Loading card form...
+                {squareNotConnected ? (
+                  <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
+                    {selectedShopName} hasn&apos;t set up card payments yet — you can pay at the shop as usual.
+                    {squareNotConnectedMsg ? <span className="block text-xs text-charcoal-500 mt-1">{squareNotConnectedMsg}</span> : null}
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 mb-3">
+                      {/* Square's attach() needs the target element actually laid out
+                          (not display:none) while it runs, so this stays mounted and
+                          visible the whole time -- the spinner overlays it instead of
+                          hiding it. */}
+                      {cardLoading && (
+                        <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
+                          <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
+                          Loading card form...
+                        </div>
+                      )}
+                      <div id="portal-square-card" />
+                      {!cardLoading && !cardReady && (
+                        <p className="text-neutral-500 text-xs py-2">Card form unavailable right now.</p>
+                      )}
                     </div>
-                  )}
-                  <div id="portal-square-card" />
-                  {!cardLoading && !cardReady && (
-                    <p className="text-neutral-500 text-xs py-2">Card form unavailable right now.</p>
-                  )}
-                </div>
-                <button onClick={handleSaveCard} disabled={saving || !cardReady}
-                  className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-white bg-od-green disabled:opacity-50">
-                  {saving ? 'Saving…' : 'Save Card'}
-                </button>
-                <label className="flex items-start gap-3 cursor-pointer mt-3">
-                  <input
-                    type="checkbox"
-                    checked={cardConsent}
-                    onChange={e => setCardConsent(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 flex-shrink-0"
-                  />
-                  <span className="text-xs text-neutral-400 leading-relaxed">{cardConsentText}</span>
-                </label>
-                <p className="text-neutral-600 text-xs mt-2">Your card is saved securely by Square. We do not store your full card number.</p>
+                    <button onClick={handleSaveCard} disabled={saving || !cardReady}
+                      className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-white bg-od-green disabled:opacity-50">
+                      {saving ? 'Saving…' : 'Save Card'}
+                    </button>
+                    <label className="flex items-start gap-3 cursor-pointer mt-3">
+                      <input
+                        type="checkbox"
+                        checked={cardConsent}
+                        onChange={e => setCardConsent(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 flex-shrink-0"
+                      />
+                      <span className="text-xs text-neutral-400 leading-relaxed">{cardConsentText}</span>
+                    </label>
+                    <p className="text-neutral-600 text-xs mt-2">Your card is saved securely by Square. We do not store your full card number.</p>
+                  </>
+                )}
                 {saveResult && (
                   <p className={`text-xs mt-2 ${saveResult.ok ? 'text-od-green' : 'text-amber-400'}`}>{saveResult.message}</p>
                 )}
