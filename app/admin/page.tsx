@@ -196,12 +196,6 @@ export default function AdminPage() {
               </>
             ) : '↻ Refresh'}
           </button>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="text-xs text-charcoal-500 hover:text-charcoal-200 transition-colors"
-          >
-            ← Dashboard
-          </button>
         </div>
       </header>
 
