@@ -56,41 +56,19 @@ export default function BarberRequestsPage() {
   async function handleApprove(request: any) {
     setActionLoading(request.id)
     setError('')
+    setSuccess('')
 
-    // Insert into shop_barbers
-    const { error: barberErr } = await supabase
-      .from('shop_barbers')
-      .insert({
-        shop_id: shop.id,
-        barber_id: request.user_id,
-        barber_name: request.name,
-        alias: request.name,
-        active: true,
-        compensation_type: 'commission',
-        commission_rate: 0.7,
-        tip_split_rate: 1.0,
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      })
+    // The whole approval (chair row, role flip, request status,
+    // notification) runs atomically in the approve_join_request RPC: the
+    // browser-side profiles.role update used to match zero rows under RLS
+    // and fail silently.
+    const { error: rpcErr } = await supabase.rpc('approve_join_request', { p_request_id: request.id })
 
-    if (barberErr) {
-      setError(barberErr.message)
+    if (rpcErr) {
+      setError(rpcErr.message)
       setActionLoading(null)
       return
     }
-
-    // Update profile role to barber
-    await supabase.from('profiles').update({ role: 'barber' }).eq('id', request.user_id)
-
-    // Update pending_barbers status
-    await supabase.from('pending_barbers').update({ status: 'approved' }).eq('id', request.id)
-
-    // Notify barber
-    await supabase.from('notifications').insert({
-      user_id: request.user_id,
-      type: 'join_approved',
-      message: 'You have been approved to join the shop!',
-      read: false,
-    })
 
     setSuccess(`${request.name} has been approved.`)
     setTimeout(() => setSuccess(''), 3000)
@@ -101,21 +79,15 @@ export default function BarberRequestsPage() {
   async function handleDeny(request: any) {
     setActionLoading(request.id)
     setError('')
+    setSuccess('')
 
-    const { error: denyErr } = await supabase.from('pending_barbers').update({ status: 'denied' }).eq('id', request.id)
-    if (denyErr) {
-      setError(denyErr.message)
+    const { error: rpcErr } = await supabase.rpc('deny_join_request', { p_request_id: request.id })
+
+    if (rpcErr) {
+      setError(rpcErr.message)
       setActionLoading(null)
       return
     }
-
-    // Notify barber
-    await supabase.from('notifications').insert({
-      user_id: request.user_id,
-      type: 'join_denied',
-      message: 'Your request to join the shop was not approved.',
-      read: false,
-    })
 
     setSuccess(`${request.name}'s request was denied.`)
     setTimeout(() => setSuccess(''), 3000)

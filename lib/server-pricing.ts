@@ -204,76 +204,91 @@ export interface SlotCheckInput {
   excludeAppointmentId?: string | null
 }
 
-/**
- * Re-validates that a slot is still free, in-request, using the exact same
- * buffer-aware conflict logic as GET /api/book/availability. Returns true
- * when the requested start time is currently bookable.
- */
-export async function isSlotAvailable(admin: SupabaseClient, input: SlotCheckInput): Promise<boolean> {
-  const { data: shop } = await admin.from('shops').select('id, hours').eq('id', input.shopId).maybeSingle()
-  if (!shop) return false
+export type BarberResolution =
+  /** a specific free staff member was assigned */
+  | { kind: 'resolved'; barberId: string; barberName: string | null }
+  /** the shop has active staff, but none is free at the wanted slot */
+  | { kind: 'none_available' }
+  /** the shop has no active staff on record -- caller keeps barber_id NULL */
+  | { kind: 'no_staff' }
 
+interface SlotContext {
+  hoursForDay: DayHours | undefined
+  serviceDurationMin: number
+  serviceBufferBeforeMin: number
+  serviceBufferAfterMin: number
+  wanted: string
+}
+
+/** Shop hours + service durations for one slot check; null when the shop or service is missing. */
+async function fetchSlotContext(
+  admin: SupabaseClient,
+  shopId: string,
+  serviceId: string,
+  dateStr: string,
+  timeMinutes: number
+): Promise<SlotContext | null> {
+  const { data: shop } = await admin.from('shops').select('id, hours').eq('id', shopId).maybeSingle()
+  if (!shop) return null
   const { data: service } = await admin
     .from('services')
     .select('duration_minutes, buffer_before_minutes, buffer_after_minutes')
-    .eq('id', input.serviceId)
-    .eq('shop_id', input.shopId)
+    .eq('id', serviceId)
+    .eq('shop_id', shopId)
     .maybeSingle()
-  if (!service) return false
-
-  const dayName = DAY_NAMES[new Date(input.dateStr + 'T12:00:00').getDay()]
+  if (!service) return null
+  const dayName = DAY_NAMES[new Date(dateStr + 'T12:00:00').getDay()]
   const hoursList = Array.isArray(shop.hours)
     ? (shop.hours as unknown as Array<DayHours & { day: string }>)
     : []
-  const hoursForDay = hoursList.find(h => h.day === dayName)
-
-  let barberIds: string[]
-  if (input.barberId) {
-    barberIds = [input.barberId]
-  } else {
-    const { data: barbers } = await admin
-      .from('shop_barbers')
-      .select('barber_id')
-      .eq('shop_id', input.shopId)
-      .eq('active', true)
-    barberIds = (barbers || []).map(b => b.barber_id).filter(Boolean)
-  }
-
-  const slotParams = {
-    dayHours: hoursForDay,
+  return {
+    hoursForDay: hoursList.find(h => h.day === dayName),
     serviceDurationMin: service.duration_minutes,
     serviceBufferBeforeMin: service.buffer_before_minutes ?? 0,
     serviceBufferAfterMin: service.buffer_after_minutes ?? 0,
+    wanted: minutesToDisplayTime(timeMinutes),
   }
-  const wanted = minutesToDisplayTime(input.timeMinutes)
+}
 
-  if (barberIds.length === 0) {
-    // No staff on record to scope by -- fall back to shop-wide availability
-    // (no per-staff conflicts to check against), same as the availability route.
-    return computeAvailableSlots({ ...slotParams, existing: [] }).includes(wanted)
-  }
+interface SlotAppt {
+  barber_id: string | null
+  time: string | null
+  status: string | null
+  services: {
+    duration_minutes: number | null
+    buffer_before_minutes: number | null
+    buffer_after_minutes: number | null
+  } | null
+}
 
+/**
+ * Buffer-aware per-barber conflict check shared by isSlotAvailable and
+ * resolveAvailableBarber. Returns the subset of barberIds for which the
+ * wanted slot is free, using the exact same logic as
+ * GET /api/book/availability.
+ */
+async function computeFreeBarberIds(
+  admin: SupabaseClient,
+  ctx: SlotContext,
+  input: { shopId: string; dateStr: string; barberIds: string[]; excludeAppointmentId?: string | null }
+): Promise<string[]> {
   let query = admin
     .from('appointments')
     .select('barber_id, time, status, services(duration_minutes, buffer_before_minutes, buffer_after_minutes)')
     .eq('shop_id', input.shopId)
     .eq('date', input.dateStr)
-    .in('barber_id', barberIds)
+    .in('barber_id', input.barberIds)
   if (input.excludeAppointmentId) query = query.neq('id', input.excludeAppointmentId)
   const { data: existingAppts } = await query
 
-  interface SlotAppt {
-    barber_id: string | null
-    time: string | null
-    status: string | null
-    services: {
-      duration_minutes: number | null
-      buffer_before_minutes: number | null
-      buffer_after_minutes: number | null
-    } | null
+  const slotParams = {
+    dayHours: ctx.hoursForDay,
+    serviceDurationMin: ctx.serviceDurationMin,
+    serviceBufferBeforeMin: ctx.serviceBufferBeforeMin,
+    serviceBufferAfterMin: ctx.serviceBufferAfterMin,
   }
-  const slotSet = new Set<string>()
-  for (const id of barberIds) {
+  const free: string[] = []
+  for (const id of input.barberIds) {
     const blocked: BlockedInterval[] = []
     for (const appt of (existingAppts ?? []) as unknown as SlotAppt[]) {
       if (appt.barber_id !== id || NON_BLOCKING_STATUSES.includes(appt.status ?? '')) continue
@@ -286,7 +301,116 @@ export async function isSlotAvailable(admin: SupabaseClient, input: SlotCheckInp
         bufferAfterMin: svc?.buffer_after_minutes ?? 0,
       })
     }
-    computeAvailableSlots({ ...slotParams, existing: blocked }).forEach(s => slotSet.add(s))
+    if (computeAvailableSlots({ ...slotParams, existing: blocked }).includes(ctx.wanted)) {
+      free.push(id)
+    }
   }
-  return slotSet.has(wanted)
+  return free
+}
+
+interface StaffRow {
+  barber_id: string | null
+  barber_name: string | null
+  alias: string | null
+}
+
+type StaffMember = StaffRow & { barber_id: string }
+
+function hasBarberId(b: StaffRow): b is StaffMember {
+  return !!b.barber_id
+}
+
+/** Active staff for a shop, oldest chair first (stable order for tie-breaking). */
+async function getActiveStaff(admin: SupabaseClient, shopId: string): Promise<StaffMember[]> {
+  const { data: barbers } = await admin
+    .from('shop_barbers')
+    .select('barber_id, barber_name, alias')
+    .eq('shop_id', shopId)
+    .eq('active', true)
+    .order('joined_at', { ascending: true })
+  return ((barbers ?? []) as unknown as StaffRow[]).filter(hasBarberId)
+}
+
+/**
+ * Re-validates that a slot is still free, in-request, using the exact same
+ * buffer-aware conflict logic as GET /api/book/availability. Returns true
+ * when the requested start time is currently bookable.
+ */
+export async function isSlotAvailable(admin: SupabaseClient, input: SlotCheckInput): Promise<boolean> {
+  const ctx = await fetchSlotContext(admin, input.shopId, input.serviceId, input.dateStr, input.timeMinutes)
+  if (!ctx) return false
+
+  let barberIds: string[]
+  if (input.barberId) {
+    barberIds = [input.barberId]
+  } else {
+    barberIds = (await getActiveStaff(admin, input.shopId)).map(b => b.barber_id)
+  }
+
+  if (barberIds.length === 0) {
+    // No staff on record to scope by -- fall back to shop-wide availability
+    // (no per-staff conflicts to check against), same as the availability route.
+    return computeAvailableSlots({
+      dayHours: ctx.hoursForDay,
+      serviceDurationMin: ctx.serviceDurationMin,
+      serviceBufferBeforeMin: ctx.serviceBufferBeforeMin,
+      serviceBufferAfterMin: ctx.serviceBufferAfterMin,
+      existing: [],
+    }).includes(ctx.wanted)
+  }
+
+  const free = await computeFreeBarberIds(admin, ctx, {
+    shopId: input.shopId,
+    dateStr: input.dateStr,
+    barberIds,
+    excludeAppointmentId: input.excludeAppointmentId,
+  })
+  return free.length > 0
+}
+
+/**
+ * Resolves an "any barber" booking to one specific available staff member,
+ * server-side, at creation time. Keeping barber_id concrete on every row
+ * is what makes the slot unique index effective; without it two NULL-
+ * barber bookings could collide. The least-loaded free barber (fewest
+ * non-cancelled appointments that day) wins so these bookings spread
+ * across the team instead of piling onto one chair.
+ */
+export async function resolveAvailableBarber(
+  admin: SupabaseClient,
+  input: { shopId: string; dateStr: string; timeMinutes: number; serviceId: string }
+): Promise<BarberResolution> {
+  const staff = await getActiveStaff(admin, input.shopId)
+  if (staff.length === 0) return { kind: 'no_staff' }
+
+  const ctx = await fetchSlotContext(admin, input.shopId, input.serviceId, input.dateStr, input.timeMinutes)
+  if (!ctx) return { kind: 'none_available' }
+
+  const freeIds = await computeFreeBarberIds(admin, ctx, {
+    shopId: input.shopId,
+    dateStr: input.dateStr,
+    barberIds: staff.map(s => s.barber_id),
+  })
+  if (freeIds.length === 0) return { kind: 'none_available' }
+
+  // Least-loaded wins. Staff is joined_at-ordered, so ties break
+  // deterministically toward the most senior chair.
+  const { data: todays } = await admin
+    .from('appointments')
+    .select('barber_id, status')
+    .eq('shop_id', input.shopId)
+    .eq('date', input.dateStr)
+    .in('barber_id', freeIds)
+  const load = new Map<string, number>()
+  for (const row of (todays ?? []) as unknown as Array<{ barber_id: string | null; status: string | null }>) {
+    if (!row.barber_id || NON_BLOCKING_STATUSES.includes(row.status ?? '')) continue
+    load.set(row.barber_id, (load.get(row.barber_id) ?? 0) + 1)
+  }
+  let best: StaffMember | undefined
+  for (const s of staff) {
+    if (!freeIds.includes(s.barber_id)) continue
+    if (!best || (load.get(s.barber_id) ?? 0) < (load.get(best.barber_id) ?? 0)) best = s
+  }
+  if (!best) return { kind: 'none_available' }
+  return { kind: 'resolved', barberId: best.barber_id, barberName: best.barber_name || best.alias }
 }

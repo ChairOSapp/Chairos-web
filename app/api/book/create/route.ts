@@ -4,6 +4,7 @@ import {
   computeBookingPrice,
   isSlotAvailable,
   redeemReward,
+  resolveAvailableBarber,
   restoreReward,
 } from '@/lib/server-pricing'
 import { timeStrToMinutes } from '@/lib/availability'
@@ -36,10 +37,12 @@ interface CreateBody {
 
 // POST /api/book/create -- the only way a public (unauthenticated) booking
 // is created. The price is recomputed server-side from services.price +
-// pricing_rules (+ a server-validated referral reward); the slot is
-// re-validated in-request; the insert uses the service-role client. The
-// browser never sends a price, and anonymous INSERTs on appointments are
-// no longer permitted by RLS.
+// pricing_rules (+ a server-validated referral reward); an "any barber"
+// request is resolved to one specific free staff member (least-loaded
+// wins) so barber_id stays concrete and the slot unique index stays
+// effective; the slot is re-validated in-request; the insert uses the
+// service-role client. The browser never sends a price, and anonymous
+// INSERTs on appointments are no longer permitted by RLS.
 export async function POST(req: NextRequest) {
   const admin = getAdmin()
   let body: CreateBody
@@ -102,6 +105,37 @@ export async function POST(req: NextRequest) {
     if (!staff) return NextResponse.json({ error: 'Selected staff member is not available' }, { status: 400 })
   }
 
+  // "Any barber" bookings are resolved server-side to one specific free
+  // staff member at creation time (least-loaded wins). A concrete
+  // barber_id on every row is what makes the slot unique index effective;
+  // without it two NULL-barber bookings for the same slot would not
+  // conflict at the database level.
+  let resolvedBarberId: string | null = barberId ?? null
+  let resolvedBarberName: string | null = null
+  let barberWasResolved = false
+  if (!resolvedBarberId) {
+    const resolution = await resolveAvailableBarber(admin, {
+      shopId: shop.id,
+      dateStr: date,
+      timeMinutes: timeStrToMinutes(time24.slice(0, 5)),
+      serviceId,
+    })
+    if (resolution.kind === 'none_available') {
+      return NextResponse.json(
+        { error: 'No staff member is available at that time. Please pick another slot.' },
+        { status: 409 }
+      )
+    }
+    if (resolution.kind === 'resolved') {
+      resolvedBarberId = resolution.barberId
+      resolvedBarberName = resolution.barberName
+      barberWasResolved = true
+    }
+    // 'no_staff': the shop has no active staff on record -- keep barber_id
+    // NULL and fall back to shop-wide availability, as before. The
+    // null-barber slot guard trigger still prevents double-booking.
+  }
+
   // Reject past dates/times server-side. Shops carry no timezone column,
   // so this is evaluated in UTC.
   const slotAt = new Date(`${date}T${time24}Z`)
@@ -138,7 +172,7 @@ export async function POST(req: NextRequest) {
     price = await computeBookingPrice(admin, {
       serviceId,
       shopId: shop.id,
-      barberId: barberId ?? null,
+      barberId: resolvedBarberId,
       rewardCode: rewardCode ?? null,
       clientId,
       dateStr: date,
@@ -166,14 +200,19 @@ export async function POST(req: NextRequest) {
   }
 
   // Re-validate the slot in this same request -- the availability read in
-  // the browser may be minutes old.
-  const free = await isSlotAvailable(admin, {
-    shopId: shop.id,
-    dateStr: date,
-    timeMinutes,
-    serviceId,
-    barberId: barberId ?? null,
-  })
+  // the browser may be minutes old. Skipped when we just resolved an
+  // "any barber" request: the resolution itself verified that barber's
+  // freeness with this same buffer-aware logic, and the slot unique index
+  // + null-barber guard trigger are the backstop for the remaining race.
+  const free = barberWasResolved
+    ? true
+    : await isSlotAvailable(admin, {
+        shopId: shop.id,
+        dateStr: date,
+        timeMinutes,
+        serviceId,
+        barberId: resolvedBarberId,
+      })
   if (!free) {
     if (rewardId) await restoreReward(admin, rewardId)
     return NextResponse.json(
@@ -186,7 +225,7 @@ export async function POST(req: NextRequest) {
     .from('appointments')
     .insert({
       shop_id: shop.id,
-      barber_id: barberId ?? null,
+      barber_id: resolvedBarberId,
       service_id: serviceId,
       client_id: clientId,
       client_name: clientName.trim(),
@@ -214,9 +253,13 @@ export async function POST(req: NextRequest) {
       .eq('booking_key', idempotencyKey)
       .maybeSingle()
     if (raced) return NextResponse.json({ appointmentId: raced.id })
-    if (insertErr?.code === '23505') {
-      // Hit the slot unique index: someone else booked this exact
-      // (shop, barber, date, time) between our check and the insert.
+    if (
+      insertErr?.code === '23505' ||
+      (insertErr?.message ?? '').includes('already booked')
+    ) {
+      // Hit the slot unique index (23505) or the null-barber slot guard
+      // trigger: someone else booked this exact (shop, barber, date, time)
+      // between our check and the insert.
       return NextResponse.json(
         { error: 'That time was just booked. Please pick another slot.' },
         { status: 409 }
@@ -226,5 +269,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Booking failed. Please try again.' }, { status: 500 })
   }
 
-  return NextResponse.json({ appointmentId: inserted.id, price: price.finalPrice })
+  return NextResponse.json({
+    appointmentId: inserted.id,
+    price: price.finalPrice,
+    barberId: resolvedBarberId,
+    barberName: resolvedBarberName,
+  })
 }

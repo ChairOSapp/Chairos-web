@@ -25,6 +25,9 @@ function BookingPageInner() {
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  // Name of the staff member the server assigned when the client booked
+  // "any barber" (POST /api/book/create resolves it server-side).
+  const [confirmedBarberName, setConfirmedBarberName] = useState<string | null>(null)
 
   const [selectedBarber, setSelectedBarber] = useState<any>(null)
   const [selectedService, setSelectedService] = useState<any>(null)
@@ -553,6 +556,11 @@ function BookingPageInner() {
         return
       }
       newApptId = createData.appointmentId
+      // When the client booked "any barber", the server assigned a specific
+      // staff member -- show their name on the confirmation screen.
+      if (!selectedBarber && createData.barberName) {
+        setConfirmedBarberName(createData.barberName)
+      }
     } catch {
       setError('Booking failed. Please try again.')
       setSubmitting(false)
@@ -715,7 +723,7 @@ function BookingPageInner() {
           </div>
           <h2 className="font-serif text-xl text-charcoal-900 mb-2">You're booked.</h2>
           <p className="text-charcoal-400 text-sm mb-6">
-            {selectedService.name} with {selectedBarber?.barber_name || selectedBarber?.alias || `any ${staffLabelLower}`} on{' '}
+            {selectedService.name} with {selectedBarber?.barber_name || selectedBarber?.alias || confirmedBarberName || `any ${staffLabelLower}`} on{' '}
             {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at {selectedTime}.
           </p>
           {paymentError && (
@@ -728,7 +736,7 @@ function BookingPageInner() {
               { label: 'Service', value: selectedService.name },
               { label: 'Price', value: `$${finalPrice}`, colored: true },
               { label: 'Duration', value: `${selectedService.duration_minutes} mins` },
-              { label: staffLabel, value: selectedBarber?.barber_name || selectedBarber?.alias || 'Any Available' },
+              { label: staffLabel, value: selectedBarber?.barber_name || selectedBarber?.alias || confirmedBarberName || 'Any Available' },
             ].map((row, i) => (
               <div key={i} className="flex justify-between text-sm">
                 <span className="text-charcoal-400">{row.label}</span>
