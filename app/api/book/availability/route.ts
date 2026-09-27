@@ -70,6 +70,14 @@ export async function GET(req: NextRequest) {
   const dayName = DAY_NAMES[new Date(date + 'T12:00:00').getDay()]
   const hoursForDay = ((shop.hours as any[]) || []).find(h => h.day === dayName) as DayHours | undefined
 
+  // Why a day can have no bookable slots, so the booking page can say the
+  // right thing: 'closed' (rest day), 'no_hours' (owner never set hours --
+  // booking is broken until they do), 'full' (open but fully booked).
+  const hoursConfigured = Array.isArray(shop.hours) && (shop.hours as any[]).some(h => h?.open)
+  const emptyReason = !hoursForDay || !hoursForDay.open
+    ? (hoursConfigured ? 'closed' : 'no_hours')
+    : 'full'
+
   let barberIds: string[]
   if (barberId) {
     barberIds = [barberId]
@@ -90,7 +98,7 @@ export async function GET(req: NextRequest) {
         serviceBufferBeforeMin: service.buffer_before_minutes,
         serviceBufferAfterMin: service.buffer_after_minutes,
       })
-      return NextResponse.json({ slots: dropPastSlots(slots) })
+      return NextResponse.json({ slots: dropPastSlots(slots), reason: slots.length > 0 ? null : emptyReason })
     }
   }
 
@@ -131,5 +139,5 @@ export async function GET(req: NextRequest) {
   // Order matches earliest-to-latest within the day rather than insertion order.
   const ordered = Array.from(slotSet).sort((a, b) => timeStrToMinutes(a) - timeStrToMinutes(b))
 
-  return NextResponse.json({ slots: dropPastSlots(ordered) })
+  return NextResponse.json({ slots: dropPastSlots(ordered), reason: ordered.length > 0 ? null : emptyReason })
 }

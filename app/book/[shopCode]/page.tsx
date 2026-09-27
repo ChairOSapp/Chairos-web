@@ -109,6 +109,14 @@ function BookingPageInner() {
   // Bumped to force a fresh availability read (e.g. after a slot-taken
   // 409 sends the customer back to the time picker).
   const [slotsRefreshKey, setSlotsRefreshKey] = useState(0)
+  // Why the current day has no slots: 'closed' | 'no_hours' | 'full' --
+  // so the page can explain instead of just showing the waitlist.
+  const [slotsReason, setSlotsReason] = useState<string | null>(null)
+  // Waitlist target date -- defaults to the picked date until the customer
+  // chooses a different one (e.g. "an earlier date").
+  const [wlDate, setWlDate] = useState('')
+  // Opt-in waitlist section under the time grid ("want an earlier time?").
+  const [showWaitlistOption, setShowWaitlistOption] = useState(false)
   // Whether the confirmation SMS actually sent -- the success screen must
   // not claim "text sent" when the send failed.
   const [smsSent, setSmsSent] = useState(false)
@@ -208,6 +216,20 @@ function BookingPageInner() {
         .from('shops').select('*').eq('shop_code', shopCode).maybeSingle()
       if (!shop) { setNotFound(true); setLoading(false); return }
       setShop(shop)
+      // Default the date picker to the next day the shop is actually open,
+      // so the first thing a customer sees isn't "no times available" on a
+      // closed day. A recovered booking session below still wins when it
+      // sets its own date.
+      if (Array.isArray(shop.hours)) {
+        for (let i = 0; i < 14; i++) {
+          const d = new Date()
+          d.setDate(d.getDate() + i)
+          const iso = d.toLocaleDateString('en-CA')
+          const dayName = DAY_NAMES[new Date(iso + 'T12:00:00').getDay()]
+          const entry = (shop.hours as Array<{ day: string; open: boolean }>).find(h => h.day === dayName)
+          if (entry?.open) { setSelectedDate(iso); break }
+        }
+      }
       initMetaPixel(shop.meta_pixel_id)
       initGoogleTag(shop.google_tag_id)
 
@@ -382,7 +404,7 @@ function BookingPageInner() {
   // Real server-side availability, buffer-aware — replaces a fixed time
   // list that showed every slot regardless of existing bookings.
   useEffect(() => {
-    if (!selectedDate || !selectedService) { setAvailableSlots([]); return }
+    if (!selectedDate || !selectedService) { setAvailableSlots([]); setSlotsReason(null); return }
     let cancelled = false
     setLoadingSlots(true)
     setSelectedTime('')
@@ -394,8 +416,8 @@ function BookingPageInner() {
     params.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone)
     fetch(`/api/book/availability?${params.toString()}`)
       .then(r => r.json())
-      .then(data => { if (!cancelled) setAvailableSlots(data.slots || []) })
-      .catch(() => { if (!cancelled) setAvailableSlots([]) })
+      .then(data => { if (!cancelled) { setAvailableSlots(data.slots || []); setSlotsReason(data.reason || null) } })
+      .catch(() => { if (!cancelled) { setAvailableSlots([]); setSlotsReason(null) } })
       .finally(() => { if (!cancelled) setLoadingSlots(false) })
     return () => { cancelled = true }
   }, [selectedDate, selectedService, selectedBarber, shopCode, slotsRefreshKey])
@@ -407,14 +429,19 @@ function BookingPageInner() {
     setWlPosition(null)
     setWlError('')
     setWlTime('')
+    setWlDate('')
+    setShowWaitlistOption(false)
   }
 
   async function joinWaitlist() {
     // Synchronous guard: `wlSubmitting` state alone can't stop a same-tick
     // double-tap from joining twice.
     if (waitlistBusyRef.current || wlSubmitting) return
-    if (!wlName.trim() || !wlPhone.trim() || !wlTime) {
-      setWlError('Name, phone, and a desired time are required')
+    // The waitlist entry targets its own date -- the picked booking date by
+    // default, or a different (e.g. earlier) date the customer chose.
+    const wlTargetDate = wlDate || selectedDate
+    if (!wlName.trim() || !wlPhone.trim() || !wlTime || !wlTargetDate) {
+      setWlError('Name, phone, date, and a desired time are required')
       return
     }
     waitlistBusyRef.current = true
@@ -428,7 +455,7 @@ function BookingPageInner() {
           shopId: shop.id,
           barberId: selectedBarber?.barber_id || null,
           serviceId: selectedService.id,
-          date: selectedDate,
+          date: wlTargetDate,
           time: wlTime,
           clientName: wlName,
           clientPhone: wlPhone,
@@ -444,6 +471,65 @@ function BookingPageInner() {
       setWlSubmitting(false)
       waitlistBusyRef.current = false
     }
+  }
+
+  // Plain-language reason a day has no bookable slots, from the
+  // availability API's reason code.
+  function noSlotsCopy() {
+    const dayLabel = selectedDate
+      ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })
+      : 'this day'
+    if (slotsReason === 'closed') return `They're closed on ${dayLabel}s — pick another day above, or join the waitlist and we'll text you if a spot opens up.`
+    if (slotsReason === 'no_hours') return `This shop hasn't set their booking hours yet — join the waitlist and we'll text you as soon as booking opens.`
+    return `No times available this day — try another date, or join the waitlist for a specific time and we'll text you if it opens up.`
+  }
+
+  // Shared waitlist form, rendered both when a day has no bookable slots
+  // and as an opt-in "want an earlier time?" section under the time grid.
+  // The entry targets its own date (the picked date unless the customer
+  // chooses a different one), so it works as an earlier-date request too.
+  function renderWaitlistForm() {
+    const targetDate = wlDate || selectedDate
+    return (
+      <>
+        {wlJoined ? (
+          <div className="bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-xs text-charcoal-900">
+            You&apos;re on the waitlist{wlPosition ? ` (#${wlPosition} in line)` : ''} for {wlTime} on {targetDate ? new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}. We&apos;ll text you at {wlPhone} if it opens up.
+          </div>
+        ) : (
+          <div className="bg-warm-100 border border-warm-200 rounded-lg p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Date</label>
+                <input type="date" value={targetDate} min={today} onChange={e => setWlDate(e.target.value)}
+                  className="w-full min-w-0 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Desired Time</label>
+                <input type="time" value={wlTime} onChange={e => setWlTime(e.target.value)}
+                  className="w-full min-w-0 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Phone</label>
+              <input type="tel" value={wlPhone} onChange={e => setWlPhone(e.target.value)} placeholder="(555) 000-0000"
+                className="w-full min-w-0 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Name</label>
+              <input type="text" value={wlName} onChange={e => setWlName(e.target.value)} placeholder="Your name"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
+            </div>
+            {wlError && <p className="text-red-400 text-xs">{wlError}</p>}
+            <button onClick={joinWaitlist} disabled={wlSubmitting}
+              className="w-full font-semibold px-4 py-3 rounded-lg text-sm transition-colors disabled:opacity-50"
+              style={{ background: brand, color: onBrand }}>
+              {wlSubmitting ? 'Joining…' : `Join Waitlist for ${selectedService?.name || 'this service'}`}
+            </button>
+          </div>
+        )}
+      </>
+    )
   }
 
   // Captures the in-progress booking as soon as there's enough to recover
@@ -1365,7 +1451,7 @@ function BookingPageInner() {
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Date</label>
                 <input type="date" value={selectedDate} min={today}
-                  onChange={e => { setSelectedDate(e.target.value); resetWaitlistJoinState() }}
+                  onChange={e => { setSelectedDate(e.target.value); setWlDate(''); resetWaitlistJoinState() }}
                   className="w-full min-w-0 bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none transition-colors"
                   onFocus={e => e.target.style.borderColor = brand}
                   onBlur={e => e.target.style.borderColor = ''} />
@@ -1377,40 +1463,11 @@ function BookingPageInner() {
                     <p className="text-charcoal-500 text-xs py-3">Checking availability…</p>
                   ) : availableSlots.length === 0 ? (
                     <div className="py-3">
-                      <p className="text-charcoal-500 text-xs mb-3">No times available this day — try another date, or join the waitlist for a specific time and we&apos;ll text you if it opens up.</p>
-                      {wlJoined ? (
-                        <div className="bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-xs text-charcoal-900">
-                          You&apos;re on the waitlist{wlPosition ? ` (#${wlPosition} in line)` : ''} for {wlTime} on {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. We&apos;ll text you at {wlPhone} if it opens up.
-                        </div>
-                      ) : (
-                        <div className="bg-warm-100 border border-warm-200 rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Desired Time</label>
-                              <input type="time" value={wlTime} onChange={e => setWlTime(e.target.value)}
-                                className="w-full min-w-0 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Phone</label>
-                              <input type="tel" value={wlPhone} onChange={e => setWlPhone(e.target.value)} placeholder="(555) 000-0000"
-                                className="w-full min-w-0 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Name</label>
-                            <input type="text" value={wlName} onChange={e => setWlName(e.target.value)} placeholder="Your name"
-                              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
-                          </div>
-                          {wlError && <p className="text-red-400 text-xs">{wlError}</p>}
-                          <button onClick={joinWaitlist} disabled={wlSubmitting}
-                            className="w-full font-semibold px-4 py-3 rounded-lg text-sm transition-colors disabled:opacity-50"
-                            style={{ background: brand, color: onBrand }}>
-                            {wlSubmitting ? 'Joining…' : `Join Waitlist for ${selectedService?.name || 'this service'}`}
-                          </button>
-                        </div>
-                      )}
+                      <p className="text-charcoal-500 text-xs mb-3">{noSlotsCopy()}</p>
+                      {renderWaitlistForm()}
                     </div>
                   ) : (
+                  <>
                   <div className="grid grid-cols-4 gap-2">
                     {availableSlots.map(t => (
                       <button key={t} onClick={() => setSelectedTime(t)}
@@ -1424,6 +1481,14 @@ function BookingPageInner() {
                       </button>
                     ))}
                   </div>
+                  <div className="mt-4">
+                    <button onClick={() => setShowWaitlistOption(v => !v)}
+                      className="text-xs font-semibold text-charcoal-500 underline underline-offset-2 hover:text-charcoal-900 transition-colors">
+                      {showWaitlistOption ? 'Hide the waitlist' : 'Want an earlier time? Join the waitlist'}
+                    </button>
+                    {showWaitlistOption && <div className="mt-3">{renderWaitlistForm()}</div>}
+                  </div>
+                  </>
                   )}
                 </div>
               )}

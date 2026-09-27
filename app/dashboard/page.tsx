@@ -349,6 +349,19 @@ export default function Dashboard() {
           stripeSubscriptionId={profile?.stripe_subscription_id ?? null}
         />
 
+        {/* Shop hours drive online booking -- without any open day the
+            public booking page can only offer the waitlist. Nudge the
+            owner to Settings before they lose bookings to it. */}
+        {shop && (!Array.isArray(shop.hours) || !shop.hours.some((h: any) => h?.open)) && (
+          <button onClick={() => router.push('/dashboard/settings')}
+            className="w-full text-left mb-4 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 flex items-center gap-3 hover:bg-amber-100 transition-colors">
+            <span className="w-8 h-8 rounded-full bg-amber-400 text-white font-bold flex items-center justify-center flex-shrink-0">!</span>
+            <span className="text-sm text-amber-900">
+              <span className="font-semibold">Your shop hours aren&apos;t set</span> — customers can&apos;t book online until you add them. Tap to set your hours.
+            </span>
+          </button>
+        )}
+
         <BriefCard recipientName={ownerName} />
 
         {shopId && <RecommendationsPanel shopId={shopId} />}
