@@ -192,7 +192,7 @@ function VercelCard({ data, site }: { data: InfraData['vercel']; site: InfraData
   )
 }
 
-function SupabaseCard({ data }: { data: InfraData['supabase'] }) {
+function SupabaseCard({ data, database }: { data: InfraData['supabase']; database: InfraData['database'] }) {
   const healthy = data.ok && data.status === 'ACTIVE_HEALTHY'
   return (
     <div className="rounded-xl border border-charcoal-800 bg-charcoal-950/60 p-4">
@@ -200,55 +200,80 @@ function SupabaseCard({ data }: { data: InfraData['supabase'] }) {
         Database · Supabase
       </div>
 
-      {!data.configured && (
-        <>
-          <div className="flex items-center gap-2.5 mb-1">
-            <Dot color="gray" />
-            <span className="text-sm text-charcoal-200 font-medium">Not connected yet</span>
-          </div>
-          <p className="text-xs text-charcoal-500 leading-relaxed">
-            Wire up a Supabase token and this card watches the database project itself —
-            you&apos;ll see it here if Supabase ever flags a problem.
-          </p>
-          <SetupSteps provider="supabase" />
-        </>
-      )}
+      {/* Direct reachability — works with the server's existing keys, no token to copy. */}
+      <div className="flex items-center gap-2.5 mb-1">
+        <Dot color={database.ok ? 'green' : database.error === 'not_configured' ? 'gray' : 'red'} />
+        <span className={`text-sm font-medium ${database.ok ? 'text-green-400' : database.error === 'not_configured' ? 'text-charcoal-200' : 'text-red-300'}`}>
+          {database.ok
+            ? 'Answering'
+            : database.error === 'not_configured'
+              ? "Can't check from here"
+              : "Didn't answer just now"}
+        </span>
+      </div>
+      <p className="text-xs text-charcoal-400 leading-relaxed">
+        {database.ok
+          ? <>The app reached the database in {database.latencyMs}ms — the number to watch is a sudden jump, not the absolute value.</>
+          : database.error === 'not_configured'
+            ? <>The server's database keys aren't set in this environment, so there's nothing to ping.</>
+            : <>The app couldn't reach the database just now — if the site still loads, it's a blip; if bookings are failing too, this is why.</>}
+      </p>
 
-      {data.configured && !data.ok && (
-        <>
-          <div className="flex items-center gap-2.5 mb-1">
-            <Dot color="amber" />
-            <span className="text-sm text-amber-300 font-medium">Can&apos;t read project status right now</span>
-          </div>
-          <p className="text-xs text-charcoal-500 leading-relaxed">{providerErrorLine(data.error, 'Supabase')}</p>
-        </>
-      )}
+      <div className="border-t border-charcoal-800 mt-3 pt-2.5">
+        <div className="text-[10px] font-bold tracking-[0.18em] uppercase text-charcoal-600 mb-2">
+          Supabase&apos;s own verdict · optional
+        </div>
 
-      {healthy && (
-        <>
-          <div className="flex items-center gap-2.5 mb-1">
-            <Dot color="green" />
-            <span className="text-sm text-green-400 font-medium">Healthy</span>
-          </div>
-          <p className="text-xs text-charcoal-400 leading-relaxed">
-            {data.name ? <>Project <span className="text-charcoal-200">{data.name}</span></> : 'Your project'}
-            {data.region ? <> · {data.region}</> : ''} — Supabase reports it active and healthy.
-          </p>
-        </>
-      )}
+        {!data.configured && (
+          <>
+            <div className="flex items-center gap-2.5 mb-1">
+              <Dot color="gray" />
+              <span className="text-sm text-charcoal-200 font-medium">Not connected — and that&apos;s fine</span>
+            </div>
+            <p className="text-xs text-charcoal-500 leading-relaxed">
+              The check above already tells you if the database is answering. A Supabase
+              token adds their dashboard&apos;s own project status — nice to have, not required.
+            </p>
+            <SetupSteps provider="supabase" />
+          </>
+        )}
 
-      {data.configured && data.ok && !healthy && (
-        <>
-          <div className="flex items-center gap-2.5 mb-1">
-            <Dot color="red" />
-            <span className="text-sm text-red-300 font-medium">Needs a look</span>
-          </div>
-          <p className="text-xs text-charcoal-400 leading-relaxed">
-            Supabase says the project is in state “{data.status ?? 'unknown'}” — that&apos;s not
-            the normal healthy state. Open the Supabase dashboard to see what it wants.
-          </p>
-        </>
-      )}
+        {data.configured && !data.ok && (
+          <>
+            <div className="flex items-center gap-2.5 mb-1">
+              <Dot color="amber" />
+              <span className="text-sm text-amber-300 font-medium">Can&apos;t read project status right now</span>
+            </div>
+            <p className="text-xs text-charcoal-500 leading-relaxed">{providerErrorLine(data.error, 'Supabase')}</p>
+          </>
+        )}
+
+        {healthy && (
+          <>
+            <div className="flex items-center gap-2.5 mb-1">
+              <Dot color="green" />
+              <span className="text-sm text-green-400 font-medium">Healthy</span>
+            </div>
+            <p className="text-xs text-charcoal-400 leading-relaxed">
+              {data.name ? <>Project <span className="text-charcoal-200">{data.name}</span></> : 'Your project'}
+              {data.region ? <> · {data.region}</> : ''} — Supabase reports it active and healthy.
+            </p>
+          </>
+        )}
+
+        {data.configured && data.ok && !healthy && (
+          <>
+            <div className="flex items-center gap-2.5 mb-1">
+              <Dot color="red" />
+              <span className="text-sm text-red-300 font-medium">Needs a look</span>
+            </div>
+            <p className="text-xs text-charcoal-400 leading-relaxed">
+              Supabase says the project is in state “{data.status ?? 'unknown'}” — that&apos;s not
+              the normal healthy state. Open the Supabase dashboard to see what it wants.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -291,7 +316,7 @@ export default function PlatformHealth() {
   return (
     <div className="grid md:grid-cols-2 gap-3">
       <VercelCard data={infra.vercel} site={infra.site} />
-      <SupabaseCard data={infra.supabase} />
+      <SupabaseCard data={infra.supabase} database={infra.database} />
       <p className="md:col-span-2 text-[11px] text-charcoal-600">
         Checked {timeAgo(infra.generatedAt)} · tokens stay on the server — this page only ever sees the summary.
       </p>

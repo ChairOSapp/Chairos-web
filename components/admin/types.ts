@@ -130,6 +130,12 @@ export interface InfraData {
     name: string | null
     region: string | null
   }
+  database: {
+    ok: boolean
+    latencyMs: number | null
+    checkedAt: string | null
+    error: string | null
+  }
   site: {
     ok: boolean
     statusCode: number | null

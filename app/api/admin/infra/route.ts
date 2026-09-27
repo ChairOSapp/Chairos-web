@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { isAdminEmail } from '@/lib/admin'
 import type { InfraData, InfraDeployment } from '@/components/admin/types'
 
 // Founder-only platform health: the real infrastructure behind ChairOS.
 // Proxies the Vercel REST API (hosting/frontend) and the Supabase Management
-// API (database/backend), plus a light synthetic ping of the public site.
+// API (database/backend project status), pings the database directly with
+// the server's existing Supabase keys (no extra token needed), plus a light
+// synthetic ping of the public site.
 // Tokens live ONLY here, in server env vars — the response carries status
 // summaries, never secrets.
 //
@@ -20,9 +23,12 @@ import type { InfraData, InfraDeployment } from '@/components/admin/types'
 //                           settings.
 //   VERCEL_TEAM_ID          Only if the project lives under a Vercel team.
 //   SUPABASE_MANAGEMENT_TOKEN  Supabase access token (dashboard → Access
-//                           Tokens) with read scope.
+//                           Tokens) with read scope. OPTIONAL — only adds
+//                           Supabase's own project-level status verdict; the
+//                           direct database check below works without it.
 //   SUPABASE_PROJECT_REF    20-char project ref from the Supabase dashboard
-//                           URL / project settings.
+//                           URL / project settings (only needed with the
+//                           management token).
 //   SITE_URL                Public URL to ping (default https://chairos.cc).
 
 export const dynamic = 'force-dynamic'
@@ -122,8 +128,30 @@ async function fetchSupabase(token: string, ref: string) {
   }
 }
 
-async function pingSite(url: string) {
+// Direct database reachability: can the app itself reach Supabase right
+// now, and how slow is it? Uses the server's existing keys — no extra
+// token for Thomas to copy. A HEAD query keeps it as cheap as possible.
+async function pingDatabase() {
+  const checkedAt = new Date().toISOString()
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    return { ok: false, latencyMs: null as number | null, checkedAt, error: 'not_configured' as string | null }
+  }
   const started = Date.now()
+  try {
+    const admin = createSupabaseClient(url, key)
+    const { error } = await admin.from('profiles').select('id', { head: true })
+    if (error) {
+      return { ok: false, latencyMs: null as number | null, checkedAt, error: 'query_failed' as string | null }
+    }
+    return { ok: true, latencyMs: Date.now() - started, checkedAt, error: null as string | null }
+  } catch {
+    return { ok: false, latencyMs: null as number | null, checkedAt, error: 'unreachable' as string | null }
+  }
+}
+
+async function pingSite(url: string) {  const started = Date.now()
   try {
     const res = await fetch(url, {
       method: 'HEAD',
@@ -168,7 +196,7 @@ export async function GET(req: NextRequest) {
   const supaRef = process.env.SUPABASE_PROJECT_REF
   const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://chairos.cc'
 
-  const [vercel, supabase, site] = await Promise.all([
+  const [vercel, supabase, database, site] = await Promise.all([
     (async () => {
       if (!vercelToken) {
         return { configured: false, ok: false, error: null, latest: null, lastGood: null, recentFailures: 0 }
@@ -197,10 +225,11 @@ export async function GET(req: NextRequest) {
         return { configured: true, ok: false, error: 'network', status: null, name: null, region: null }
       }
     })(),
+    pingDatabase(),
     pingSite(siteUrl),
   ])
 
-  const data: InfraData = { generatedAt: new Date().toISOString(), vercel, supabase, site }
+  const data: InfraData = { generatedAt: new Date().toISOString(), vercel, supabase, database, site }
   cache = { data, fetchedAt: Date.now() }
   return NextResponse.json(data)
 }
