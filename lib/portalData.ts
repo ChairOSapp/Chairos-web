@@ -13,6 +13,9 @@ export interface PortalShop {
   shopName: string
   shopCode: string | null
   vertical: string
+  referralProgramEnabled: boolean
+  referralRewardType: string | null
+  referralRewardValue: number | null
 }
 
 export interface PortalClient {
@@ -43,22 +46,32 @@ export async function resolvePortalClient(admin: SupabaseClient, phone: string):
   // "shops you have a relationship with" reflects real history, not just
   // whether that one membership call happened to succeed.
   const [{ data: memberships }, { data: apptShopIds }] = await Promise.all([
-    admin.from('client_shop_memberships').select('shops(id, name, shop_code, vertical)').eq('client_id', client.id),
+    admin.from('client_shop_memberships').select('shops(id, name, shop_code, vertical, referral_program_enabled, referral_reward_type, referral_reward_value)').eq('client_id', client.id),
     admin.from('appointments').select('shop_id').eq('client_id', client.id),
   ])
 
-  const shopIdsFromMemberships = (memberships || [])
+  const toPortalShop = (s: any): PortalShop => ({
+    shopId: s.id,
+    shopName: s.name,
+    shopCode: s.shop_code,
+    vertical: s.vertical,
+    referralProgramEnabled: s.referral_program_enabled === true,
+    referralRewardType: s.referral_reward_type ?? null,
+    referralRewardValue: s.referral_reward_value ?? null,
+  })
+
+  const shopIdsFromMemberships: PortalShop[] = (memberships || [])
     .map((m: any) => Array.isArray(m.shops) ? m.shops[0] : m.shops)
     .filter(Boolean)
-    .map((s: any) => ({ shopId: s.id, shopName: s.name, shopCode: s.shop_code, vertical: s.vertical }))
+    .map(toPortalShop)
 
   const knownShopIds = new Set(shopIdsFromMemberships.map(s => s.shopId))
   const missingShopIds = [...new Set((apptShopIds || []).map(a => a.shop_id))].filter(id => id && !knownShopIds.has(id))
 
   let shopsFromAppointments: PortalShop[] = []
   if (missingShopIds.length > 0) {
-    const { data: extraShops } = await admin.from('shops').select('id, name, shop_code, vertical').in('id', missingShopIds)
-    shopsFromAppointments = (extraShops || []).map(s => ({ shopId: s.id, shopName: s.name, shopCode: s.shop_code, vertical: s.vertical }))
+    const { data: extraShops } = await admin.from('shops').select('id, name, shop_code, vertical, referral_program_enabled, referral_reward_type, referral_reward_value').in('id', missingShopIds)
+    shopsFromAppointments = (extraShops || []).map(toPortalShop)
   }
 
   const shops: PortalShop[] = [...shopIdsFromMemberships, ...shopsFromAppointments]

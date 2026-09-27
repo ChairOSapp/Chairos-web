@@ -77,7 +77,7 @@ export async function runReferralNotifications() {
     let body: string
     if (event.event_type === 'first_visit') {
       const link = `${siteUrl}/book/${shop.shop_code}?ref=${client.referral_code}`
-      body = `Thanks for visiting ${shop.name}! Share your link, you'll both get ${rewardText(shop.referral_reward_type, shop.referral_reward_value)} when your friend books their first visit: ${link}`
+      body = `Thanks for visiting ${shop.name}! Share your link, you'll get ${rewardText(shop.referral_reward_type, shop.referral_reward_value)} when your friend books their first visit: ${link}`
     } else {
       const reward = event.reward_id ? rewardMap.get(event.reward_id) : null
       if (!reward) {

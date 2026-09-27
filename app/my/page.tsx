@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 
-type PortalShop = { shopId: string; shopName: string; shopCode: string | null; vertical: string }
+type PortalShop = { shopId: string; shopName: string; shopCode: string | null; vertical: string; referralProgramEnabled: boolean; referralRewardType: string | null; referralRewardValue: number | null }
 type PortalClient = {
   clientId: string
   fullName: string | null
@@ -69,6 +69,14 @@ export default function ClientPortalPage() {
   const [saveResult, setSaveResult] = useState<{ ok: boolean; message: string } | null>(null)
   // Card-on-file consent: unchecked by default, required to save.
   const [cardConsent, setCardConsent] = useState(false)
+  // Earned-but-unredeemed referral rewards, per shop — so clients see
+  // "you've earned X off" instead of discovering it only mid-booking.
+  const [earnedRewards, setEarnedRewards] = useState<{ shopId: string; shopName: string; rewardText: string }[]>([])
+
+  function referralRewardText(s: PortalShop): string {
+    if (s.referralRewardType === 'flat_credit' && s.referralRewardValue != null) return `$${s.referralRewardValue} off`
+    return `${s.referralRewardValue ?? 10}% off`
+  }
 
   useEffect(() => {
     async function checkSession() {
@@ -100,6 +108,9 @@ export default function ClientPortalPage() {
     }
     loadAppointments()
     if (client.shops.length > 0) setSelectedShopId(client.shops[0].shopId)
+    // Earned referral rewards for the "desire" nudge — the referrer sees
+    // exactly what they've earned, not just a share link.
+    fetch('/api/portal/rewards').then(r => r.json()).then(d => setEarnedRewards(d.rewards || [])).catch(() => {})
   }, [client])
 
   // Square card form -- per-shop widget config (tokenize against the same
@@ -406,16 +417,24 @@ export default function ClientPortalPage() {
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Refer a Friend</div>
             {client.shops.length === 0 ? (
               <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm mb-6">Book somewhere first to get your referral link.</div>
+            ) : client.shops.every(s => !s.referralProgramEnabled) ? (
+              <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm mb-6">None of your shops are running a referral program right now.</div>
             ) : (
               <div className="space-y-2 mb-6">
-                {client.shops.map(s => {
+                {client.shops.filter(s => s.referralProgramEnabled).map(s => {
                   const link = s.shopCode ? `${window.location.origin}/book/${s.shopCode}?ref=${client.referralCode}` : null
+                  const earned = earnedRewards.find(r => r.shopId === s.shopId)
                   return (
                     <div key={s.shopId} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
                       <div className="text-sm font-semibold text-charcoal-900 mb-1">{s.shopName}</div>
+                      {earned && (
+                        <div className="text-xs font-semibold text-od-green bg-od-green/10 border border-od-green/30 rounded-lg px-3 py-2 mb-2">
+                          You've earned {earned.rewardText} — applied automatically on your next booking here.
+                        </div>
+                      )}
                       {link ? (
                         <>
-                          <div className="text-xs text-charcoal-500 mb-2">Share this link — you'll both get a reward when your friend books their first visit.</div>
+                          <div className="text-xs text-charcoal-500 mb-2">Share this link — you'll get {referralRewardText(s)} when your friend books their first visit.</div>
                           <div className="flex items-center gap-2">
                             <div className="flex-1 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-700 text-xs break-all font-mono">{link}</div>
                             <button
