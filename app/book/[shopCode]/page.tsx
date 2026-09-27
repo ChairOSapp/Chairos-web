@@ -277,18 +277,32 @@ function BookingPageInner() {
     if (!shop?.require_card_to_book && !requiresDeposit) return
     if (squareCardRef.current) return // already initialized
 
+    // Per-shop widget config: tokenize against the same Square location the
+    // server will charge. Public endpoint — the shop code authorizes it.
     const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
-    const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID
-    if (!appId || !locationId) return
+    if (!appId) return
 
     setCardLoading(true)
     let isMounted = true
 
     async function initSquare() {
       try {
+        const cfgParams = new URLSearchParams({ shopCode })
+        if (selectedBarber?.barber_id) cfgParams.set('barberId', selectedBarber.barber_id)
+        const cfgRes = await fetch(`/api/square/widget-config?${cfgParams}`)
+        if (!isMounted) return
+        if (!cfgRes.ok) {
+          const errData = await cfgRes.json().catch(() => ({}))
+          if (errData.code === 'square_not_connected' || errData.code === 'square_reconnect_required') {
+            throw new Error('SQUARE_NOT_CONNECTED')
+          }
+          throw new Error('init_failed')
+        }
+        const { locationId } = await cfgRes.json()
+        if (!locationId) throw new Error('init_failed')
         const { payments } = await import('@square/web-sdk')
         if (!isMounted) return
-        const paymentsInstance = await payments(appId!, locationId!)
+        const paymentsInstance = await payments(appId!, locationId)
         if (!isMounted) return
         if (!paymentsInstance) throw new Error('Square payments init returned null')
         const card = await paymentsInstance.card()
@@ -301,7 +315,11 @@ function BookingPageInner() {
         if (!isMounted) return
         console.error('Square init error:', e)
         Sentry.captureException(e, { tags: { area: 'booking_square_card_init' } })
-        setPaymentError('Card form failed to load. Check your connection and try again — no charge was made. You can also continue and pay at the shop.')
+        setPaymentError(
+          String(e?.message) === 'SQUARE_NOT_CONNECTED'
+            ? 'This shop isn\u2019t taking card payments online right now — you can continue and pay at the shop.'
+            : 'Card form failed to load. Check your connection and try again — no charge was made. You can also continue and pay at the shop.'
+        )
       } finally {
         if (isMounted) setCardLoading(false)
       }

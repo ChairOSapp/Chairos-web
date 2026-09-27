@@ -100,22 +100,28 @@ export default function ClientPortalPage() {
     if (client.shops.length > 0) setSelectedShopId(client.shops[0].shopId)
   }, [client])
 
-  // Square card form -- same dynamic-import pattern as the public booking page.
+  // Square card form -- per-shop widget config (tokenize against the same
+  // Square location the server saves the card under). Same dynamic-import
+  // pattern as the public booking page.
   useEffect(() => {
     if (tab !== 'payment' || !selectedShopId) return
     if (squareCardRef.current) return
 
     const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
-    const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID
-    if (!appId || !locationId) return
+    if (!appId) return
 
     setCardLoading(true)
     let isMounted = true
     async function initSquare() {
       try {
+        const cfgRes = await fetch(`/api/square/widget-config?portalShopId=${selectedShopId}`)
+        if (!isMounted) return
+        if (!cfgRes.ok) throw new Error('widget_config_failed')
+        const { locationId } = await cfgRes.json()
+        if (!locationId) throw new Error('widget_config_failed')
         const { payments } = await import('@square/web-sdk')
         if (!isMounted) return
-        const paymentsInstance = await payments(appId!, locationId!)
+        const paymentsInstance = await payments(appId!, locationId)
         if (!isMounted || !paymentsInstance) return
         const card = await paymentsInstance.card()
         if (!isMounted) return
@@ -124,6 +130,9 @@ export default function ClientPortalPage() {
         squareCardRef.current = card
         setCardReady(true)
       } catch (e) {
+        // The payment tab already renders "Card form unavailable right
+        // now." when the form never becomes ready, so a failed init (shop
+        // hasn't connected Square, CDN blocked, ...) degrades to that.
         console.error('Square init error:', e)
       } finally {
         if (isMounted) setCardLoading(false)

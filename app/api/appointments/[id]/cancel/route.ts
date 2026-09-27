@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { resolveSquareCredentials, refundSquarePayment } from '@/lib/square'
+import { resolveRefundCredentials, refundSquarePayment } from '@/lib/square'
 import { triggerWaitlistOutreach } from '@/lib/waitlistNotify'
 
 const supabase = createClient(
@@ -83,8 +83,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // (`deposit-refund-<deposit id>`): if a manual cancel races the
         // deposit-hold expiration job, Square dedupes to a single refund
         // instead of issuing two.
+        // Refund routing is legacy-aware: pre-fix deposits may live under
+        // the platform merchant, so fall back to platform credentials only
+        // for the refund (returning money, never taking it).
         await refundSquarePayment(
-          (await resolveSquareCredentials(supabase, shop, appointment.barber_id)).accessToken,
+          (await resolveRefundCredentials(supabase, shop, appointment.barber_id)).accessToken,
           paidDeposit.square_payment_id,
           Number(paidDeposit.amount),
           `deposit-refund-${paidDeposit.id}`,

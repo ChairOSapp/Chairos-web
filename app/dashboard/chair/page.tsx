@@ -190,17 +190,29 @@ export default function BarberDashboard() {
 
     let isMounted = true
     async function init() {
+      // Per-shop widget config: booth rent is paid TO the shop owner, so
+      // tokenize against the owner's Square location (?rent=1 routes there).
       const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
-      const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID
-      if (!appId || !locationId) { setRentCardError('Card form is not configured.'); return }
+      if (!appId) { setRentCardError('Card form is not configured.'); return }
 
       setRentCardLoading(true)
       setRentCardError('')
       setRentInitFailed(false)
       try {
+        const cfgRes = await fetch('/api/square/widget-config?rent=1')
+        if (!isMounted) return
+        if (!cfgRes.ok) {
+          const errData = await cfgRes.json().catch(() => ({}))
+          if (errData.code === 'square_not_connected' || errData.code === 'square_reconnect_required') {
+            throw new Error(`SQUARE_CONFIG:${errData.error || 'The shop owner has not connected Square yet.'}`)
+          }
+          throw new Error('init_failed')
+        }
+        const { locationId } = await cfgRes.json()
+        if (!locationId) throw new Error('init_failed')
         const { payments } = await import('@square/web-sdk')
         if (!isMounted) return
-        const paymentsInstance = await payments(appId!, locationId!)
+        const paymentsInstance = await payments(appId!, locationId)
         if (!isMounted || !paymentsInstance) throw new Error('Square payments init returned null')
         const card = await paymentsInstance.card()
         if (!isMounted) return
@@ -215,7 +227,12 @@ export default function BarberDashboard() {
         console.error('Square booth-rent card form failed to initialize:', e)
         Sentry.captureException(e, { tags: { area: 'booth_rent_square_card_init' } })
         setRentInitFailed(true)
-        setRentCardError('Card form failed to load. Check your connection and try again — no charge was made.')
+        const msg = e instanceof Error ? e.message : ''
+        setRentCardError(
+          msg.startsWith('SQUARE_CONFIG:')
+            ? `${msg.slice('SQUARE_CONFIG:'.length)} No charge was made.`
+            : 'Card form failed to load. Check your connection and try again — no charge was made.'
+        )
       } finally {
         if (isMounted) setRentCardLoading(false)
       }

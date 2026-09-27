@@ -4,6 +4,17 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { withRetry } from '@/lib/retry'
+import {
+  resolveShopSquareAccount,
+  withFreshSquareClient,
+  refreshSquareAccessToken,
+  squareReconnectRequiredError,
+  isSquareReconnectRequired,
+  isSquareAuthError,
+  isDefinitiveSquareRejection,
+  squareNotConnectedMessage,
+} from '@/lib/square'
+import { logger } from '@/lib/logger'
 
 const admin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,27 +84,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Resolve which Square account to charge through
-  let accessToken = process.env.SQUARE_ACCESS_TOKEN!
-  let locationId = process.env.SQUARE_LOCATION_ID!
-
-  if (shop?.barbers_collect_own_payments && appt.barber_id) {
-    const { data: sq } = await admin
-      .from('square_accounts')
-      .select('square_access_token, square_location_id')
-      .eq('user_id', appt.barber_id)
-      .maybeSingle()
-    if (sq?.square_access_token) { accessToken = sq.square_access_token; locationId = sq.square_location_id || locationId }
-  } else if (shop?.owner_id) {
-    const { data: sq } = await admin
-      .from('square_accounts')
-      .select('square_access_token, square_location_id')
-      .eq('user_id', shop.owner_id)
-      .maybeSingle()
-    if (sq?.square_access_token) { accessToken = sq.square_access_token; locationId = sq.square_location_id || locationId }
+  // Resolve which Square account to charge through — FAIL CLOSED. If the
+  // routed party has no connected Square account, refuse the charge with
+  // an actionable message. Never fall back to the platform's credentials:
+  // that silently routed client money into the platform owner's account.
+  const route = await resolveShopSquareAccount(admin, {
+    id: appt.shop_id,
+    owner_id: shop?.owner_id ?? null,
+    barbers_collect_own_payments: shop?.barbers_collect_own_payments ?? false,
+  }, appt.barber_id)
+  if (!route) {
+    const collectsOwn = Boolean(shop?.barbers_collect_own_payments && appt.barber_id)
+    return NextResponse.json(
+      { code: 'square_not_connected', error: squareNotConnectedMessage(collectsOwn ? 'barber' : 'shop owner') },
+      { status: 400 }
+    )
   }
 
-  const squareClient = getSquareClient(accessToken)
+  let squareClient = getSquareClient(route.accessToken)
+  const locationId = route.locationId
 
   const servicePrice = parseFloat(String(appt.price)) || 0
   const tipDollars = Math.max(0, parseFloat(String(tipAmount)) || 0)
@@ -101,6 +110,10 @@ export async function POST(req: NextRequest) {
   const chargeBase = servicePrice - discountDollars
   const totalCents = BigInt(Math.round((chargeBase + tipDollars) * 100))
   const serviceName = (appt as any).services?.name || 'Service'
+
+  // paymentAttempt is read inside the try but declared here so the catch
+  // block can rotate it after a clean decline.
+  let paymentAttempt = 0
 
   try {
     let finalSourceId = sourceId
@@ -120,9 +133,22 @@ export async function POST(req: NextRequest) {
       finalSourceId = client.square_card_id
     }
 
+    // Idempotency key: stable per attempt. After a CLEAN decline Square
+    // caches the decline for up to 24h, so a retry must rotate the key —
+    // otherwise the owner could never re-charge with a good card.
+    const { data: attemptRow } = await admin
+      .from('appointments')
+      .select('payment_attempt')
+      .eq('id', appointmentId)
+      .maybeSingle()
+    if (typeof (attemptRow as any)?.payment_attempt === 'number') {
+      paymentAttempt = (attemptRow as any).payment_attempt
+    }
+    const idempotencyKey = paymentAttempt > 0 ? `${appointmentId}-a${paymentAttempt}` : appointmentId
+
     const paymentPayload: any = {
       sourceId: finalSourceId,
-      idempotencyKey: appointmentId,
+      idempotencyKey,
       amountMoney: { amount: totalCents, currency: 'USD' },
       locationId,
       note: `ChairOS POS — ${serviceName} ($${servicePrice.toFixed(2)})${discountDollars > 0 ? ` − discount ($${discountDollars.toFixed(2)})` : ''} + tip ($${tipDollars.toFixed(2)}) — ${appt.client_name}`,
@@ -185,10 +211,14 @@ export async function POST(req: NextRequest) {
     // squareClient's own maxRetries only retries on 408/429/5xx responses;
     // this outer retry additionally covers connection-level failures (DNS,
     // timeout, refused connection) that never get an HTTP response at all.
-    // Safe to retry either way -- idempotencyKey is stable (appointmentId),
-    // so Square dedupes a retry against an earlier attempt that actually
+    // Safe to retry either way -- idempotencyKey is stable per attempt, so
+    // Square dedupes a retry against an earlier attempt that actually
     // succeeded server-side, rather than double-charging.
-    const { payment } = await withRetry('square_payment_create', () => squareClient.payments.create(paymentPayload))
+    // withFreshSquareClient refreshes an expired OAuth token once on a 401
+    // (a definitive rejection — no charge happened — so retry is safe).
+    const { payment } = await withFreshSquareClient(admin, route, (c) =>
+      withRetry('square_payment_create', () => c.payments.create(paymentPayload))
+    )
 
     const paid = payment?.status === 'COMPLETED'
 
@@ -227,6 +257,15 @@ export async function POST(req: NextRequest) {
       cardSaved: paid && saveCard && !!newCardId,
     })
   } catch (err: any) {
+    // The shop's Square connection died and couldn't be refreshed.
+    if (isSquareReconnectRequired(err)) {
+      return NextResponse.json({ code: 'square_reconnect_required', error: err.message }, { status: 400 })
+    }
+    // Definitive rejection (decline etc.): rotate the idempotency key so
+    // the next attempt isn't a replay of Square's cached decline.
+    if (isDefinitiveSquareRejection(err)) {
+      await admin.from('appointments').update({ payment_attempt: paymentAttempt + 1 }).eq('id', appointmentId)
+    }
     await admin.from('appointments').update({ payment_status: 'failed' }).eq('id', appointmentId)
     return NextResponse.json({ error: err.message || 'Payment failed' }, { status: 500 })
   }

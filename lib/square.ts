@@ -21,7 +21,8 @@ export async function saveCardForClient(
   admin: SupabaseClient,
   clientId: string,
   shopId: string,
-  sourceId: string
+  sourceId: string,
+  barberId?: string | null
 ): Promise<SaveCardResult> {
   const { data: client } = await admin
     .from('clients')
@@ -30,18 +31,21 @@ export async function saveCardForClient(
     .maybeSingle()
   if (!client) return { ok: false, error: 'Client not found', status: 404 }
 
-  const { data: shop } = await admin.from('shops').select('owner_id').eq('id', shopId).maybeSingle()
-  let accessToken = process.env.SQUARE_ACCESS_TOKEN!
-  let locationId = process.env.SQUARE_LOCATION_ID!
-  if (shop?.owner_id) {
-    const { data: sq } = await admin
-      .from('square_accounts')
-      .select('square_access_token, square_location_id')
-      .eq('user_id', shop.owner_id)
-      .maybeSingle()
-    if (sq?.square_access_token) { accessToken = sq.square_access_token; locationId = sq.square_location_id || locationId }
+  const { data: shop } = await admin.from('shops').select('id, owner_id, barbers_collect_own_payments').eq('id', shopId).maybeSingle()
+  // Fail closed: a saved card must live under the SHOP's Square merchant.
+  // Saving it under the platform's credentials would orphan the card from
+  // the shop that will charge it.
+  const collectsOwn = Boolean((shop as any)?.barbers_collect_own_payments && barberId)
+  const route = await resolveShopSquareAccount(admin, {
+    id: shopId,
+    owner_id: shop?.owner_id ?? null,
+    barbers_collect_own_payments: (shop as any)?.barbers_collect_own_payments ?? false,
+  }, barberId)
+  if (!route) {
+    return { ok: false, error: squareNotConnectedMessage(collectsOwn ? 'barber' : 'shop owner'), status: 400 }
   }
-  void locationId // reserved for parity with other Square routes; card creation doesn't need it
+  const accessToken = route.accessToken
+  void route.locationId // card creation is merchant-scoped via the token; no location needed
 
   // maxRetries is the SDK's own transport-level retry -- it resends the
   // exact same already-built request on a transient failure, including
@@ -152,49 +156,204 @@ export function squareEnvironment() {
   return process.env.SQUARE_ENVIRONMENT === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox
 }
 
+function squareOAuthTokenUrl() {
+  return process.env.SQUARE_ENVIRONMENT === 'production'
+    ? 'https://connect.squareup.com/oauth2/token'
+    : 'https://connect.squareupsandbox.com/oauth2/token'
+}
+
 export function squareClientFor(accessToken: string) {
   return new SquareClient({ token: accessToken, environment: squareEnvironment() })
 }
 
 /**
- * Resolves which Square account should be charged for an appointment,
- * mirroring the routing rule used by /api/square/create-payment and
- * /api/square/checkout: if the shop lets barbers collect their own
- * payments and the appointment has a barber, use the barber's connected
- * Square account; otherwise use the shop owner's. Falls back to the
- * platform-level env credentials if no square_accounts row exists.
+ * Which Square account a charge/tokenization should route through.
+ * THE single routing rule for all money paths (charges, deposits, the
+ * card widget, saved cards): if the shop lets barbers collect their own
+ * payments and a barber is in play, use the barber's connected Square
+ * account; otherwise the shop owner's.
  */
-export async function resolveSquareCredentials(
-  supabase: SupabaseClient,
-  shop: { owner_id: string | null; barbers_collect_own_payments?: boolean | null },
+export interface ShopSquareRoute {
+  /** square_accounts.user_id whose OAuth token is used */
+  userId: string
+  accessToken: string
+  locationId: string
+  kind: 'owner' | 'barber'
+}
+
+/**
+ * Fail-closed Square account resolution. Returns null when the routed
+ * party (owner, or barber when barbers collect their own) has NO
+ * connected Square account. Callers must refuse the money operation
+ * with an actionable "connect Square" message — NEVER silently fall
+ * back to the platform's credentials (that routed client money into
+ * the platform owner's Square account with no warning).
+ *
+ * If the row exists but has no location stored (older connections), the
+ * first active Square location is looked up and persisted.
+ */
+export async function resolveShopSquareAccount(
+  admin: SupabaseClient,
+  shop: { id?: string; owner_id: string | null; barbers_collect_own_payments?: boolean | null },
   barberId?: string | null
-): Promise<{ accessToken: string; locationId: string }> {
-  let accessToken = process.env.SQUARE_ACCESS_TOKEN!
-  let locationId = process.env.SQUARE_LOCATION_ID!
+): Promise<ShopSquareRoute | null> {
+  let userId: string | null = null
+  let kind: 'owner' | 'barber' = 'owner'
 
   if (shop.barbers_collect_own_payments && barberId) {
-    const { data: squareAccount } = await supabase
-      .from('square_accounts')
-      .select('square_access_token, square_location_id')
-      .eq('user_id', barberId)
-      .maybeSingle()
-    if (squareAccount?.square_access_token) {
-      accessToken = squareAccount.square_access_token
-      locationId = squareAccount.square_location_id || locationId
-    }
+    userId = barberId
+    kind = 'barber'
   } else if (shop.owner_id) {
-    const { data: ownerSquare } = await supabase
-      .from('square_accounts')
-      .select('square_access_token, square_location_id')
-      .eq('user_id', shop.owner_id)
-      .maybeSingle()
-    if (ownerSquare?.square_access_token) {
-      accessToken = ownerSquare.square_access_token
-      locationId = ownerSquare.square_location_id || locationId
-    }
+    userId = shop.owner_id
+    kind = 'owner'
+  }
+  if (!userId) return null
+
+  const { data: row } = await admin
+    .from('square_accounts')
+    .select('user_id, square_access_token, square_refresh_token, square_location_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (!row?.square_access_token) return null
+
+  let locationId = row.square_location_id as string | null
+  if (!locationId) {
+    // Older connections may not have a location stored — look it up once
+    // and persist it so every later call is a pure DB read.
+    locationId = await fetchAndPersistLocationId(admin, userId, row.square_access_token)
+    if (!locationId) return null
   }
 
-  return { accessToken, locationId }
+  return { userId, accessToken: row.square_access_token, locationId, kind }
+}
+
+async function fetchAndPersistLocationId(
+  admin: SupabaseClient,
+  userId: string,
+  accessToken: string
+): Promise<string | null> {
+  try {
+    const client = squareClientFor(accessToken)
+    const { locations } = await client.locations.list()
+    const primary = locations?.find((l: any) => l.status === 'ACTIVE') ?? locations?.[0]
+    const id = (primary as any)?.id ?? null
+    if (id) {
+      await admin.from('square_accounts').update({ square_location_id: id }).eq('user_id', userId)
+    }
+    return id
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Refreshes an expired OAuth access token using the stored refresh token
+ * and persists the new pair. Returns the new access token, or null when
+ * refresh is impossible (no refresh token, revoked, etc.) — the caller
+ * must then tell the user to reconnect Square.
+ */
+export async function refreshSquareAccessToken(
+  admin: SupabaseClient,
+  userId: string
+): Promise<string | null> {
+  const { data: row } = await admin
+    .from('square_accounts')
+    .select('square_refresh_token')
+    .eq('user_id', userId)
+    .maybeSingle()
+  const refreshToken = row?.square_refresh_token as string | null
+  if (!refreshToken) return null
+
+  try {
+    const res = await fetch(squareOAuthTokenUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Square-Version': '2024-01-18' },
+      body: JSON.stringify({
+        client_id: process.env.SQUARE_APPLICATION_ID,
+        client_secret: process.env.SQUARE_CLIENT_SECRET,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    })
+    const data = await res.json().catch(() => null)
+    if (!res.ok || !data?.access_token) return null
+
+    await admin
+      .from('square_accounts')
+      .update({
+        square_access_token: data.access_token,
+        square_refresh_token: data.refresh_token ?? refreshToken,
+        connected_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+
+    return data.access_token as string
+  } catch {
+    return null
+  }
+}
+
+/** True when a Square SDK error means the OAuth token was rejected (expired/revoked). */
+export function isSquareAuthError(err: any): boolean {
+  return err?.statusCode === 401
+}
+
+/** Marker error thrown when the Square connection needs a manual reconnect. */
+export function squareReconnectRequiredError(): any {
+  const e: any = new Error('Square connection expired. Reconnect Square in Settings to keep taking cards.')
+  e.code = 'square_reconnect_required'
+  return e
+}
+
+export function isSquareReconnectRequired(err: any): boolean {
+  return err?.code === 'square_reconnect_required'
+}
+
+/**
+ * Runs a Square SDK operation with a routed account, transparently
+ * refreshing the OAuth token once on a 401 and retrying. A 401 means the
+ * request was REJECTED before processing, so the retry cannot double-charge.
+ * Throws square_reconnect_required when refresh is impossible.
+ */
+export async function withFreshSquareClient<T>(
+  admin: SupabaseClient,
+  route: ShopSquareRoute,
+  op: (client: SquareClient) => Promise<T>
+): Promise<T> {
+  try {
+    return await op(squareClientFor(route.accessToken))
+  } catch (err: any) {
+    if (!isSquareAuthError(err)) throw err
+    const fresh = await refreshSquareAccessToken(admin, route.userId)
+    if (!fresh) throw squareReconnectRequiredError()
+    return op(squareClientFor(fresh))
+  }
+}
+
+/**
+ * Refund routing. Refunds RETURN money, so the priority is inverted from
+ * charges: use the routed shop account when connected; fall back to the
+ * platform credentials ONLY for legacy payments taken before per-shop
+ * fail-closed routing existed (those charges live under the platform
+ * merchant and can only be refunded with the platform token). Failing to
+ * refund a customer is worse than using the legacy credential.
+ */
+export async function resolveRefundCredentials(
+  admin: SupabaseClient,
+  shop: { owner_id: string | null; barbers_collect_own_payments?: boolean | null },
+  barberId?: string | null
+): Promise<{ accessToken: string; legacy: boolean }> {
+  const route = await resolveShopSquareAccount(admin, shop, barberId)
+  if (route) return { accessToken: route.accessToken, legacy: false }
+  return { accessToken: process.env.SQUARE_ACCESS_TOKEN!, legacy: true }
+}
+
+/** Shared copy for "no Square connected" failures. `who` names the party that must connect. */
+export function squareNotConnectedMessage(who: 'shop owner' | 'barber'): string {
+  return who === 'shop owner'
+    ? 'This shop has not connected Square yet. The shop owner can connect it in Settings → Payments.'
+    : 'This barber has not connected Square yet. They can connect it in their chair settings.'
 }
 
 /** Computes a deposit amount in dollars from the shop's deposit settings and the service price. */

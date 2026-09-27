@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { resolveSquareCredentials, squareClientFor, computeDepositAmount, safeSquareErrorMessage } from '@/lib/square'
+import { resolveShopSquareAccount, withFreshSquareClient, isSquareReconnectRequired, squareNotConnectedMessage, computeDepositAmount, safeSquareErrorMessage } from '@/lib/square'
 import { computeServicePrice } from '@/lib/server-pricing'
 import { timeStrToMinutes } from '@/lib/availability'
 import { logger } from '@/lib/logger'
@@ -209,21 +209,37 @@ export async function POST(req: NextRequest) {
     // idempotency key is tied to this row.
     const chargeAmount = Number(pendingDeposit.amount)
 
-    const { accessToken, locationId } = await resolveSquareCredentials(supabase, shop, appointment.barber_id)
-    const client = squareClientFor(accessToken)
+    // Fail closed: no connected Square account for the routed party means
+    // no deposit charge — never the platform's credentials.
+    const route = await resolveShopSquareAccount(supabase, {
+      id: appointment.shop_id,
+      owner_id: shop?.owner_id ?? null,
+      barbers_collect_own_payments: shop?.barbers_collect_own_payments ?? false,
+    }, appointment.barber_id)
+    if (!route) {
+      const collectsOwn = Boolean(shop?.barbers_collect_own_payments && appointment.barber_id)
+      return NextResponse.json(
+        { code: 'square_not_connected', error: squareNotConnectedMessage(collectsOwn ? 'barber' : 'shop owner') },
+        { status: 400 }
+      )
+    }
+    const locationId = route.locationId
     const amountCents = BigInt(Math.round(chargeAmount * 100))
 
     let payment
     try {
-      ;({ payment } = await client.payments.create({
+      ;({ payment } = await withFreshSquareClient(supabase, route, (c) => c.payments.create({
         sourceId,
         idempotencyKey: `deposit-${depositId}`,
         amountMoney: { amount: amountCents, currency: 'USD' },
         locationId,
         note: `ChairOS deposit - ${service.name} for ${appointment.client_name}`,
         referenceId: `deposit:${depositId}`,
-      }))
+      })))
     } catch (chargeErr: any) {
+      if (isSquareReconnectRequired(chargeErr)) {
+        return NextResponse.json({ code: 'square_reconnect_required', error: chargeErr.message }, { status: 400 })
+      }
       // Ambiguous failure (e.g. our request never got a response back from
       // Square) — do NOT delete the deposit row. It stays 'pending' within
       // its hold window; a retry reuses this same row (and its Square

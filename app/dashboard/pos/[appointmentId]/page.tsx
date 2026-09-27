@@ -100,9 +100,11 @@ export default function POSCheckout() {
     }
     if (squareCardRef.current) return
 
+    // Per-shop widget config: tokenize against the SAME Square location the
+    // server will charge (the shop owner's, or the barber's when barbers
+    // collect their own). Fails closed when Square isn't connected.
     const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
-    const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID
-    if (!appId || !locationId) return
+    if (!appId) return
 
     setCardLoading(true)
     setCardError(null)
@@ -110,9 +112,20 @@ export default function POSCheckout() {
 
     async function init() {
       try {
+        const cfgRes = await fetch(`/api/square/widget-config?appointmentId=${appointmentId}`)
+        if (!mounted) return
+        if (!cfgRes.ok) {
+          const errData = await cfgRes.json().catch(() => ({}))
+          if (errData.code === 'square_not_connected' || errData.code === 'square_reconnect_required') {
+            throw new Error(`SQUARE_CONFIG:${errData.error || 'Square is not connected for this shop.'}`)
+          }
+          throw new Error('Card form failed to load. Check your connection and try again.')
+        }
+        const { locationId } = await cfgRes.json()
+        if (!locationId) throw new Error('Card form failed to load. Check your connection and try again.')
         const { payments } = await import('@square/web-sdk')
         if (!mounted) return
-        const p = await payments(appId!, locationId!)
+        const p = await payments(appId!, locationId)
         if (!mounted) return
         if (!p) throw new Error('Square payments SDK failed to initialize')
         const card = await p.card()
@@ -127,7 +140,12 @@ export default function POSCheckout() {
         // invalid app/location id, or attach() on a missing container.
         console.error('Square card form failed to initialize:', e)
         Sentry.captureException(e, { tags: { area: 'pos_square_card_init' } })
-        setCardError('Card form failed to load. Check your connection and try again — no charge was made.')
+        const msg = String(e?.message || '')
+        setCardError(
+          msg.startsWith('SQUARE_CONFIG:')
+            ? `${msg.slice('SQUARE_CONFIG:'.length)} No charge was made.`
+            : 'Card form failed to load. Check your connection and try again — no charge was made.'
+        )
       } finally {
         if (mounted) setCardLoading(false)
       }

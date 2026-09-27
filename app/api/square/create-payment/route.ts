@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { SquareClient, SquareEnvironment } from 'square'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { computeServicePrice } from '@/lib/server-pricing'
 import { timeStrToMinutes } from '@/lib/availability'
-import { isDefinitiveSquareRejection, safeSquareErrorMessage } from '@/lib/square'
+import {
+  isDefinitiveSquareRejection,
+  safeSquareErrorMessage,
+  resolveShopSquareAccount,
+  withFreshSquareClient,
+  isSquareReconnectRequired,
+  squareNotConnectedMessage,
+} from '@/lib/square'
 import { logger } from '@/lib/logger'
 
 const supabase = createClient(
@@ -85,48 +91,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Determine payment routing based on shop setting
+    // Determine payment routing based on shop setting. FAIL CLOSED: when
+    // the routed party (owner, or barber when barbers collect their own)
+    // has no connected Square account, refuse the charge with an
+    // actionable message — never silently route client money through the
+    // platform's own Square credentials.
     const { data: shop } = await supabase
       .from('shops')
       .select('id, owner_id, barbers_collect_own_payments')
       .eq('id', (appointment as any).shop_id)
       .maybeSingle()
 
-    let accessToken = process.env.SQUARE_ACCESS_TOKEN!
-    let locationId = process.env.SQUARE_LOCATION_ID!
+    const route = await resolveShopSquareAccount(supabase, {
+      id: (appointment as any).shop_id,
+      owner_id: shop?.owner_id ?? null,
+      barbers_collect_own_payments: shop?.barbers_collect_own_payments ?? false,
+    }, appointment.barber_id)
 
-    if (shop?.barbers_collect_own_payments && appointment.barber_id) {
-      // Barber collects their own: use barber's Square account
-      const { data: squareAccount } = await supabase
-        .from('square_accounts')
-        .select('square_access_token, square_location_id')
-        .eq('user_id', appointment.barber_id)
-        .maybeSingle()
-
-      if (squareAccount?.square_access_token) {
-        accessToken = squareAccount.square_access_token
-        locationId = squareAccount.square_location_id || locationId
-      }
-    } else if (shop?.owner_id) {
-      // Owner collects: use owner's Square account
-      const { data: ownerSquare } = await supabase
-        .from('square_accounts')
-        .select('square_access_token, square_location_id')
-        .eq('user_id', shop.owner_id)
-        .maybeSingle()
-
-      if (ownerSquare?.square_access_token) {
-        accessToken = ownerSquare.square_access_token
-        locationId = ownerSquare.square_location_id || locationId
-      }
+    if (!route) {
+      const collectsOwn = Boolean(shop?.barbers_collect_own_payments && appointment.barber_id)
+      return NextResponse.json(
+        { code: 'square_not_connected', error: squareNotConnectedMessage(collectsOwn ? 'barber' : 'shop owner') },
+        { status: 400 }
+      )
     }
-
-    const client = new SquareClient({
-      token: accessToken,
-      environment: process.env.SQUARE_ENVIRONMENT === 'production'
-        ? SquareEnvironment.Production
-        : SquareEnvironment.Sandbox,
-    })
+    const locationId = route.locationId
 
     // Never charge appointment.price blindly: recompute the price
     // server-side from the service's list price + pricing_rules for this
@@ -195,16 +184,24 @@ export async function POST(req: NextRequest) {
 
     let payment: any
     try {
-      const created = await client.payments.create({
+      // withFreshSquareClient refreshes an expired OAuth token once on a
+      // 401 and retries — a 401 is a definitive rejection (no charge), so
+      // the retry cannot double-charge.
+      const created = await withFreshSquareClient(supabase, route, (c) => c.payments.create({
         sourceId,
         idempotencyKey,
         amountMoney: { amount: amountCents, currency: 'USD' },
         locationId,
         note: `ChairOS - ${serviceName} for ${appointment.client_name}`,
         referenceId: appointmentId,
-      })
+      }))
       payment = created.payment
     } catch (err: any) {
+      // The shop's Square connection died and couldn't be refreshed —
+      // tell them to reconnect instead of failing opaquely.
+      if (isSquareReconnectRequired(err)) {
+        return NextResponse.json({ code: 'square_reconnect_required', error: err.message }, { status: 400 })
+      }
       // Ambiguous failures (5xx, timeout, network) rethrow to the outer
       // catch, which deliberately leaves payment_status alone. A
       // DEFINITIVE Square rejection (4xx: decline, bad nonce/amount) means

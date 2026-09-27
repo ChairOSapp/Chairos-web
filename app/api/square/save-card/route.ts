@@ -30,9 +30,10 @@ export async function POST(req: NextRequest) {
   // relationship to, without breaking the legitimate save-during-booking flow.
   const { data: relation } = await admin
     .from('appointments')
-    .select('id')
+    .select('id, barber_id')
     .eq('client_id', clientId)
     .eq('shop_id', shopId)
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
@@ -40,7 +41,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Client is not associated with this shop' }, { status: 403 })
   }
 
-  const result = await saveCardForClient(admin, clientId, shopId, sourceId)
+  // Route the saved card to the same merchant that will charge it (the
+  // barber's Square account when barbers collect their own payments) — a
+  // card saved under the wrong merchant can't be charged later.
+  const result = await saveCardForClient(admin, clientId, shopId, sourceId, (relation as any)?.barber_id ?? null)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status || 500 })
   return NextResponse.json({ saved: true, last4: result.last4, brand: result.brand })
 }

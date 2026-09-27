@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import * as Sentry from '@sentry/nextjs'
-import { resolveSquareCredentials, refundSquarePayment } from '@/lib/square'
+import { resolveRefundCredentials, refundSquarePayment } from '@/lib/square'
 import { notifySlack } from '@/lib/slack'
 import { logger } from '@/lib/logger'
 import { sendNotification } from '@/lib/notify'
@@ -90,7 +90,10 @@ async function handleDepositPayment(payment: any, depositId: string) {
     let refundResult = 'skipped:no_shop'
     if (shop) {
       try {
-        const { accessToken } = await resolveSquareCredentials(supabase, shop, appointment?.barber_id)
+        // Legacy-aware refund routing: pre-fix payments may live under the
+        // platform merchant (refunds return money — failing to refund is
+        // worse than using the legacy credential).
+        const { accessToken } = await resolveRefundCredentials(supabase, shop, appointment?.barber_id)
         await refundSquarePayment(
           accessToken,
           payment.id,
