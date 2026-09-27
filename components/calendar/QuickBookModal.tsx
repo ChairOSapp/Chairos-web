@@ -32,6 +32,26 @@ const TIME_SLOTS = Array.from({ length: 46 }, (_, i) => {
   return { label: `${hour}:${String(m).padStart(2, '0')} ${ampm}`, value: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00` }
 })
 
+// Shared field styling: solid fill that stands apart from the warm-100 sheet,
+// visible border, clear focus ring. 16px text prevents iOS auto-zoom on focus.
+const inputCls = 'w-full min-w-0 rounded-xl border border-warm-300 bg-white field-solid px-4 py-3 text-base text-charcoal-900 placeholder:text-charcoal-400 outline-none transition-colors focus:border-od-green focus:ring-2 focus:ring-od-green/25'
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h3 className="text-[13px] font-bold tracking-tight text-charcoal-800">{children}</h3>
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <label className="mb-1.5 block text-xs font-medium text-charcoal-500">{children}</label>
+}
+
+function ChevronIcon() {
+  return (
+    <svg aria-hidden className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-charcoal-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m4 6 4 4 4-4" />
+    </svg>
+  )
+}
+
 export default function QuickBookModal({
   shopId, initialDate, initialTime, initialBarberId, barbers, services, lockedBarberId, onCreated, onClose,
 }: Props) {
@@ -149,123 +169,147 @@ export default function QuickBookModal({
     : time
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-[150] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <FadeBackdrop className="absolute inset-0 bg-charcoal-900/40 backdrop-blur-sm" onClick={onClose} />
-      <ModalPanel className="relative w-full sm:max-w-md bg-warm-100 sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col">
+      <ModalPanel className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-warm-100 shadow-2xl sm:max-w-md sm:rounded-3xl">
 
         {/* Header */}
-        <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between flex-shrink-0">
-          <div>
-            <div className="text-xs font-bold tracking-widest uppercase text-charcoal-400 mb-0.5">New appointment</div>
-            <div className="font-serif text-lg text-charcoal-900">{date === today ? 'Today' : new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {displayTime}</div>
+        <div className="flex-shrink-0 border-b border-warm-200 px-5 pb-4 pt-3">
+          <div aria-hidden className="mx-auto mb-3 h-1 w-10 rounded-full bg-warm-300 sm:hidden" />
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-charcoal-400">New appointment</p>
+              <h2 className="mt-0.5 font-serif text-[22px] leading-snug text-charcoal-900">
+                {date === today ? 'Today' : new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {displayTime}
+              </h2>
+            </div>
+            <button onClick={onClose} aria-label="Close"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-warm-200 text-charcoal-500 transition-colors hover:bg-warm-300 hover:text-charcoal-900">
+              <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
+            </button>
           </div>
-          <button onClick={onClose} className="text-charcoal-400 hover:text-charcoal-900 text-2xl leading-none transition-colors">×</button>
         </div>
 
         {/* Form */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3.5">
+        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
 
-          {/* Date + Time */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Date</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green" />
+          {/* Who's coming in — most important first */}
+          <section>
+            <SectionTitle>Who&rsquo;s coming in?</SectionTitle>
+            <div className="mt-3 space-y-3">
+              <div className="min-w-0">
+                <FieldLabel>Name</FieldLabel>
+                <input type="text" value={clientName} onChange={e => setClientName(e.target.value)}
+                  placeholder="Client's full name" className={inputCls} />
+                {!foundClientId && clientName && (
+                  <p className="mt-1.5 text-xs text-charcoal-400">New client — we&rsquo;ll save them when you book</p>
+                )}
+              </div>
+              <div className="relative min-w-0">
+                <FieldLabel>Phone</FieldLabel>
+                <input type="tel" value={phone} onChange={e => { setPhone(e.target.value); setFoundClientId(null) }}
+                  onFocus={() => phoneResults.length > 0 && setShowPhoneDrop(true)}
+                  placeholder="(555) 123-4567" className={inputCls} />
+                {showPhoneDrop && (
+                  <div className="field-solid absolute inset-x-0 z-10 mt-1.5 overflow-hidden rounded-xl border border-warm-200 bg-white shadow-xl">
+                    {phoneResults.map(c => (
+                      <button key={c.id} onClick={() => selectClient(c)}
+                        className="w-full border-b border-warm-200 px-4 py-3 text-left transition-colors last:border-0 hover:bg-warm-200">
+                        <div className="text-[15px] font-medium text-charcoal-900">{c.full_name}</div>
+                        <div className="text-xs text-charcoal-400">{c.phone}{c.last_visit_date ? ` · last visit ${new Date(c.last_visit_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div>
+                      </button>
+                    ))}
+                    {!phoneResults.length && <div className="px-4 py-3 text-xs text-charcoal-400">New client — we&rsquo;ll add them when you book</div>}
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Time</label>
-              <select value={time} onChange={e => setTime(e.target.value)}
-                className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
-                {TIME_SLOTS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
+          </section>
+
+          {/* When */}
+          <section>
+            <SectionTitle>When?</SectionTitle>
+            <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+              <div className="min-w-0">
+                <FieldLabel>Date</FieldLabel>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
+              </div>
+              <div className="min-w-0">
+                <FieldLabel>Time</FieldLabel>
+                <div className="relative">
+                  <select value={time} onChange={e => setTime(e.target.value)} className={`${inputCls} appearance-none pr-11`}>
+                    {TIME_SLOTS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                  <ChevronIcon />
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
 
           {/* Barber */}
-          {!lockedBarberId && (
-            <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">{staffLabel}</label>
-              <select value={barberId} onChange={e => setBarberId(e.target.value)}
-                className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
-                <option value="">Unassigned</option>
-                {barbers.map(b => <option key={b.barber_id} value={b.barber_id}>{b.barber_name || b.alias}</option>)}
-              </select>
+          <section>
+            <SectionTitle>{staffLabel}</SectionTitle>
+            <div className="mt-3 min-w-0">
+              {!lockedBarberId ? (
+                <div className="relative">
+                  <select value={barberId} onChange={e => setBarberId(e.target.value)} className={`${inputCls} appearance-none pr-11`}>
+                    <option value="">Unassigned</option>
+                    {barbers.map(b => <option key={b.barber_id} value={b.barber_id}>{b.barber_name || b.alias}</option>)}
+                  </select>
+                  <ChevronIcon />
+                </div>
+              ) : (
+                <div className={`${inputCls} text-charcoal-600`}>
+                  {barbers.find(b => b.barber_id === lockedBarberId)?.barber_name || 'Me'}
+                </div>
+              )}
             </div>
-          )}
-          {lockedBarberId && (
-            <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">{staffLabel}</label>
-              <div className="bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-600">
-                {barbers.find(b => b.barber_id === lockedBarberId)?.barber_name || 'Me'}
+          </section>
+
+          {/* Service */}
+          <section>
+            <SectionTitle>Service</SectionTitle>
+            <div className="mt-3 grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-3">
+              <div className="min-w-0">
+                <FieldLabel>Service</FieldLabel>
+                <div className="relative">
+                  <select value={serviceId} onChange={e => onServiceChange(e.target.value)} className={`${inputCls} appearance-none pr-11`}>
+                    <option value="">Select…</option>
+                    {services.map(s => <option key={s.id} value={s.id}>{s.name} — ${Number(s.price).toFixed(0)}</option>)}
+                  </select>
+                  <ChevronIcon />
+                </div>
+              </div>
+              <div className="min-w-0">
+                <FieldLabel>Price</FieldLabel>
+                <div className="relative">
+                  <span aria-hidden className="absolute left-4 top-1/2 -translate-y-1/2 text-base text-charcoal-400">$</span>
+                  <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0"
+                    className={`${inputCls} pl-9`} />
+                </div>
               </div>
             </div>
-          )}
-
-          {/* Phone (with lookup) */}
-          <div className="relative">
-            <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Client Phone *</label>
-            <input type="tel" value={phone} onChange={e => { setPhone(e.target.value); setFoundClientId(null) }}
-              onFocus={() => phoneResults.length > 0 && setShowPhoneDrop(true)}
-              placeholder="(555) 123-4567"
-              className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green" />
-            {showPhoneDrop && (
-              <div className="absolute z-10 left-0 right-0 mt-1 bg-warm-100 border border-warm-200 rounded-xl shadow-lg overflow-hidden">
-                {phoneResults.map(c => (
-                  <button key={c.id} onClick={() => selectClient(c)}
-                    className="w-full px-3 py-2.5 text-left hover:bg-warm-200 transition-colors border-b border-warm-200 last:border-0">
-                    <div className="text-sm font-medium text-charcoal-900">{c.full_name}</div>
-                    <div className="text-xs text-charcoal-400">{c.phone}{c.last_visit_date ? ` · last visit ${new Date(c.last_visit_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div>
-                  </button>
-                ))}
-                {!phoneResults.length && <div className="px-3 py-2 text-xs text-charcoal-400">New client — we&apos;ll add them when you book</div>}
-              </div>
-            )}
-          </div>
-
-          {/* Client name */}
-          <div>
-            <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Client Name *</label>
-            <input type="text" value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Full name"
-              className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green" />
-            {!foundClientId && clientName && (
-              <div className="text-[10px] text-charcoal-400 mt-1">New client — we&apos;ll save them when you book</div>
-            )}
-          </div>
-
-          {/* Service + Price */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Service</label>
-              <select value={serviceId} onChange={e => onServiceChange(e.target.value)}
-                className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
-                <option value="">Select…</option>
-                {services.map(s => <option key={s.id} value={s.id}>{s.name} — ${Number(s.price).toFixed(0)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Price</label>
-              <div className="relative">
-                <span className="absolute left-3 top-2 text-charcoal-400 text-sm">$</span>
-                <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0"
-                  className="w-full bg-warm-200 border border-warm-300 rounded-xl pl-6 pr-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green" />
-              </div>
-            </div>
-          </div>
+          </section>
 
           {/* Notes */}
-          <div>
-            <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Notes</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Optional…"
-              className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green resize-none" />
-          </div>
+          <section>
+            <SectionTitle>Notes <span className="font-medium text-charcoal-400">(optional)</span></SectionTitle>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+              placeholder="Anything the barber should know…"
+              className={`${inputCls} mt-3 resize-none`} />
+          </section>
 
-          {error && <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+          {error && (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] leading-snug text-red-600">{error}</p>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-warm-200 flex-shrink-0">
+        <div className="flex-shrink-0 border-t border-warm-200 px-5 py-4">
           <button onClick={submit} disabled={submitting || !clientName || !phone}
-            className="w-full py-3 bg-od-green hover:opacity-90 text-white font-bold text-sm rounded-xl transition-opacity disabled:opacity-50">
+            className="w-full rounded-2xl bg-od-green py-4 text-[15px] font-bold text-white shadow-lg shadow-od-green/25 transition-all hover:bg-od-green-dark active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-warm-300 disabled:text-charcoal-400 disabled:shadow-none">
             {submitting ? 'Booking…' : 'Book appointment'}
           </button>
         </div>

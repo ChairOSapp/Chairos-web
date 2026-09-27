@@ -226,6 +226,8 @@ body {
 .dark .bg-warm-300 { background-color: #2A2A26; }
 .dark .bg-warm-400 { background-color: #333330; }
 .dark .bg-white    { background-color: #1E1E1B; }
+/* Solid form fields (e.g. QuickBookModal) — must stand out from warm-100 sheets in dark mode */
+.dark .field-solid { background-color: #252521; }
 .dark .bg-charcoal-900 { background-color: #252521; }
 .dark .bg-charcoal-800 { background-color: #2A2A26; }
 
