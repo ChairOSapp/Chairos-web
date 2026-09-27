@@ -674,26 +674,20 @@ export default function ShopSettings() {
               <div className="text-xs text-charcoal-500">Take a deposit at booking for services that need one</div>
             </div>
             <div className="p-5">
-              {vertical === 'tattoo' ? (
-                <div className="text-xs text-charcoal-500 bg-warm-200 rounded-lg p-3 mb-5">
-                  Deposits are always required for tattoo bookings — that can&apos;t be turned off. Consultations skip the deposit; change that per service under Manage Services.
+              <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
+                <div>
+                  <div className="text-sm font-semibold text-charcoal-900 mb-0.5">Require a deposit to book</div>
+                  <div className="text-xs text-charcoal-500">Only for services where you&apos;ve switched deposits on (Manage Services). Nothing is charged until you turn this on.</div>
                 </div>
-              ) : (
-                <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
-                  <div>
-                    <div className="text-sm font-semibold text-charcoal-900 mb-0.5">Require a deposit to book</div>
-                    <div className="text-xs text-charcoal-500">Only for services where you&apos;ve switched deposits on (Manage Services). Consultations skip it.</div>
-                  </div>
-                  <button
-                    onClick={() => setDepositsEnabled(v => !v)}
-                    style={{ background: depositsEnabled ? '#4B5320' : '#d4c9b8' }}
-                    className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
-                    <span
-                      style={{ transform: depositsEnabled ? 'translateX(22px)' : 'translateX(2px)' }}
-                      className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
-                  </button>
-                </div>
-              )}
+                <button
+                  onClick={() => setDepositsEnabled(v => !v)}
+                  style={{ background: depositsEnabled ? '#4B5320' : '#d4c9b8' }}
+                  className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
+                  <span
+                    style={{ transform: depositsEnabled ? 'translateX(22px)' : 'translateX(2px)' }}
+                    className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
+                </button>
+              </div>
 
               <div className="grid grid-cols-2 gap-4 mb-5">
                 <div>

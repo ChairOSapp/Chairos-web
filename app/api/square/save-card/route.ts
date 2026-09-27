@@ -14,10 +14,17 @@ export async function POST(req: NextRequest) {
     sourceId: string
     clientId: string
     shopId: string
+    consent?: boolean
+    consentText?: string
   }
-  const { sourceId, clientId, shopId } = body
+  const { sourceId, clientId, shopId, consent, consentText } = body
   if (!sourceId || !clientId || !shopId) {
     return NextResponse.json({ error: 'sourceId, clientId, shopId required' }, { status: 400 })
+  }
+  // Card-network stored-credential rules: no card goes on file without the
+  // person's explicit opt-in to the disclosed terms. Fail closed.
+  if (consent !== true || !consentText?.trim()) {
+    return NextResponse.json({ error: 'Please agree to the card-on-file terms to save your card.' }, { status: 400 })
   }
 
   // This route is intentionally callable without a ChairOS auth session
@@ -44,7 +51,7 @@ export async function POST(req: NextRequest) {
   // Route the saved card to the same merchant that will charge it (the
   // barber's Square account when barbers collect their own payments) — a
   // card saved under the wrong merchant can't be charged later.
-  const result = await saveCardForClient(admin, clientId, shopId, sourceId, (relation as any)?.barber_id ?? null)
+  const result = await saveCardForClient(admin, clientId, shopId, sourceId, { scope: 'client_card_on_file', text: consentText.trim() }, (relation as any)?.barber_id ?? null)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status || 500 })
   return NextResponse.json({ saved: true, last4: result.last4, brand: result.brand })
 }

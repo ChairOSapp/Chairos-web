@@ -67,6 +67,8 @@ export default function ClientPortalPage() {
   const [cardLoading, setCardLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<{ ok: boolean; message: string } | null>(null)
+  // Card-on-file consent: unchecked by default, required to save.
+  const [cardConsent, setCardConsent] = useState(false)
 
   useEffect(() => {
     async function checkSession() {
@@ -214,8 +216,15 @@ export default function ClientPortalPage() {
     }
   }
 
+  const selectedShopName = client?.shops.find(s => s.shopId === selectedShopId)?.shopName || 'this shop'
+  const cardConsentText = `I agree to save my card with ${selectedShopName} for faster checkout. ${selectedShopName} may charge this card for deposits and appointment payments. My card is stored securely by Square — the shop never sees my full card number. I can remove my card anytime.`
+
   async function handleSaveCard() {
     if (!squareCardRef.current || !selectedShopId) return
+    if (!cardConsent) {
+      setSaveResult({ ok: false, message: 'Please agree to the card-on-file terms to save your card.' })
+      return
+    }
     setSaving(true)
     setSaveResult(null)
     try {
@@ -226,7 +235,7 @@ export default function ClientPortalPage() {
       }
       const res = await fetch('/api/portal/save-card', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId: result.token, shopId: selectedShopId }),
+        body: JSON.stringify({ sourceId: result.token, shopId: selectedShopId, consent: true, consentText: cardConsentText }),
       })
       const data = await res.json()
       if (!res.ok) { setSaveResult({ ok: false, message: data.error || 'Could not save card' }); return }
@@ -483,6 +492,15 @@ export default function ClientPortalPage() {
                   className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-black bg-od-green disabled:opacity-50">
                   {saving ? 'Saving…' : 'Save Card'}
                 </button>
+                <label className="flex items-start gap-3 cursor-pointer mt-3">
+                  <input
+                    type="checkbox"
+                    checked={cardConsent}
+                    onChange={e => setCardConsent(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 flex-shrink-0"
+                  />
+                  <span className="text-xs text-neutral-400 leading-relaxed">{cardConsentText}</span>
+                </label>
                 <p className="text-neutral-600 text-xs mt-2">Your card is saved securely by Square. We do not store your full card number.</p>
                 {saveResult && (
                   <p className={`text-xs mt-2 ${saveResult.ok ? 'text-od-green' : 'text-amber-400'}`}>{saveResult.message}</p>

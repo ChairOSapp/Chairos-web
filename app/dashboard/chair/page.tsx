@@ -24,12 +24,17 @@ export default function BarberDashboard() {
   const [rentCardLoading, setRentCardLoading] = useState(false)
   const [savingRentCard, setSavingRentCard] = useState(false)
   const [rentCardError, setRentCardError] = useState('')
+  // Booth-rent card-on-file consent: unchecked by default, required to save.
+  const [rentCardConsent, setRentCardConsent] = useState(false)
   // True only when the Square card-init itself failed (not a tokenize/save
   // failure, which also uses rentCardError). Drives hiding the empty
   // container and the init-specific "Try again" recovery.
   const [rentInitFailed, setRentInitFailed] = useState(false)
   const [rentCardRetryKey, setRentCardRetryKey] = useState(0)
   const rentCardRef = useRef<any>(null)
+  // Booth-rent card-on-file disclosure. The exact agreed-to text is stored
+  // server-side with the consent record.
+  const rentConsentText = `I agree to save my card for automatic booth rent payments to ${shop?.name || 'the shop'}. I authorize the shop to charge this card $${shopBarber?.booth_rent_amount}/week for booth rent until I remove it. My card is stored securely by Square — the shop never sees my full card number.`
   const [showEarnings, setShowEarnings] = useState(false)
   const [onFloor, setOnFloor] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -250,6 +255,11 @@ export default function BarberDashboard() {
 
   async function saveRentCard() {
     if (!rentCardRef.current) return
+    // Automatic rent charges need the barber's explicit opt-in first.
+    if (!rentCardConsent) {
+      setRentCardError('Please agree to the automatic rent terms to save your card.')
+      return
+    }
     setSavingRentCard(true)
     setRentCardError('')
     try {
@@ -261,7 +271,7 @@ export default function BarberDashboard() {
       const res = await fetch('/api/square/save-barber-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId: result.token }),
+        body: JSON.stringify({ sourceId: result.token, consent: true, consentText: rentConsentText }),
       })
       const data = await res.json()
       if (!res.ok) { setRentCardError(data.error || 'Could not save card'); return }
@@ -574,6 +584,15 @@ export default function BarberDashboard() {
                     Try again
                   </button>
                 )}
+                <label className="flex items-start gap-2 cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    checked={rentCardConsent}
+                    onChange={e => setRentCardConsent(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 flex-shrink-0"
+                  />
+                  <span className="text-xs text-charcoal-500 leading-relaxed">{rentConsentText}</span>
+                </label>
                 <div className="flex gap-2">
                   <button onClick={saveRentCard} disabled={!rentCardReady || savingRentCard}
                     className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors disabled:opacity-50">

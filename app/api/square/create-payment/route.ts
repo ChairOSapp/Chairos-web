@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptErr } = await supabase
       .from('appointments')
-      .select('id, shop_id, service_id, date, time, price, payment_status, status, barber_id, client_name, services(name, price)')
+      .select('id, shop_id, service_id, date, time, price, payment_status, status, barber_id, client_id, client_name, services(name, price)')
       .eq('id', appointmentId)
       .maybeSingle()
 
@@ -182,6 +182,18 @@ export async function POST(req: NextRequest) {
       ? `payment-${appointmentId}-a${paymentAttempt}`
       : `payment-${appointmentId}`
 
+    // Receipts: Square emails the client a receipt when buyerEmailAddress
+    // is set (per the shop's Square receipt settings).
+    let receiptEmail: string | null = null
+    if ((appointment as any).client_id) {
+      const { data: receiptClient } = await supabase
+        .from('clients')
+        .select('email')
+        .eq('id', (appointment as any).client_id)
+        .maybeSingle()
+      receiptEmail = (receiptClient as any)?.email || null
+    }
+
     let payment: any
     try {
       // withFreshSquareClient refreshes an expired OAuth token once on a
@@ -194,6 +206,8 @@ export async function POST(req: NextRequest) {
         locationId,
         note: `ChairOS - ${serviceName} for ${appointment.client_name}`,
         referenceId: appointmentId,
+        // Receipts: Square emails the client a receipt when set.
+        ...(receiptEmail ? { buyerEmailAddress: receiptEmail } : {}),
       }))
       payment = created.payment
     } catch (err: any) {

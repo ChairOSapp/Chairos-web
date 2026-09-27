@@ -46,6 +46,10 @@ export default function POSCheckout() {
 
   // Save card toggle (when mode = manual)
   const [saveCard, setSaveCard] = useState(false)
+  // Staff-confirmed client consent for the saved card: the client is
+  // present at POS, so staff confirms their agreement to the terms.
+  const [saveCardConsent, setSaveCardConsent] = useState(false)
+  const posConsentText = 'The client agreed to save their card on file with the shop for faster checkout. The shop may charge this card for future appointment payments. The card is stored securely by Square — the shop never sees the full card number. The client can ask to have it removed anytime.'
 
   // Discount (dollar amount off service price)
   const [discount, setDiscount] = useState('')
@@ -177,6 +181,12 @@ export default function POSCheckout() {
       setError(`Discount cannot exceed the service price ($${servicePrice.toFixed(2)})`)
       return
     }
+    // Saving the card requires the client's confirmed agreement — staff
+    // must check the consent box, not just the save toggle.
+    if (mode === 'manual' && saveCard && !saveCardConsent) {
+      setError('Please confirm the client agreed to the card-on-file terms.')
+      return
+    }
     setProcessing(true)
 
     let sourceId: string | undefined
@@ -203,6 +213,7 @@ export default function POSCheckout() {
           sourceId: mode === 'manual' ? sourceId : undefined,
           useCardOnFile: mode === 'card-on-file',
           saveCard: mode === 'manual' ? saveCard : false,
+          consentText: mode === 'manual' && saveCard ? `${posConsentText} [Client agreement confirmed by staff at POS.]` : undefined,
         }),
       })
       const json = await res.json()
@@ -495,9 +506,10 @@ export default function POSCheckout() {
 
             {/* Save card option */}
             {appt?.client_id && (
-              <label className="flex items-center gap-3 mt-3 cursor-pointer">
+              <div className="mt-3">
+              <label className="flex items-center gap-3 cursor-pointer">
                 <div
-                  onClick={() => setSaveCard(v => !v)}
+                  onClick={() => { setSaveCard(v => !v); setSaveCardConsent(false) }}
                   className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${saveCard ? 'bg-[#7A8C3A] border-[#7A8C3A]' : 'border-charcoal-600 bg-charcoal-800'}`}
                 >
                   {saveCard && (
@@ -511,6 +523,21 @@ export default function POSCheckout() {
                   <div className="text-xs text-charcoal-500">Client's card is stored securely by Square. You can charge it next time without re-entering.</div>
                 </div>
               </label>
+              {saveCard && (
+                <div className="ml-8 mt-2">
+                  <p className="text-xs text-charcoal-400 leading-relaxed">{posConsentText}</p>
+                  <label className="flex items-start gap-2 mt-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={saveCardConsent}
+                      onChange={e => setSaveCardConsent(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 flex-shrink-0"
+                    />
+                    <span className="text-xs text-charcoal-300 leading-relaxed">The client agreed to these terms</span>
+                  </label>
+                </div>
+              )}
+              </div>
             )}
           </div>
         )}

@@ -54,6 +54,10 @@ function BookingPageInner() {
   const [clientEmail, setClientEmail] = useState('')
   const [notes, setNotes] = useState('')
   const [smsConsent, setSmsConsent] = useState(false)
+  // Card-on-file consent: unchecked by default, required whenever the
+  // client chooses "Save for later". Stored-credential rules require an
+  // explicit opt-in before a card goes on file.
+  const [cardConsent, setCardConsent] = useState(false)
   const [emailConsent, setEmailConsent] = useState(false)
   const [error, setError] = useState('')
   const [returningClient, setReturningClient] = useState<any>(null)
@@ -111,12 +115,16 @@ function BookingPageInner() {
   const [cardMode, setCardMode] = useState<'save' | 'charge'>('save')
 
   // Mirrors the gate computed server-side in /api/square/create-deposit —
-  // tattoo shops always require a deposit, salon shops only if the owner
-  // enabled it, and Consultation (or any service with deposit_required off)
-  // is always exempt.
+  // deposits happen only when the shop owner enabled them in Settings →
+  // Payments AND the service has deposits switched on. No vertical gets
+  // silent always-on deposits.
   const requiresDeposit = !!shop && !!selectedService &&
-    (shop.vertical === 'tattoo' || (shop.vertical === 'salon' && shop.deposits_enabled)) &&
+    shop.deposits_enabled === true &&
     selectedService.deposit_required === true
+
+  // Card-on-file disclosure shown with the opt-in checkbox. Kept as a
+  // constant so the exact agreed-to text is what gets stored server-side.
+  const cardConsentText = `I agree to save my card with ${shop?.name || 'this shop'} for faster checkout. ${shop?.name || 'The shop'} may charge this card for deposits and appointment payments. My card is stored securely by Square — the shop never sees my full card number. I can remove my card anytime.`
 
   // Every peak/off-peak and promo pricing_rules match for the selected
   // service+date+time applies at once -- a promo and a recurring surcharge
@@ -901,13 +909,16 @@ function BookingPageInner() {
       }
     } else if (sourceId && cardMode === 'save' && clientId) {
       // Save card on file if client chose save mode -- and only claim it
-      // worked if the server said so. The appointment already exists either
-      // way; a failed save shows an honest notice instead of silently
-      // dropping the customer's expectation.
+      // worked if the server said so. Requires the explicit card-on-file
+      // opt-in; without it we stop before any card is stored.
+      if (!cardConsent) {
+        setError('To save your card for later, please agree to the card-on-file terms above.')
+        return
+      }
       const saveRes = await fetch('/api/square/save-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId, clientId, shopId: shop.id }),
+        body: JSON.stringify({ sourceId, clientId, shopId: shop.id, consent: true, consentText: cardConsentText }),
       }).catch(() => null)
       if (!saveRes?.ok) {
         setError('We couldn’t save your card for later — please bring it to your appointment.')
@@ -1504,6 +1515,19 @@ function BookingPageInner() {
                     : (chargeDisplay ? `Your card is charged ${chargeDisplay} now. Tip is added at the shop.` : 'Your card is charged at checkout. Tip is added at the shop.')}
                   {' '}We do not store your full card number.
                 </p>
+                {/* Card-on-file opt-in: unchecked by default, required to save. */}
+                {!requiresDeposit && cardMode === 'save' && (
+                  <label className="flex items-start gap-3 cursor-pointer mt-3">
+                    <input
+                      type="checkbox"
+                      checked={cardConsent}
+                      onChange={e => setCardConsent(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 flex-shrink-0"
+                      style={{ accentColor: brand }}
+                    />
+                    <span className="text-xs text-neutral-400 leading-relaxed">{cardConsentText}</span>
+                  </label>
+                )}
               </div>
             )}
 

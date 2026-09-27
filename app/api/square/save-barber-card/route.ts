@@ -31,8 +31,15 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabaseAuth.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { sourceId } = await req.json()
+  const { sourceId, consent, consentText } = await req.json() as {
+    sourceId?: string; consent?: boolean; consentText?: string
+  }
   if (!sourceId) return NextResponse.json({ error: 'sourceId is required' }, { status: 400 })
+  // A barber's card funds automatic booth-rent charges: no card goes on
+  // file without their explicit opt-in to the disclosed rent terms.
+  if (consent !== true || !consentText?.trim()) {
+    return NextResponse.json({ error: 'Please agree to the automatic rent terms to save your card.' }, { status: 400 })
+  }
 
   const admin = getAdmin()
   const { data: shopBarber } = await admin
@@ -43,7 +50,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
   if (!shopBarber) return NextResponse.json({ error: 'No active staff record found for this account' }, { status: 404 })
 
-  const result = await saveCardForBarber(admin, shopBarber.id, sourceId)
+  const result = await saveCardForBarber(admin, shopBarber.id, sourceId, { scope: 'booth_rent', text: (consentText as string).trim() })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status || 500 })
   return NextResponse.json({ ok: true, last4: result.last4, brand: result.brand })
 }

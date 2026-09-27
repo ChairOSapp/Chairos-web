@@ -1,5 +1,6 @@
 import { SquareClient, SquareEnvironment } from 'square'
 import { SupabaseClient } from '@supabase/supabase-js'
+import { logger } from './logger'
 
 export interface SaveCardResult {
   ok: boolean
@@ -7,6 +8,52 @@ export interface SaveCardResult {
   status?: number
   last4?: string
   brand?: string
+}
+
+/**
+ * Card-on-file consent. Card-network stored-credential rules require an
+ * explicit disclosure + affirmative opt-in before a card is saved for
+ * future charges. Every save-card path must collect this and pass it
+ * through; the exact text the person agreed to is stored verbatim.
+ */
+export interface CardConsent {
+  /** 'client_card_on_file' (deposits + appointment payments) or 'booth_rent' (recurring rent) */
+  scope: string
+  /** The exact disclosure text shown to the person */
+  text: string
+}
+
+export interface CardConsentRecord extends CardConsent {
+  shopId: string
+  holderType: 'client' | 'barber'
+  clientId?: string | null
+  shopBarberId?: string | null
+  squareCustomerId?: string | null
+  squareCardId?: string | null
+}
+
+/** Writes the consent record for a newly saved card. Best-effort: the
+ *  person already consented (the text arrived with the request), so a DB
+ *  hiccup must not fake a failed save — it logs loudly instead. */
+export async function recordCardConsent(admin: SupabaseClient, r: CardConsentRecord): Promise<void> {
+  try {
+    const { error } = await admin.from('card_file_consents').insert({
+      shop_id: r.shopId,
+      holder_type: r.holderType,
+      client_id: r.clientId ?? null,
+      shop_barber_id: r.shopBarberId ?? null,
+      square_customer_id: r.squareCustomerId ?? null,
+      square_card_id: r.squareCardId ?? null,
+      consent_scope: r.scope,
+      consent_text: r.text,
+    })
+    if (error) throw error
+  } catch (err: any) {
+    logger.error('card_consent_record_failed', {
+      shopId: r.shopId, holderType: r.holderType, scope: r.scope,
+      message: err?.message || String(err),
+    })
+  }
 }
 
 /**
@@ -22,8 +69,12 @@ export async function saveCardForClient(
   clientId: string,
   shopId: string,
   sourceId: string,
+  consent: CardConsent,
   barberId?: string | null
 ): Promise<SaveCardResult> {
+  if (!consent?.text || !consent?.scope) {
+    return { ok: false, error: 'Card-on-file consent is required', status: 400 }
+  }
   const { data: client } = await admin
     .from('clients')
     .select('square_customer_id, full_name, phone, email')
@@ -83,6 +134,16 @@ export async function saveCardForClient(
       square_card_last4: card?.last4 ?? null,
     }).eq('id', clientId)
 
+    await recordCardConsent(admin, {
+      shopId,
+      holderType: 'client',
+      clientId,
+      squareCustomerId: customerId,
+      squareCardId: card?.id ?? null,
+      scope: consent.scope,
+      text: consent.text,
+    })
+
     return { ok: true, last4: card?.last4, brand: card?.cardBrand }
   } catch (err: any) {
     return { ok: false, error: err.message, status: 500 }
@@ -98,8 +159,12 @@ export async function saveCardForClient(
 export async function saveCardForBarber(
   admin: SupabaseClient,
   shopBarberId: string,
-  sourceId: string
+  sourceId: string,
+  consent: CardConsent
 ): Promise<SaveCardResult> {
+  if (!consent?.text || !consent?.scope) {
+    return { ok: false, error: 'Card-on-file consent is required', status: 400 }
+  }
   const { data: shopBarber } = await admin
     .from('shop_barbers')
     .select('id, shop_id, barber_name, alias, square_customer_id')
@@ -145,6 +210,16 @@ export async function saveCardForBarber(
       square_card_brand: card?.cardBrand ?? null,
       square_card_last4: card?.last4 ?? null,
     }).eq('id', shopBarberId)
+
+    await recordCardConsent(admin, {
+      shopId: shopBarber.shop_id,
+      holderType: 'barber',
+      shopBarberId,
+      squareCustomerId: customerId,
+      squareCardId: card?.id ?? null,
+      scope: consent.scope,
+      text: consent.text,
+    })
 
     return { ok: true, last4: card?.last4, brand: card?.cardBrand }
   } catch (err: any) {

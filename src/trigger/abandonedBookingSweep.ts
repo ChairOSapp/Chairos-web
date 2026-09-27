@@ -125,8 +125,10 @@ async function sendRecoveryForSession(
     return { sent: false, reason: 'opted_out' }
   }
 
+  // Deposits are strictly opt-in (shop owner enabled in Settings →
+  // Payments). Mirrors the gate in /api/square/create-deposit.
   const requiresDeposit =
-    (shop.vertical === 'tattoo' || (shop.vertical === 'salon' && shop.deposits_enabled)) &&
+    shop.deposits_enabled === true &&
     service.deposit_required === true
 
   const dateLabel = new Date(session.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })

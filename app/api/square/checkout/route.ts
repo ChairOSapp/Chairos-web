@@ -13,6 +13,7 @@ import {
   isSquareAuthError,
   isDefinitiveSquareRejection,
   squareNotConnectedMessage,
+  recordCardConsent,
 } from '@/lib/square'
 import { logger } from '@/lib/logger'
 
@@ -52,9 +53,15 @@ export async function POST(req: NextRequest) {
     sourceId?: string       // card nonce (manual entry or one-time)
     saveCard?: boolean      // store card on file
     useCardOnFile?: boolean // charge stored card_id
+    consentText?: string    // required when saveCard: the card-on-file disclosure the client agreed to
   }
 
-  const { appointmentId, tipAmount = 0, discount = 0, sourceId, saveCard = false, useCardOnFile = false } = body
+  const { appointmentId, tipAmount = 0, discount = 0, sourceId, saveCard = false, useCardOnFile = false, consentText } = body
+  // Card-network stored-credential rules: the POS "save card" toggle must
+  // carry the client's explicit opt-in. Fail closed.
+  if (saveCard && !consentText?.trim()) {
+    return NextResponse.json({ error: 'Please agree to the card-on-file terms to save this card.' }, { status: 400 })
+  }
 
   if (!appointmentId) return NextResponse.json({ error: 'appointmentId required' }, { status: 400 })
   if (!sourceId && !useCardOnFile) return NextResponse.json({ error: 'sourceId or useCardOnFile required' }, { status: 400 })
@@ -214,6 +221,16 @@ export async function POST(req: NextRequest) {
     // Safe to retry either way -- idempotencyKey is stable per attempt, so
     // Square dedupes a retry against an earlier attempt that actually
     // succeeded server-side, rather than double-charging.
+    // Receipts: Square emails the client a receipt when buyerEmailAddress
+    // is set (per the shop's Square receipt settings).
+    if (appt.client_id) {
+      const { data: receiptClient } = await admin
+        .from('clients')
+        .select('email')
+        .eq('id', appt.client_id)
+        .maybeSingle()
+      if ((receiptClient as any)?.email) paymentPayload.buyerEmailAddress = (receiptClient as any).email
+    }
     // withFreshSquareClient refreshes an expired OAuth token once on a 401
     // (a definitive rejection — no charge happened — so retry is safe).
     const { payment } = await withFreshSquareClient(admin, route, (c) =>
@@ -248,6 +265,15 @@ export async function POST(req: NextRequest) {
       if (newCustomerId) update.square_customer_id = newCustomerId
       if (newCardId) { update.square_card_id = newCardId; update.square_card_brand = newCardBrand; update.square_card_last4 = newCardLast4 }
       await admin.from('clients').update(update).eq('id', appt.client_id)
+      await recordCardConsent(admin, {
+        shopId: appt.shop_id,
+        holderType: 'client',
+        clientId: appt.client_id,
+        squareCustomerId: newCustomerId,
+        squareCardId: newCardId,
+        scope: 'client_card_on_file',
+        text: (consentText as string).trim(),
+      })
     }
 
     return NextResponse.json({

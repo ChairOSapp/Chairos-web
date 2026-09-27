@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptErr } = await supabase
       .from('appointments')
-      .select('id, shop_id, service_id, date, time, barber_id, client_name, status, price, services(name, price, deposit_required)')
+      .select('id, shop_id, service_id, date, time, barber_id, client_id, client_name, status, price, services(name, price, deposit_required)')
       .eq('id', appointmentId)
       .maybeSingle()
 
@@ -80,9 +80,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Deposits are strictly opt-in: the shop owner must have enabled them
+    // in Settings → Payments, for every vertical including tattoo. There is
+    // no silent always-on deposit for any shop type.
     const service = (appointment as any).services
     const requiresDeposit =
-      (shop.vertical === 'tattoo' || (shop.vertical === 'salon' && shop.deposits_enabled)) &&
+      shop.deposits_enabled === true &&
       service?.deposit_required === true
     if (!requiresDeposit) {
       return NextResponse.json({ error: 'Deposit not required for this booking' }, { status: 400 })
@@ -226,6 +229,18 @@ export async function POST(req: NextRequest) {
     const locationId = route.locationId
     const amountCents = BigInt(Math.round(chargeAmount * 100))
 
+    // Receipts: Square emails the client a receipt when buyerEmailAddress
+    // is set (per the shop's Square receipt settings).
+    let receiptEmail: string | null = null
+    if ((appointment as any).client_id) {
+      const { data: receiptClient } = await supabase
+        .from('clients')
+        .select('email')
+        .eq('id', (appointment as any).client_id)
+        .maybeSingle()
+      receiptEmail = (receiptClient as any)?.email || null
+    }
+
     let payment
     try {
       ;({ payment } = await withFreshSquareClient(supabase, route, (c) => c.payments.create({
@@ -235,6 +250,7 @@ export async function POST(req: NextRequest) {
         locationId,
         note: `ChairOS deposit - ${service.name} for ${appointment.client_name}`,
         referenceId: `deposit:${depositId}`,
+        ...(receiptEmail ? { buyerEmailAddress: receiptEmail } : {}),
       })))
     } catch (chargeErr: any) {
       if (isSquareReconnectRequired(chargeErr)) {
