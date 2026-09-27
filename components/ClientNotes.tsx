@@ -153,7 +153,7 @@ export default function ClientNotes({
             onChange={e => setBody(e.target.value)}
             placeholder={placeholder}
             rows={3}
-            className={`w-full ${inputBg} border rounded-lg px-3 py-2 text-sm outline-none focus:border-od-green resize-none`}
+            className={`w-full ${inputBg} border rounded-lg px-3 py-2 text-base outline-none focus:border-od-green resize-none`}
           />
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <label className={`text-xs ${mutedColor} hover:${dark ? 'text-white' : 'text-charcoal-900'} cursor-pointer transition-colors flex items-center gap-1.5`}>

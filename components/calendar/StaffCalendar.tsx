@@ -60,6 +60,7 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
   const [walkInPopover, setWalkInPopover] = useState<{ walkIn: WalkIn; x: number; y: number } | null>(null)
   const [walkIns, setWalkIns] = useState<WalkIn[]>([])
   const [soloShop, setSoloShop] = useState(false)
+  const [roster, setRoster] = useState<{ barber_id: string; barber_name: string; alias?: string | null }[]>([])
   const [bookSlot, setBookSlot] = useState<{ date: string; time: string } | null>(null)
   const [showBook, setShowBook] = useState(openBookOnLoad || false)
   const calRef = useRef<FullCalendar>(null)
@@ -82,12 +83,16 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
 
   useEffect(() => {
     async function init() {
-      const [{ data: s }, { count }] = await Promise.all([
+      const [{ data: s }, { count }, { data: r }] = await Promise.all([
         supabase.from('services').select('id, name, price').eq('shop_id', shopId).eq('active', true).order('price', { ascending: true }),
         supabase.from('shop_barbers').select('barber_id', { count: 'exact', head: true }).eq('shop_id', shopId).eq('active', true),
+        // Full active roster so the walk-in popover can name claimed barbers.
+        // ("Public can view active shop barbers" RLS permits this read.)
+        supabase.from('shop_barbers').select('barber_id, barber_name, alias').eq('shop_id', shopId).eq('active', true),
       ])
       setServices(s || [])
       setSoloShop((count ?? 1) <= 1)
+      setRoster((r as any[]) || [])
       await loadAppointments()
     }
     init()
@@ -284,7 +289,7 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
   }
 
   return (
-    <div className="chairos-cal flex flex-col w-full" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="chairos-cal flex flex-col w-full" style={{ height: 'calc(100dvh - 56px)' }}>
       <style>{FC_CSS}</style>
 
       {/* Header */}
@@ -293,7 +298,7 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
         <div className="flex gap-1 bg-warm-200 rounded-xl p-1">
           {([['timeGridDay','Day'],['timeGridWeek','Week'],['dayGridMonth','Month']] as [CalView,string][]).map(([v,label]) => (
             <button key={v} onClick={() => changeView(v)}
-              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors min-h-[40px] ${view===v ? 'bg-warm-50 text-od-green shadow-sm' : 'text-charcoal-500 hover:text-charcoal-900'}`}>
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors min-h-[44px] ${view===v ? 'bg-warm-50 text-od-green shadow-sm' : 'text-charcoal-500 hover:text-charcoal-900'}`}>
               {label}
             </button>
           ))}
@@ -397,7 +402,7 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
           <WalkInPopover
             walkIn={walkInPopover.walkIn}
             shopId={shopId}
-            barbers={[{ barber_id: barberId, barber_name: barberName }]}
+            barbers={roster.length > 0 ? roster : [{ barber_id: barberId, barber_name: barberName }]}
             services={services}
             isOwner={false}
             actingBarberId={barberId}

@@ -61,7 +61,7 @@ function CalendarPageInner() {
   return (
     <div className="min-h-screen bg-warm-50 flex flex-col">
       <OwnerNav shopName={shop?.name || ''} ownerName={ownerName} initials={initials} userId={profile?.id} />
-      <div className="flex-1 flex flex-col lg:ml-64 pb-16 lg:pb-0 min-h-0" style={{ height: 'calc(100dvh - 56px)' }}>
+      <div className="flex-1 flex flex-col lg:ml-64 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 min-h-0" style={{ height: 'calc(100dvh - 56px)' }}>
         <OwnerCalendar
           shopId={shop.id}
           shopName={shop.name}

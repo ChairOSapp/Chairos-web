@@ -25,6 +25,17 @@ export default function Signup() {
   const turnstileRef = useRef<TurnstileHandle>(null)
   const supabase = createClient()
 
+  // Preserve an invite/join redirect through the email-confirmation step:
+  // /join sends unauthenticated invitees here as /signup?redirect=/join?token=...,
+  // and dropping it on the "Go to Sign In" link stranded them after they
+  // confirmed their email (login already honors the same param).
+  const redirectParam = (() => {
+    if (typeof window === 'undefined') return null
+    const r = new URLSearchParams(window.location.search).get('redirect')
+    return r && r.startsWith('/') && !r.startsWith('//') ? r : null
+  })()
+  const loginHref = redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : '/login'
+
   function handleCredentialsSubmit(e: React.FormEvent) {
     e.preventDefault()
     track('signup_started')
@@ -99,7 +110,7 @@ export default function Signup() {
               : "After confirming, sign in and you'll be taken straight to choose your plan."}
           </p>
           <a
-            href="/login"
+            href={loginHref}
             className="block w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm text-center transition-colors"
           >
             Go to Sign In

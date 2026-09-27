@@ -317,7 +317,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
   }
 
   return (
-    <div className="chairos-cal flex flex-col w-full" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="chairos-cal flex flex-col w-full" style={{ height: 'calc(100dvh - 56px)' }}>
       <style>{FC_CSS}</style>
 
       {/* Header */}
@@ -326,7 +326,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
         <div className="flex gap-1 bg-warm-200 rounded-xl p-1">
           {([['timeGridDay','Day'],['timeGridWeek','Week'],['dayGridMonth','Month']] as [CalView,string][]).map(([v,label]) => (
             <button key={v} onClick={() => changeView(v)}
-              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors min-h-[40px] ${view===v ? 'bg-warm-50 text-od-green shadow-sm' : 'text-charcoal-500 hover:text-charcoal-900'}`}>
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors min-h-[44px] ${view===v ? 'bg-warm-50 text-od-green shadow-sm' : 'text-charcoal-500 hover:text-charcoal-900'}`}>
               {label}
             </button>
           ))}
@@ -377,7 +377,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
         <div className="flex items-center gap-2 px-4 py-2 bg-warm-100 border-b border-warm-200 overflow-x-auto flex-shrink-0">
           <button
             onClick={() => setFilterBarberId(null)}
-            className={`flex-shrink-0 px-3 py-2 rounded-full text-xs font-bold border transition-colors min-h-[40px] ${!filterBarberId ? 'bg-charcoal-900 text-warm-50 border-charcoal-900' : 'bg-warm-50 text-charcoal-600 border-warm-300 hover:border-charcoal-400'}`}
+            className={`flex-shrink-0 px-3 py-2 rounded-full text-xs font-bold border transition-colors min-h-[44px] ${!filterBarberId ? 'bg-charcoal-900 text-warm-50 border-charcoal-900' : 'bg-warm-50 text-charcoal-600 border-warm-300 hover:border-charcoal-400'}`}
           >
             Everyone
           </button>
@@ -389,7 +389,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
               <button
                 key={b.barber_id}
                 onClick={() => setFilterBarberId(active ? null : b.barber_id)}
-                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold border transition-colors min-h-[40px] ${active ? 'bg-charcoal-900 text-warm-50 border-charcoal-900' : 'bg-warm-50 text-charcoal-600 border-warm-300 hover:border-charcoal-400'}`}
+                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold border transition-colors min-h-[44px] ${active ? 'bg-charcoal-900 text-warm-50 border-charcoal-900' : 'bg-warm-50 text-charcoal-600 border-warm-300 hover:border-charcoal-400'}`}
               >
                 <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
                 {(b.barber_name || b.alias || '').split(' ')[0]}

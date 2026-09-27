@@ -8,6 +8,7 @@ import {
   restoreReward,
 } from '@/lib/server-pricing'
 import { timeStrToMinutes } from '@/lib/availability'
+import { resolveTimeZone, nowWallClock } from '@/lib/wallclock'
 import { logger } from '@/lib/logger'
 
 function getAdmin() {
@@ -33,6 +34,8 @@ interface CreateBody {
   rewardCode?: string | null
   /** client-generated per-attempt UUID; makes retries idempotent */
   idempotencyKey: string
+  /** IANA time zone from the customer's browser, for the past-slot check */
+  timeZone?: string | null
 }
 
 // POST /api/book/create -- the only way a public (unauthenticated) booking
@@ -72,10 +75,22 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     )
   }
+  // Specific, customer-readable validation past the presence check above:
+  // a whitespace-only name or a too-short phone number must not create a
+  // booking (the confirmation SMS and client lookup both depend on them).
+  if (!clientName.trim()) {
+    return NextResponse.json({ error: 'Please enter your name' }, { status: 400 })
+  }
+  if (String(clientPhone).replace(/\D/g, '').length < 10) {
+    return NextResponse.json({ error: 'Please enter a valid 10-digit phone number' }, { status: 400 })
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}(:\d{2})?$/.test(time)) {
     return NextResponse.json({ error: 'date must be YYYY-MM-DD and time HH:MM[:SS]' }, { status: 400 })
   }
   const time24 = time.length === 5 ? `${time}:00` : time
+  if (Number.isNaN(new Date(`${date}T${time24}Z`).getTime())) {
+    return NextResponse.json({ error: 'Invalid date or time' }, { status: 400 })
+  }
 
   const { data: shop } = await admin
     .from('shops')
@@ -122,7 +137,7 @@ export async function POST(req: NextRequest) {
     })
     if (resolution.kind === 'none_available') {
       return NextResponse.json(
-        { error: 'No staff member is available at that time. Please pick another slot.' },
+        { error: 'No staff member is available at that time. Please pick another slot.', code: 'slot_taken' },
         { status: 409 }
       )
     }
@@ -136,10 +151,14 @@ export async function POST(req: NextRequest) {
     // null-barber slot guard trigger still prevents double-booking.
   }
 
-  // Reject past dates/times server-side. Shops carry no timezone column,
-  // so this is evaluated in UTC.
-  const slotAt = new Date(`${date}T${time24}Z`)
-  if (Number.isNaN(slotAt.getTime()) || slotAt.getTime() <= Date.now()) {
+  // Reject past dates/times server-side, evaluated in the customer's
+  // timezone (their browser sends it; they're overwhelmingly local to the
+  // shop). Shops carry no timezone column, so a UTC evaluation would
+  // wrongly reject same-day slots that are still hours in the future for
+  // western-hemisphere shops.
+  const timeZone = resolveTimeZone(body.timeZone)
+  const slotWall = `${date}T${time24}`
+  if (slotWall <= nowWallClock(timeZone)) {
     return NextResponse.json({ error: 'Cannot book a time in the past' }, { status: 400 })
   }
 
@@ -216,7 +235,7 @@ export async function POST(req: NextRequest) {
   if (!free) {
     if (rewardId) await restoreReward(admin, rewardId)
     return NextResponse.json(
-      { error: 'That time was just booked. Please pick another slot.' },
+      { error: 'That time was just booked. Please pick another slot.', code: 'slot_taken' },
       { status: 409 }
     )
   }
@@ -229,7 +248,7 @@ export async function POST(req: NextRequest) {
       service_id: serviceId,
       client_id: clientId,
       client_name: clientName.trim(),
-      client_phone: clientPhone,
+      client_phone: normalizedPhone,
       client_email: clientEmail || null,
       date,
       time: time24,
@@ -261,7 +280,7 @@ export async function POST(req: NextRequest) {
       // trigger: someone else booked this exact (shop, barber, date, time)
       // between our check and the insert.
       return NextResponse.json(
-        { error: 'That time was just booked. Please pick another slot.' },
+        { error: 'That time was just booked. Please pick another slot.', code: 'slot_taken' },
         { status: 409 }
       )
     }

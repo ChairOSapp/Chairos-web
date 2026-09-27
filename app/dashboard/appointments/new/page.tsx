@@ -34,6 +34,7 @@ export default function NewAppointment() {
   const [notes, setNotes] = useState('')
   const [price, setPrice] = useState('')
   const [sendSMS, setSendSMS] = useState(true)
+  const [smsFailed, setSmsFailed] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
@@ -129,14 +130,21 @@ export default function NewAppointment() {
       })
       const barberName = barber?.barber_name || barber?.alias || `your ${staffLabel.toLowerCase()}`
       const svc = services.find(s => s.id === selectedService)
-      await fetch('/api/sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: clientPhone,
-          message: `Your appointment at ${shop.name} is confirmed!\n\nService: ${svc?.name}\n${staffLabel}: ${barberName}\nDate: ${dateFormatted}\nTime: ${time}\n\nSee you soon! Reply STOP to unsubscribe.`
+      try {
+        const res = await fetch('/api/sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: clientPhone,
+            message: `Your appointment at ${shop.name} is confirmed!\n\nService: ${svc?.name}\n${staffLabel}: ${barberName}\nDate: ${dateFormatted}\nTime: ${time}\n\nSee you soon! Reply STOP to unsubscribe.`
+          })
         })
-      })
+        if (!res.ok) setSmsFailed(true)
+      } catch {
+        setSmsFailed(true)
+      }
+    } else {
+      setSmsFailed(false)
     }
 
     setSuccess(true)
@@ -160,12 +168,13 @@ export default function NewAppointment() {
           </div>
           <h2 className="font-serif text-xl text-charcoal-900 mb-2">Appointment booked</h2>
           <p className="text-charcoal-400 text-sm mb-6">
-            Added to the schedule.{sendSMS ? ' Confirmation text sent.' : ''}
+            Added to the schedule.{sendSMS ? (smsFailed ? ' Note: the confirmation text could not be sent — please tell the client directly.' : ' Confirmation text sent.') : ''}
           </p>
           <div className="flex gap-3">
             <button onClick={() => {
               setSuccess(false); setClientName(''); setClientPhone(''); setClientEmail('')
               setNotes(''); setSelectedBarber(''); setSelectedService(''); setTime(''); setPrice('')
+              setSmsFailed(false)
             }}
               className="flex-1 bg-warm-200 border border-warm-300 text-charcoal-400 font-semibold py-3 rounded-lg text-sm hover:text-charcoal-900 transition-colors">
               Book Another

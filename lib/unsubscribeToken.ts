@@ -21,7 +21,9 @@ export function generateManualUnsubscribeToken(campaignRecipientId: string): str
 }
 
 export function verifyUnsubscribeToken(token: string): string {
-  const payload = jwt.verify(token, SECRET) as jwt.JwtPayload
+  // Pin the algorithm: these tokens are always HS256-signed by us
+  // (algorithm-confusion hardening).
+  const payload = jwt.verify(token, SECRET, { algorithms: ['HS256'] }) as jwt.JwtPayload
   if (payload.purpose !== 'email_unsubscribe' || !payload.sub) {
     throw new Error('Invalid token')
   }

@@ -23,10 +23,10 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   try {
-    const { to, message } = await req.json()
+    let { to, message, appointmentId } = await req.json() as { to?: string; message?: string; appointmentId?: string }
 
-    if (!to || !message) {
-      return NextResponse.json({ error: 'Missing to or message' }, { status: 400 })
+    if (!to) {
+      return NextResponse.json({ error: 'Missing to' }, { status: 400 })
     }
 
     const admin = createAdmin(
@@ -54,6 +54,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (user) {
+      if (!message) {
+        return NextResponse.json({ error: 'Missing message' }, { status: 400 })
+      }
+      // Bound message size: Twilio bills per segment, so cap the
+      // staff-authored path at 10 segments.
+      if (message.length > 1600) {
+        return NextResponse.json({ error: 'Message is too long (max 1600 characters)' }, { status: 400 })
+      }
       // Billing gate: the authenticated path spends the platform's Twilio
       // budget on the sender's behalf, so expired trials and cancelled
       // accounts get a 402 before any message is composed or sent. (The
@@ -89,24 +97,44 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Client is not associated with your shop' }, { status: 403 })
       }
     } else {
-      // Anonymous path: the public booking flow texts its own
-      // confirmation to the client who just booked, before any session
-      // exists. Require a real appointment for this exact client created
-      // in the last few minutes, so this can't be used to blast a
-      // consented client out of the blue -- only right after they've
-      // actually just gone through the booking flow themselves.
+      // Anonymous path: the public booking flow's own confirmation text.
+      // The caller proves the booking by naming the just-created
+      // appointment; the message is composed server-side from the
+      // appointment/shop/service so this endpoint can never be used to
+      // send attacker-composed SMS from the platform's Twilio number
+      // (previously any free-form `message` was accepted).
+      if (!appointmentId) {
+        return NextResponse.json({ error: 'appointmentId is required' }, { status: 400 })
+      }
       const since = new Date(Date.now() - 10 * 60 * 1000).toISOString()
-      const { data: recentAppt } = await admin
+      const { data: appt } = await admin
         .from('appointments')
-        .select('id')
+        .select('id, client_id, barber_id, date, time, services(name), shops(name)')
+        .eq('id', appointmentId)
         .eq('client_id', client.id)
         .gte('created_at', since)
-        .limit(1)
         .maybeSingle()
 
-      if (!recentAppt) {
+      if (!appt) {
         return NextResponse.json({ error: 'No recent booking found for this client' }, { status: 403 })
       }
+
+      let barberLabel = 'your barber'
+      if ((appt as any).barber_id) {
+        const { data: staff } = await admin
+          .from('shop_barbers')
+          .select('barber_name, alias')
+          .eq('barber_id', (appt as any).barber_id)
+          .maybeSingle()
+        barberLabel = (staff as any)?.barber_name || (staff as any)?.alias || barberLabel
+      }
+      const dateFormatted = new Date(`${(appt as any).date}T12:00:00`).toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric',
+      })
+      const timeFormatted = String((appt as any).time).slice(0, 5)
+      const serviceName = ((appt as any).services as any)?.name || 'appointment'
+      const shopName = ((appt as any).shops as any)?.name || 'the shop'
+      message = `You're booked at ${shopName}!\n\nService: ${serviceName}\nBarber: ${barberLabel}\nDate: ${dateFormatted}\nTime: ${timeFormatted}\n\nSee you soon! Reply STOP to opt out.`
     }
 
     const twilioClient = twilio(

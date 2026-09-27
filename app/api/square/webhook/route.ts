@@ -25,7 +25,7 @@ function verifySignature(body: string, signature: string, key: string, url: stri
   return timingSafeEqual(expectedBuf, actualBuf)
 }
 
-async function notifyClientSlotExpired(appointment: { client_name: string; client_phone: string | null; client_id: string | null }) {
+async function notifyClientSlotExpired(appointment: { client_name: string; client_phone: string | null; client_id: string | null }, refundSucceeded: boolean) {
   if (!appointment.client_phone) return
   if (appointment.client_id) {
     const { data: client } = await supabase.from('clients').select('sms_consent').eq('id', appointment.client_id).maybeSingle()
@@ -36,11 +36,14 @@ async function notifyClientSlotExpired(appointment: { client_name: string; clien
   const last4 = digitsOnly.slice(-4)
   const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!)
   try {
-    const msg = await twilioClient.messages.create({
-      body: `Hi ${appointment.client_name}, your reserved appointment slot expired before we received your deposit payment. You've been refunded in full — please rebook when ready.`,
-      from: process.env.TWILIO_PHONE_NUMBER!,
-      to: normalized,
-    })
+    // Only promise a refund when the refund actually succeeded -- telling a
+    // customer "refunded in full" after a failed refund creates a support
+    // incident and a chargeback risk. refundSucceeded=false keeps the copy
+    // honest so staff can follow up.
+    const body = refundSucceeded
+      ? `Hi ${appointment.client_name}, your reserved appointment slot expired before we received your deposit payment. You've been refunded in full — please rebook when ready.`
+      : `Hi ${appointment.client_name}, your reserved appointment slot expired before we received your deposit payment. Our team has been notified and will complete your refund shortly — please contact us if you need help.`
+    const msg = await twilioClient.messages.create({ body, from: process.env.TWILIO_PHONE_NUMBER!, to: normalized })
     logger.info('slot_expired_sms_sent', { to: last4, messageSid: msg.sid })
   } catch (err: any) {
     // Best-effort notification — the refund and log entry are the source of
@@ -105,13 +108,20 @@ async function handleDepositPayment(payment: any, depositId: string) {
       }
     }
 
+    // Only claim 'refunded' when Square accepted the refund. On failure
+    // the deposit keeps its expired state -- never a false 'refunded'
+    // that would hide unrefunded money and send a lying "refunded in
+    // full" text. The automation_logs row records the failure for staff
+    // follow-up, and Square's redelivery of this same event is the
+    // retry path (the deposit still reads 'expired').
+    const refundSucceeded = refundResult === 'refunded'
     await supabase.from('deposits').update({
-      status: 'refunded',
-      refunded_at: new Date().toISOString(),
+      status: refundSucceeded ? 'refunded' : 'expired',
+      refunded_at: refundSucceeded ? new Date().toISOString() : null,
       square_payment_id: payment.id,
     }).eq('id', deposit.id)
 
-    if (appointment) await notifyClientSlotExpired(appointment)
+    if (appointment) await notifyClientSlotExpired(appointment, refundSucceeded)
 
     await supabase.from('automation_logs').insert({
       type: 'deposit_late_payment_refund',

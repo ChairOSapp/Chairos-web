@@ -29,6 +29,8 @@ export type RateLimitBucket =
   | 'waitlistClaim'
   | 'missedCallTextback'
   | 'email'
+  | 'campaignSend'
+  | 'aiGenerate'
 
 // failClosed controls what happens when Redis is unreachable or not
 // configured at all: true means the request is blocked (safer default for
@@ -76,6 +78,14 @@ const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters
   // like login. Enforced both in proxy.ts (public-path wiring below) and
   // directly inside the route, so it holds even if the proxy is bypassed.
   email: { limit: 5, window: '60 s', failClosed: true },
+  // Authenticated campaign sends (bulk SMS/email -- real per-message
+  // spend). Checked inside /api/campaigns/send, user-scoped, so one
+  // account can't hammer the blast endpoint. Fail closed: a Redis blip
+  // blocking a marketing send is far cheaper than an unbounded send.
+  campaignSend: { limit: 5, window: '10 m', failClosed: true },
+  // Authenticated AI copy generation (/api/campaigns/generate) -- burns
+  // Anthropic tokens per call. Fail closed for the same spend reason.
+  aiGenerate: { limit: 20, window: '1 h', failClosed: true },
 }
 
 const limiters = new Map<RateLimitBucket, Ratelimit>()

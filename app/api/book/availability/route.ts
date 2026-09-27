@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { computeAvailableSlots, timeStrToMinutes, type BlockedInterval, type DayHours } from '@/lib/availability'
+import { resolveTimeZone, nowWallClock, todayInTimeZone } from '@/lib/wallclock'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,6 +21,31 @@ export async function GET(req: NextRequest) {
 
   if (!shopCode || !date || !serviceId) {
     return NextResponse.json({ error: 'shopCode, date, and serviceId are required' }, { status: 400 })
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json({ error: 'date must be YYYY-MM-DD' }, { status: 400 })
+  }
+
+  // Past slots must never be offered: the booking page lets the customer
+  // pick a time and walk through the whole details step, and only the
+  // submit would reject it. Evaluated in the customer's timezone (sent by
+  // the page; they're overwhelmingly local to the shop), falling back to
+  // UTC. Past dates return no slots at all.
+  const tz = resolveTimeZone(req.nextUrl.searchParams.get('tz'))
+  const todayStr = todayInTimeZone(tz)
+  if (date < todayStr) {
+    return NextResponse.json({ slots: [] })
+  }
+  const filterPastToday = date === todayStr
+  const dropPastSlots = (slots: string[]): string[] => {
+    if (!filterPastToday) return slots
+    const nowWall = nowWallClock(tz)
+    return slots.filter((s) => {
+      const mins = timeStrToMinutes(s)
+      const hh = String(Math.floor(mins / 60)).padStart(2, '0')
+      const mm = String(mins % 60).padStart(2, '0')
+      return `${date}T${hh}:${mm}:00` > nowWall
+    })
   }
 
   const { data: shop } = await supabase
@@ -64,7 +90,7 @@ export async function GET(req: NextRequest) {
         serviceBufferBeforeMin: service.buffer_before_minutes,
         serviceBufferAfterMin: service.buffer_after_minutes,
       })
-      return NextResponse.json({ slots })
+      return NextResponse.json({ slots: dropPastSlots(slots) })
     }
   }
 
@@ -105,5 +131,5 @@ export async function GET(req: NextRequest) {
   // Order matches earliest-to-latest within the day rather than insertion order.
   const ordered = Array.from(slotSet).sort((a, b) => timeStrToMinutes(a) - timeStrToMinutes(b))
 
-  return NextResponse.json({ slots: ordered })
+  return NextResponse.json({ slots: dropPastSlots(ordered) })
 }

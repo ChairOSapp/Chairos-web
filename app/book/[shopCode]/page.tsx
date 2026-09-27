@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useRef, Suspense } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
@@ -89,6 +90,19 @@ function BookingPageInner() {
   const [pendingApptId, setPendingApptId] = useState<string | null>(null)
   const [failedChargeKind, setFailedChargeKind] = useState<'deposit' | 'charge' | null>(null)
   const [retrying, setRetrying] = useState(false)
+  // Synchronous double-submit guards -- React state updates don't settle
+  // between two rapid taps, so `submitting`/`retrying` alone can't stop a
+  // double-tap from running the booking twice (two bookingKeys -> two
+  // appointments, two charges). Refs are checked synchronously instead.
+  const bookBusyRef = useRef(false)
+  const retryBusyRef = useRef(false)
+  const waitlistBusyRef = useRef(false)
+  // Bumped to force a fresh availability read (e.g. after a slot-taken
+  // 409 sends the customer back to the time picker).
+  const [slotsRefreshKey, setSlotsRefreshKey] = useState(0)
+  // Whether the confirmation SMS actually sent -- the success screen must
+  // not claim "text sent" when the send failed.
+  const [smsSent, setSmsSent] = useState(false)
   // Turnstile widget state -- a failed script load must offer a retry
   // instead of leaving Confirm permanently disabled.
   const [captchaLoadFailed, setCaptchaLoadFailed] = useState(false)
@@ -137,6 +151,20 @@ function BookingPageInner() {
   const depositAmountEstimate = requiresDeposit && finalPrice != null
     ? (shop.deposit_type === 'flat' ? Number(shop.deposit_amount) : Math.round(finalPrice * (Number(shop.deposit_amount) / 100) * 100) / 100)
     : null
+
+  // Mirrors doBook()'s validation so the Confirm button enables exactly
+  // when the submission can pass validation (no permanent-disabled state).
+  const contactValid =
+    clientName.trim().length > 0 &&
+    clientPhone.replace(/\D/g, '').length >= 10 &&
+    (!clientEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim()))
+
+  // Display-safe amounts: a null service price or an uncomputable deposit
+  // must never render as "$null".
+  const depositDisplay = requiresDeposit && depositAmountEstimate != null && depositAmountEstimate > 0
+    ? `$${depositAmountEstimate}`
+    : null
+  const chargeDisplay = finalPrice != null ? `$${finalPrice}` : null
 
   useEffect(() => {
     async function load() {
@@ -272,7 +300,8 @@ function BookingPageInner() {
       } catch (e: any) {
         if (!isMounted) return
         console.error('Square init error:', e)
-        setPaymentError('Card form failed to load. You can still book and pay at the shop.')
+        Sentry.captureException(e, { tags: { area: 'booking_square_card_init' } })
+        setPaymentError('Card form failed to load. Check your connection and try again — no charge was made. You can also continue and pay at the shop.')
       } finally {
         if (isMounted) setCardLoading(false)
       }
@@ -305,13 +334,17 @@ function BookingPageInner() {
     setSelectedTime('')
     const params = new URLSearchParams({ shopCode, date: selectedDate, serviceId: selectedService.id })
     if (selectedBarber?.barber_id) params.set('barberId', selectedBarber.barber_id)
+    // Customer's timezone, so the server's past-slot filter is evaluated
+    // in the right zone (shops carry no timezone column; UTC would hide
+    // still-bookable slots for western-hemisphere shops).
+    params.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone)
     fetch(`/api/book/availability?${params.toString()}`)
       .then(r => r.json())
       .then(data => { if (!cancelled) setAvailableSlots(data.slots || []) })
       .catch(() => { if (!cancelled) setAvailableSlots([]) })
       .finally(() => { if (!cancelled) setLoadingSlots(false) })
     return () => { cancelled = true }
-  }, [selectedDate, selectedService, selectedBarber, shopCode])
+  }, [selectedDate, selectedService, selectedBarber, shopCode, slotsRefreshKey])
 
   // A fresh date/barber pick invalidates any "joined the waitlist" state
   // left over from a previous fully-booked day.
@@ -323,10 +356,14 @@ function BookingPageInner() {
   }
 
   async function joinWaitlist() {
+    // Synchronous guard: `wlSubmitting` state alone can't stop a same-tick
+    // double-tap from joining twice.
+    if (waitlistBusyRef.current || wlSubmitting) return
     if (!wlName.trim() || !wlPhone.trim() || !wlTime) {
       setWlError('Name, phone, and a desired time are required')
       return
     }
+    waitlistBusyRef.current = true
     setWlSubmitting(true)
     setWlError('')
     try {
@@ -351,6 +388,7 @@ function BookingPageInner() {
       setWlError('Could not join the waitlist right now')
     } finally {
       setWlSubmitting(false)
+      waitlistBusyRef.current = false
     }
   }
 
@@ -420,19 +458,25 @@ function BookingPageInner() {
 
   // Maps raw gateway/SDK messages to plain language a customer can act on.
   function friendlyPaymentError(raw: string): string {
+    // The server sanitizes gateway errors before they reach us, but this
+    // mapping never echoes raw text: a backend slip must not leak payment
+    // processor internals onto the customer's screen.
     const msg = (raw || '').toLowerCase()
     if (msg.includes('declined')) return 'Your card was declined. Double-check the card details or try a different card.'
     if (msg.includes('insufficient')) return 'Your card doesn’t have enough available for this payment. Try a different card.'
     if (msg.includes('expired')) return 'Your card is expired. Try a different card.'
     if (msg.includes('cvv') || msg.includes('cvc') || msg.includes('security code')) return 'The security code (CVV) looks wrong. Check it and try again.'
     if (msg.includes('invalid') && msg.includes('card')) return 'The card details don’t look right. Check the number and try again.'
-    return raw || 'Payment didn’t go through. Try again or use a different card.'
+    return 'Payment didn’t go through. Try again or use a different card.'
   }
 
   // Charges the deposit for an already-created appointment. Returns a
-  // result object instead of throwing. Safe to retry on a clean decline:
-  // the server deletes the pending deposit row on a synchronous decline,
-  // so each attempt starts fresh against the same appointment.
+  // result object instead of throwing. Safe to retry: on a clean decline
+  // the server deletes the pending deposit row so the attempt starts
+  // fresh; on an ambiguous failure the server reuses the same pending
+  // row (and its Square idempotency key) so the retry dedupes instead of
+  // charging twice; if the first attempt actually went through, the server
+  // reports the existing paid deposit as success.
   async function chargeDepositFor(apptId: string, srcId: string): Promise<{ ok: boolean; message: string }> {
     try {
       const depRes = await fetch('/api/square/create-deposit', {
@@ -473,7 +517,7 @@ function BookingPageInner() {
   // Post-booking side effects: owner/barber notifications, client SMS,
   // analytics. Runs only once the booking is fully settled (paid, or no
   // payment required) -- never on the payment-failed path.
-  async function finalizeBooking() {
+  async function finalizeBooking(appointmentId: string) {
     const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || `Any ${staffLabelLower}`
     const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     await supabase.from('notifications').insert({
@@ -497,22 +541,23 @@ function BookingPageInner() {
     }
 
     if (smsConsent) {
-      const dateFormatted = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
-        weekday: 'long', month: 'long', day: 'numeric'
-      })
-      const barberName = selectedBarber?.barber_name || selectedBarber?.alias || `your ${staffLabelLower}`
+      // Anonymous confirmation: the server composes the message from the
+      // appointment itself (shop/service/date/time) -- the client never
+      // sends message text, so this can't be abused as an SMS relay.
+      // Only a 2xx from /api/sms counts as "sent" -- the success screen
+      // must not claim a text went out when the send failed.
+      let smsOk = false
       try {
-        await fetch('/api/sms', {
+        const res = await fetch('/api/sms', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: clientPhone,
-            message: `You're booked at ${shop.name}!\n\nService: ${selectedService.name}\n${staffLabel}: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to opt out.`
-          })
+          body: JSON.stringify({ to: clientPhone, appointmentId }),
         })
+        smsOk = res.ok
       } catch {
         // SMS failure is non-fatal
       }
+      setSmsSent(smsOk)
     }
 
     trackMetaEvent('Schedule', { content_name: selectedService.name, value: finalPrice, currency: 'USD' })
@@ -523,40 +568,45 @@ function BookingPageInner() {
   // appointment -- never creates a second appointment. Square nonces are
   // single-use, so a fresh token is minted for every attempt.
   async function retryPayment() {
-    if (!pendingApptId || !failedChargeKind || retrying) return
+    // Synchronous guard: `retrying` state alone can't stop a same-tick
+    // double-tap from charging twice.
+    if (!pendingApptId || !failedChargeKind || retryBusyRef.current || retrying) return
+    retryBusyRef.current = true
+    const apptId = pendingApptId
     setRetrying(true)
     setPaymentError('')
-    let srcId: string | null = null
-    if (squareCardRef.current) {
-      const result = await squareCardRef.current.tokenize()
-      if (result.status === 'OK') {
-        srcId = result.token
-      } else {
-        setPaymentError(friendlyPaymentError(result.errors?.[0]?.message || 'Card error'))
-        setRetrying(false)
+    try {
+      let srcId: string | null = null
+      if (squareCardRef.current) {
+        const result = await squareCardRef.current.tokenize()
+        if (result.status === 'OK') {
+          srcId = result.token
+        } else {
+          setPaymentError(friendlyPaymentError(result.errors?.[0]?.message || 'Card error'))
+          return
+        }
+      }
+      if (!srcId) {
+        setPaymentError('Card form isn’t ready — tap "Try again" by the card form to reload it.')
         return
       }
-    }
-    if (!srcId) {
-      setPaymentError('Card form isn’t ready — tap "Try again" by the card form to reload it.')
+      const result = failedChargeKind === 'deposit'
+        ? await chargeDepositFor(pendingApptId, srcId)
+        : await chargeNowFor(pendingApptId, srcId)
+      if (!result.ok) {
+        setPaymentError(result.message)
+        return
+      }
+      // Paid -- finish the booking exactly as the first attempt would have.
+      setPaymentFailed(false)
+      setPendingApptId(null)
+      setFailedChargeKind(null)
+      await finalizeBooking(apptId)
+      setSuccess(true)
+    } finally {
       setRetrying(false)
-      return
+      retryBusyRef.current = false
     }
-    const result = failedChargeKind === 'deposit'
-      ? await chargeDepositFor(pendingApptId, srcId)
-      : await chargeNowFor(pendingApptId, srcId)
-    if (!result.ok) {
-      setPaymentError(result.message)
-      setRetrying(false)
-      return
-    }
-    // Paid -- finish the booking exactly as the first attempt would have.
-    setPaymentFailed(false)
-    setPendingApptId(null)
-    setFailedChargeKind(null)
-    await finalizeBooking()
-    setSuccess(true)
-    setRetrying(false)
   }
 
   // Resets the funnel for a fresh booking (success-screen "Book another").
@@ -583,10 +633,32 @@ function BookingPageInner() {
     window.scrollTo(0, 0)
   }
 
+  // Wrapper: synchronous double-submit guard + guaranteed `submitting`
+  // reset. The ref check must run first -- React state updates don't settle
+  // between two rapid taps, so `submitting` alone can't stop a double-tap
+  // from running the whole booking flow twice (two bookingKeys -> two
+  // appointments, two charges). The finally guarantees the button is
+  // never left permanently disabled, whatever throws inside doBook.
   async function handleBook() {
-    if (!clientName || !clientPhone) { setError('We need your name and phone number to hold your spot.'); return }
-    if (CAPTCHA_ENABLED && !captchaToken) { setError('Please tick the box below to show you’re not a robot.'); return }
+    if (bookBusyRef.current) return
+    bookBusyRef.current = true
     setSubmitting(true)
+    try {
+      await doBook()
+    } finally {
+      setSubmitting(false)
+      bookBusyRef.current = false
+    }
+  }
+
+  async function doBook() {
+    // Details validation: the server also validates, but catching it here
+    // keeps the customer on step 4 with a readable message instead of a
+    // rejected booking (and keeps invalid client rows from being written).
+    if (!clientName.trim()) { setError('Please enter your name.'); return }
+    if (clientPhone.replace(/\D/g, '').length < 10) { setError('Please enter a valid 10-digit phone number.'); return }
+    if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())) { setError('Please enter a valid email address, or leave it blank.'); return }
+    if (CAPTCHA_ENABLED && !captchaToken) { setError('Please tick the box below to show you’re not a robot.'); return }
     setError('')
     setPaymentError('')
 
@@ -610,7 +682,6 @@ function BookingPageInner() {
       })
       if (!captchaRes.ok) {
         setError('That didn’t go through — try once more.')
-        setSubmitting(false)
         resetCaptcha()
         return
       }
@@ -624,8 +695,7 @@ function BookingPageInner() {
         sourceId = result.token
       } else {
         const msg = result.errors?.[0]?.message || 'Card error'
-        setPaymentError(msg)
-        setSubmitting(false)
+        setPaymentError(friendlyPaymentError(msg))
         resetCaptcha()
         return
       }
@@ -636,7 +706,16 @@ function BookingPageInner() {
     // exists inside the iOS wrapper).
     if ((shop?.require_card_to_book || requiresDeposit) && !sourceId) {
       setPaymentError('Card form isn’t ready yet — tap "Try again" below to reload it.')
-      setSubmitting(false)
+      resetCaptcha()
+      return
+    }
+
+    // Deposit configuration sanity: a required deposit that can't be
+    // computed to a positive cent amount (misconfigured flat deposit of
+    // $0, service total $0 with a percent deposit, ...) must not reach
+    // Square. Block and tell the shop side, not the customer.
+    if (requiresDeposit && (depositAmountEstimate == null || depositAmountEstimate <= 0)) {
+      setError('Something isn’t set up right on our end — please call the shop to book.')
       resetCaptcha()
       return
     }
@@ -679,7 +758,7 @@ function BookingPageInner() {
       const { error: newClientErr } = await supabase
         .from('clients')
         .insert({ id: newId, phone: normalizedPhone, source: 'online_booking', ...clientFields })
-      if (newClientErr) { setError('Something went wrong saving your info. Try again.'); setSubmitting(false); resetCaptcha(); return }
+      if (newClientErr) { setError('Something went wrong saving your info. Try again.'); resetCaptcha(); return }
       clientId = newId
 
       // Attribute the referral, if any — non-fatal, and only for a
@@ -715,8 +794,9 @@ function BookingPageInner() {
     // (+ a server-validated referral reward), re-validates the slot
     // in-request, and enforces idempotency via bookingKey -- the browser
     // sends NO price fields, so the client can no longer dictate what a
-    // booking costs. A fresh key per attempt keeps double-clicks and
-    // retries from creating duplicate appointments.
+    // booking costs. One fresh key per logical attempt; the wrapper's
+    // bookBusyRef guarantees only one attempt runs at a time, so a
+    // double-tap can't mint two keys and create two appointments.
     const bookingKey = crypto.randomUUID()
     let newApptId: string
     try {
@@ -735,12 +815,21 @@ function BookingPageInner() {
           notes: notes || null,
           rewardCode: activeReward?.id || null,
           idempotencyKey: bookingKey,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       })
       const createData = await createRes.json()
       if (!createRes.ok || !createData.appointmentId) {
-        setError(createData.error || 'Couldn’t finish your booking — give it another try.')
-        setSubmitting(false)
+        if (createData?.code === 'slot_taken') {
+          // Someone grabbed the slot between the availability read and the
+          // submit: take the customer back to the time picker with FRESH
+          // slots instead of stranding them on the details step.
+          setSlotsRefreshKey(k => k + 1)
+          setStep(3)
+          setError('That time was just taken — here are the latest openings. Pick a new time and confirm again.')
+        } else {
+          setError(createData.error || 'Couldn’t finish your booking — give it another try.')
+        }
         resetCaptcha()
         return
       }
@@ -752,7 +841,6 @@ function BookingPageInner() {
       }
     } catch {
       setError('Couldn’t finish your booking — give it another try.')
-      setSubmitting(false)
       resetCaptcha()
       return
     }
@@ -779,41 +867,44 @@ function BookingPageInner() {
         setFailedChargeKind('deposit')
         setPaymentFailed(true)
         setPaymentError(result.message)
-        setSubmitting(false)
         return
       }
-    } else if (sourceId && cardMode === 'charge') {
-      // Charge card immediately if one-time mode (need appointmentId for Square)
+    } else if (sourceId && cardMode === 'charge' && (finalPrice ?? 0) > 0) {
+      // Charge card immediately if one-time mode (need appointmentId for Square).
+      // A $0 total (free service or a reward covering everything) skips
+      // Square entirely -- charging $0 would fail at the gateway.
       const result = await chargeNowFor(newApptId, sourceId)
       if (!result.ok) {
         setPendingApptId(newApptId)
         setFailedChargeKind('charge')
         setPaymentFailed(true)
         setPaymentError(result.message)
-        setSubmitting(false)
         return
       }
     } else if (sourceId && cardMode === 'save' && clientId) {
-      // Save card on file if client chose save mode (non-blocking)
-      try {
-        await fetch('/api/square/save-card', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceId, clientId, shopId: shop.id }),
-        })
-      } catch {
-        // Card save failure is non-fatal — appointment is already created
+      // Save card on file if client chose save mode -- and only claim it
+      // worked if the server said so. The appointment already exists either
+      // way; a failed save shows an honest notice instead of silently
+      // dropping the customer's expectation.
+      const saveRes = await fetch('/api/square/save-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceId, clientId, shopId: shop.id }),
+      }).catch(() => null)
+      if (!saveRes?.ok) {
+        setError('We couldn’t save your card for later — please bring it to your appointment.')
       }
     }
 
     // Fully settled (paid, or no payment required) -- notify everyone,
     // send the client confirmation, then show the success screen.
-    await finalizeBooking()
+    await finalizeBooking(newApptId)
     setSuccess(true)
-    setSubmitting(false)
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  // Customer's local date for the date picker's minimum -- a UTC date is
+  // the wrong day near midnight for western-hemisphere customers.
+  const today = new Date().toLocaleDateString('en-CA')
 
   // ---- Shop brand system ----
   // Normalize any stored value to #rrggbb; garbage falls back to ChairOS gold.
@@ -917,7 +1008,7 @@ function BookingPageInner() {
             )}
           </div>
           <p className="text-charcoal-600 text-xs">
-            {smsConsent ? `Confirmation text sent to ${clientPhone}.` : 'Booking confirmed.'} Powered by ChairOS.
+            {smsConsent && smsSent ? `Confirmation text sent to ${clientPhone}.` : 'Booking confirmed.'} Powered by ChairOS.
           </p>
         </div>
         <div className="flex flex-col gap-2 mt-4">
@@ -1119,7 +1210,7 @@ function BookingPageInner() {
                       </div>
                       <div className="text-xs text-charcoal-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
                     </div>
-                    <div className="font-serif text-lg ml-4 flex-shrink-0 font-semibold" style={{ color: brand }}>${s.price}</div>
+                    <div className="font-serif text-lg ml-4 flex-shrink-0 font-semibold" style={{ color: brand }}>{s.price != null ? `$${s.price}` : 'Pay at shop'}</div>
                   </Pressable>
                 )
               })}
@@ -1137,7 +1228,7 @@ function BookingPageInner() {
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Date</label>
                 <input type="date" value={selectedDate} min={today}
                   onChange={e => { setSelectedDate(e.target.value); resetWaitlistJoinState() }}
-                  className="w-full bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none transition-colors"
+                  className="w-full min-w-0 bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none transition-colors"
                   onFocus={e => e.target.style.borderColor = brand}
                   onBlur={e => e.target.style.borderColor = ''} />
               </div>
@@ -1155,26 +1246,26 @@ function BookingPageInner() {
                         </div>
                       ) : (
                         <div className="bg-warm-100 border border-warm-200 rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Desired Time</label>
                               <input type="time" value={wlTime} onChange={e => setWlTime(e.target.value)}
-                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
+                                className="w-full min-w-0 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
                             </div>
                             <div>
                               <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Phone</label>
                               <input type="tel" value={wlPhone} onChange={e => setWlPhone(e.target.value)} placeholder="(555) 000-0000"
-                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
+                                className="w-full min-w-0 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
                             </div>
                           </div>
                           <div>
                             <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Name</label>
                             <input type="text" value={wlName} onChange={e => setWlName(e.target.value)} placeholder="Your name"
-                              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
+                              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
                           </div>
                           {wlError && <p className="text-red-400 text-xs">{wlError}</p>}
                           <button onClick={joinWaitlist} disabled={wlSubmitting}
-                            className="w-full font-semibold px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+                            className="w-full font-semibold px-4 py-3 rounded-lg text-sm transition-colors disabled:opacity-50"
                             style={{ background: brand, color: onBrand }}>
                             {wlSubmitting ? 'Joining…' : `Join Waitlist for ${selectedService?.name || 'this service'}`}
                           </button>
@@ -1211,7 +1302,7 @@ function BookingPageInner() {
               <button onClick={() => setStep(2)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
               <button
                 onClick={() => { if (!selectedDate || !selectedTime) { setError('Pick a date and time first.'); return }; setError(''); setStep(4) }}
-                className="ml-auto font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors"
+                className="ml-auto font-semibold px-6 py-3 rounded-lg text-sm transition-colors"
                 style={{ background: brand, color: onBrand }}>
                 Continue →
               </button>
@@ -1227,7 +1318,10 @@ function BookingPageInner() {
                   {failedChargeKind === 'deposit' ? 'Deposit failed — your spot is held' : 'Payment failed — your spot is held'}
                 </h3>
                 <p className="text-red-300/80 text-sm mb-3">
-                  Your spot is held for about 15 minutes, and nothing was charged.
+                  Your spot is held for about 15 minutes. If the payment
+                  didn’t go through, nothing was charged — but if it timed
+                  out, check your bank or bookings before retrying so you
+                  don’t pay twice.
                   Just fix your payment below and retry before the hold runs out.
                 </p>
                 {paymentError && (
@@ -1276,12 +1370,12 @@ function BookingPageInner() {
               )}
               <div className="flex justify-between text-sm border-t border-warm-200 pt-2 mt-2">
                 <span className="text-charcoal-400">Total</span>
-                <span className="font-mono font-semibold" style={{ color: brand }}>${finalPrice}</span>
+                <span className="font-mono font-semibold" style={{ color: brand }}>{chargeDisplay ?? 'Pay at shop'}</span>
               </div>
-              {requiresDeposit && depositAmountEstimate != null && (
+              {requiresDeposit && depositDisplay && (
                 <div className="flex justify-between text-sm">
                   <span className="text-charcoal-400">Deposit due now</span>
-                  <span className="font-mono font-semibold" style={{ color: brand }}>${depositAmountEstimate}</span>
+                  <span className="font-mono font-semibold" style={{ color: brand }}>{depositDisplay}</span>
                 </div>
               )}
             </div>
@@ -1295,7 +1389,7 @@ function BookingPageInner() {
                 <div key={f.label}>
                   <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{f.label}</label>
                   <input type={f.type} value={f.value} onChange={e => { f.set(e.target.value); if (f.label === 'Phone Number *') checkReturningClient(e.target.value) }} placeholder={f.placeholder}
-                    className="w-full bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none transition-colors"
+                    className="w-full bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none transition-colors"
                     onFocus={e => e.target.style.borderColor = brand}
                     onBlur={e => e.target.style.borderColor = ''} />
                   {f.label === 'Phone Number *' && (
@@ -1325,12 +1419,15 @@ function BookingPageInner() {
                   {requiresDeposit ? 'Deposit — required to hold your slot' : 'Card'}
                 </label>
 
-                {/* Save vs. charge toggle — not shown for deposit bookings, which always charge the deposit now */}
-                {!requiresDeposit && (
+                {/* Save vs. charge toggle — not shown for deposit bookings, which always charge the deposit now.
+                    Also hidden while the payment-failed panel is up: changing
+                    save/charge mode while retrying an existing held
+                    appointment would charge/finalize with stale UI state. */}
+                {!requiresDeposit && !paymentFailed && (
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     {[
                       { key: 'save', label: 'Save for later', sub: 'Pay at checkout' },
-                      { key: 'charge', label: 'Charge now', sub: `$${finalPrice} today` },
+                      { key: 'charge', label: 'Charge now', sub: chargeDisplay ? `${chargeDisplay} today` : 'Pay at checkout' },
                     ].map(opt => (
                       <button
                         key={opt.key}
@@ -1354,14 +1451,15 @@ function BookingPageInner() {
                   {/* Square's attach() needs the target element actually laid out
                       (not display:none) while it runs, so this stays mounted and
                       visible the whole time -- the spinner overlays it instead of
-                      hiding it. */}
+                      hiding it. A failed init hides it with `invisible` (layout
+                      preserved) so the retry's attach() still works. */}
                   {cardLoading && (
                     <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
                       <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
                       Loading card form...
                     </div>
                   )}
-                  <div id="square-card-container" />
+                  <div id="square-card-container" className={paymentError && !cardReady ? 'invisible' : ''} />
                   {!cardLoading && !cardReady && !paymentError && (
                     <p className="text-neutral-500 text-xs py-2">Card form unavailable — you can pay at the shop.</p>
                   )}
@@ -1380,10 +1478,12 @@ function BookingPageInner() {
                 )}
                 <p className="text-neutral-600 text-xs mt-2">
                   {requiresDeposit
-                    ? `A $${depositAmountEstimate} deposit holds your slot now. You’ve got 15 minutes to pay it — after that the slot opens back up. The rest is due at the shop.`
+                    ? (depositDisplay
+                        ? `A ${depositDisplay} deposit holds your slot now. You’ve got 15 minutes to pay it — after that the slot opens back up. The rest is due at the shop.`
+                        : 'A deposit holds your slot now — the amount will be confirmed with the shop. The rest is due at the shop.')
                     : cardMode === 'save'
                     ? 'Your card is saved securely by Square and charged at checkout.'
-                    : `Your card is charged $${finalPrice} now. Tip is added at the shop.`}
+                    : (chargeDisplay ? `Your card is charged ${chargeDisplay} now. Tip is added at the shop.` : 'Your card is charged at checkout. Tip is added at the shop.')}
                   {' '}We do not store your full card number.
                 </p>
               </div>
@@ -1437,14 +1537,18 @@ function BookingPageInner() {
             )}
 
             <div className="flex gap-3 items-center">
-              <button onClick={() => setStep(3)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
+              {/* Disabled while the payment-failed panel is up: navigating
+                  back would let the customer change service/date/time while
+                  pendingApptId still points at the old held appointment,
+                  and the retry would charge the old booking. */}
+              <button onClick={() => setStep(3)} disabled={paymentFailed} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">← Back</button>
               {/* Hidden while the payment-failed panel is up -- retrying
                   happens through its "Retry payment" button instead. */}
               {!paymentFailed && (
-                <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (CAPTCHA_ENABLED && !captchaToken)}
+                <button onClick={handleBook} disabled={submitting || !contactValid || (CAPTCHA_ENABLED && !captchaToken)}
                   className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors disabled:opacity-50"
                   style={{ background: brand, color: onBrand }}>
-                  {submitting ? 'Processing...' : requiresDeposit ? `Confirm & Pay Deposit $${depositAmountEstimate}` : `Confirm & Pay $${finalPrice}`}
+                  {submitting ? 'Processing...' : depositDisplay ? `Confirm & Pay Deposit ${depositDisplay}` : chargeDisplay ? `Confirm & Pay ${chargeDisplay}` : 'Confirm & Book'}
                 </button>
               )}
             </div>

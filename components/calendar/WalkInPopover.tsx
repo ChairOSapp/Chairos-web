@@ -127,7 +127,7 @@ export default function WalkInPopover({
 
   return (
     <div ref={ref} className="fixed z-[200]" style={{ left: pos.left, top: pos.top }}>
-      <ModalPanel className="w-80 max-w-[calc(100vw-16px)] bg-warm-100 border border-warm-200 rounded-2xl shadow-2xl overflow-hidden">
+      <ModalPanel className="w-80 max-w-[calc(100vw-16px)] max-h-[85dvh] overflow-y-auto bg-warm-100 border border-warm-200 rounded-2xl shadow-2xl">
         {/* Header */}
         <div className="px-4 pt-4 flex items-start gap-3">
           <div
@@ -147,7 +147,7 @@ export default function WalkInPopover({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="w-8 h-8 -mr-1 -mt-1 rounded-full flex items-center justify-center text-charcoal-400 hover:bg-warm-200 hover:text-charcoal-900 text-xl leading-none transition-colors flex-shrink-0"
+            className="w-11 h-11 -mr-2 -mt-2 rounded-full flex items-center justify-center text-charcoal-400 hover:bg-warm-200 hover:text-charcoal-900 text-xl leading-none transition-colors flex-shrink-0"
           >
             ×
           </button>
@@ -198,11 +198,11 @@ export default function WalkInPopover({
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={done} disabled={saving}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-warm-200 text-charcoal-600 border border-warm-300 hover:bg-warm-300 disabled:opacity-50 transition-colors">
+                  className="py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-warm-200 text-charcoal-600 border border-warm-300 hover:bg-warm-300 disabled:opacity-50 transition-colors">
                   Done
                 </button>
                 <button onClick={remove} disabled={saving}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors">
+                  className="py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors">
                   Remove
                 </button>
               </div>
@@ -211,7 +211,7 @@ export default function WalkInPopover({
             <>
               {!isOwner && actingBarberId && !walkIn.requested_barber_id && (
                 <button onClick={take} disabled={saving}
-                  className="w-full py-2.5 rounded-xl text-[13px] font-bold bg-od-green/10 text-od-green border border-od-green/30 hover:bg-od-green/20 disabled:opacity-50 transition-colors">
+                  className="w-full py-2.5 min-h-[44px] rounded-xl text-[13px] font-bold bg-od-green/10 text-od-green border border-od-green/30 hover:bg-od-green/20 disabled:opacity-50 transition-colors">
                   {saving ? 'Working…' : 'Take — it’s mine'}
                 </button>
               )}
@@ -219,7 +219,7 @@ export default function WalkInPopover({
                 <select
                   value={assignId}
                   onChange={e => setAssignId(e.target.value)}
-                  className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2.5 text-sm text-charcoal-900 outline-none"
+                  className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2.5 text-base text-charcoal-900 outline-none"
                   aria-label={`Assign ${staffLabel.toLowerCase()}`}
                 >
                   <option value="">Assign {staffLabel.toLowerCase()}…</option>

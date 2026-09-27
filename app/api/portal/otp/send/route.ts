@@ -43,6 +43,23 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = getAdmin()
+
+  // The portal is for existing clients -- don't text a code to an
+  // arbitrary 10-digit number. This closes the Twilio-spend vector where
+  // an IP-rotating attacker burns SMS budget on numbers that were never
+  // clients. (clients.phone is stored inconsistently -- some E.164, some
+  // bare -- so match both forms.)
+  const { data: existingClient } = await admin
+    .from('clients')
+    .select('id')
+    .in('phone', [bare, e164])
+    .limit(1)
+    .maybeSingle()
+  if (!existingClient) {
+    logger.warn('portal_otp_unknown_number', { phoneLast4: bare.slice(-4) })
+    return NextResponse.json({ error: 'No account found for that number.' }, { status: 404 })
+  }
+
   const code = String(Math.floor(100000 + Math.random() * 900000))
   const codeHash = createHash('sha256').update(code).digest('hex')
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()

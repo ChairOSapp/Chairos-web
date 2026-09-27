@@ -14,8 +14,8 @@ function getSupabase() {
 }
 
 // A call counts as "missed" only when the caller was never connected to
-// anyone. Answered calls (CallStatus=completed / DialCallStatus=completed)
-// and non-terminal events are ignored.
+// anyone. Answered calls (CallStatus=completed / DialCallStatus=completed
+// or =answered) and non-terminal events are ignored.
 const UNANSWERED_STATUSES = new Set(['no-answer', 'busy', 'failed', 'canceled'])
 
 // Same normalization the SMS paths use: clients.phone is stored
@@ -70,8 +70,12 @@ export async function POST(req: NextRequest) {
   const callStatus = (params.get('CallStatus') || '').toLowerCase()
   const dialCallStatus = (params.get('DialCallStatus') || '').toLowerCase()
   // When used as a <Dial> action URL, DialCallStatus is authoritative;
-  // otherwise fall back to the call's own terminal status.
-  const missed = dialCallStatus ? dialCallStatus !== 'completed' : UNANSWERED_STATUSES.has(callStatus)
+  // otherwise fall back to the call's own terminal status. Per Twilio's
+  // docs, DialCallStatus=completed means the called party answered and
+  // was connected, and DialCallStatus=answered means the same for a
+  // conference leg -- both are answered calls, never missed.
+  const ANSWERED_DIAL_STATUSES = new Set(['completed', 'answered'])
+  const missed = dialCallStatus ? !ANSWERED_DIAL_STATUSES.has(dialCallStatus) : UNANSWERED_STATUSES.has(callStatus)
 
   const called = normalizePhone(params.get('To') || '')
   const caller = normalizePhone(params.get('From') || '')

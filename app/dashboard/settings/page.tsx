@@ -210,10 +210,13 @@ export default function ShopSettings() {
   }
 
   async function handleSquareDisconnect() {
+    if (!window.confirm('Disconnect your Square account? You will no longer be able to take card payments in ChairOS until you reconnect.')) return
     setDisconnectingSquare(true)
-    await supabase.from('square_accounts').delete().eq('user_id', userId!)
-    setSquareAccount(null)
+    setError('')
+    const { error } = await supabase.from('square_accounts').delete().eq('user_id', userId!)
     setDisconnectingSquare(false)
+    if (error) { setError(error.message || 'Could not disconnect Square. Please try again.'); return }
+    setSquareAccount(null)
     setSuccess('Square account disconnected.')
     setTimeout(() => setSuccess(''), 3000)
   }

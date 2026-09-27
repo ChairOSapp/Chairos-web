@@ -62,12 +62,30 @@ export async function POST(req: NextRequest) {
     logger.error('stripe_webhook_unhandled_error', { type: event.type, id: event.id, message: err.message })
     Sentry.captureException(err, { tags: { event_type: event.type }, extra: { event_id: event.id } })
     await notifySlack(`🚨 Stripe webhook error processing ${event.type} (event ${event.id}):\n${err.message}`)
+    // Return a non-2xx status so Stripe retries the event. Acking a
+    // failed handler (200) silently drops billing changes -- the
+    // dedupe below makes retries safe to process twice.
+    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })
 }
 
 async function handleEvent(event: Stripe.Event, stripe: Stripe, supabase: any) {
+  // At-least-once delivery: Stripe retries events, so dedupe on the event
+  // id before mutating anything. (A unique DB constraint on
+  // billing_events.stripe_event_id would make this race-safe; the check
+  // below is the application-level best effort.)
+  const { data: alreadySeen } = await supabase
+    .from('billing_events')
+    .select('id')
+    .eq('stripe_event_id', event.id)
+    .limit(1)
+    .maybeSingle()
+  if (alreadySeen) {
+    logger.info('stripe_webhook_duplicate_event', { type: event.type, id: event.id })
+    return
+  }
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
@@ -129,6 +147,9 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe, supabase: any) {
         logger.error('stripe_checkout_completed_error', { userId, message: err.message })
         Sentry.captureException(err, { tags: { event_type: event.type }, extra: { event_id: event.id, user_id: userId } })
         await notifySlack(`🚨 Stripe checkout.session.completed error (event ${event.id}):\n${err.message}`)
+        // Rethrow: the outer handler returns 500 so Stripe retries. The
+        // event-id dedupe at the top of handleEvent makes the retry safe.
+        throw err
       }
       break
     }

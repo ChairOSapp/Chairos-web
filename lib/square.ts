@@ -219,3 +219,44 @@ export async function refundSquarePayment(
     reason,
   })
 }
+
+/**
+ * True when a Square SDK error definitively means "no charge happened":
+ * any 4xx (the payment was rejected before processing -- decline, bad
+ * nonce, bad amount) or a payment-method error code. 5xx, 429s, timeouts
+ * and network errors are AMBIGUOUS (Square may have charged) and must
+ * keep the idempotency key stable so a retry dedupes instead of
+ * double-charging.
+ */
+export function isDefinitiveSquareRejection(err: any): boolean {
+  const statusCode = err?.statusCode
+  if (typeof statusCode === 'number') {
+    if (statusCode >= 400 && statusCode < 500) return true
+    return false
+  }
+  const codes: string[] = (err?.errors || []).map((e: any) => String(e?.code || ''))
+  return codes.some((c) =>
+    /DECLINED|INSUFFICIENT|EXPIRED|INVALID|CVV|CVC|CARD_|PAYMENT_METHOD/i.test(c)
+  )
+}
+
+/**
+ * Maps a raw Square/gateway error to a customer-safe message. The booking
+ * UI keys its friendly copy off keywords ('declined', 'insufficient',
+ * ...), so those are preserved; everything else collapses to a generic
+ * message instead of leaking raw SDK text to customers.
+ */
+export function safeSquareErrorMessage(err: any): string {
+  const raw = String(err?.message || '')
+  const detail = (err?.errors || [])
+    .map((e: any) => `${e?.code || ''} ${e?.detail || ''}`)
+    .join(' ')
+  const hay = `${raw} ${detail}`.toLowerCase()
+  if (hay.includes('declined')) return 'Your card was declined.'
+  if (hay.includes('insufficient')) return 'Your card has insufficient funds.'
+  if (hay.includes('expired')) return 'Your card is expired.'
+  if (hay.includes('cvv') || hay.includes('cvc') || hay.includes('security code')) {
+    return 'The security code (CVV) looks wrong.'
+  }
+  return 'Payment failed. Please try again or use a different card.'
+}

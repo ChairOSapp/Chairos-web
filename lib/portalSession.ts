@@ -45,7 +45,9 @@ export function readPortalSession(req: NextRequest): PortalSessionPayload | null
   const token = req.cookies.get(COOKIE_NAME)?.value
   if (!token) return null
   try {
-    const decoded = jwt.verify(token, secret()) as PortalSessionPayload
+    // Pin the algorithm: these tokens are always HS256-signed by us, so
+    // never accept anything else (algorithm-confusion hardening).
+    const decoded = jwt.verify(token, secret(), { algorithms: ['HS256'] }) as PortalSessionPayload
     if (!decoded?.clientAccountId || !decoded?.phone) return null
     return decoded
   } catch {

@@ -320,7 +320,7 @@ function CampaignsInner() {
 
       // Update status to scheduled if not sending now
       if (scheduleType !== 'now') {
-        await supabase.from('campaigns').update({
+        const { error: schedErr } = await supabase.from('campaigns').update({
           status: 'scheduled',
           schedule_type: scheduleType,
           scheduled_at: scheduledAt || null,
@@ -329,6 +329,7 @@ function CampaignsInner() {
           recurrence_count: scheduleType === 'recurring' && recurrenceEndType === 'count' ? parseInt(recurrenceCount) : null,
           updated_at: new Date().toISOString(),
         }).eq('id', campaignId)
+        if (schedErr) throw schedErr
         setSuccess('Campaign scheduled.')
         const { data: c } = await supabase.from('campaigns').select('*').eq('shop_id', shop.id).order('created_at', { ascending: false })
         setCampaigns(c ?? [])

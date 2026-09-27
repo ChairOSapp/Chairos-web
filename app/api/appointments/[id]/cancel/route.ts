@@ -79,11 +79,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (withinRefundWindow) {
       try {
+        // Idempotency key matches the Square webhook's late-refund path
+        // (`deposit-refund-<deposit id>`): if a manual cancel races the
+        // deposit-hold expiration job, Square dedupes to a single refund
+        // instead of issuing two.
         await refundSquarePayment(
           (await resolveSquareCredentials(supabase, shop, appointment.barber_id)).accessToken,
           paidDeposit.square_payment_id,
           Number(paidDeposit.amount),
-          `deposit-cancel-refund-${paidDeposit.id}`,
+          `deposit-refund-${paidDeposit.id}`,
           'Appointment cancelled within refund window'
         )
         await supabase.from('deposits').update({

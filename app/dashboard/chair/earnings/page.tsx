@@ -25,6 +25,13 @@ type Tip = {
 type DrillMode = null | 'appointments' | 'cut' | 'tips'
 type TimeFilter = 'day' | 'week' | 'month' | 'year' | 'all'
 
+// Appointment dates are stored as local 'YYYY-MM-DD' shop dates and tips'
+// created_at is UTC — normalize both to the viewer's local calendar day so
+// the Today/7 Days/30 Days filters don't shift near midnight.
+function localDayStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function BarberEarningsPage() {
   const [shopBarber, setShopBarber] = useState<any>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -80,16 +87,16 @@ export default function BarberEarningsPage() {
     const now = new Date()
     switch (filter) {
       case 'day':
-        return now.toISOString().split('T')[0]
+        return localDayStr(now)
       case 'week': {
         const d = new Date(now)
         d.setDate(d.getDate() - 7)
-        return d.toISOString().split('T')[0]
+        return localDayStr(d)
       }
       case 'month': {
         const d = new Date(now)
         d.setMonth(d.getMonth() - 1)
-        return d.toISOString().split('T')[0]
+        return localDayStr(d)
       }
       case 'year':
         return `${year}-01-01`
@@ -107,7 +114,7 @@ export default function BarberEarningsPage() {
   const filteredTips = useMemo(() => {
     const since = getFilteredDates(timeFilter)
     if (!since) return tips
-    return tips.filter(t => t.created_at.split('T')[0] >= since)
+    return tips.filter(t => localDayStr(new Date(t.created_at)) >= since)
   }, [tips, timeFilter, year])
 
   const totalRevenue = filteredAppointments.reduce((s, a) => s + (parseFloat(String(a.price)) || 0), 0)
@@ -123,7 +130,7 @@ export default function BarberEarningsPage() {
       map[a.date].count++
     })
     filteredTips.forEach(t => {
-      const day = t.created_at.split('T')[0]
+      const day = localDayStr(new Date(t.created_at))
       if (!map[day]) map[day] = { cut: 0, tips: 0, count: 0 }
       map[day].tips += parseFloat(String(t.amount)) || 0
     })

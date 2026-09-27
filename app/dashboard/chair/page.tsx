@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import StaffNav from '@/components/StaffNav'
@@ -9,24 +10,6 @@ import BriefCard from '@/components/BriefCard'
 import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
 import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
-
-function getWeekDays(): Date[] {
-  const now = new Date()
-  const day = now.getDay()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    return d
-  })
-}
-
-function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
-
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export default function BarberDashboard() {
   const [profile, setProfile] = useState<any>(null)
@@ -41,15 +24,20 @@ export default function BarberDashboard() {
   const [rentCardLoading, setRentCardLoading] = useState(false)
   const [savingRentCard, setSavingRentCard] = useState(false)
   const [rentCardError, setRentCardError] = useState('')
+  // True only when the Square card-init itself failed (not a tokenize/save
+  // failure, which also uses rentCardError). Drives hiding the empty
+  // container and the init-specific "Try again" recovery.
+  const [rentInitFailed, setRentInitFailed] = useState(false)
+  const [rentCardRetryKey, setRentCardRetryKey] = useState(0)
   const rentCardRef = useRef<any>(null)
   const [showEarnings, setShowEarnings] = useState(false)
   const [onFloor, setOnFloor] = useState(true)
   const [loading, setLoading] = useState(true)
   const [barberId, setBarberId] = useState<string | null>(null)
   const [shopId, setShopId] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState<string>(() => toDateStr(new Date()))
-  const [weekAppointments, setWeekAppointments] = useState<any[]>([])
   const [showBooking, setShowBooking] = useState(false)
+  const [shopBarbers, setShopBarbers] = useState<any[]>([])
+  const [bookingError, setBookingError] = useState('')
   const [bookingName, setBookingName] = useState('')
   const [bookingPhone, setBookingPhone] = useState('')
   const [bookingService, setBookingService] = useState('')
@@ -58,7 +46,6 @@ export default function BarberDashboard() {
   const [services, setServices] = useState<any[]>([])
   const [bookingSubmitting, setBookingSubmitting] = useState(false)
   const [bookingSuccess, setBookingSuccess] = useState('')
-  const [statusUpdating, setStatusUpdating] = useState<{[key: string]: boolean}>({})
   const [barberTipInput, setBarberTipInput] = useState<{[key: string]: string}>({})
   const [addingTip, setAddingTip] = useState<{[key: string]: boolean}>({})
   const [tippedAppointments, setTippedAppointments] = useState<Set<string>>(new Set())
@@ -74,9 +61,6 @@ export default function BarberDashboard() {
   const loadLiveData = useCallback(async (uid: string, sid: string) => {
     const today = getToday()
     const todayUTC = new Date().toISOString().split('T')[0] + 'T00:00:00Z'
-    const days = getWeekDays()
-    const weekStart = toDateStr(days[0])
-    const weekEnd = toDateStr(days[6])
 
     const { data: appointments } = await supabase
       .from('appointments')
@@ -85,15 +69,6 @@ export default function BarberDashboard() {
       .eq('date', today)
       .order('time', { ascending: true })
     setAppointments(appointments || [])
-
-    const { data: weekAppts } = await supabase
-      .from('appointments')
-      .select('*, services(*)')
-      .eq('barber_id', uid)
-      .gte('date', weekStart)
-      .lte('date', weekEnd)
-      .order('date').order('time', { ascending: true })
-    setWeekAppointments(weekAppts || [])
 
     const { data: tips } = await supabase
       .from('tips')
@@ -156,6 +131,16 @@ export default function BarberDashboard() {
         .order('price', { ascending: true })
       setServices(services || [])
 
+      // Full active roster: WalkInQueue derives its solo/multi-barber UI
+      // from this list, so it must reflect the shop — not just this viewer.
+      // ("Public can view active shop barbers" RLS permits this read.)
+      const { data: roster } = await supabase
+        .from('shop_barbers')
+        .select('id, barber_id, barber_name, alias')
+        .eq('shop_id', shopBarber.shop_id)
+        .eq('active', true)
+      setShopBarbers(roster || [])
+
       await loadLiveData(user.id, shopBarber.shop_id)
 
       if (shopBarber.compensation_type === 'booth_rent') {
@@ -210,6 +195,8 @@ export default function BarberDashboard() {
       if (!appId || !locationId) { setRentCardError('Card form is not configured.'); return }
 
       setRentCardLoading(true)
+      setRentCardError('')
+      setRentInitFailed(false)
       try {
         const { payments } = await import('@square/web-sdk')
         if (!isMounted) return
@@ -221,9 +208,14 @@ export default function BarberDashboard() {
         if (!isMounted) return
         rentCardRef.current = card
         setRentCardReady(true)
-      } catch {
+      } catch (e) {
         if (!isMounted) return
-        setRentCardError('Card form failed to load.')
+        // Log the real cause -- init can throw from the CDN import, an
+        // invalid app/location id, or attach() on a missing container.
+        console.error('Square booth-rent card form failed to initialize:', e)
+        Sentry.captureException(e, { tags: { area: 'booth_rent_square_card_init' } })
+        setRentInitFailed(true)
+        setRentCardError('Card form failed to load. Check your connection and try again — no charge was made.')
       } finally {
         if (isMounted) setRentCardLoading(false)
       }
@@ -237,7 +229,7 @@ export default function BarberDashboard() {
         setRentCardReady(false)
       }
     }
-  }, [showRentCardForm])
+  }, [showRentCardForm, rentCardRetryKey])
 
   async function saveRentCard() {
     if (!rentCardRef.current) return
@@ -268,16 +260,10 @@ export default function BarberDashboard() {
   async function toggleFloor() {
     const newStatus = !onFloor
     setOnFloor(newStatus)
-    await supabase.from('shop_barbers')
+    const { error } = await supabase.from('shop_barbers')
       .update({ on_floor: newStatus })
       .eq('id', shopBarber.id)
-  }
-
-  async function updateStatus(appointmentId: string, status: string) {
-    setStatusUpdating(prev => ({ ...prev, [appointmentId]: true }))
-    await supabase.from('appointments').update({ status }).eq('id', appointmentId)
-    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status } : a))
-    setStatusUpdating(prev => ({ ...prev, [appointmentId]: false }))
+    if (error) setOnFloor(!newStatus)
   }
 
   async function addBarberTip(appointmentId: string) {
@@ -313,6 +299,7 @@ export default function BarberDashboard() {
   async function handleWalkIn() {
     if (!bookingName || !bookingPhone || !bookingService || !bookingTime) return
     setBookingSubmitting(true)
+    setBookingError('')
 
     const now = new Date()
     const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
@@ -369,6 +356,12 @@ export default function BarberDashboard() {
 
     if (insertError) {
       setBookingSuccess('')
+      const msg = insertError.message || ''
+      setBookingError(
+        insertError.code === '23505' || /duplicate key/i.test(msg)
+          ? 'That time is already booked — pick another time.'
+          : 'Could not book the walk-in. Please try again.'
+      )
       setBookingSubmitting(false)
       return
     }
@@ -389,6 +382,7 @@ export default function BarberDashboard() {
 
     setBookingName(''); setBookingPhone(''); setBookingService(''); setBookingTime(''); setBookingPrice('')
     setShowBooking(false)
+    setBookingError('')
     setBookingSuccess('Walk-in booked!')
     setTimeout(() => setBookingSuccess(''), 3000)
     setBookingSubmitting(false)
@@ -469,7 +463,9 @@ export default function BarberDashboard() {
             shopId={shopId}
             shopCode={shop?.shop_code}
             actingBarberId={barberId}
-            barbers={shopBarber ? [{ id: shopBarber.id, barber_id: shopBarber.barber_id, barber_name: shopBarber.barber_name, alias: shopBarber.alias }] : []}
+            // Pass the shop's full active roster (not just the viewer) so
+            // WalkInQueue can tell a true solo shop from a multi-barber one.
+            barbers={shopBarbers.length > 0 ? shopBarbers : (shopBarber ? [{ id: shopBarber.id, barber_id: shopBarber.barber_id, barber_name: shopBarber.barber_name, alias: shopBarber.alias }] : [])}
             services={services}
             onConverted={() => barberId && shopId && loadLiveData(barberId, shopId)}
           />
@@ -515,7 +511,9 @@ export default function BarberDashboard() {
           </div>
         </div>
 
-        {/* BOOTH RENT ALERT */}
+        {/* BOOTH RENT ALERT — informational only. Rent is collected via
+            the auto-pay card on file or by the shop owner; staff cannot
+            mark their own rent paid. */}
         {boothRent && (
           <div className="bg-od-green/10 border border-od-green/30 rounded-xl p-4 mb-6">
             <div className="flex items-center justify-between">
@@ -529,16 +527,6 @@ export default function BarberDashboard() {
                   )}
                 </div>
               </div>
-              <button
-                onClick={async () => {
-                  await supabase.from('booth_rent_payments')
-                    .update({ paid: true, paid_at: new Date().toISOString() })
-                    .eq('id', boothRent.id)
-                  setBoothRent(null)
-                }}
-                className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
-                Mark Paid
-              </button>
             </div>
           </div>
         )}
@@ -556,9 +544,19 @@ export default function BarberDashboard() {
               </div>
             ) : showRentCardForm ? (
               <div>
-                <div id="rent-card-container" className="mb-3" />
+                {/* Hide the empty attach target while the init error is up.
+                    "Try again" remounts it before init re-runs, so Square's
+                    attach() still sees a laid-out element. */}
+                {!rentInitFailed && <div id="rent-card-container" className="mb-3" />}
                 {rentCardLoading && <p className="text-xs text-charcoal-500 mb-2">Loading card form…</p>}
                 {rentCardError && <p className="text-xs text-red-400 mb-2">{rentCardError}</p>}
+                {rentInitFailed && !rentCardReady && !rentCardLoading && (
+                  <button type="button"
+                    onClick={() => { setRentCardError(''); setRentInitFailed(false); setRentCardRetryKey(k => k + 1) }}
+                    className="text-xs font-semibold text-od-green underline underline-offset-2 hover:underline mb-2">
+                    Try again
+                  </button>
+                )}
                 <div className="flex gap-2">
                   <button onClick={saveRentCard} disabled={!rentCardReady || savingRentCard}
                     className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors disabled:opacity-50">
@@ -660,6 +658,11 @@ export default function BarberDashboard() {
             {bookingSuccess}
           </div>
         )}
+        {bookingError && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-3 mb-6 text-sm text-red-400 font-semibold">
+            {bookingError}
+          </div>
+        )}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <button onClick={() => setShowBooking(!showBooking)}
             className="w-full px-5 py-4 flex items-center justify-between hover:bg-warm-200 transition-colors">
@@ -679,18 +682,18 @@ export default function BarberDashboard() {
                 <div>
                   <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Client Name *</label>
                   <input value={bookingName} onChange={e => setBookingName(e.target.value)} placeholder="Name"
-                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none focus:border-od-green" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Phone *</label>
                   <input type="tel" value={bookingPhone} onChange={e => setBookingPhone(e.target.value)} placeholder="Phone"
-                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none focus:border-od-green" />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Service *</label>
                 <select value={bookingService} onChange={e => { setBookingService(e.target.value); const s = services.find(sv => sv.id === e.target.value); if(s) setBookingPrice(String(s.price)) }}
-                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green">
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none focus:border-od-green">
                   <option value="">Select service...</option>
                   {services.map(s => <option key={s.id} value={s.id}>{s.name} — ${s.price}</option>)}
                 </select>
@@ -699,7 +702,7 @@ export default function BarberDashboard() {
                 <div>
                   <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Time *</label>
                   <select value={bookingTime} onChange={e => setBookingTime(e.target.value)}
-                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green">
+                    className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-base outline-none focus:border-od-green">
                     <option value="">Select time...</option>
                     {['8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM','5:30 PM','6:00 PM','6:30 PM','7:00 PM'].map(t => (
                       <option key={t} value={t}>{t}</option>
@@ -711,12 +714,12 @@ export default function BarberDashboard() {
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-charcoal-400 text-sm">$</span>
                     <input type="number" value={bookingPrice} onChange={e => setBookingPrice(e.target.value)}
-                      className="w-full bg-warm-200 border border-warm-300 rounded-lg pl-7 pr-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg pl-7 pr-3 py-2 text-charcoal-900 text-base outline-none focus:border-od-green" />
                   </div>
                 </div>
               </div>
               <button onClick={handleWalkIn} disabled={bookingSubmitting || !bookingName || !bookingPhone || !bookingService || !bookingTime}
-                className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
                 {bookingSubmitting ? 'Booking...' : 'Book Walk-In'}
               </button>
             </div>

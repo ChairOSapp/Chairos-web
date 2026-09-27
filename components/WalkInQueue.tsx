@@ -171,14 +171,14 @@ export default function WalkInQueue({
                     <button
                       onClick={() => start(w)}
                       disabled={busy[w.id]}
-                      className="bg-od-green hover:opacity-90 disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-opacity min-h-[40px]"
+                      className="bg-od-green hover:opacity-90 disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-opacity min-h-[44px]"
                     >
                       {busy[w.id] ? 'Working…' : 'Start'}
                     </button>
                     <button
                       onClick={() => done(w)}
                       disabled={busy[w.id]}
-                      className="bg-warm-200 hover:bg-warm-300 disabled:opacity-50 text-charcoal-600 text-xs font-semibold px-3 py-2 rounded-lg transition-colors min-h-[40px]"
+                      className="bg-warm-200 hover:bg-warm-300 disabled:opacity-50 text-charcoal-600 text-xs font-semibold px-3 py-2 rounded-lg transition-colors min-h-[44px]"
                     >
                       Done
                     </button>
@@ -189,7 +189,7 @@ export default function WalkInQueue({
                       <button
                         onClick={() => take(w)}
                         disabled={busy[w.id]}
-                        className="bg-od-green/10 hover:bg-od-green/20 disabled:opacity-50 text-od-green border border-od-green/30 text-xs font-semibold px-3 py-2 rounded-lg transition-colors min-h-[40px]"
+                        className="bg-od-green/10 hover:bg-od-green/20 disabled:opacity-50 text-od-green border border-od-green/30 text-xs font-semibold px-3 py-2 rounded-lg transition-colors min-h-[44px]"
                       >
                         Take
                       </button>
@@ -198,7 +198,7 @@ export default function WalkInQueue({
                       <select
                         value={assignBarber[w.id] || w.requested_barber_id || ''}
                         onChange={e => setAssignBarber(prev => ({ ...prev, [w.id]: e.target.value }))}
-                        className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-2 text-xs text-charcoal-900 outline-none min-h-[40px] max-w-[140px]"
+                        className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-2 text-xs text-charcoal-900 outline-none min-h-[44px] max-w-[140px]"
                         aria-label={`Assign ${staffLabel.toLowerCase()}`}
                       >
                         <option value="">Assign {staffLabel.toLowerCase()}…</option>
@@ -210,14 +210,14 @@ export default function WalkInQueue({
                     <button
                       onClick={() => start(w)}
                       disabled={busy[w.id] || !startBarberId}
-                      className="bg-od-green hover:opacity-90 disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-opacity min-h-[40px]"
+                      className="bg-od-green hover:opacity-90 disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-opacity min-h-[44px]"
                     >
                       {busy[w.id] ? 'Working…' : 'Start'}
                     </button>
                     <button
                       onClick={() => dismiss(w)}
                       disabled={busy[w.id]}
-                      className="text-charcoal-500 hover:text-charcoal-300 text-xs px-2 py-2 transition-colors min-h-[40px]"
+                      className="text-charcoal-500 hover:text-charcoal-300 text-xs px-2 py-2 transition-colors min-h-[44px]"
                     >
                       Remove
                     </button>

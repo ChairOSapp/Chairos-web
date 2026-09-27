@@ -236,11 +236,17 @@ body {
 .dark .bg-charcoal-950 { background-color: #1E1E1B; }
 .dark .bg-charcoal-900 { background-color: #252521; }
 .dark .bg-charcoal-800 { background-color: #2A2A26; }
+.dark .bg-charcoal-700 { background-color: #333330; }
 
 /* Opacity variants used on hover/selected states */
+.dark .bg-warm-50\/80  { background-color: rgba(20,20,18,0.8); }
+.dark .bg-warm-50\/95  { background-color: rgba(20,20,18,0.95); }
+.dark .bg-warm-200\/20 { background-color: rgba(37,37,33,0.2); }
 .dark .bg-warm-200\/30 { background-color: rgba(37,37,33,0.3); }
+.dark .bg-warm-200\/40 { background-color: rgba(37,37,33,0.4); }
 .dark .bg-warm-200\/50 { background-color: rgba(37,37,33,0.5); }
 .dark .bg-warm-200\/60 { background-color: rgba(37,37,33,0.6); }
+.dark .bg-warm-200\/70 { background-color: rgba(37,37,33,0.7); }
 
 /* --- Text --- */
 .dark .text-charcoal-900 { color: #EDECEA; }
@@ -252,15 +258,34 @@ body {
 .dark .text-charcoal-300 { color: #9D9D95; }
 .dark .text-charcoal-200 { color: #B9B9B0; }
 .dark .text-charcoal-100 { color: #DCDbd4; }
+/* Olive text lightens in dark mode (matches --color-primary dark value) */
+.dark .text-od-green { color: #7A8C3A; }
+.dark .text-od-green-light { color: #8FA043; }
 
 /* --- Borders --- */
 .dark .border-warm-200 { border-color: rgba(255,255,255,0.08); }
 .dark .border-warm-300 { border-color: rgba(255,255,255,0.10); }
 .dark .border-warm-400 { border-color: rgba(255,255,255,0.12); }
+/* Charcoal borders would vanish on dark backgrounds */
+.dark .border-charcoal-500 { border-color: rgba(255,255,255,0.10); }
+.dark .border-charcoal-600 { border-color: rgba(255,255,255,0.10); }
+.dark .border-charcoal-700 { border-color: rgba(255,255,255,0.08); }
+.dark .border-charcoal-900 { border-color: rgba(255,255,255,0.08); }
+.dark .hover\:border-charcoal-400:hover { border-color: rgba(255,255,255,0.12); }
+.dark .hover\:border-charcoal-500:hover { border-color: rgba(255,255,255,0.10); }
 
 /* divide-y / divide-x utilities */
 .dark .divide-warm-200 > :not([hidden]) ~ :not([hidden]) {
   border-color: rgba(255,255,255,0.08);
+}
+.dark .divide-warm-200\/60 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255,255,255,0.08);
+}
+.dark .divide-warm-200\/70 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255,255,255,0.08);
+}
+.dark .divide-warm-300 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255,255,255,0.10);
 }
 .dark .divide-x.divide-warm-200 > :not([hidden]) ~ :not([hidden]),
 .dark .divide-warm-200.lg\:divide-x > :not([hidden]) ~ :not([hidden]) {
@@ -271,10 +296,16 @@ body {
 .dark .hover\:bg-warm-200:hover  { background-color: rgba(255,255,255,0.06); }
 .dark .hover\:bg-warm-300:hover  { background-color: rgba(255,255,255,0.08); }
 .dark .hover\:text-charcoal-900:hover { color: #EDECEA; }
+.dark .hover\:text-od-green:hover { color: #7A8C3A; }
+.dark .hover\:text-od-green-light:hover { color: #8FA043; }
+.dark .hover\:bg-warm-200\/40:hover   { background-color: rgba(37,37,33,0.4); }
 .dark .hover\:bg-warm-200\/50:hover   { background-color: rgba(37,37,33,0.5); }
+.dark .hover\:bg-warm-200\/60:hover   { background-color: rgba(37,37,33,0.6); }
+.dark .hover\:bg-charcoal-700:hover { background-color: #333330; }
 
 /* group-hover */
 .dark .group:hover .group-hover\:bg-warm-200  { background-color: rgba(255,255,255,0.06); }
+.dark .group:hover .group-hover\:text-od-green { color: #7A8C3A; }
 .dark .group:hover .group-hover\:bg-od-green\/20 { background-color: rgba(122,140,58,0.20); }
 
 /* --- Forms (global) --- */

@@ -8,12 +8,15 @@ import { buildEmailTemplate } from '@/lib/emailTemplates'
 import { generateUnsubscribeToken, generateManualUnsubscribeToken } from '@/lib/unsubscribeToken'
 import { requireActiveBilling } from '@/lib/billing'
 import { withRetry } from '@/lib/retry'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 function appendStop(message: string): string {
   const suffix = ' Reply STOP to unsubscribe.'
   if (message.toLowerCase().includes('reply stop')) return message
   if ((message + suffix).length <= 160) return message + suffix
-  return message
+  // Long messages would silently drop the opt-out notice (TCPA risk), so
+  // truncate the body to keep the STOP suffix instead.
+  return message.slice(0, 160 - suffix.length).trimEnd() + suffix
 }
 
 export async function POST(req: NextRequest) {
@@ -58,6 +61,48 @@ export async function POST(req: NextRequest) {
   // recipient rows are written or any message is sent.
   const billingBlock = await requireActiveBilling(admin, user.id)
   if (billingBlock) return billingBlock
+
+  // Authenticated spend rate limit: bulk sends burn Twilio/Resend budget,
+  // so the blast endpoint is user-scoped and fail-closed.
+  const sendLimit = await checkRateLimit('campaignSend', `user:${user.id}`)
+  if (!sendLimit.ok) {
+    return NextResponse.json(
+      { error: 'Too many campaign sends. Try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(sendLimit.retryAfterSeconds) } }
+    )
+  }
+
+  // Status gate + idempotency: only draft or scheduled campaigns may be
+  // sent, and the transition to 'sending' is claimed atomically so a
+  // double-click, retry, or replayed request can't blast the audience twice.
+  // A 'sending' claim older than 30 minutes means the sender died mid-blast
+  // (no heartbeat writer exists); allow this request to reclaim it rather
+  // than wedging the campaign in 'sending' forever.
+  const priorStatus = campaign.status as string
+  const staleCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+  const { data: claimed } = await admin
+    .from('campaigns')
+    .update({ status: 'sending', updated_at: new Date().toISOString() })
+    .eq('id', campaignId)
+    .or(`status.in.(draft,scheduled),and(status.eq.sending,updated_at.lt.${staleCutoff})`)
+    .select('id')
+    .maybeSingle()
+  if (!claimed) {
+    return NextResponse.json(
+      { error: 'This campaign has already been sent or is currently sending.' },
+      { status: 409 }
+    )
+  }
+
+  // Release the 'sending' claim if anything fails before the final status
+  // update: a crash between claim and completion must not wedge the
+  // campaign in 'sending' with no retry path.
+  const releaseSendClaim = () =>
+    admin.from('campaigns')
+      .update({ status: priorStatus, updated_at: new Date().toISOString() })
+      .eq('id', campaignId)
+
+  try {
 
   // Build audience directly (no internal self-fetch)
   const needsSms = campaign.channel === 'sms' || campaign.channel === 'both'
@@ -122,24 +167,60 @@ export async function POST(req: NextRequest) {
       allContacts.set(`phone:${p}`, { id: null, email: null, phone: p, email_consent: true, sms_consent: true })
     }
     clients = [...allContacts.values()]
+  } else if (campaign.audience_type === 'has_tag') {
+    // Tag audiences are previewable via /api/campaigns/audience but were
+    // previously unsendable here (silently reached nobody).
+    const tag = (filters.tag ?? '').trim().toLowerCase()
+    if (tag) {
+      const { data: tagged } = await admin.from('client_tags').select('client_id').eq('shop_id', campaign.shop_id).eq('tag', tag)
+      const taggedIds = [...new Set((tagged ?? []).map((t: any) => t.client_id))]
+      if (taggedIds.length > 0) {
+        const { data } = await admin.from('clients').select('id, full_name, phone, email, sms_consent, email_consent').in('id', taggedIds)
+        clients = (data ?? []).filter(c => (!needsSms || c.sms_consent) && (!needsEmail || (c.email_consent && c.email)))
+      }
+    }
   }
 
   if (clients.length === 0) {
+    // Claimed above; release before the early return so the campaign does
+    // not wedge in 'sending'.
+    await releaseSendClaim()
     return NextResponse.json({ recipientCount: 0, triggered: false, message: 'No eligible recipients' })
   }
 
-  // Insert recipients
-  const recipientRows = clients.map((c: any) => ({
-    campaign_id: campaignId,
-    client_id: c.id ?? null,
-    phone: c.phone ?? null,
-    email: c.email ?? null,
-    sms_status: needsSms ? 'pending' : 'skipped',
-    email_status: needsEmail ? 'pending' : 'skipped',
-  }))
-  await admin.from('campaign_recipients').insert(recipientRows)
+  // Bound the blast: a miscoded audience selector must not silently
+  // address an unbounded audience in a single request.
+  const MAX_RECIPIENTS = 5000
+  if (clients.length > MAX_RECIPIENTS) {
+    await releaseSendClaim()
+    return NextResponse.json(
+      { error: `Audience too large (${clients.length}; max ${MAX_RECIPIENTS}). Narrow the audience and retry.` },
+      { status: 400 }
+    )
+  }
 
-  await admin.from('campaigns').update({ status: 'sending', updated_at: new Date().toISOString() }).eq('id', campaignId)
+  // Insert recipients (dedupe: a reclaimed retry after a partial send must
+  // not create a second row per recipient).
+  const { data: existingRecipients } = await admin
+    .from('campaign_recipients')
+    .select('client_id, email, phone')
+    .eq('campaign_id', campaignId)
+  const seenRecipients = new Set(
+    (existingRecipients ?? []).map(r => `${r.client_id ?? ''}|${r.email ?? ''}|${r.phone ?? ''}`)
+  )
+  const recipientRows = clients
+    .filter((c: any) => !seenRecipients.has(`${c.id ?? ''}|${c.email ?? ''}|${c.phone ?? ''}`))
+    .map((c: any) => ({
+      campaign_id: campaignId,
+      client_id: c.id ?? null,
+      phone: c.phone ?? null,
+      email: c.email ?? null,
+      sms_status: needsSms ? 'pending' : 'skipped',
+      email_status: needsEmail ? 'pending' : 'skipped',
+    }))
+  if (recipientRows.length > 0) await admin.from('campaign_recipients').insert(recipientRows)
+
+  // Status was already claimed as 'sending' atomically above.
 
   // Send inline
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://chairos.cc'
@@ -151,10 +232,11 @@ export async function POST(req: NextRequest) {
   let totalSent = 0
   let totalFailed = 0
 
-  // Fetch inserted recipient rows so we have their generated IDs
+  // Fetch recipient rows (including any left by a reclaimed partial send)
+  // so we have their generated IDs and per-channel statuses.
   const { data: insertedRows } = await admin
     .from('campaign_recipients')
-    .select('id, client_id, email, phone')
+    .select('id, client_id, email, phone, sms_status, email_status')
     .eq('campaign_id', campaignId)
 
   // CAN-SPAM: honor opt-outs recorded by earlier campaigns for this shop.
@@ -185,8 +267,12 @@ export async function POST(req: NextRequest) {
       (!client.id && !client.email && client.phone && r.phone === client.phone)
     )
     const rowId = row?.id
+    // Retry-safety: a reclaimed send after a partial blast must not resend
+    // channels that already went out.
+    const smsAlreadySent = row?.sms_status === 'sent'
+    const emailAlreadySent = row?.email_status === 'sent'
 
-    if (needsSms && client.phone && client.sms_consent && twilioClient) {
+    if (!smsAlreadySent && needsSms && client.phone && client.sms_consent && twilioClient) {
       try {
         await withRetry('campaign_sms', () => twilioClient.messages.create({
           body: appendStop(campaign.sms_message ?? ''),
@@ -201,7 +287,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (needsEmail && client.email && client.email_consent && !suppressedEmails.has(client.email)) {
+    if (!emailAlreadySent && needsEmail && client.email && client.email_consent && !suppressedEmails.has(client.email)) {
       try {
         // Manual-list entries have no client row: key their unsubscribe
         // token to the campaign_recipients row id so the opt-out link
@@ -247,4 +333,14 @@ export async function POST(req: NextRequest) {
 
   console.log(`[campaigns/send] done: sent=${totalSent}, failed=${totalFailed}`)
   return NextResponse.json({ recipientCount: clients.length, triggered: true })
+  } catch (err: any) {
+    // Anything thrown after the claim (audience queries, recipient
+    // insert, sender init) releases the claim so the campaign can be
+    // retried instead of wedging in 'sending'.
+    await releaseSendClaim()
+    return NextResponse.json(
+      { error: 'Campaign send failed before completion. The campaign was returned to its previous state and can be retried.' },
+      { status: 500 }
+    )
+  }
 }

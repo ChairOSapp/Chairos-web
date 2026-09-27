@@ -196,8 +196,7 @@ export default function TodayIntelStrip({
     }
     load()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shopId])
+  }, [shopId, todayAppointments])
 
   const expected = forecast.booked + (forecast.walkInEstimate ?? 0)
 

@@ -5,6 +5,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { computeServicePrice } from '@/lib/server-pricing'
 import { timeStrToMinutes } from '@/lib/availability'
+import { isDefinitiveSquareRejection, safeSquareErrorMessage } from '@/lib/square'
 import { logger } from '@/lib/logger'
 
 const supabase = createClient(
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptErr } = await supabase
       .from('appointments')
-      .select('id, shop_id, service_id, date, time, price, payment_status, barber_id, client_name, services(name, price)')
+      .select('id, shop_id, service_id, date, time, price, payment_status, status, barber_id, client_name, services(name, price)')
       .eq('id', appointmentId)
       .maybeSingle()
 
@@ -47,6 +48,12 @@ export async function POST(req: NextRequest) {
     }
     if (appointment.payment_status === 'paid') {
       return NextResponse.json({ error: 'Appointment already paid' }, { status: 409 })
+    }
+    // Never charge a booking that is no longer active (e.g. the hold
+    // expired and the appointment was cancelled while the customer was
+    // still on the payment screen).
+    if (['cancelled', 'done', 'noshow'].includes(appointment.status)) {
+      return NextResponse.json({ error: 'This booking is no longer active. Please start a new booking.' }, { status: 400 })
     }
 
     // Authorization: either the user owns/works at this shop, OR a valid publicShopCode was provided
@@ -152,34 +159,95 @@ export async function POST(req: NextRequest) {
     const amountCents = BigInt(Math.round(chargeAmount * 100))
     const serviceName = (appointment as any).services?.name || 'Appointment'
 
-    const { payment } = await client.payments.create({
-      sourceId,
-      // Stable per appointment: a retry after a timeout/amiguous failure
-      // dedupes at Square instead of creating a second real charge.
-      idempotencyKey: `payment-${appointmentId}`,
-      amountMoney: { amount: amountCents, currency: 'USD' },
-      locationId,
-      note: `ChairOS - ${serviceName} for ${appointment.client_name}`,
-      referenceId: appointmentId,
-    })
+    // Charge attempt counter, read separately so a database that hasn't
+    // applied the payment_attempt migration yet degrades to the old
+    // always-stable key instead of failing the payment lookup.
+    const { data: attemptRow } = await supabase
+      .from('appointments')
+      .select('payment_attempt')
+      .eq('id', appointmentId)
+      .maybeSingle()
+    const paymentAttempt = typeof (attemptRow as any)?.payment_attempt === 'number'
+      ? (attemptRow as any).payment_attempt
+      : 0
+
+    // Best-effort attempt bump; a missing column (migration not applied)
+    // fails silently while the payment_status update still lands (it is a
+    // separate update).
+    async function bumpPaymentAttempt() {
+      const { error: bumpErr } = await supabase
+        .from('appointments')
+        .update({ payment_attempt: paymentAttempt + 1 })
+        .eq('id', appointmentId)
+      if (bumpErr) logger.warn('payment_attempt_bump_failed', { appointmentId, message: bumpErr.message })
+    }
+
+    // Idempotency key: stable per attempt. A retry after an ambiguous
+    // failure (timeout where Square may have charged) reuses the SAME key
+    // and Square dedupes instead of creating a second charge. After a
+    // CLEAN decline (Square answered: no charge happened) the key rotates
+    // via payment_attempt -- Square caches idempotent responses, including
+    // declines, for up to 24h, so reusing the key after a decline would
+    // replay the decline forever and the customer could never pay.
+    const idempotencyKey = paymentAttempt > 0
+      ? `payment-${appointmentId}-a${paymentAttempt}`
+      : `payment-${appointmentId}`
+
+    let payment: any
+    try {
+      const created = await client.payments.create({
+        sourceId,
+        idempotencyKey,
+        amountMoney: { amount: amountCents, currency: 'USD' },
+        locationId,
+        note: `ChairOS - ${serviceName} for ${appointment.client_name}`,
+        referenceId: appointmentId,
+      })
+      payment = created.payment
+    } catch (err: any) {
+      // Ambiguous failures (5xx, timeout, network) rethrow to the outer
+      // catch, which deliberately leaves payment_status alone. A
+      // DEFINITIVE Square rejection (4xx: decline, bad nonce/amount) means
+      // no charge happened -- mark failed and rotate the key so the next
+      // attempt is a genuinely new charge, not a cached decline replay.
+      if (!isDefinitiveSquareRejection(err)) throw err
+      await supabase.from('appointments').update({ payment_status: 'failed' }).eq('id', appointmentId)
+      await bumpPaymentAttempt()
+      return NextResponse.json({ error: safeSquareErrorMessage(err) }, { status: 402 })
+    }
+
+    if (payment?.status !== 'COMPLETED') {
+      // Square answered synchronously with a non-completed payment: no
+      // charge happened. Same treatment as a thrown decline -- and never a
+      // 200 "success" for a payment that didn't go through.
+      await supabase.from('appointments').update({ payment_status: 'failed' }).eq('id', appointmentId)
+      await bumpPaymentAttempt()
+      return NextResponse.json({ error: 'Payment was not completed', status: payment?.status }, { status: 402 })
+    }
 
     await supabase
       .from('appointments')
       .update({
-        payment_status: payment?.status === 'COMPLETED' ? 'paid' : 'failed',
+        payment_status: 'paid',
         square_payment_id: payment?.id ?? null,
-        amount_paid: payment?.status === 'COMPLETED' ? chargeAmount : null,
+        amount_paid: chargeAmount,
       })
       .eq('id', appointmentId)
 
     return NextResponse.json({ paymentId: payment?.id, status: payment?.status })
   } catch (err: any) {
-    if (appointmentId) {
-      await supabase
-        .from('appointments')
-        .update({ payment_status: 'failed' })
-        .eq('id', appointmentId)
-    }
-    return NextResponse.json({ error: err.message || 'Payment failed' }, { status: 500 })
+    // Ambiguous failure (network timeout, SDK throw after Square may have
+    // charged, 5xx, ...). Definitive rejections (4xx declines) are caught
+    // by the inner try and never reach here. Do NOT mark the appointment
+    // 'failed' here: that invites a re-charge that double-bills when the
+    // first attempt actually succeeded. Leave payment_status as-is and let
+    // the Square webhook reconcile via reference_id (payment.updated ->
+    // 'paid'). The stable per-attempt idempotency key makes a client retry
+    // dedupe at Square rather than double-charge.
+    logger.error('payment_ambiguous_failure', { appointmentId, message: err?.message })
+    // Generic message: this route is reachable with only a public shop
+    // code, so gateway internals must not leak to the caller. The booking
+    // page maps failures to friendly copy client-side.
+    return NextResponse.json({ error: 'Payment could not be completed. Check your bookings before trying again.' }, { status: 500 })
   }
 }

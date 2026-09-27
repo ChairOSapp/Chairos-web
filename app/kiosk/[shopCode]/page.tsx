@@ -388,11 +388,13 @@ export default function KioskCheckIn() {
       <div className="h-2 rounded-full bg-warm-200 mb-6 overflow-hidden">
         <div className="h-full rounded-full transition-all duration-300" style={{ width: `${((stepIndex + 1) / wizardSteps.length) * 100}%`, background: theme.primary }} />
       </div>
-      <div className="flex-1 flex flex-col justify-center min-h-0">
-        <h2 className="font-serif text-3xl md:text-4xl mb-2" style={{ color: theme.primary }}>{title}</h2>
-        <p className="text-charcoal-500 text-xl mb-6">{sub}</p>
-        {error && <p className="text-red-400 text-lg bg-red-950 border border-red-900 rounded-xl p-4 mb-6">{error}</p>}
-        {body}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        <div className="my-auto">
+          <h2 className="font-serif text-3xl md:text-4xl mb-2" style={{ color: theme.primary }}>{title}</h2>
+          <p className="text-charcoal-500 text-xl mb-6">{sub}</p>
+          {error && <p className="text-red-400 text-lg bg-red-950 border border-red-900 rounded-xl p-4 mb-6">{error}</p>}
+          {body}
+        </div>
       </div>
       {cta && <div className="pt-4">{cta}</div>}
     </div>

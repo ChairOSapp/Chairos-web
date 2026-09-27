@@ -71,7 +71,7 @@ function StaffCalendarPageInner() {
         photoUrl={shopBarber?.photo_url || undefined}
         userId={shopBarber?.userId}
       />
-      <div className="flex-1 flex flex-col pb-16 lg:pb-0 min-h-0" style={{ height: 'calc(100dvh - 56px)' }}>
+      <div className="flex-1 flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 min-h-0" style={{ height: 'calc(100dvh - 56px)' }}>
         <StaffCalendar
           shopId={shopBarber.shop_id}
           barberId={shopBarber.userId}

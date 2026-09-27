@@ -56,9 +56,10 @@ export default function CampaignDetail() {
   async function handleCancel() {
     if (!confirm('Cancel this campaign? It will stop sending.')) return
     setCancelling(true)
-    await supabase.from('campaigns').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id)
-    setCampaign((c: any) => ({ ...c, status: 'cancelled' }))
+    const { error } = await supabase.from('campaigns').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id)
     setCancelling(false)
+    if (error) { alert('Couldn’t cancel that campaign — please try again.'); return }
+    setCampaign((c: any) => ({ ...c, status: 'cancelled' }))
   }
 
   if (loading) return (

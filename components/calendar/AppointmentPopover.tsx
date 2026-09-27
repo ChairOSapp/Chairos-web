@@ -44,6 +44,14 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function toTimeStr(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 export default function AppointmentPopover({ appointment, barberName, accentColor, x, y, isOwner, onClose, onUpdated }: Props) {
   const { staffLabel, vertical } = useVerticalLabels()
   const [saving, setSaving] = useState(false)
@@ -52,6 +60,7 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
   const [newTime, setNewTime] = useState(appointment.time.slice(0, 5))
   const [reasonPromptFor, setReasonPromptFor] = useState<'noshow' | 'cancel' | null>(null)
   const [reasonText, setReasonText] = useState('')
+  const [opError, setOpError] = useState('')
   const [consentSignature, setConsentSignature] = useState<{ signed_pdf_path: string; signed_at: string } | null | undefined>(undefined)
   const ref = useRef<HTMLDivElement>(null)
   const supabase = useMemo(() => createClient(), [])
@@ -112,11 +121,13 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
 
   async function updateStatus(status: string, cancellationReason?: string) {
     setSaving(true)
-    await supabase.from('appointments').update({
+    setOpError('')
+    const { error } = await supabase.from('appointments').update({
       status,
       ...(cancellationReason ? { cancellation_reason: cancellationReason } : {}),
     }).eq('id', appointment.id)
     setSaving(false)
+    if (error) { setOpError(error.message); return }
     setReasonPromptFor(null)
     setReasonText('')
     onUpdated()
@@ -125,11 +136,20 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
 
   async function reschedule() {
     setSaving(true)
-    await supabase.from('appointments').update({
+    setOpError('')
+    // Guard: never reschedule into the past.
+    const todayStr = toDateStr(new Date())
+    if (newDate < todayStr || (newDate === todayStr && newTime <= toTimeStr(new Date()))) {
+      setOpError('Pick a future date and time.')
+      setSaving(false)
+      return
+    }
+    const { error } = await supabase.from('appointments').update({
       date: newDate,
       time: newTime + ':00',
     }).eq('id', appointment.id)
     setSaving(false)
+    if (error) { setOpError(error.message); return }
     setRescheduling(false)
     onUpdated()
     onClose()
@@ -157,7 +177,7 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
 
   return (
     <div ref={ref} className="fixed z-[200]" style={{ left: pos.left, top: pos.top }}>
-      <ModalPanel className="w-80 max-w-[calc(100vw-16px)] bg-warm-100 border border-warm-200 rounded-2xl shadow-2xl overflow-hidden">
+      <ModalPanel className="w-80 max-w-[calc(100vw-16px)] max-h-[85dvh] overflow-y-auto bg-warm-100 border border-warm-200 rounded-2xl shadow-2xl">
         {/* Header: who + status */}
         <div className="px-4 pt-4 flex items-start gap-3">
           <div
@@ -177,7 +197,7 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
           <button
             onClick={onClose}
             aria-label="Close"
-            className="w-8 h-8 -mr-1 -mt-1 rounded-full flex items-center justify-center text-charcoal-400 hover:bg-warm-200 hover:text-charcoal-900 text-xl leading-none transition-colors flex-shrink-0"
+            className="w-11 h-11 -mr-2 -mt-2 rounded-full flex items-center justify-center text-charcoal-400 hover:bg-warm-200 hover:text-charcoal-900 text-xl leading-none transition-colors flex-shrink-0"
           >
             ×
           </button>
@@ -243,17 +263,18 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
         {rescheduling && (
           <div className="px-4 py-3 border-t border-warm-200 space-y-2.5">
             <div className="text-[11px] font-bold tracking-widest uppercase text-charcoal-400">Pick a new time</div>
-            <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
-              className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green" />
+            {opError && <p className="text-xs text-red-500">{opError}</p>}
+            <input type="date" value={newDate} min={toDateStr(new Date())} onChange={e => setNewDate(e.target.value)}
+              className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-base text-charcoal-900 outline-none focus:border-od-green" />
             <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)}
-              className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green" />
+              className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-base text-charcoal-900 outline-none focus:border-od-green" />
             <div className="flex gap-2">
               <button onClick={reschedule} disabled={saving}
-                className="flex-1 bg-od-green text-white text-[13px] font-bold py-2.5 rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity">
+                className="flex-1 bg-od-green text-white text-[13px] font-bold py-2.5 min-h-[44px] rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity">
                 {saving ? 'Saving…' : 'Save new time'}
               </button>
               <button onClick={() => setRescheduling(false)}
-                className="flex-1 bg-warm-200 text-charcoal-600 text-[13px] font-semibold py-2.5 rounded-xl hover:bg-warm-300 transition-colors">
+                className="flex-1 bg-warm-200 text-charcoal-600 text-[13px] font-semibold py-2.5 min-h-[44px] rounded-xl hover:bg-warm-300 transition-colors">
                 Back
               </button>
             </div>
@@ -272,19 +293,19 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
               onChange={e => setReasonText(e.target.value)}
               placeholder="A quick note helps next time"
               autoFocus
-              className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green"
+              className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-base text-charcoal-900 outline-none focus:border-od-green"
             />
             <div className="flex gap-2">
               <button
                 onClick={() => reasonPromptFor === 'cancel' ? cancel(reasonText.trim() || undefined) : updateStatus('noshow', reasonText.trim() || undefined)}
                 disabled={saving}
-                className="flex-1 bg-od-green text-white text-[13px] font-bold py-2.5 rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
+                className="flex-1 bg-od-green text-white text-[13px] font-bold py-2.5 min-h-[44px] rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
               >
                 {saving ? 'Saving…' : 'Confirm'}
               </button>
               <button
                 onClick={() => { setReasonPromptFor(null); setReasonText('') }}
-                className="flex-1 bg-warm-200 text-charcoal-600 text-[13px] font-semibold py-2.5 rounded-xl hover:bg-warm-300 transition-colors"
+                className="flex-1 bg-warm-200 text-charcoal-600 text-[13px] font-semibold py-2.5 min-h-[44px] rounded-xl hover:bg-warm-300 transition-colors"
               >
                 Back
               </button>
@@ -295,6 +316,7 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
         {/* Actions */}
         {!rescheduling && !reasonPromptFor && (
           <div className="px-4 py-3 border-t border-warm-200 space-y-2">
+            {opError && <p className="text-xs text-red-500">{opError}</p>}
             {notDone && unpaid && (
               <button
                 onClick={() => { onClose(); router.push(`/dashboard/pos/${appointment.id}`) }}
@@ -306,17 +328,17 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
             <div className="grid grid-cols-3 gap-2">
               {appointment.status !== 'done' && (
                 <button onClick={() => updateStatus('done')} disabled={saving}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-od-green/10 text-od-green border border-od-green/30 hover:bg-od-green/20 disabled:opacity-50 transition-colors">
+                  className="py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-od-green/10 text-od-green border border-od-green/30 hover:bg-od-green/20 disabled:opacity-50 transition-colors">
                   Mark done
                 </button>
               )}
               <button onClick={() => setRescheduling(true)}
-                className="py-2.5 rounded-xl text-xs font-bold bg-warm-200 text-charcoal-600 border border-warm-300 hover:bg-warm-300 transition-colors">
+                className="py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-warm-200 text-charcoal-600 border border-warm-300 hover:bg-warm-300 transition-colors">
                 Reschedule
               </button>
               {appointment.status !== 'noshow' && (
                 <button onClick={() => setReasonPromptFor('noshow')} disabled={saving}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors">
+                  className="py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors">
                   No-show
                 </button>
               )}

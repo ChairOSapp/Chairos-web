@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useRef, useMemo } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import ClientNotes from '@/components/ClientNotes'
@@ -35,6 +36,13 @@ export default function POSCheckout() {
   const squareCardRef = useRef<any>(null)
   const [cardReady, setCardReady] = useState(false)
   const [cardLoading, setCardLoading] = useState(false)
+  // Card-init failure is its own state (not the shared `error`, which also
+  // drives the fatal full-page branch). It carries an actionable message +
+  // a "Try again" button that bumps cardRetryKey to re-run init -- before
+  // this, a failed init was a dead end: the charge button stayed disabled
+  // forever with no way to recover without leaving the page.
+  const [cardError, setCardError] = useState<string | null>(null)
+  const [cardRetryKey, setCardRetryKey] = useState(0)
 
   // Save card toggle (when mode = manual)
   const [saveCard, setSaveCard] = useState(false)
@@ -97,6 +105,7 @@ export default function POSCheckout() {
     if (!appId || !locationId) return
 
     setCardLoading(true)
+    setCardError(null)
     let mounted = true
 
     async function init() {
@@ -114,7 +123,11 @@ export default function POSCheckout() {
         setCardReady(true)
       } catch (e: any) {
         if (!mounted) return
-        setError('Card form failed to load')
+        // Log the real cause -- init can throw from the CDN import, an
+        // invalid app/location id, or attach() on a missing container.
+        console.error('Square card form failed to initialize:', e)
+        Sentry.captureException(e, { tags: { area: 'pos_square_card_init' } })
+        setCardError('Card form failed to load. Check your connection and try again — no charge was made.')
       } finally {
         if (mounted) setCardLoading(false)
       }
@@ -129,7 +142,7 @@ export default function POSCheckout() {
         setCardReady(false)
       }
     }
-  }, [mode])
+  }, [mode, cardRetryKey])
 
   const servicePrice = parseFloat(String(appt?.price || 0)) || 0
   const discountAmount = Math.max(0, parseFloat(discount) || 0)
@@ -188,7 +201,7 @@ export default function POSCheckout() {
 
   if (loading) return (
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center">
-      <div className="w-8 h-8 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
+      <div className="w-8 h-8 rounded-full border-2 border-[#7A8C3A] border-t-transparent animate-spin" />
     </div>
   )
 
@@ -196,7 +209,7 @@ export default function POSCheckout() {
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-6">
       <div className="text-center">
         <p className="text-red-400 text-sm mb-4">{error}</p>
-        <button onClick={() => router.back()} className="text-od-green text-sm font-semibold">← Go back</button>
+        <button onClick={() => router.back()} className="text-[#7A8C3A] text-sm font-semibold">← Go back</button>
       </div>
     </div>
   )
@@ -205,8 +218,8 @@ export default function POSCheckout() {
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-full bg-od-green/10 border border-od-green/30 flex items-center justify-center mx-auto mb-4">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4B5320" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div className="w-16 h-16 rounded-full bg-[#7A8C3A]/10 border border-[#7A8C3A]/30 flex items-center justify-center mx-auto mb-4">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#7A8C3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
@@ -231,17 +244,17 @@ export default function POSCheckout() {
           </div>
           <div className="flex justify-between text-sm border-t border-charcoal-700 pt-3">
             <span className="text-white font-semibold">Total</span>
-            <span className="text-od-green font-serif text-xl">${receiptData.total.toFixed(2)}</span>
+            <span className="text-[#7A8C3A] font-serif text-xl">${receiptData.total.toFixed(2)}</span>
           </div>
           {receiptData.cardSaved && (
-            <div className="text-xs text-od-green/70 pt-1 text-center">Card saved for future visits</div>
+            <div className="text-xs text-[#7A8C3A]/70 pt-1 text-center">Card saved for future visits</div>
           )}
         </div>
 
         <div className="space-y-2">
           <button
             onClick={() => router.push('/dashboard/calendar')}
-            className="w-full bg-od-green text-black font-semibold py-3 rounded-xl text-sm hover:bg-od-green-light transition-colors"
+            className="w-full bg-[#7A8C3A] text-black font-semibold py-3 rounded-xl text-sm hover:bg-[#8FA043] transition-colors"
           >
             Back to calendar
           </button>
@@ -256,13 +269,14 @@ export default function POSCheckout() {
     </div>
   )
 
+  // Extra bottom padding so the sticky charge bar never covers content
   return (
-    <div className="min-h-screen bg-charcoal-950 p-5 pb-10">
+    <div className="min-h-screen bg-charcoal-950 p-5 pb-40">
       <div className="max-w-sm mx-auto">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-7 pt-2">
-          <button onClick={() => router.back()} className="w-8 h-8 flex items-center justify-center text-charcoal-400 hover:text-white transition-colors">
+          <button onClick={() => router.back()} className="w-11 h-11 -ml-2 flex items-center justify-center text-charcoal-400 hover:text-white transition-colors flex-shrink-0" aria-label="Back">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           </button>
           <div>
@@ -282,7 +296,7 @@ export default function POSCheckout() {
           </div>
           {client?.square_card_last4 && (
             <div className="mt-3 pt-3 border-t border-charcoal-700 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-od-green" />
+              <div className="w-2 h-2 rounded-full bg-[#7A8C3A]" />
               <span className="text-xs text-charcoal-400">Card on file: {client.square_card_brand} •••• {client.square_card_last4}</span>
             </div>
           )}
@@ -305,7 +319,7 @@ export default function POSCheckout() {
                 onClick={() => { setTipPreset(p.pct); setUseCustomTip(false) }}
                 className={`py-3 rounded-xl text-sm font-semibold transition-colors ${
                   !useCustomTip && tipPreset === p.pct
-                    ? 'bg-od-green text-black'
+                    ? 'bg-[#7A8C3A] text-black'
                     : 'bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700'
                 }`}
               >
@@ -319,8 +333,8 @@ export default function POSCheckout() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setUseCustomTip(v => !v)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                useCustomTip ? 'bg-od-green/20 text-od-green' : 'text-charcoal-400 hover:text-charcoal-200'
+              className={`text-xs font-semibold px-3 py-2.5 min-h-[44px] rounded-lg transition-colors ${
+                useCustomTip ? 'bg-[#7A8C3A]/20 text-[#7A8C3A]' : 'text-charcoal-400 hover:text-charcoal-200'
               }`}
             >
               Custom amount
@@ -335,7 +349,7 @@ export default function POSCheckout() {
                   value={customTip}
                   onChange={e => setCustomTip(e.target.value)}
                   placeholder="0.00"
-                  className="w-full bg-charcoal-800 border border-charcoal-600 rounded-lg pl-7 pr-3 py-2 text-sm text-white outline-none focus:border-od-green transition-colors"
+                  className="w-full bg-charcoal-800 border border-charcoal-600 rounded-lg pl-7 pr-3 py-2 text-base text-white outline-none focus:border-[#7A8C3A] transition-colors"
                   autoFocus
                 />
               </div>
@@ -359,8 +373,8 @@ export default function POSCheckout() {
                 setDiscount(v)
               }}
               placeholder="0.00"
-              className={`w-full bg-charcoal-800 border rounded-xl pl-7 pr-3 py-2.5 text-sm text-white outline-none transition-colors ${
-                discountInvalid ? 'border-red-500 focus:border-red-400' : 'border-charcoal-600 focus:border-od-green'
+              className={`w-full bg-charcoal-800 border rounded-xl pl-7 pr-3 py-2.5 text-base text-white outline-none transition-colors ${
+                discountInvalid ? 'border-red-500 focus:border-red-400' : 'border-charcoal-600 focus:border-[#7A8C3A]'
               }`}
             />
           </div>
@@ -384,7 +398,7 @@ export default function POSCheckout() {
           </div>
           <div className="flex justify-between items-center pt-3 border-t border-charcoal-700">
             <span className="text-white font-semibold">Total</span>
-            <span className="font-serif text-3xl text-od-green">${total.toFixed(2)}</span>
+            <span className="font-serif text-3xl text-[#7A8C3A]">${total.toFixed(2)}</span>
           </div>
         </div>
 
@@ -397,12 +411,12 @@ export default function POSCheckout() {
                 onClick={() => setMode('card-on-file')}
                 className={`w-full flex items-center gap-3 p-4 rounded-xl border transition-colors text-left ${
                   mode === 'card-on-file'
-                    ? 'bg-od-green/10 border-od-green/40 text-od-green'
+                    ? 'bg-[#7A8C3A]/10 border-[#7A8C3A]/40 text-[#7A8C3A]'
                     : 'bg-charcoal-800 border-charcoal-700 text-charcoal-300 hover:border-charcoal-500'
                 }`}
               >
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${mode === 'card-on-file' ? 'border-od-green' : 'border-charcoal-500'}`}>
-                  {mode === 'card-on-file' && <div className="w-2 h-2 rounded-full bg-od-green" />}
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${mode === 'card-on-file' ? 'border-[#7A8C3A]' : 'border-charcoal-500'}`}>
+                  {mode === 'card-on-file' && <div className="w-2 h-2 rounded-full bg-[#7A8C3A]" />}
                 </div>
                 <div>
                   <div className="text-sm font-semibold">Card on file</div>
@@ -414,12 +428,12 @@ export default function POSCheckout() {
               onClick={() => setMode('manual')}
               className={`w-full flex items-center gap-3 p-4 rounded-xl border transition-colors text-left ${
                 mode === 'manual'
-                  ? 'bg-od-green/10 border-od-green/40 text-od-green'
+                  ? 'bg-[#7A8C3A]/10 border-[#7A8C3A]/40 text-[#7A8C3A]'
                   : 'bg-charcoal-800 border-charcoal-700 text-charcoal-300 hover:border-charcoal-500'
               }`}
             >
-              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${mode === 'manual' ? 'border-od-green' : 'border-charcoal-500'}`}>
-                {mode === 'manual' && <div className="w-2 h-2 rounded-full bg-od-green" />}
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${mode === 'manual' ? 'border-[#7A8C3A]' : 'border-charcoal-500'}`}>
+                {mode === 'manual' && <div className="w-2 h-2 rounded-full bg-[#7A8C3A]" />}
               </div>
               <div>
                 <div className="text-sm font-semibold">Enter card manually</div>
@@ -439,8 +453,24 @@ export default function POSCheckout() {
                   Loading card form…
                 </div>
               )}
-              <div id="pos-card-container" className={cardLoading ? 'hidden' : ''} />
-              {!cardLoading && !cardReady && !error && (
+              {/* Hide the empty attach target while the init error is up -- a
+                  blank box is a dead end. "Try again" remounts it before
+                  init re-runs, so Square's attach() still sees a laid-out
+                  element. */}
+              {!cardError && <div id="pos-card-container" className={cardLoading ? 'hidden' : ''} />}
+              {cardError && !cardLoading && (
+                <div className="py-2">
+                  <p className="text-xs text-red-400 mb-3">{cardError}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setCardError(null); setCardRetryKey(k => k + 1) }}
+                    className="text-xs font-semibold px-4 py-2 rounded-lg bg-charcoal-800 border border-charcoal-600 text-charcoal-200 hover:text-white transition-colors"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+              {!cardLoading && !cardReady && !cardError && !error && (
                 <div className="text-xs text-charcoal-500 py-2">Square not configured — connect a Square account in Settings.</div>
               )}
             </div>
@@ -450,7 +480,7 @@ export default function POSCheckout() {
               <label className="flex items-center gap-3 mt-3 cursor-pointer">
                 <div
                   onClick={() => setSaveCard(v => !v)}
-                  className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${saveCard ? 'bg-od-green border-od-green' : 'border-charcoal-600 bg-charcoal-800'}`}
+                  className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${saveCard ? 'bg-[#7A8C3A] border-[#7A8C3A]' : 'border-charcoal-600 bg-charcoal-800'}`}
                 >
                   {saveCard && (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -469,23 +499,31 @@ export default function POSCheckout() {
 
         {error && <p className="text-red-400 text-xs mb-4 bg-red-950 border border-red-900 rounded-lg p-3">{error}</p>}
 
-        {/* Charge button */}
-        <button
-          onClick={handleCheckout}
-          disabled={processing || discountInvalid || (mode === 'manual' && !cardReady)}
-          className="w-full bg-od-green text-black font-bold py-4 rounded-2xl text-base hover:bg-od-green-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {processing ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
-              Processing…
-            </span>
-          ) : (
-            `Charge $${total.toFixed(2)}`
-          )}
-        </button>
+      </div>
 
-        <p className="text-center text-xs text-charcoal-600 mt-3">Secured by Square · This action marks the appointment as complete</p>
+      {/* Sticky charge bar -- the money button stays one tap away, no scrolling */}
+      <div className="fixed bottom-0 left-0 right-0 bg-charcoal-950/95 backdrop-blur border-t border-charcoal-800 pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-sm mx-auto px-5 pt-3 pb-4">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Total due</span>
+            <span className="font-serif text-2xl text-[#7A8C3A]">${total.toFixed(2)}</span>
+          </div>
+          <button
+            onClick={handleCheckout}
+            disabled={processing || discountInvalid || (mode === 'manual' && !cardReady)}
+            className="w-full bg-[#7A8C3A] text-black font-bold py-4 rounded-2xl text-base hover:bg-[#8FA043] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {processing ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                Processing…
+              </span>
+            ) : (
+              `Charge $${total.toFixed(2)}`
+            )}
+          </button>
+          <p className="text-center text-[11px] text-charcoal-600 mt-2">Secured by Square · This action marks the appointment as complete</p>
+        </div>
       </div>
     </div>
   )

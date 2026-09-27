@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
@@ -21,6 +22,16 @@ export async function POST(req: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Each call burns Anthropic tokens on the platform's key: user-scoped,
+  // fail-closed rate limit.
+  const genLimit = await checkRateLimit('aiGenerate', `user:${user.id}`)
+  if (!genLimit.ok) {
+    return NextResponse.json(
+      { error: 'Too many AI generations. Try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(genLimit.retryAfterSeconds) } }
+    )
+  }
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

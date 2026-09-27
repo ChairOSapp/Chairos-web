@@ -331,18 +331,28 @@ export default function ReviewsPage() {
   }
 
   async function patchReview(id: string, patch: Partial<Review>) {
-    await fetch(`/api/reviews/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    })
-    setReviews(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
+    try {
+      const res = await fetch(`/api/reviews/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) { alert('Couldn’t save that change — please try again.'); return }
+      setReviews(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
+    } catch {
+      alert('Couldn’t save that change — please try again.')
+    }
   }
 
   async function deleteReview(id: string) {
     if (!confirm('Delete this review? You can’t undo it.')) return
-    await fetch(`/api/reviews/${id}`, { method: 'DELETE' })
-    setReviews(prev => prev.filter(r => r.id !== id))
+    try {
+      const res = await fetch(`/api/reviews/${id}`, { method: 'DELETE' })
+      if (!res.ok) { alert('Couldn’t delete that review — please try again.'); return }
+      setReviews(prev => prev.filter(r => r.id !== id))
+    } catch {
+      alert('Couldn’t delete that review — please try again.')
+    }
   }
 
   if (loading) return (

@@ -16,7 +16,9 @@ function appendStop(message: string): string {
   const suffix = ' Reply STOP to unsubscribe.'
   if (message.toLowerCase().includes('reply stop')) return message
   if ((message + suffix).length <= 160) return message + suffix
-  return message
+  // Long messages would silently drop the opt-out notice (TCPA risk), so
+  // truncate the body to keep the STOP suffix instead.
+  return message.slice(0, 160 - suffix.length).trimEnd() + suffix
 }
 
 export const campaignSend = task({

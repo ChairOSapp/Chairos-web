@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { resolveSquareCredentials, squareClientFor, computeDepositAmount } from '@/lib/square'
+import { resolveSquareCredentials, squareClientFor, computeDepositAmount, safeSquareErrorMessage } from '@/lib/square'
 import { computeServicePrice } from '@/lib/server-pricing'
 import { timeStrToMinutes } from '@/lib/availability'
 import { logger } from '@/lib/logger'
@@ -30,9 +30,11 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabaseAuth.auth.getUser()
 
   let depositId = ''
+  let appointmentId = ''
   try {
     const body = await req.json() as { sourceId: string; appointmentId: string; publicShopCode?: string }
-    const { sourceId, appointmentId, publicShopCode } = body
+    const { sourceId, publicShopCode } = body
+    appointmentId = body.appointmentId
 
     if (!sourceId || !appointmentId) {
       return NextResponse.json({ error: 'sourceId and appointmentId are required' }, { status: 400 })
@@ -46,6 +48,12 @@ export async function POST(req: NextRequest) {
 
     if (apptErr || !appointment) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 })
+    }
+    // Never take a deposit for a booking that is no longer active (e.g.
+    // the 15-minute hold expired and the appointment was cancelled while
+    // the customer was still on the payment screen).
+    if (['cancelled', 'done', 'noshow'].includes(appointment.status)) {
+      return NextResponse.json({ error: 'This booking is no longer active. Please start a new booking.' }, { status: 400 })
     }
 
     const { data: shop } = await supabase
@@ -109,25 +117,101 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Could not verify booking price' }, { status: 500 })
     }
     const amount = computeDepositAmount(shop.deposit_type as 'flat' | 'percent', Number(shop.deposit_amount), basePrice)
-    depositId = randomUUID()
-    const expiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString()
 
-    const { error: depositInsertErr } = await supabase.from('deposits').insert({
-      id: depositId,
-      appointment_id: appointmentId,
-      shop_id: shop.id,
-      amount,
-      type: shop.deposit_type,
-      status: 'pending',
-      expires_at: expiresAt,
-    })
-    if (depositInsertErr) {
-      return NextResponse.json({ error: depositInsertErr.message }, { status: 500 })
+    // Idempotent retry: a paid deposit already exists for this appointment
+    // (the first attempt's charge succeeded but the response was lost, and
+    // the Square webhook confirmed it since). Confirm the appointment and
+    // report success instead of charging a second deposit.
+    const { data: paidDeposit } = await supabase
+      .from('deposits')
+      .select('id, amount')
+      .eq('appointment_id', appointmentId)
+      .eq('status', 'paid')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (paidDeposit) {
+      await supabase.from('appointments')
+        .update({ status: 'confirmed' })
+        .eq('id', appointmentId)
+        .eq('status', 'pending')
+      return NextResponse.json({
+        depositId: paidDeposit.id,
+        alreadyPaid: true,
+        status: 'COMPLETED',
+        amount: Number(paidDeposit.amount),
+      })
     }
+
+    // Reuse the in-flight pending deposit so a retry after an ambiguous
+    // failure (timeout where Square may have charged) reuses the same
+    // deposit row -- and therefore the same Square idempotency key
+    // (`deposit-${depositId}`) -- letting Square dedupe instead of taking
+    // a second deposit. The original 15-minute hold window is kept.
+    let pendingDeposit: { id: string; expires_at: string; amount: number } | null = null
+    {
+      const { data } = await supabase
+        .from('deposits')
+        .select('id, expires_at, amount')
+        .eq('appointment_id', appointmentId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (data && data.expires_at && new Date(data.expires_at) > new Date()) {
+        pendingDeposit = data as { id: string; expires_at: string; amount: number }
+      }
+    }
+    if (!pendingDeposit) {
+      const newId = randomUUID()
+      const expiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString()
+      const { error: depositInsertErr } = await supabase.from('deposits').insert({
+        id: newId,
+        appointment_id: appointmentId,
+        shop_id: shop.id,
+        amount,
+        type: shop.deposit_type,
+        status: 'pending',
+        expires_at: expiresAt,
+      })
+      if (depositInsertErr) {
+        if ((depositInsertErr as any).code === '23505') {
+          // Lost a concurrent-insert race (the partial unique index on
+          // pending deposits per appointment): use the row that won.
+          const { data: winner } = await supabase
+            .from('deposits')
+            .select('id, expires_at, amount')
+            .eq('appointment_id', appointmentId)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (!winner) {
+            logger.error('deposit_race_no_winner', { appointmentId })
+            return NextResponse.json({ error: 'Could not start the deposit payment. Please try again.' }, { status: 500 })
+          }
+          pendingDeposit = winner as { id: string; expires_at: string; amount: number }
+        } else {
+          // Raw DB error text must not reach the customer.
+          logger.error('deposit_insert_failed', { appointmentId, message: depositInsertErr.message })
+          return NextResponse.json({ error: 'Could not start the deposit payment. Please try again.' }, { status: 500 })
+        }
+      } else {
+        pendingDeposit = { id: newId, expires_at: expiresAt, amount }
+      }
+    }
+    if (!pendingDeposit) {
+      return NextResponse.json({ error: 'Could not start the deposit payment. Please try again.' }, { status: 500 })
+    }
+    depositId = pendingDeposit.id
+    // Charge the amount stored on the (possibly reused) deposit row, not a
+    // recomputed one: the customer was quoted this amount, and Square's
+    // idempotency key is tied to this row.
+    const chargeAmount = Number(pendingDeposit.amount)
 
     const { accessToken, locationId } = await resolveSquareCredentials(supabase, shop, appointment.barber_id)
     const client = squareClientFor(accessToken)
-    const amountCents = BigInt(Math.round(amount * 100))
+    const amountCents = BigInt(Math.round(chargeAmount * 100))
 
     let payment
     try {
@@ -142,10 +226,16 @@ export async function POST(req: NextRequest) {
     } catch (chargeErr: any) {
       // Ambiguous failure (e.g. our request never got a response back from
       // Square) — do NOT delete the deposit row. It stays 'pending' within
-      // its hold window; if the charge actually succeeded at Square, the
-      // webhook will confirm it. If the hold expires first, the expiration
-      // job + the webhook's late-payment branch (Task 4) handle it safely.
-      return NextResponse.json({ error: chargeErr.message || 'Payment failed' }, { status: 500 })
+      // its hold window; a retry reuses this same row (and its Square
+      // idempotency key) so Square dedupes instead of charging twice. If
+      // the charge actually succeeded at Square, the webhook will confirm
+      // it. If the hold expires first, the expiration job + the webhook's
+      // late-payment branch handle it safely.
+      // Raw gateway error text must not reach the customer; decline-type
+      // failures keep their keyword so the booking page can map them to
+      // friendly copy.
+      logger.error('deposit_charge_failed', { appointmentId, message: chargeErr?.message })
+      return NextResponse.json({ error: safeSquareErrorMessage(chargeErr) }, { status: 500 })
     }
 
     if (payment?.status !== 'COMPLETED') {
@@ -165,8 +255,9 @@ export async function POST(req: NextRequest) {
       .eq('id', appointmentId)
       .eq('status', 'pending')
 
-    return NextResponse.json({ depositId, paymentId: payment.id, status: payment.status, amount })
+    return NextResponse.json({ depositId, paymentId: payment.id, status: payment.status, amount: chargeAmount })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Deposit failed' }, { status: 500 })
+    logger.error('create_deposit_failed', { appointmentId, message: err?.message })
+    return NextResponse.json({ error: 'Deposit failed. Please try again.' }, { status: 500 })
   }
 }

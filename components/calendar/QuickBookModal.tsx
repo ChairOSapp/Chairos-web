@@ -100,6 +100,7 @@ export default function QuickBookModal({
 
   async function submit() {
     if (!date || !time || !clientName || !phone) { setError("Add the client's name and phone number to book."); return }
+    if (date < today) { setError('Pick today or a future date.'); return }
     setSubmitting(true)
     setError('')
 
@@ -155,7 +156,15 @@ export default function QuickBookModal({
     })
 
     setSubmitting(false)
-    if (err) { setError(err.message); return }
+    if (err) {
+      const msg = err.message || ''
+      setError(
+        err.code === '23505' || /duplicate key/i.test(msg)
+          ? 'That time is already booked for this barber — pick another slot.'
+          : msg || 'Could not book the appointment. Please try again.'
+      )
+      return
+    }
     onCreated()
     onClose()
   }
@@ -184,7 +193,7 @@ export default function QuickBookModal({
               </h2>
             </div>
             <button onClick={onClose} aria-label="Close"
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-warm-200 text-charcoal-500 transition-colors hover:bg-warm-300 hover:text-charcoal-900">
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-warm-200 text-charcoal-500 transition-colors hover:bg-warm-300 hover:text-charcoal-900">
               <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
                 <path d="M4 4l8 8M12 4l-8 8" />
               </svg>
@@ -234,7 +243,7 @@ export default function QuickBookModal({
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="min-w-0">
                 <FieldLabel>Date</FieldLabel>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
+                <input type="date" value={date} min={today} onChange={e => setDate(e.target.value)} className={inputCls} />
               </div>
               <div className="min-w-0">
                 <FieldLabel>Time</FieldLabel>

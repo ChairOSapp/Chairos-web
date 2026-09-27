@@ -159,11 +159,11 @@ export default function BarberClientsPage() {
       {selectedClient && (
         <FadeBackdrop className="fixed inset-0 bg-warm-50/80 z-50 flex items-end sm:items-center justify-center p-4 pb-24 sm:pb-4"
           onClick={() => setSelectedClient(null)}>
-          <ModalPanel className="bg-warm-100 border border-warm-200 rounded-2xl w-full max-w-md p-6 mb-20 md:mb-0"
+          <ModalPanel className="bg-warm-100 border border-warm-200 rounded-2xl w-full max-w-md max-h-[80dvh] overflow-y-auto p-6 mb-20 md:mb-0"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <div className="font-serif text-lg text-charcoal-900">Client Details</div>
-              <button onClick={() => setSelectedClient(null)} className="text-charcoal-500 hover:text-charcoal-900 text-xl">×</button>
+              <button onClick={() => setSelectedClient(null)} aria-label="Close" className="w-11 h-11 -mr-2 -mt-2 flex items-center justify-center text-charcoal-500 hover:text-charcoal-900 text-xl">×</button>
             </div>
             <div className="flex items-center gap-4 mb-5">
               <div className="w-14 h-14 rounded-full flex items-center justify-center font-serif text-2xl font-bold flex-shrink-0"
@@ -196,13 +196,13 @@ export default function BarberClientsPage() {
             <div className="flex gap-3">
               {(selectedClient as any).clients?.phone && (
                 <a href={`tel:${(selectedClient as any).clients.phone}`}
-                  className="flex-1 bg-warm-200 border border-warm-300 rounded-lg py-2.5 text-sm text-center text-charcoal-900 font-semibold hover:border-od-green transition-colors">
+                  className="flex-1 bg-warm-200 border border-warm-300 rounded-lg py-3 min-h-[44px] text-sm text-center text-charcoal-900 font-semibold hover:border-od-green transition-colors">
                   📞 Call
                 </a>
               )}
               {(selectedClient as any).clients?.phone && (
                 <a href={`sms:${(selectedClient as any).clients.phone}`}
-                  className="flex-1 bg-od-green hover:bg-od-green-light rounded-lg py-2.5 text-sm text-center text-white font-semibold transition-colors">
+                  className="flex-1 bg-od-green hover:bg-od-green-light rounded-lg py-3 min-h-[44px] text-sm text-center text-white font-semibold transition-colors">
                   💬 Text
                 </a>
               )}
