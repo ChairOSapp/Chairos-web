@@ -4,7 +4,10 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { generateReviewResponseDraft } from '@/lib/reviewResponseAI'
 
-const VALID_SOURCES = ['google', 'booksy', 'manual', 'chairos'] as const
+// Manual entry may only create 'manual' reviews. Google reviews arrive via the
+// import flow and Booksy has no integration — accepting those labels here
+// would let an owner fabricate verified-looking reviews.
+const VALID_SOURCES = ['manual'] as const
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

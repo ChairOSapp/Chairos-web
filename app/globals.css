@@ -319,3 +319,16 @@ body {
 
 /* --- Misc explicit hardcoded hex in JSX stroke attributes --- */
 /* These are handled individually in components where needed */
+
+/* --- iOS safe-area (Capacitor wrapper) --- */
+/* Extends bottom padding by the home-indicator inset on fixed footers.
+   Unlayered so it wins over Tailwind's py-*/pb-* for padding-bottom.
+   Where the inset is 0 these equal the base paddings, so appearance on
+   devices without a safe area is unchanged. */
+.pb-safe {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+/* Variant for the "More" bottom sheet (base padding pb-8 = 2rem). */
+.pb-safe-sheet {
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+}

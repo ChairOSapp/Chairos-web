@@ -20,7 +20,12 @@ function loadTurnstileScript(): Promise<void> {
     script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
     script.async = true
     script.onload = () => resolve()
-    script.onerror = () => reject(new Error('Failed to load Turnstile'))
+    script.onerror = () => {
+      // A failed load must not poison the cached promise, or a remount
+      // retry would instantly reject again without re-attempting.
+      scriptPromise = null
+      reject(new Error('Failed to load Turnstile'))
+    }
     document.head.appendChild(script)
   })
   return scriptPromise
@@ -37,8 +42,8 @@ export type TurnstileHandle = { reset: () => void }
 // (login/signup/booking) actually succeeded. Any caller that lets the
 // user retry after a failure MUST call reset() first, or the retry
 // resubmits a dead token and gets rejected with "timeout-or-duplicate".
-const Turnstile = forwardRef<TurnstileHandle, { onVerify: (token: string) => void; onExpire?: () => void }>(
-  function Turnstile({ onVerify, onExpire }, ref) {
+const Turnstile = forwardRef<TurnstileHandle, { onVerify: (token: string) => void; onExpire?: () => void; onError?: () => void }>(
+  function Turnstile({ onVerify, onExpire, onError }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     const widgetIdRef = useRef<string | null>(null)
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
@@ -62,7 +67,12 @@ const Turnstile = forwardRef<TurnstileHandle, { onVerify: (token: string) => voi
           callback: onVerify,
           'expired-callback': onExpire,
         })
-      }).catch(() => {})
+      }).catch(() => {
+        // The widget never rendered (script blocked/failed) -- tell the
+        // caller so it can offer a retry instead of leaving its submit
+        // button permanently disabled.
+        onError?.()
+      })
 
       return () => {
         cancelled = true

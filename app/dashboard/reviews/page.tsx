@@ -14,7 +14,7 @@ type Review = {
   rating: number
   body: string
   review_date: string
-  source: 'google' | 'booksy' | 'manual' | 'chairos'
+  source: 'google' | 'booksy' | 'manual'
   barber_id: string | null
   visible: boolean
   created_at: string
@@ -48,7 +48,6 @@ const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
   google: { label: 'Google', cls: 'bg-blue-500/10 text-blue-500 border border-blue-500/20' },
   booksy: { label: 'Booksy', cls: 'bg-purple-500/10 text-purple-400 border border-purple-500/20' },
   manual: { label: 'Manual', cls: 'bg-warm-200 text-charcoal-500 border border-warm-300' },
-  chairos: { label: 'ChairOS', cls: 'bg-od-green/10 text-od-green border border-od-green/20' },
 }
 
 function StarDisplay({ rating }: { rating: number }) {
@@ -122,7 +121,7 @@ export default function ReviewsPage() {
     rating: 5,
     body: '',
     review_date: new Date().toISOString().split('T')[0],
-    source: 'manual' as 'google' | 'booksy' | 'manual',
+    source: 'manual' as 'manual',
     barber_id: '',
   })
   const [manualLoading, setManualLoading] = useState(false)
@@ -793,8 +792,6 @@ export default function ReviewsPage() {
                   value={manualForm.source}
                   onChange={e => setManualForm(f => ({ ...f, source: e.target.value as any }))}
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green">
-                  <option value="google">Google</option>
-                  <option value="booksy">Booksy</option>
                   <option value="manual">Manual</option>
                 </select>
               </div>

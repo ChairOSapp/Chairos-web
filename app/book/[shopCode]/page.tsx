@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 import { initMetaPixel, initGoogleTag, trackMetaEvent, trackGoogleEvent } from '@/lib/tracking'
 import { timeStrToMinutes } from '@/lib/availability'
@@ -12,6 +12,7 @@ const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 function BookingPageInner() {
   const params = useParams()
   const shopCode = (params.shopCode as string)?.toUpperCase()
+  const router = useRouter()
   const supabase = createClient()
   const searchParams = useSearchParams()
 
@@ -76,6 +77,21 @@ function BookingPageInner() {
   const [cardReady, setCardReady] = useState(false)
   const [cardLoading, setCardLoading] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+  // Bumped by the in-app "Try again" button to re-run card initialization
+  // (there is no page refresh inside the iOS wrapper).
+  const [cardRetryKey, setCardRetryKey] = useState(0)
+  // Dedicated payment-failed state: the appointment was created and is
+  // held (~15 min), but the charge didn't go through. pendingApptId +
+  // failedChargeKind let "Retry payment" re-attempt ONLY the charge
+  // against the same appointment -- never a duplicate booking.
+  const [paymentFailed, setPaymentFailed] = useState(false)
+  const [pendingApptId, setPendingApptId] = useState<string | null>(null)
+  const [failedChargeKind, setFailedChargeKind] = useState<'deposit' | 'charge' | null>(null)
+  const [retrying, setRetrying] = useState(false)
+  // Turnstile widget state -- a failed script load must offer a retry
+  // instead of leaving Confirm permanently disabled.
+  const [captchaLoadFailed, setCaptchaLoadFailed] = useState(false)
+  const [captchaRetryKey, setCaptchaRetryKey] = useState(0)
   // 'save' = store card for later checkout, 'charge' = one-time charge now
   const [cardMode, setCardMode] = useState<'save' | 'charge'>('save')
 
@@ -270,7 +286,14 @@ function BookingPageInner() {
         setCardReady(false)
       }
     }
-  }, [step])
+  }, [step, cardRetryKey])
+
+  // In-app recovery for a failed Square init -- the iOS wrapper has no
+  // page refresh, so the card section offers this instead.
+  function retryCardInit() {
+    setPaymentError('')
+    setCardRetryKey(k => k + 1)
+  }
 
   // Real server-side availability, buffer-aware — replaces a fixed time
   // list that showed every slot regardless of existing bookings.
@@ -394,6 +417,171 @@ function BookingPageInner() {
     setActiveReward(reward ? { id: reward.reward_id, type: reward.reward_type, value: reward.reward_value } : null)
   }
 
+  // Maps raw gateway/SDK messages to plain language a customer can act on.
+  function friendlyPaymentError(raw: string): string {
+    const msg = (raw || '').toLowerCase()
+    if (msg.includes('declined')) return 'Your card was declined. Double-check the card details or try a different card.'
+    if (msg.includes('insufficient')) return 'Your card doesn\u2019t have enough available for this payment. Try a different card.'
+    if (msg.includes('expired')) return 'Your card is expired. Try a different card.'
+    if (msg.includes('cvv') || msg.includes('cvc') || msg.includes('security code')) return 'The security code (CVV) looks wrong. Check it and try again.'
+    if (msg.includes('invalid') && msg.includes('card')) return 'The card details don\u2019t look right. Check the number and try again.'
+    return raw || 'Payment didn\u2019t go through. Try again or use a different card.'
+  }
+
+  // Charges the deposit for an already-created appointment. Returns a
+  // result object instead of throwing. Safe to retry on a clean decline:
+  // the server deletes the pending deposit row on a synchronous decline,
+  // so each attempt starts fresh against the same appointment.
+  async function chargeDepositFor(apptId: string, srcId: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const depRes = await fetch('/api/square/create-deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceId: srcId, appointmentId: apptId, publicShopCode: shop.shop_code }),
+      })
+      const depData = await depRes.json()
+      if (!depRes.ok || depData.error) {
+        return { ok: false, message: friendlyPaymentError(depData.error || 'Deposit payment failed') }
+      }
+      return { ok: true, message: '' }
+    } catch {
+      return { ok: false, message: 'Deposit payment failed — please check your connection and try again.' }
+    }
+  }
+
+  // Immediate full-price charge for an already-created appointment. Safe
+  // to retry: the server rejects with 409 if the appointment is already
+  // paid, and Square dedupes on the appointment-derived idempotency key.
+  async function chargeNowFor(apptId: string, srcId: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const payRes = await fetch('/api/square/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceId: srcId, appointmentId: apptId, publicShopCode: shop.shop_code }),
+      })
+      const payData = await payRes.json()
+      if (!payRes.ok || payData.error) {
+        return { ok: false, message: friendlyPaymentError(payData.error || 'Payment failed') }
+      }
+      return { ok: true, message: '' }
+    } catch {
+      return { ok: false, message: 'Payment failed — please check your connection and try again.' }
+    }
+  }
+
+  // Post-booking side effects: owner/barber notifications, client SMS,
+  // analytics. Runs only once the booking is fully settled (paid, or no
+  // payment required) -- never on the payment-failed path.
+  async function finalizeBooking() {
+    const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || `Any ${staffLabelLower}`
+    const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    await supabase.from('notifications').insert({
+      user_id: shop.owner_id,
+      shop_id: shop.id,
+      type: 'booking',
+      title: 'New booking',
+      body: `${clientName} booked ${selectedService.name} with ${barberLabel} on ${dateLabel} at ${selectedTime}`,
+      read: false
+    })
+
+    if (selectedBarber?.barber_id) {
+      await supabase.from('notifications').insert({
+        user_id: selectedBarber.barber_id,
+        shop_id: shop.id,
+        type: 'booking',
+        title: 'New appointment',
+        body: `${clientName} booked ${selectedService.name} on ${dateLabel} at ${selectedTime}`,
+        read: false
+      })
+    }
+
+    if (smsConsent) {
+      const dateFormatted = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric'
+      })
+      const barberName = selectedBarber?.barber_name || selectedBarber?.alias || `your ${staffLabelLower}`
+      try {
+        await fetch('/api/sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: clientPhone,
+            message: `You're booked at ${shop.name}!\n\nService: ${selectedService.name}\n${staffLabel}: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to opt out.`
+          })
+        })
+      } catch {
+        // SMS failure is non-fatal
+      }
+    }
+
+    trackMetaEvent('Schedule', { content_name: selectedService.name, value: finalPrice, currency: 'USD' })
+    trackGoogleEvent('generate_lead', { value: finalPrice, currency: 'USD' })
+  }
+
+  // Re-attempts ONLY the charge against the already-created (held)
+  // appointment -- never creates a second appointment. Square nonces are
+  // single-use, so a fresh token is minted for every attempt.
+  async function retryPayment() {
+    if (!pendingApptId || !failedChargeKind || retrying) return
+    setRetrying(true)
+    setPaymentError('')
+    let srcId: string | null = null
+    if (squareCardRef.current) {
+      const result = await squareCardRef.current.tokenize()
+      if (result.status === 'OK') {
+        srcId = result.token
+      } else {
+        setPaymentError(friendlyPaymentError(result.errors?.[0]?.message || 'Card error'))
+        setRetrying(false)
+        return
+      }
+    }
+    if (!srcId) {
+      setPaymentError('Card form isn\u2019t ready — tap "Try again" by the card form to reload it.')
+      setRetrying(false)
+      return
+    }
+    const result = failedChargeKind === 'deposit'
+      ? await chargeDepositFor(pendingApptId, srcId)
+      : await chargeNowFor(pendingApptId, srcId)
+    if (!result.ok) {
+      setPaymentError(result.message)
+      setRetrying(false)
+      return
+    }
+    // Paid -- finish the booking exactly as the first attempt would have.
+    setPaymentFailed(false)
+    setPendingApptId(null)
+    setFailedChargeKind(null)
+    await finalizeBooking()
+    setSuccess(true)
+    setRetrying(false)
+  }
+
+  // Resets the funnel for a fresh booking (success-screen "Book another").
+  // Contact details carry over; everything else starts clean.
+  function resetBookingFlow() {
+    setSelectedBarber(null)
+    setSelectedService(null)
+    setSelectedDate('')
+    setSelectedTime('')
+    setAvailableSlots([])
+    setNotes('')
+    setError('')
+    setPaymentError('')
+    setPaymentFailed(false)
+    setPendingApptId(null)
+    setFailedChargeKind(null)
+    setConfirmedBarberName(null)
+    setReturningClient(null)
+    setActiveReward(null)
+    setCaptchaToken('')
+    setCaptchaLoadFailed(false)
+    setSuccess(false)
+    setStep(1)
+    window.scrollTo(0, 0)
+  }
+
   async function handleBook() {
     if (!clientName || !clientPhone) { setError('Name and phone are required'); return }
     if (CAPTCHA_ENABLED && !captchaToken) { setError('Please complete the verification check'); return }
@@ -442,15 +630,15 @@ function BookingPageInner() {
       }
     }
 
-    // If a card was required but the SDK never produced a token, fail
+    // If a card was required but the SDK never produced a token, fail.
+    // The card section below offers an in-app "Try again" (no page refresh
+    // exists inside the iOS wrapper).
     if ((shop?.require_card_to_book || requiresDeposit) && !sourceId) {
-      setPaymentError('Card form not ready. Please refresh and try again.')
+      setPaymentError('Card form isn\u2019t ready yet — tap "Try again" below to reload it.')
       setSubmitting(false)
       resetCaptcha()
       return
     }
-
-    let paymentSucceeded = false
 
     // Look up or create client record. clients' SELECT policy is
     // owner/staff-scoped (it holds PII), so an anonymous booker can't
@@ -583,39 +771,26 @@ function BookingPageInner() {
       // Deposit path: charges the deposit amount (not the full price) and,
       // on success, the server flips the appointment straight to
       // 'confirmed'. On failure the appointment stays 'pending' with its
-      // 15-minute hold — the client can retry, or the hold expires on its
-      // own via the scheduled job.
-      try {
-        const depRes = await fetch('/api/square/create-deposit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceId, appointmentId: newApptId, publicShopCode: shop.shop_code }),
-        })
-        const depData = await depRes.json()
-        if (!depRes.ok || depData.error) {
-          setPaymentError(depData.error || 'Deposit payment failed. Your slot is held for 15 minutes — try again or contact the shop.')
-        } else {
-          paymentSucceeded = true
-        }
-      } catch {
-        setPaymentError('Deposit payment failed. Your slot is held for 15 minutes — try again or contact the shop.')
+      // 15-minute hold -- show the dedicated retry state, NOT success.
+      const result = await chargeDepositFor(newApptId, sourceId)
+      if (!result.ok) {
+        setPendingApptId(newApptId)
+        setFailedChargeKind('deposit')
+        setPaymentFailed(true)
+        setPaymentError(result.message)
+        setSubmitting(false)
+        return
       }
     } else if (sourceId && cardMode === 'charge') {
       // Charge card immediately if one-time mode (need appointmentId for Square)
-      try {
-        const payRes = await fetch('/api/square/create-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceId, appointmentId: newApptId, publicShopCode: shop.shop_code }),
-        })
-        const payData = await payRes.json()
-        if (!payRes.ok || payData.error) {
-          setPaymentError(payData.error || 'Payment failed. Please pay at the shop.')
-        } else {
-          paymentSucceeded = true
-        }
-      } catch {
-        setPaymentError('Payment failed. Please pay at the shop.')
+      const result = await chargeNowFor(newApptId, sourceId)
+      if (!result.ok) {
+        setPendingApptId(newApptId)
+        setFailedChargeKind('charge')
+        setPaymentFailed(true)
+        setPaymentError(result.message)
+        setSubmitting(false)
+        return
       }
     } else if (sourceId && cardMode === 'save' && clientId) {
       // Save card on file if client chose save mode (non-blocking)
@@ -630,53 +805,9 @@ function BookingPageInner() {
       }
     }
 
-    // Notify owner
-    const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || `Any ${staffLabelLower}`
-    const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-    await supabase.from('notifications').insert({
-      user_id: shop.owner_id,
-      shop_id: shop.id,
-      type: 'booking',
-      title: 'New booking',
-      body: `${clientName} booked ${selectedService.name} with ${barberLabel} on ${dateLabel} at ${selectedTime}`,
-      read: false
-    })
-
-    // Notify barber if assigned
-    if (selectedBarber?.barber_id) {
-      await supabase.from('notifications').insert({
-        user_id: selectedBarber.barber_id,
-        shop_id: shop.id,
-        type: 'booking',
-        title: 'New appointment',
-        body: `${clientName} booked ${selectedService.name} on ${dateLabel} at ${selectedTime}`,
-        read: false
-      })
-    }
-
-    // SMS confirmation to client (only if consented)
-    if (smsConsent) {
-      const dateFormatted = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
-        weekday: 'long', month: 'long', day: 'numeric'
-      })
-      const barberName = selectedBarber?.barber_name || selectedBarber?.alias || `your ${staffLabelLower}`
-      try {
-        await fetch('/api/sms', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: clientPhone,
-            message: `You're booked at ${shop.name}!\n\nService: ${selectedService.name}\n${staffLabel}: ${barberName}\nDate: ${dateFormatted}\nTime: ${selectedTime}\n\nSee you soon! Reply STOP to opt out.`
-          })
-        })
-      } catch {
-        // SMS failure is non-fatal
-      }
-    }
-
-    trackMetaEvent('Schedule', { content_name: selectedService.name, value: finalPrice, currency: 'USD' })
-    trackGoogleEvent('generate_lead', { value: finalPrice, currency: 'USD' })
-
+    // Fully settled (paid, or no payment required) -- notify everyone,
+    // send the client confirmation, then show the success screen.
+    await finalizeBooking()
     setSuccess(true)
     setSubmitting(false)
   }
@@ -763,6 +894,17 @@ function BookingPageInner() {
           <p className="text-charcoal-600 text-xs">
             {smsConsent ? `Confirmation text sent to ${clientPhone}.` : 'Booking confirmed.'} Powered by ChairOS.
           </p>
+        </div>
+        <div className="flex flex-col gap-2 mt-4">
+          <button onClick={resetBookingFlow}
+            className="w-full font-semibold px-4 py-3 rounded-lg text-sm text-black transition-colors"
+            style={{ background: brand }}>
+            Book another appointment
+          </button>
+          <a href="/my"
+            className="w-full font-semibold px-4 py-3 rounded-lg text-sm text-center bg-warm-100 border border-warm-300 text-charcoal-900 transition-colors hover:border-warm-400">
+            View my appointments →
+          </a>
         </div>
       </div>
     </div>
@@ -912,6 +1054,9 @@ function BookingPageInner() {
                 </div>
               ))}
             </div>
+            <button
+              onClick={() => { if (shop?.slug) router.push(`/shop/${shop.slug}`); else router.back() }}
+              className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
           </div>
         )}
 
@@ -1045,6 +1190,30 @@ function BookingPageInner() {
 
         {step === 4 && (
           <div>
+            {paymentFailed && (
+              <div className="bg-red-950/50 border border-red-800 rounded-xl p-5 mb-6">
+                <h3 className="font-serif text-lg text-red-200 mb-2">
+                  {failedChargeKind === 'deposit' ? 'Deposit failed — your spot is held' : 'Payment failed — your spot is held'}
+                </h3>
+                <p className="text-red-300/80 text-sm mb-3">
+                  Good news: your appointment is held for about 15 minutes. Nothing was booked incorrectly —
+                  just fix the payment below and retry before the hold expires.
+                </p>
+                {paymentError && (
+                  <p className="text-amber-400 text-sm mb-4">{paymentError}</p>
+                )}
+                <button onClick={retryPayment} disabled={retrying}
+                  className="w-full font-semibold px-4 py-3 rounded-lg text-sm text-black transition-colors disabled:opacity-50"
+                  style={{ background: brand }}>
+                  {retrying ? 'Retrying…' : 'Retry payment'}
+                </button>
+                <p className="text-red-300/60 text-xs mt-3 text-center">
+                  {selectedService?.name}
+                  {selectedDate && ` · ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  {selectedTime && ` at ${selectedTime}`}
+                </p>
+              </div>
+            )}
             <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your info & payment</h2>
             <p className="text-charcoal-500 text-sm mb-6">No account needed. Just your name, number, and card.</p>
             <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-6 space-y-2">
@@ -1166,7 +1335,16 @@ function BookingPageInner() {
                   )}
                 </div>
                 {paymentError && (
-                  <p className="text-amber-400 text-xs mt-2">{paymentError}</p>
+                  <div className="mt-2">
+                    <p className="text-amber-400 text-xs">{paymentError}</p>
+                    {/* In-app recovery: the iOS wrapper has no page refresh. */}
+                    {!cardReady && (
+                      <button type="button" onClick={retryCardInit}
+                        className="mt-2 text-xs font-semibold text-neutral-200 underline underline-offset-2 hover:text-white transition-colors">
+                        Try again
+                      </button>
+                    )}
+                  </div>
                 )}
                 <p className="text-neutral-600 text-xs mt-2">
                   {requiresDeposit
@@ -1208,17 +1386,35 @@ function BookingPageInner() {
 
             {CAPTCHA_ENABLED && (
               <div className="mb-4">
-                <Turnstile ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+                {captchaLoadFailed ? (
+                  <div className="bg-warm-100 border border-warm-300 rounded-lg p-4 text-center">
+                    <p className="text-charcoal-500 text-xs mb-2">Verification couldn&apos;t load.</p>
+                    <button type="button"
+                      onClick={() => { setCaptchaLoadFailed(false); setCaptchaToken(''); setCaptchaRetryKey(k => k + 1) }}
+                      className="text-xs font-semibold text-charcoal-900 underline underline-offset-2 hover:text-black transition-colors">
+                      Try again
+                    </button>
+                  </div>
+                ) : (
+                  <Turnstile key={captchaRetryKey} ref={turnstileRef}
+                    onVerify={setCaptchaToken}
+                    onExpire={() => setCaptchaToken('')}
+                    onError={() => setCaptchaLoadFailed(true)} />
+                )}
               </div>
             )}
 
             <div className="flex gap-3 items-center">
               <button onClick={() => setStep(3)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
-              <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (CAPTCHA_ENABLED && !captchaToken)}
-                className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
-                style={{ background: brand }}>
-                {submitting ? 'Processing...' : requiresDeposit ? `Confirm & Pay Deposit $${depositAmountEstimate}` : `Confirm & Pay $${finalPrice}`}
-              </button>
+              {/* Hidden while the payment-failed panel is up -- retrying
+                  happens through its "Retry payment" button instead. */}
+              {!paymentFailed && (
+                <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (CAPTCHA_ENABLED && !captchaToken)}
+                  className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
+                  style={{ background: brand }}>
+                  {submitting ? 'Processing...' : requiresDeposit ? `Confirm & Pay Deposit $${depositAmountEstimate}` : `Confirm & Pay $${finalPrice}`}
+                </button>
+              )}
             </div>
             <p className="text-charcoal-600 text-xs text-center mt-6">Powered by ChairOS</p>
           </div>

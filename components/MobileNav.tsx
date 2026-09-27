@@ -48,7 +48,7 @@ export default function MobileNav() {
         <div className="md:hidden fixed inset-0 bg-black/40 z-[60]" onClick={() => setMoreOpen(false)}>
           <div
             onClick={e => e.stopPropagation()}
-            className="fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] rounded-t-2xl p-4 pb-8 max-h-[70vh] overflow-y-auto"
+            className="fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] rounded-t-2xl p-4 pb-8 pb-safe-sheet max-h-[70vh] overflow-y-auto"
           >
             <div className="w-10 h-1 bg-warm-300 dark:bg-[#3A3A34] rounded-full mx-auto mb-4" />
             <div className="grid grid-cols-4 gap-3">
@@ -68,7 +68,7 @@ export default function MobileNav() {
         </div>
       )}
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] px-2 py-2 flex justify-around z-50">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] px-2 py-2 pb-safe flex justify-around z-50">
         {ITEMS.map((item) => {
           const active = item.href === '/dashboard/insights'
             ? ['/dashboard/analytics', '/dashboard/insights', '/dashboard/revenue'].some(p => pathname === p || pathname.startsWith(p + '/'))
