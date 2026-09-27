@@ -47,51 +47,54 @@ workflows:
     artifacts:
       - /tmp/xcodebuild_logs/*.log
 
-  ios-testflight:
-    name: ChairOS iOS TestFlight
-    max_build_duration: 60
-    instance_type: mac_mini_m2
-    environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_ids:
-          - cc.chairos.app
-      vars:
-        # Provided by Codemagic's automatic code signing integration.
-        APP_STORE_CONNECT_ISSUER_ID: Encrypted(...)
-        APP_STORE_CONNECT_KEY_IDENTIFIER: Encrypted(...)
-        APP_STORE_CONNECT_PRIVATE_KEY: Encrypted(...)
-        CERTIFICATE_PRIVATE_KEY: Encrypted(...)
-      node: 20
-      xcode: latest
-      cocoapods: default
-    scripts:
-      - name: Install dependencies
-        script: npm ci
-      - name: Sync Capacitor iOS project
-        script: npx cap sync ios
-      - name: Set up keychain for code signing
-        script: keychain initialize
-      - name: Fetch signing files
-        script: |
-          app-store-connect fetch-signing-files "cc.chairos.app" \
-            --type IOS_APP_STORE \
-            --create
-      - name: Set up signing certificate
-        script: keychain add-certificates
-      - name: Set up code signing settings
-        script: xcode-project use-profiles
-      - name: Build IPA
-        script: |
-          xcode-project build-ipa \
-            --workspace "ios/App/App.xcworkspace" \
-            --scheme "App"
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-    publishing:
-      app_store_connect:
-        auth: integration
-        # Uploads to TestFlight; submit_to_app_store stays manual until
-        # Thomas gives the word after testing the build.
-        submit_to_testflight: true
+  # NOTE: the ios-testflight workflow lives below, commented out, until the
+  # paid Apple Developer enrollment exists. It cannot validate without the
+  # App Store Connect integration and real signing identities, so it stays
+  # parked here rather than breaking validation of the free workflow above.
+  #
+  # --- PARKED: ios-testflight (uncomment after Apple enrollment) ---
+  # ios-testflight:
+  #   name: ChairOS iOS TestFlight
+  #   max_build_duration: 60
+  #   instance_type: mac_mini_m2
+  #   environment:
+  #     ios_signing:
+  #       distribution_type: app_store
+  #       bundle_ids:
+  #         - cc.chairos.app
+  #     vars:
+  #       APP_STORE_CONNECT_ISSUER_ID: Encrypted(...)
+  #       APP_STORE_CONNECT_KEY_IDENTIFIER: Encrypted(...)
+  #       APP_STORE_CONNECT_PRIVATE_KEY: Encrypted(...)
+  #       CERTIFICATE_PRIVATE_KEY: Encrypted(...)
+  #     node: 20
+  #     xcode: latest
+  #     cocoapods: default
+  #   scripts:
+  #     - name: Install dependencies
+  #       script: npm ci
+  #     - name: Sync Capacitor iOS project
+  #       script: npx cap sync ios
+  #     - name: Set up keychain for code signing
+  #       script: keychain initialize
+  #     - name: Fetch signing files
+  #       script: |
+  #         app-store-connect fetch-signing-files "cc.chairos.app" \
+  #           --type IOS_APP_STORE \
+  #           --create
+  #     - name: Set up signing certificate
+  #       script: keychain add-certificates
+  #     - name: Set up code signing settings
+  #       script: xcode-project use-profiles
+  #     - name: Build IPA
+  #       script: |
+  #         xcode-project build-ipa \
+  #           --workspace "ios/App/App.xcworkspace" \
+  #           --scheme "App"
+  #   artifacts:
+  #     - build/ios/ipa/*.ipa
+  #     - /tmp/xcodebuild_logs/*.log
+  #   publishing:
+  #     app_store_connect:
+  #       auth: integration
+  #       submit_to_testflight: true
