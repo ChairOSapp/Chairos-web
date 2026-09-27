@@ -10,6 +10,7 @@ import BriefCard from '@/components/BriefCard'
 import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
 import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
+import { squareCardInputStyle } from '@/lib/squareCard'
 
 export default function BarberDashboard() {
   const [profile, setProfile] = useState<any>(null)
@@ -219,7 +220,7 @@ export default function BarberDashboard() {
         if (!isMounted) return
         const paymentsInstance = await payments(appId!, locationId)
         if (!isMounted || !paymentsInstance) throw new Error('Square payments init returned null')
-        const card = await paymentsInstance.card()
+        const card = await paymentsInstance.card({ style: squareCardInputStyle(false) })
         if (!isMounted) return
         await card.attach('#rent-card-container')
         if (!isMounted) return

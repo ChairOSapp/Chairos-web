@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { squareCardInputStyle } from '@/lib/squareCard'
 
 type PortalShop = { shopId: string; shopName: string; shopCode: string | null; vertical: string; referralProgramEnabled: boolean; referralRewardType: string | null; referralRewardValue: number | null }
 type PortalClient = {
@@ -136,7 +137,7 @@ export default function ClientPortalPage() {
         if (!isMounted) return
         const paymentsInstance = await payments(appId!, locationId)
         if (!isMounted || !paymentsInstance) return
-        const card = await paymentsInstance.card()
+        const card = await paymentsInstance.card({ style: squareCardInputStyle(true) })
         if (!isMounted) return
         await card.attach('#portal-square-card')
         if (!isMounted) return
@@ -279,7 +280,7 @@ export default function ClientPortalPage() {
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 000-0000"
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors mb-4" />
                 <button onClick={sendCode} disabled={authBusy || phone.replace(/\D/g, '').length < 10}
-                  className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-black bg-od-green disabled:opacity-50">
+                  className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-white bg-od-green disabled:opacity-50">
                   {authBusy ? 'Sending…' : 'Send Code'}
                 </button>
               </>
@@ -290,7 +291,7 @@ export default function ClientPortalPage() {
                 <input type="text" inputMode="numeric" value={code} onChange={e => setCode(e.target.value)} placeholder="000000"
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm font-mono outline-none focus:border-od-green transition-colors mb-4" />
                 <button onClick={verifyCode} disabled={authBusy || code.length < 6}
-                  className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-black bg-od-green disabled:opacity-50 mb-2">
+                  className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-white bg-od-green disabled:opacity-50 mb-2">
                   {authBusy ? 'Verifying…' : 'Verify & Sign In'}
                 </button>
                 <button onClick={() => { setOtpSent(false); setCode(''); setAuthError('') }} className="w-full text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">
@@ -328,7 +329,7 @@ export default function ClientPortalPage() {
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                tab === t.key ? 'bg-od-green text-black' : 'bg-warm-200 text-charcoal-500 hover:text-charcoal-900'
+                tab === t.key ? 'bg-od-green text-white' : 'bg-warm-200 text-charcoal-500 hover:text-charcoal-900'
               }`}>
               {t.label}
             </button>
@@ -439,7 +440,7 @@ export default function ClientPortalPage() {
                             <div className="flex-1 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-700 text-xs break-all font-mono">{link}</div>
                             <button
                               onClick={() => { navigator.clipboard.writeText(link); setCopiedReferralShopId(s.shopId); setTimeout(() => setCopiedReferralShopId(null), 2000) }}
-                              className="flex-shrink-0 px-3 py-2 bg-od-green text-black text-xs font-semibold rounded-lg hover:opacity-90 transition-opacity">
+                              className="flex-shrink-0 px-3 py-2 bg-od-green text-white text-xs font-semibold rounded-lg hover:opacity-90 transition-opacity">
                               {copiedReferralShopId === s.shopId ? 'Copied!' : 'Copy'}
                             </button>
                           </div>
@@ -508,7 +509,7 @@ export default function ClientPortalPage() {
                   )}
                 </div>
                 <button onClick={handleSaveCard} disabled={saving || !cardReady}
-                  className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-black bg-od-green disabled:opacity-50">
+                  className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-white bg-od-green disabled:opacity-50">
                   {saving ? 'Saving…' : 'Save Card'}
                 </button>
                 <label className="flex items-start gap-3 cursor-pointer mt-3">

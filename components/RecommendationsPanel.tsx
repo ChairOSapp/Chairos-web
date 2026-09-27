@@ -74,7 +74,7 @@ export default function RecommendationsPanel({ shopId }: { shopId: string }) {
         <button
           onClick={checkNow}
           disabled={checking}
-          className="bg-od-green text-black font-semibold px-4 py-2 rounded-lg text-sm hover:bg-od-green-light transition-colors disabled:opacity-50"
+          className="bg-od-green text-white font-semibold px-4 py-2 rounded-lg text-sm hover:bg-od-green-light transition-colors disabled:opacity-50"
         >
           {checking ? 'Checking…' : 'Check Now'}
         </button>

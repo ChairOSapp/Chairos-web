@@ -7,6 +7,7 @@ import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 import { initMetaPixel, initGoogleTag, trackMetaEvent, trackGoogleEvent } from '@/lib/tracking'
 import { timeStrToMinutes } from '@/lib/availability'
 import { DAY_NAMES, findApplicablePricing, promoActiveOn, isPromoRule, ruleLabel, type PricingRule } from '@/lib/pricing'
+import { squareCardInputStyle } from '@/lib/squareCard'
 import { StepPanel, Pressable } from '@/components/motion'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
@@ -363,7 +364,7 @@ function BookingPageInner() {
         const paymentsInstance = await payments(appId!, locationId)
         if (!isMounted) return
         if (!paymentsInstance) throw new Error('Square payments init returned null')
-        const card = await paymentsInstance.card()
+        const card = await paymentsInstance.card({ style: squareCardInputStyle(true) })
         if (!isMounted) return
         await card.attach('#square-card-container')
         if (!isMounted) return

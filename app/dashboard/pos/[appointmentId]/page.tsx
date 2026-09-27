@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import ClientNotes from '@/components/ClientNotes'
+import { squareCardInputStyle } from '@/lib/squareCard'
 
 const TIP_PRESETS = [
   { label: '15%', pct: 0.15 },
@@ -132,7 +133,7 @@ export default function POSCheckout() {
         const p = await payments(appId!, locationId)
         if (!mounted) return
         if (!p) throw new Error('Square payments SDK failed to initialize')
-        const card = await p.card()
+        const card = await p.card({ style: squareCardInputStyle(true) })
         if (!mounted) return
         await card.attach('#pos-card-container')
         if (!mounted) return

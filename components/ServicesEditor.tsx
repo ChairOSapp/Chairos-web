@@ -254,7 +254,7 @@ export default function ServicesEditor({ shopId }: { shopId: string }) {
             <button
               onClick={save}
               disabled={saving}
-              className="bg-od-green text-black font-semibold px-5 py-2 rounded-lg text-sm hover:bg-od-green-light transition-colors disabled:opacity-50"
+              className="bg-od-green text-white font-semibold px-5 py-2 rounded-lg text-sm hover:bg-od-green-light transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving…' : editing === 'new' ? 'Add Service' : 'Save Changes'}
             </button>

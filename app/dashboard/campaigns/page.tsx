@@ -438,7 +438,7 @@ function CampaignsInner() {
                 <button
                   key={i}
                   onClick={() => setBuilderStep(i + 1)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${builderStep === i + 1 ? 'bg-od-green text-black' : 'bg-warm-200 text-charcoal-500 hover:bg-warm-300'}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${builderStep === i + 1 ? 'bg-od-green text-white' : 'bg-warm-200 text-charcoal-500 hover:bg-warm-300'}`}
                 >
                   {i + 1}. {label}
                 </button>
@@ -476,7 +476,7 @@ function CampaignsInner() {
                   <button
                     onClick={handleGenerate}
                     disabled={!intent.trim() || generating}
-                    className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm disabled:opacity-50 hover:bg-od-green-light transition-colors"
+                    className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm disabled:opacity-50 hover:bg-od-green-light transition-colors"
                   >
                     {generating ? 'Writing...' : 'Write my message'}
                   </button>
@@ -532,7 +532,7 @@ function CampaignsInner() {
                   <button onClick={handleGenerate} disabled={generating} className="text-sm text-od-green hover:text-od-green-light transition-colors disabled:opacity-50">
                     {generating ? 'Regenerating...' : '↻ Regenerate'}
                   </button>
-                  <button onClick={() => setBuilderStep(3)} className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
+                  <button onClick={() => setBuilderStep(3)} className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
                     Audience
                   </button>
                 </div>
@@ -667,7 +667,7 @@ function CampaignsInner() {
                 </div>
                 <div className="flex gap-3 justify-between mt-6">
                   <button onClick={() => setBuilderStep(2)} className="btn-chairos-outline">Back</button>
-                  <button onClick={() => setBuilderStep(4)} className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
+                  <button onClick={() => setBuilderStep(4)} className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
                     Channel
                   </button>
                 </div>
@@ -697,7 +697,7 @@ function CampaignsInner() {
                 )}
                 <div className="flex gap-3 justify-between mt-6">
                   <button onClick={() => setBuilderStep(3)} className="btn-chairos-outline">Back</button>
-                  <button onClick={() => setBuilderStep(5)} className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
+                  <button onClick={() => setBuilderStep(5)} className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
                     Schedule
                   </button>
                 </div>
@@ -769,7 +769,7 @@ function CampaignsInner() {
                 )}
                 <div className="flex gap-3 justify-between mt-6">
                   <button onClick={() => setBuilderStep(4)} className="btn-chairos-outline">Back</button>
-                  <button onClick={() => setBuilderStep(6)} className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
+                  <button onClick={() => setBuilderStep(6)} className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
                     Review
                   </button>
                 </div>
@@ -818,7 +818,7 @@ function CampaignsInner() {
                       {saving ? 'Saving...' : 'Save Draft'}
                     </button>
                     <button onClick={handleSend} disabled={sending || !name.trim()}
-                      className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors disabled:opacity-50">
+                      className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors disabled:opacity-50">
                       {sending ? 'Processing...' : scheduleType === 'now' ? 'Send Now' : 'Schedule Campaign'}
                     </button>
                   </div>
