@@ -20,6 +20,8 @@ interface Props {
   viewRange: { start: Date; end: Date } | null
   /** Resolve a barber id to a display name (owner view). Omit for single-staff view. */
   barberNameFor?: (barberId?: string) => string
+  /** Today's waiting walk-ins — shown as a pill in the day view. */
+  walkInCount?: number
 }
 
 function Pill({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'warn' | 'live' }) {
@@ -42,7 +44,7 @@ const LiveDot = () => <span className="w-1.5 h-1.5 rounded-full bg-red-500 anima
  * Slim "read your day at a glance" strip: who's in the chair, what's next,
  * what needs attention, and what's on the books. Day + week views only.
  */
-export default function DayGlance({ appointments, view, viewRange, barberNameFor }: Props) {
+export default function DayGlance({ appointments, view, viewRange, barberNameFor, walkInCount }: Props) {
   const glance = useMemo(() => {
     if (!viewRange || view === 'dayGridMonth') return null
     const live = appointments.filter(a => a.status !== 'cancelled' && a.status !== 'noshow')
@@ -113,6 +115,9 @@ export default function DayGlance({ appointments, view, viewRange, barberNameFor
               {!glance.isToday && <Pill>{glance.count} booked</Pill>}
               {glance.unconfirmed > 0 && (
                 <Pill tone="warn">{glance.unconfirmed} waiting to confirm</Pill>
+              )}
+              {glance.isToday && (walkInCount || 0) > 0 && (
+                <Pill tone="warn">{walkInCount} walk-in{(walkInCount || 0) === 1 ? '' : 's'} waiting</Pill>
               )}
               <Pill>{fmtPrice(glance.booked)} on the books</Pill>
             </>

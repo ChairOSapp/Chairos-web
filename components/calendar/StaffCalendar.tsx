@@ -7,10 +7,12 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { EventClickArg, DateSelectArg, DatesSetArg, EventContentArg } from '@fullcalendar/core'
 import { createClient } from '@/lib/supabase'
 import AppointmentPopover from './AppointmentPopover'
+import WalkInPopover from './WalkInPopover'
 import QuickBookModal from './QuickBookModal'
 import DayGlance, { type CalView } from './DayGlance'
 import { AnimatePresence } from '@/components/motion'
 import { tint, statusMeta, fmtTime12, fmtTimeShort, fmtPrice, toDateStr } from './calendarTheme'
+import { waitingLabel, type WalkIn } from '@/lib/walkIns'
 
 function addMins(time: string, mins: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -55,6 +57,9 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
   const [appointments, setAppointments] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
   const [popover, setPopover] = useState<{ appt: any; x: number; y: number } | null>(null)
+  const [walkInPopover, setWalkInPopover] = useState<{ walkIn: WalkIn; x: number; y: number } | null>(null)
+  const [walkIns, setWalkIns] = useState<WalkIn[]>([])
+  const [soloShop, setSoloShop] = useState(false)
   const [bookSlot, setBookSlot] = useState<{ date: string; time: string } | null>(null)
   const [showBook, setShowBook] = useState(openBookOnLoad || false)
   const calRef = useRef<FullCalendar>(null)
@@ -77,8 +82,12 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
 
   useEffect(() => {
     async function init() {
-      const { data: s } = await supabase.from('services').select('id, name, price').eq('shop_id', shopId).eq('active', true).order('price', { ascending: true })
+      const [{ data: s }, { count }] = await Promise.all([
+        supabase.from('services').select('id, name, price').eq('shop_id', shopId).eq('active', true).order('price', { ascending: true }),
+        supabase.from('shop_barbers').select('barber_id', { count: 'exact', head: true }).eq('shop_id', shopId).eq('active', true),
+      ])
       setServices(s || [])
+      setSoloShop((count ?? 1) <= 1)
       await loadAppointments()
     }
     init()
@@ -91,26 +100,73 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
     return () => { supabase.removeChannel(channel) }
   }, [barberId, supabase, loadAppointments])
 
-  const fcEvents = useMemo(() => appointments.map(a => {
-    const timeStr = a.time || '09:00:00'
-    return {
-      id: a.id,
-      title: a.client_name || 'Walk-in',
-      start: `${a.date}T${timeStr}`,
-      end: `${a.date}T${addMins(timeStr, 30)}`,
-      backgroundColor: 'transparent',
-      borderColor: 'transparent',
-      textColor: 'inherit',
-      extendedProps: {
-        ...a,
-        serviceName: a.services?.name || '',
-      },
-    }
-  }), [appointments])
+  // Today's waiting walk-ins for the whole shop — this barber can take any of them.
+  const loadWalkIns = useCallback(async () => {
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+    const { data } = await supabase
+      .from('walk_ins')
+      .select('*')
+      .eq('shop_id', shopId)
+      .eq('status', 'waiting')
+      .gte('created_at', startOfDay.toISOString())
+      .order('created_at', { ascending: true })
+    setWalkIns((data as WalkIn[]) || [])
+  }, [shopId, supabase])
+
+  useEffect(() => {
+    loadWalkIns()
+    const channel = supabase.channel('barber-cal-walkins')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'walk_ins', filter: `shop_id=eq.${shopId}` }, loadWalkIns)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [shopId, supabase, loadWalkIns])
+
+  const fcEvents = useMemo(() => {
+    const apptEvents = appointments.map(a => {
+      const timeStr = a.time || '09:00:00'
+      return {
+        id: a.id,
+        title: a.client_name || 'Walk-in',
+        start: `${a.date}T${timeStr}`,
+        end: `${a.date}T${addMins(timeStr, 30)}`,
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        textColor: 'inherit',
+        extendedProps: {
+          ...a,
+          serviceName: a.services?.name || '',
+        },
+      }
+    })
+    const walkInEvents = walkIns.map(w => {
+      const start = new Date(w.created_at)
+      const end = new Date(start.getTime() + 30 * 60000)
+      return {
+        id: `walkin-${w.id}`,
+        title: `Walk-in · ${w.client_name}`,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        textColor: 'inherit',
+        extendedProps: {
+          _walkIn: true,
+          _walkInData: w,
+        },
+      }
+    })
+    return [...apptEvents, ...walkInEvents]
+  }, [appointments, walkIns])
 
   function handleEventClick(info: EventClickArg) {
     info.jsEvent.preventDefault()
-    setPopover({ appt: { ...info.event.extendedProps, id: info.event.id }, x: info.jsEvent.clientX, y: info.jsEvent.clientY })
+    const props = info.event.extendedProps
+    if (props._walkIn) {
+      setWalkInPopover({ walkIn: props._walkInData as WalkIn, x: info.jsEvent.clientX, y: info.jsEvent.clientY })
+      return
+    }
+    setPopover({ appt: { ...props, id: info.event.id }, x: info.jsEvent.clientX, y: info.jsEvent.clientY })
   }
 
   function handleSelect(info: DateSelectArg) {
@@ -133,6 +189,40 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
 
   function renderEventContent(arg: EventContentArg) {
     const props = arg.event.extendedProps
+
+    // Walk-in blocks: dashed outline, clearly not a booked appointment.
+    if (props._walkIn) {
+      const w = props._walkInData as WalkIn
+      const firstName = (w.client_name || 'Walk-in').split(' ')[0]
+      const claimedByMe = w.requested_barber_id === barberId
+      if (arg.view.type === 'dayGridMonth') {
+        return (
+          <div className="flex items-center gap-1 px-1 py-px overflow-hidden">
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 border border-dashed border-amber-600" />
+            <span className="text-[10px] font-medium truncate text-amber-700">
+              Walk-in {firstName}
+            </span>
+          </div>
+        )
+      }
+      return (
+        <div
+          className="h-full w-full rounded-md px-2 py-1 overflow-hidden flex flex-col justify-center border-2 border-dashed"
+          style={{
+            borderColor: claimedByMe ? accent : '#d97706',
+            background: claimedByMe ? tint(accent, 0.08) : 'rgba(217,119,6,0.07)',
+          }}
+        >
+          <div className="text-[12px] font-bold truncate" style={{ color: '#92400e' }}>
+            Walk-in · {firstName}
+          </div>
+          <div className="text-[11px] leading-tight truncate" style={{ color: '#b45309' }}>
+            {waitingLabel(w.created_at)}{claimedByMe ? ' · Yours' : ''}
+          </div>
+        </div>
+      )
+    }
+
     const meta = statusMeta(props.status)
     const name = arg.event.title || 'Walk-in'
     const parts = name.split(' ')
@@ -233,7 +323,7 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
       </div>
 
       {/* Day at a glance */}
-      <DayGlance appointments={appointments} view={view} viewRange={viewRange} />
+      <DayGlance appointments={appointments} view={view} viewRange={viewRange} walkInCount={walkIns.length} />
 
       {/* Calendar */}
       <div className="flex-1 overflow-auto bg-warm-50">
@@ -280,6 +370,25 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
             isOwner={false}
             onClose={() => setPopover(null)}
             onUpdated={loadAppointments}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Walk-in popover */}
+      <AnimatePresence>
+        {walkInPopover && (
+          <WalkInPopover
+            walkIn={walkInPopover.walkIn}
+            shopId={shopId}
+            barbers={[{ barber_id: barberId, barber_name: barberName }]}
+            services={services}
+            isOwner={false}
+            actingBarberId={barberId}
+            solo={soloShop}
+            x={walkInPopover.x}
+            y={walkInPopover.y}
+            onClose={() => setWalkInPopover(null)}
+            onChanged={loadWalkIns}
           />
         )}
       </AnimatePresence>

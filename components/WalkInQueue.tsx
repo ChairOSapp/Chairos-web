@@ -1,27 +1,18 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useVerticalLabels } from '@/lib/VerticalContext'
-
-type WalkIn = {
-  id: string
-  client_name: string
-  client_phone: string
-  requested_barber_id: string | null
-  service_id: string | null
-  status: string
-  created_at: string
-}
+import { claimWalkIn, finishWalkIn, removeWalkIn, seatWalkIn, waitingLabel, type WalkIn } from '@/lib/walkIns'
 
 type Barber = { id: string; barber_id: string; barber_name: string; alias: string }
 type Service = { id: string; name: string; price: number }
 
 // Shared by app/dashboard/page.tsx (owner, shop-wide) and
 // app/dashboard/chair/page.tsx (staff, same shop). When actingBarberId is
-// set, "Start Service" assigns to that staff member directly (the chair
-// dashboard case). When it's null, the caller must pick a barber per row
-// first (the owner dashboard case, since the owner isn't a specific
-// staff member).
+// set, the viewer is a barber: they get one-tap Take (claim for themselves)
+// plus Start. When it's null, the viewer is the owner: they get an Assign
+// dropdown per row plus Start. When the shop has exactly one active barber
+// (solo), all assignment ceremony is skipped: Start + Done only.
 export default function WalkInQueue({
   shopId,
   shopCode,
@@ -37,11 +28,22 @@ export default function WalkInQueue({
   services: Service[]
   onConverted?: () => void
 }) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { staffLabel } = useVerticalLabels()
   const [queue, setQueue] = useState<WalkIn[]>([])
   const [assignBarber, setAssignBarber] = useState<{ [id: string]: string }>({})
   const [busy, setBusy] = useState<{ [id: string]: boolean }>({})
+  const [notice, setNotice] = useState<string | null>(null)
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const solo = barbers.length === 1
+  const soloBarberId = solo ? barbers[0].barber_id : null
+
+  const flash = useCallback((msg: string) => {
+    setNotice(msg)
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    noticeTimer.current = setTimeout(() => setNotice(null), 4500)
+  }, [])
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -50,80 +52,72 @@ export default function WalkInQueue({
       .eq('shop_id', shopId)
       .eq('status', 'waiting')
       .order('created_at', { ascending: true })
-    setQueue(data || [])
-  }, [shopId])
+    setQueue((data as WalkIn[]) || [])
+  }, [shopId, supabase])
 
   useEffect(() => {
     load()
-    const interval = setInterval(load, 20000)
-    return () => clearInterval(interval)
-  }, [load])
+    const channel = supabase
+      .channel(`walkin-queue-${shopId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'walk_ins', filter: `shop_id=eq.${shopId}` },
+        load,
+      )
+      .subscribe()
+    const interval = setInterval(load, 30000) // backup in case realtime drops
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(interval)
+    }
+  }, [load, shopId, supabase])
 
-  async function startService(walkIn: WalkIn) {
-    const barberId = actingBarberId || assignBarber[walkIn.id]
-    if (!barberId) return
+  const barberName = useCallback(
+    (id?: string | null) => {
+      if (!id) return ''
+      const b = barbers.find(x => x.barber_id === id)
+      return b?.barber_name || b?.alias || ''
+    },
+    [barbers],
+  )
+
+  async function take(walkIn: WalkIn) {
+    if (!actingBarberId) return
     setBusy(prev => ({ ...prev, [walkIn.id]: true }))
-
-    const service = services.find(s => s.id === walkIn.service_id)
-    const now = new Date()
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const time24 = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`
-
-    // Same lookup-or-create + client-generated-UUID pattern already
-    // proven in app/dashboard/chair/page.tsx's handleWalkIn().
-    const normalizedPhone = walkIn.client_phone.replace(/\D/g, '')
-    let clientId: string | null = null
-    const { data: rpcData } = await supabase
-      .rpc('find_client_for_booking', { p_phone: normalizedPhone, p_shop_id: shopId })
-    const existing = rpcData?.[0]
-    if (existing?.client_id) {
-      clientId = existing.client_id
-    } else {
-      const newId = crypto.randomUUID()
-      const { error: newClientErr } = await supabase
-        .from('clients')
-        .insert({ id: newId, full_name: walkIn.client_name, phone: normalizedPhone, source: 'walk_in' })
-      clientId = newClientErr ? null : newId
-    }
-
-    if (clientId) {
-      fetch('/api/book/membership', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, shopId }),
-      }).catch(() => {})
-    }
-
-    const { data: newAppt } = await supabase.from('appointments').insert({
-      shop_id: shopId,
-      barber_id: barberId,
-      service_id: walkIn.service_id,
-      client_id: clientId,
-      client_name: walkIn.client_name,
-      client_phone: walkIn.client_phone,
-      date: today,
-      time: time24,
-      price: service?.price ?? 0,
-      status: 'confirmed',
-      source: 'walk_in',
-    }).select('id').single()
-
-    await supabase.from('walk_ins').update({
-      status: 'in_service',
-      called_at: new Date().toISOString(),
-      appointment_id: newAppt?.id ?? null,
-      client_id: clientId,
-    }).eq('id', walkIn.id)
-
-    setBusy(prev => ({ ...prev, [walkIn.id]: false }))
+    const result = await claimWalkIn(supabase, walkIn, actingBarberId)
+    if (result === 'taken') flash('Someone already took this one — the queue is refreshed.')
     await load()
-    onConverted?.()
+    setBusy(prev => ({ ...prev, [walkIn.id]: false }))
   }
 
-  async function dismiss(id: string) {
-    setBusy(prev => ({ ...prev, [id]: true }))
-    await supabase.from('walk_ins').update({ status: 'cancelled' }).eq('id', id)
-    setBusy(prev => ({ ...prev, [id]: false }))
+  async function start(walkIn: WalkIn) {
+    const barberId = soloBarberId || actingBarberId || assignBarber[walkIn.id] || walkIn.requested_barber_id
+    if (!barberId) return
+    setBusy(prev => ({ ...prev, [walkIn.id]: true }))
+    const { taken, error } = await seatWalkIn(supabase, shopId, walkIn, barberId, services)
+    if (taken) {
+      flash('Someone already started this one — the queue is refreshed.')
+    } else if (error) {
+      flash(error)
+    }
+    setBusy(prev => ({ ...prev, [walkIn.id]: false }))
+    await load()
+    if (!taken && !error) onConverted?.()
+  }
+
+  async function done(walkIn: WalkIn) {
+    setBusy(prev => ({ ...prev, [walkIn.id]: true }))
+    const ok = await finishWalkIn(supabase, walkIn.id)
+    if (!ok) flash('That one is already handled — the queue is refreshed.')
+    setBusy(prev => ({ ...prev, [walkIn.id]: false }))
+    await load()
+  }
+
+  async function dismiss(walkIn: WalkIn) {
+    setBusy(prev => ({ ...prev, [walkIn.id]: true }))
+    const ok = await removeWalkIn(supabase, walkIn.id)
+    if (!ok) flash('That one is already handled — the queue is refreshed.')
+    setBusy(prev => ({ ...prev, [walkIn.id]: false }))
     await load()
   }
 
@@ -143,44 +137,92 @@ export default function WalkInQueue({
       <h3 className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">
         Walk-in Queue ({queue.length})
       </h3>
+      {notice && (
+        <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+          {notice}
+        </div>
+      )}
       <div className="space-y-2">
         {queue.map(w => {
-          const requested = barbers.find(b => b.barber_id === w.requested_barber_id)
+          const requested = barberName(w.requested_barber_id)
+          const service = services.find(s => s.id === w.service_id)
+          const claimedByMe = !!actingBarberId && w.requested_barber_id === actingBarberId
+          const claimedByOther = !!w.requested_barber_id && !claimedByMe
+          const startBarberId = soloBarberId || actingBarberId || assignBarber[w.id] || w.requested_barber_id
           return (
             <div key={w.id} className="flex items-center justify-between gap-3 bg-warm-50 border border-warm-200 rounded-lg px-4 py-3">
-              <div>
-                <div className="text-sm font-medium text-charcoal-900">{w.client_name}</div>
-                <div className="text-xs text-charcoal-500">
-                  {requested ? `Requested ${requested.barber_name || requested.alias}` : `No ${staffLabel.toLowerCase()} preference`}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-charcoal-900">{w.client_name}</span>
+                  <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 whitespace-nowrap">
+                    {waitingLabel(w.created_at)}
+                  </span>
+                </div>
+                <div className="text-xs text-charcoal-500 mt-0.5">
+                  {service ? `${service.name} · ` : ''}
+                  {requested ? `Wants ${requested}` : `No ${staffLabel.toLowerCase()} preference`}
+                  {claimedByMe && <span className="text-od-green font-semibold"> · Yours</span>}
+                  {claimedByOther && <span className="font-semibold"> · With {requested}</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {!actingBarberId && (
-                  <select
-                    value={assignBarber[w.id] || w.requested_barber_id || ''}
-                    onChange={e => setAssignBarber(prev => ({ ...prev, [w.id]: e.target.value }))}
-                    className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-1.5 text-xs text-charcoal-900 outline-none"
-                  >
-                    <option value="">Assign {staffLabel.toLowerCase()}...</option>
-                    {barbers.map(b => (
-                      <option key={b.id} value={b.barber_id}>{b.barber_name || b.alias}</option>
-                    ))}
-                  </select>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {solo ? (
+                  <>
+                    <button
+                      onClick={() => start(w)}
+                      disabled={busy[w.id]}
+                      className="bg-od-green hover:opacity-90 disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-opacity min-h-[40px]"
+                    >
+                      {busy[w.id] ? 'Working…' : 'Start'}
+                    </button>
+                    <button
+                      onClick={() => done(w)}
+                      disabled={busy[w.id]}
+                      className="bg-warm-200 hover:bg-warm-300 disabled:opacity-50 text-charcoal-600 text-xs font-semibold px-3 py-2 rounded-lg transition-colors min-h-[40px]"
+                    >
+                      Done
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {actingBarberId && !w.requested_barber_id && (
+                      <button
+                        onClick={() => take(w)}
+                        disabled={busy[w.id]}
+                        className="bg-od-green/10 hover:bg-od-green/20 disabled:opacity-50 text-od-green border border-od-green/30 text-xs font-semibold px-3 py-2 rounded-lg transition-colors min-h-[40px]"
+                      >
+                        Take
+                      </button>
+                    )}
+                    {!actingBarberId && (
+                      <select
+                        value={assignBarber[w.id] || w.requested_barber_id || ''}
+                        onChange={e => setAssignBarber(prev => ({ ...prev, [w.id]: e.target.value }))}
+                        className="bg-warm-200 border border-warm-300 rounded-lg px-2 py-2 text-xs text-charcoal-900 outline-none min-h-[40px] max-w-[140px]"
+                        aria-label={`Assign ${staffLabel.toLowerCase()}`}
+                      >
+                        <option value="">Assign {staffLabel.toLowerCase()}…</option>
+                        {barbers.map(b => (
+                          <option key={b.id} value={b.barber_id}>{b.barber_name || b.alias}</option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      onClick={() => start(w)}
+                      disabled={busy[w.id] || !startBarberId}
+                      className="bg-od-green hover:opacity-90 disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-opacity min-h-[40px]"
+                    >
+                      {busy[w.id] ? 'Working…' : 'Start'}
+                    </button>
+                    <button
+                      onClick={() => dismiss(w)}
+                      disabled={busy[w.id]}
+                      className="text-charcoal-500 hover:text-charcoal-300 text-xs px-2 py-2 transition-colors min-h-[40px]"
+                    >
+                      Remove
+                    </button>
+                  </>
                 )}
-                <button
-                  onClick={() => startService(w)}
-                  disabled={busy[w.id] || (!actingBarberId && !assignBarber[w.id] && !w.requested_barber_id)}
-                  className="bg-od-green hover:bg-od-green-light disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  Start Service
-                </button>
-                <button
-                  onClick={() => dismiss(w.id)}
-                  disabled={busy[w.id]}
-                  className="text-charcoal-500 hover:text-charcoal-300 text-xs px-2 py-1.5 transition-colors"
-                >
-                  Dismiss
-                </button>
               </div>
             </div>
           )

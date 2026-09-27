@@ -231,7 +231,7 @@ export default function QuickBookModal({
           {/* When */}
           <section>
             <SectionTitle>When?</SectionTitle>
-            <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="min-w-0">
                 <FieldLabel>Date</FieldLabel>
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
@@ -271,7 +271,7 @@ export default function QuickBookModal({
           {/* Service */}
           <section>
             <SectionTitle>Service</SectionTitle>
-            <div className="mt-3 grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-3">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="min-w-0">
                 <FieldLabel>Service</FieldLabel>
                 <div className="relative">
