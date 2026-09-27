@@ -1135,8 +1135,15 @@ function BookingPageInner() {
         </div>
       )}
 
-      <div style={{ background: shop.hero_url ? 'transparent' : `linear-gradient(135deg, color-mix(in srgb, ${brand} 38%, #0a0a0a), #0a0a0a)` }}
-        className={`px-6 pt-4 pb-5 border-b border-warm-200 ${shop.hero_url ? '-mt-16 relative z-10' : ''}`}>
+      {/* When a hero photo exists, the info block is taller than the photo
+          overlap -- its lower rows sit on the light page, not the photo.
+          So the info rides on its own dark card: white text stays readable
+          no matter how short the photo is. Without a photo, the full-bleed
+          dark band plays the same role. */}
+      <div className={shop.hero_url ? 'px-6 -mt-16 relative z-10' : 'px-6 py-5 border-b border-warm-200'}
+        style={shop.hero_url ? undefined : { background: `linear-gradient(135deg, color-mix(in srgb, ${brand} 38%, #0a0a0a), #0a0a0a)` }}>
+        <div className={shop.hero_url ? 'max-w-2xl mx-auto rounded-2xl px-5 py-4 shadow-xl border border-white/10' : 'max-w-2xl mx-auto'}
+          style={shop.hero_url ? { background: 'linear-gradient(135deg, #1b1b1f, #0a0a0a)' } : undefined}>
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-4">
             {shop.logo_url ? (
@@ -1201,6 +1208,7 @@ function BookingPageInner() {
             <p className="text-white/50 text-xs leading-relaxed">{shop.bio}</p>
           </div>
         )}
+        </div>
       </div>
 
       <div className="bg-warm-100 border-b border-warm-200 px-6 py-3">
