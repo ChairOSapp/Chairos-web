@@ -39,14 +39,14 @@ export default function KioskStatus() {
   }, [router, shopCode])
 
   if (notFound) return (
-    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
-      <p className="text-charcoal-500 text-sm">Check-in not found.</p>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-8">
+      <p className="text-charcoal-500 text-xl">We couldn't find that check-in. Ask us at the counter.</p>
     </div>
   )
 
   if (!data) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
+      <div className="w-10 h-10 rounded-full border-4 border-od-green border-t-transparent animate-spin" />
     </div>
   )
 
@@ -58,15 +58,19 @@ export default function KioskStatus() {
     'This check-in was cancelled.'
 
   return (
-    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md text-center">
-        <h1 className="font-serif text-2xl text-od-green mb-1">{data.shopName}</h1>
-        <div className="bg-warm-100 border border-warm-200 rounded-xl p-8 mt-6">
-          <p className="font-serif text-xl text-charcoal-900">{message}</p>
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-xl text-center">
+        <h1 className="font-serif text-4xl text-od-green mb-2">{data.shopName}</h1>
+        <div className="bg-warm-100 border border-warm-200 rounded-2xl p-10 md:p-14 mt-8">
+          <p className="font-serif text-4xl text-charcoal-900">{message}</p>
           {data.status === 'waiting' && (
-            <p className="text-charcoal-400 text-sm mt-2">We'll be ready for you shortly.</p>
+            <p className="text-charcoal-500 text-xl mt-4">We'll be ready for you shortly.</p>
           )}
-          <p className="text-charcoal-300 text-xs mt-6">Have a seat -- this screen is for the next check-in.</p>
+          <button type="button" onClick={() => router.push(`/kiosk/${shopCode}`)}
+            className="w-full mt-10 bg-od-green text-white font-bold rounded-xl text-2xl min-h-[76px] transition-transform active:scale-[0.98]">
+            Done
+          </button>
+          <p className="text-charcoal-400 text-lg mt-5">Have a seat — this screen clears itself for the next person.</p>
         </div>
       </div>
     </div>

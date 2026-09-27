@@ -79,7 +79,7 @@ export default function QuickBookModal({
   }
 
   async function submit() {
-    if (!date || !time || !clientName || !phone) { setError('Fill in all required fields.'); return }
+    if (!date || !time || !clientName || !phone) { setError("Add the client's name and phone number to book."); return }
     setSubmitting(true)
     setError('')
 
@@ -156,7 +156,7 @@ export default function QuickBookModal({
         {/* Header */}
         <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between flex-shrink-0">
           <div>
-            <div className="text-xs font-bold tracking-widest uppercase text-charcoal-400 mb-0.5">New Appointment</div>
+            <div className="text-xs font-bold tracking-widest uppercase text-charcoal-400 mb-0.5">New appointment</div>
             <div className="font-serif text-lg text-charcoal-900">{date === today ? 'Today' : new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {displayTime}</div>
           </div>
           <button onClick={onClose} className="text-charcoal-400 hover:text-charcoal-900 text-2xl leading-none transition-colors">×</button>
@@ -206,7 +206,7 @@ export default function QuickBookModal({
             <label className="block text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-1">Client Phone *</label>
             <input type="tel" value={phone} onChange={e => { setPhone(e.target.value); setFoundClientId(null) }}
               onFocus={() => phoneResults.length > 0 && setShowPhoneDrop(true)}
-              placeholder="e.g. 555-867-5309"
+              placeholder="(555) 123-4567"
               className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green" />
             {showPhoneDrop && (
               <div className="absolute z-10 left-0 right-0 mt-1 bg-warm-100 border border-warm-200 rounded-xl shadow-lg overflow-hidden">
@@ -217,7 +217,7 @@ export default function QuickBookModal({
                     <div className="text-xs text-charcoal-400">{c.phone}{c.last_visit_date ? ` · last visit ${new Date(c.last_visit_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div>
                   </button>
                 ))}
-                {!phoneResults.length && <div className="px-3 py-2 text-xs text-charcoal-400">New client — will be created</div>}
+                {!phoneResults.length && <div className="px-3 py-2 text-xs text-charcoal-400">New client — we&apos;ll add them when you book</div>}
               </div>
             )}
           </div>
@@ -228,7 +228,7 @@ export default function QuickBookModal({
             <input type="text" value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Full name"
               className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green" />
             {!foundClientId && clientName && (
-              <div className="text-[10px] text-charcoal-400 mt-1">New client — will be saved on book</div>
+              <div className="text-[10px] text-charcoal-400 mt-1">New client — we&apos;ll save them when you book</div>
             )}
           </div>
 
@@ -239,7 +239,7 @@ export default function QuickBookModal({
               <select value={serviceId} onChange={e => onServiceChange(e.target.value)}
                 className="w-full bg-warm-200 border border-warm-300 rounded-xl px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green">
                 <option value="">Select…</option>
-                {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {services.map(s => <option key={s.id} value={s.id}>{s.name} — ${Number(s.price).toFixed(0)}</option>)}
               </select>
             </div>
             <div>
@@ -266,7 +266,7 @@ export default function QuickBookModal({
         <div className="px-5 py-4 border-t border-warm-200 flex-shrink-0">
           <button onClick={submit} disabled={submitting || !clientName || !phone}
             className="w-full py-3 bg-od-green hover:opacity-90 text-white font-bold text-sm rounded-xl transition-opacity disabled:opacity-50">
-            {submitting ? 'Booking…' : 'Book Appointment'}
+            {submitting ? 'Booking…' : 'Book appointment'}
           </button>
         </div>
       </ModalPanel>

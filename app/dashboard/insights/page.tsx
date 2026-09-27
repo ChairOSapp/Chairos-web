@@ -1248,7 +1248,7 @@ export default function InsightsPage() {
                               </div>
                               <div className="text-right">
                                 <div className="text-sm font-mono text-charcoal-500">${s.avgPrice.toFixed(0)}/avg</div>
-                                <div className="text-[10px] text-red-400">Consider raising price or removing</div>
+                                <div className="text-[10px] text-red-400">Maybe raise the price or drop it</div>
                               </div>
                             </div>
                           ))}
@@ -1434,7 +1434,7 @@ export default function InsightsPage() {
         {tab === 'ai' && (
           <div className="space-y-4">
             <BriefCard recipientName={profile?.full_name} />
-            <p className="text-xs text-charcoal-400 text-center">Daily briefs generate at 7am ET from the previous day&apos;s data.</p>
+            <p className="text-xs text-charcoal-400 text-center">Your brief lands every morning at 7am ET, built from yesterday&apos;s numbers.</p>
           </div>
         )}
 

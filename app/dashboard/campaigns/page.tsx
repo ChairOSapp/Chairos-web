@@ -25,7 +25,7 @@ function audienceLabels(staffLabel: string): Record<string, string> {
     specific_service: 'By Service',
     no_booking_since: 'No Booking Since',
     has_tag: 'Has Tag',
-    manual_list: 'Manual Entry (type emails/phones)',
+    manual_list: 'Manual list — type them in yourself',
   }
 }
 
@@ -192,7 +192,7 @@ function CampaignsInner() {
   }
 
   async function handleGenerate() {
-    if (!intent.trim()) { setError('Enter an intent first'); return }
+    if (!intent.trim()) { setError('Tell us what the campaign is for first'); return }
     setGenerating(true)
     setError('')
     try {
@@ -246,7 +246,7 @@ function CampaignsInner() {
   }
 
   async function handleSaveDraft() {
-    if (!name.trim() || !intent.trim()) { setError('Name and intent are required'); return }
+    if (!name.trim() || !intent.trim()) { setError('Give it a name and tell us what it’s for'); return }
     setSaving(true)
     setError('')
     const payload = {
@@ -286,7 +286,7 @@ function CampaignsInner() {
   }
 
   async function handleSend() {
-    if (!name.trim() || !intent.trim()) { setError('Name and intent are required'); return }
+    if (!name.trim() || !intent.trim()) { setError('Give it a name and tell us what it’s for'); return }
     setSending(true)
     setError('')
     setSuccess('')
@@ -393,7 +393,7 @@ function CampaignsInner() {
           </div>
           <div className="space-y-2">
             {campaigns.length === 0 && (
-              <p className="text-charcoal-500 text-sm">No campaigns yet. Create one to get started.</p>
+              <p className="text-charcoal-500 text-sm">No campaigns yet. When you&apos;ve got slow days to fill, start one here.</p>
             )}
             {campaigns.map(c => (
               <button
@@ -448,7 +448,7 @@ function CampaignsInner() {
             {builderStep === 1 && (
               <div>
                 <h3 className="font-serif text-xl text-charcoal-900 mb-1">What is this campaign for?</h3>
-                <p className="text-charcoal-500 text-sm mb-4">Describe the goal in plain language. AI will write the message.</p>
+                <p className="text-charcoal-500 text-sm mb-4">Say what you&apos;re going for — we&apos;ll draft the message for you.</p>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Campaign Name</label>
@@ -477,7 +477,7 @@ function CampaignsInner() {
                     disabled={!intent.trim() || generating}
                     className="bg-od-green text-black font-semibold px-6 py-2.5 rounded-lg text-sm disabled:opacity-50 hover:bg-od-green-light transition-colors"
                   >
-                    {generating ? 'Generating...' : 'Generate Message'}
+                    {generating ? 'Writing...' : 'Write my message'}
                   </button>
                 </div>
               </div>
@@ -487,7 +487,7 @@ function CampaignsInner() {
             {builderStep === 2 && (
               <div>
                 <h3 className="font-serif text-xl text-charcoal-900 mb-1">Your message</h3>
-                <p className="text-charcoal-500 text-sm mb-4">AI-generated — edit freely.</p>
+                <p className="text-charcoal-500 text-sm mb-4">Drafted for you — make it yours.</p>
                 <div className="space-y-5">
                   <div>
                     <div className="flex items-center justify-between mb-2">
@@ -502,7 +502,7 @@ function CampaignsInner() {
                       rows={3}
                       className={`w-full bg-warm-200 border rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none transition-colors resize-none ${smsOver ? 'border-red-500' : 'border-warm-300 focus:border-od-green'}`}
                     />
-                    <p className="text-xs text-charcoal-500 mt-1">"Reply STOP to unsubscribe." will be appended automatically.</p>
+                    <p className="text-xs text-charcoal-500 mt-1">We&apos;ll add &quot;Reply STOP to opt out.&quot; automatically.</p>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Email Subject</label>
@@ -524,7 +524,7 @@ function CampaignsInner() {
                   </div>
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" checked={aiCurate} onChange={e => setAiCurate(e.target.checked)} className="w-4 h-4 accent-od-green" />
-                    <span className="text-sm text-charcoal-500">AI curate each send (regenerate message every recurring send)</span>
+                    <span className="text-sm text-charcoal-500">Freshen up the message each time it sends</span>
                   </label>
                 </div>
                 <div className="flex gap-3 justify-between mt-6">
@@ -542,7 +542,7 @@ function CampaignsInner() {
             {builderStep === 3 && (
               <div>
                 <h3 className="font-serif text-xl text-charcoal-900 mb-1">Who gets this?</h3>
-                <p className="text-charcoal-500 text-sm mb-4">Define your target audience.</p>
+                <p className="text-charcoal-500 text-sm mb-4">Pick who this goes to.</p>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Audience Type</label>
@@ -642,7 +642,7 @@ function CampaignsInner() {
                           <p className="text-sm font-semibold text-charcoal-900">
                             {manualEmails.split('\n').map(s => s.trim()).filter(Boolean).length + manualPhones.split('\n').map(s => s.trim()).filter(Boolean).length} recipients entered
                           </p>
-                          <p className="text-xs text-charcoal-500 mt-0.5">Consent checks are skipped for manual entries.</p>
+                          <p className="text-xs text-charcoal-500 mt-0.5">We skip consent checks for numbers you type in yourself.</p>
                         </div>
                       )}
                     </div>
@@ -657,7 +657,7 @@ function CampaignsInner() {
                         <div className="bg-warm-200 border border-warm-300 rounded-lg p-3">
                           <p className="text-sm font-semibold text-charcoal-900">{audiencePreview.count} clients will receive this campaign</p>
                           {audiencePreview.count === 0 && (
-                            <p className="text-xs text-amber-400 mt-1">No eligible recipients — check consent settings or adjust filters.</p>
+                            <p className="text-xs text-amber-400 mt-1">Nobody matches — loosen the filters or check consent settings.</p>
                           )}
                         </div>
                       )}
@@ -676,8 +676,8 @@ function CampaignsInner() {
             {/* Step 4 — Channel */}
             {builderStep === 4 && (
               <div>
-                <h3 className="font-serif text-xl text-charcoal-900 mb-1">How will you reach them?</h3>
-                <p className="text-charcoal-500 text-sm mb-4">Only clients with appropriate consent will receive messages.</p>
+                <h3 className="font-serif text-xl text-charcoal-900 mb-1">How should it go out?</h3>
+                <p className="text-charcoal-500 text-sm mb-4">Only clients who&apos;ve said yes to texts or emails will get this.</p>
                 <div className="flex gap-3">
                   {(['sms', 'email', 'both'] as const).map(c => (
                     <button
@@ -706,8 +706,8 @@ function CampaignsInner() {
             {/* Step 5 — Schedule */}
             {builderStep === 5 && (
               <div>
-                <h3 className="font-serif text-xl text-charcoal-900 mb-1">When should this send?</h3>
-                <p className="text-charcoal-500 text-sm mb-4">Send now or schedule for later.</p>
+                <h3 className="font-serif text-xl text-charcoal-900 mb-1">When should it go out?</h3>
+                <p className="text-charcoal-500 text-sm mb-4">Send it now or pick a time.</p>
                 <div className="flex gap-3 mb-6">
                   {(['now', 'once', 'recurring'] as const).map(s => (
                     <button
@@ -779,7 +779,7 @@ function CampaignsInner() {
             {builderStep === 6 && (
               <div>
                 <h3 className="font-serif text-xl text-charcoal-900 mb-1">Review & Send</h3>
-                <p className="text-charcoal-500 text-sm mb-4">Confirm everything looks right before sending.</p>
+                <p className="text-charcoal-500 text-sm mb-4">Give it a once-over before it goes out.</p>
                 <div className="bg-warm-200 border border-warm-300 rounded-xl p-4 space-y-3 mb-6">
                   {[
                     { label: 'Name', value: name || '—' },

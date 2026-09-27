@@ -20,8 +20,9 @@ const OwnerCalendar = dynamic(
 
 function Spinner() {
   return (
-    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+    <div className="min-h-screen bg-warm-50 flex flex-col items-center justify-center gap-3">
       <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
+      <div className="text-sm text-charcoal-500">Loading your calendar…</div>
     </div>
   )
 }

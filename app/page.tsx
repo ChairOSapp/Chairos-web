@@ -36,7 +36,7 @@ const FEATURE_STRIP: string[] = [
   'AI drafts your campaigns. You approve and send.',
   'AI drafts responses to your reviews. You approve it, then post it wherever the review lives.',
   'ChairOS flags what needs attention: slow days, clients going cold, ticket averages sliding, with the real numbers behind every flag.',
-  'Recovers bookings people started but did not finish, with an automatic follow-up text.',
+  'Texts people who started booking but didn’t finish, to win them back.',
   'Clients get their own portal: saved card, booking history, one-tap rebook, no app download required.',
 ]
 
@@ -211,7 +211,7 @@ export default function LandingPage() {
               US Navy Veteran &middot; Licensed Barber &middot; Former Shop Owner &middot; Barbering Instructor &middot; Infrastructure Engineer
             </div>
             <p style={{ fontSize: '14.5px', color: '#4F4F48', lineHeight: 1.7, margin: 0 }}>
-              I built ChairOS after years behind the chair as a licensed barber and shop owner, dealing with the same problems independent shops face every day: disconnected tools, messy compensation, limited visibility, and no real way to understand the client relationships behind the revenue. As a barbering instructor, I kept thinking about the tools I wished I could hand my students. My background as a Navy veteran and my current work as an infrastructure engineer gave me the skills to actually build it. ChairOS is the system I wanted when I was running a shop.
+              I built ChairOS after years behind the chair as a licensed barber and shop owner, dealing with the same problems independent shops face every day: juggling disconnected tools, messy pay setups, and no real picture of the client relationships behind the revenue. As a barbering instructor, I kept thinking about the tools I wished I could hand my students. My background as a Navy veteran and my current work as an infrastructure engineer gave me the skills to actually build it. ChairOS is the system I wanted when I was running a shop.
             </p>
           </div>
         </div>

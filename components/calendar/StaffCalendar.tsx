@@ -8,8 +8,9 @@ import type { EventClickArg, DateSelectArg, DatesSetArg, EventContentArg } from 
 import { createClient } from '@/lib/supabase'
 import AppointmentPopover from './AppointmentPopover'
 import QuickBookModal from './QuickBookModal'
-
-type CalView = 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth'
+import DayGlance, { type CalView } from './DayGlance'
+import { AnimatePresence } from '@/components/motion'
+import { tint, statusMeta, fmtTime12, fmtTimeShort, fmtPrice, toDateStr } from './calendarTheme'
 
 function addMins(time: string, mins: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -26,19 +27,31 @@ function getDateLabel(view: CalView, d: Date): string {
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
+const FC_CSS = `
+.chairos-cal .fc-timegrid-now-indicator-line { border-color: #dc2626; border-top-width: 2px; }
+.chairos-cal .fc-timegrid-now-indicator-arrow { border-top-color: #dc2626; border-bottom-color: #dc2626; }
+.chairos-cal .fc-day-today { background: ${tint('#4B5320', 0.05)} !important; }
+.chairos-cal .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion { color: #4B5320; font-weight: 800; }
+.chairos-cal .fc-timegrid-slot { height: 40px; }
+.chairos-cal .fc-event { box-shadow: none; background: transparent; border: none; }
+.chairos-cal .fc-daygrid-event { background: transparent; border: none; }
+.chairos-cal .fc-v-event .fc-event-main { padding: 0; }
+`
+
 interface Props {
   shopId: string
   barberId: string
   barberName: string
+  /** The barber's own staff color (falls back to brand olive). */
+  color?: string
   shopCode?: string
   openBookOnLoad?: boolean
 }
 
-const EVENT_COLOR = '#4B5320'
-
-export default function StaffCalendar({ shopId, barberId, barberName, shopCode, openBookOnLoad }: Props) {
+export default function StaffCalendar({ shopId, barberId, barberName, color, shopCode, openBookOnLoad }: Props) {
   const [view, setView] = useState<CalView>('dayGridMonth')
   const [viewStart, setViewStart] = useState(new Date())
+  const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
   const [appointments, setAppointments] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
   const [popover, setPopover] = useState<{ appt: any; x: number; y: number } | null>(null)
@@ -46,18 +59,18 @@ export default function StaffCalendar({ shopId, barberId, barberName, shopCode, 
   const [showBook, setShowBook] = useState(openBookOnLoad || false)
   const calRef = useRef<FullCalendar>(null)
   const supabase = useMemo(() => createClient(), [])
+  const accent = color || '#4B5320'
 
   const loadAppointments = useCallback(async () => {
     const now = new Date()
     const past = new Date(now.getFullYear(), now.getMonth() - 3, 1)
     const future = new Date(now.getFullYear(), now.getMonth() + 4, 0)
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
     const { data } = await supabase
       .from('appointments')
       .select('*, services(name, price)')
       .eq('barber_id', barberId)
-      .gte('date', fmt(past))
-      .lte('date', fmt(future))
+      .gte('date', toDateStr(past))
+      .lte('date', toDateStr(future))
       .order('date').order('time', { ascending: true })
     setAppointments(data || [])
   }, [barberId, supabase])
@@ -78,31 +91,19 @@ export default function StaffCalendar({ shopId, barberId, barberName, shopCode, 
     return () => { supabase.removeChannel(channel) }
   }, [barberId, supabase, loadAppointments])
 
-  // Week revenue
-  const weekRevenue = useMemo(() => {
-    if (view !== 'timeGridWeek') return null
-    const start = new Date(viewStart)
-    const end = new Date(viewStart); end.setDate(end.getDate() + 7)
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-    return appointments
-      .filter(a => a.date >= fmt(start) && a.date < fmt(end) && a.status === 'done')
-      .reduce((s, a) => s + (parseFloat(a.price) || 0), 0)
-  }, [appointments, view, viewStart])
-
   const fcEvents = useMemo(() => appointments.map(a => {
     const timeStr = a.time || '09:00:00'
     return {
       id: a.id,
-      title: a.client_name || 'Unknown',
+      title: a.client_name || 'Walk-in',
       start: `${a.date}T${timeStr}`,
       end: `${a.date}T${addMins(timeStr, 30)}`,
-      backgroundColor: EVENT_COLOR,
+      backgroundColor: 'transparent',
       borderColor: 'transparent',
-      textColor: '#ffffff',
+      textColor: 'inherit',
       extendedProps: {
         ...a,
         serviceName: a.services?.name || '',
-        servicePrice: a.services?.price || a.price,
       },
     }
   }), [appointments])
@@ -120,6 +121,11 @@ export default function StaffCalendar({ shopId, barberId, barberName, shopCode, 
     calRef.current?.getApi().unselect()
   }
 
+  function handleDatesSet(info: DatesSetArg) {
+    setViewStart(info.start)
+    setViewRange({ start: info.start, end: info.end })
+  }
+
   function changeView(v: CalView) {
     setView(v)
     calRef.current?.getApi().changeView(v)
@@ -127,21 +133,55 @@ export default function StaffCalendar({ shopId, barberId, barberName, shopCode, 
 
   function renderEventContent(arg: EventContentArg) {
     const props = arg.event.extendedProps
-    const parts = (arg.event.title || '').split(' ')
-    const name = parts[0] + (parts[1] ? ` ${parts[1][0]}.` : '')
+    const meta = statusMeta(props.status)
+    const name = arg.event.title || 'Walk-in'
+    const parts = name.split(' ')
+    const shortName = parts[0] + (parts[1] ? ` ${parts[1][0]}.` : '')
+
     if (arg.view.type === 'dayGridMonth') {
       return (
-        <div className="flex items-center gap-0.5 px-0.5 py-px overflow-hidden">
-          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-od-green" />
-          <span className="text-[9px] font-medium text-charcoal-900 truncate">{parts[0]}</span>
+        <div className="flex items-center gap-1 px-1 py-px overflow-hidden">
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: accent }} />
+          <span
+            className="text-[10px] font-medium truncate"
+            style={{
+              color: 'var(--color-text-primary)',
+              opacity: meta.dimmed ? 0.6 : meta.strike ? 0.45 : 1,
+              textDecoration: meta.strike ? 'line-through' : 'none',
+            }}
+          >
+            {fmtTimeShort(props.time)} {parts[0]}
+          </span>
         </div>
       )
     }
+
     return (
-      <div className="px-1.5 py-1 h-full overflow-hidden flex flex-col gap-0.5">
-        <div className="font-semibold text-[11px] text-white leading-tight truncate">{name}</div>
-        {props.serviceName && <div className="text-[10px] text-white/75 leading-tight truncate">{props.serviceName}</div>}
-        <div className="text-[10px] text-white/60 font-mono">${parseFloat(props.price || 0).toFixed(0)}</div>
+      <div
+        className="h-full w-full rounded-md px-2 py-1 overflow-hidden flex flex-col justify-center gap-0.5"
+        style={{
+          background: tint(accent, 0.13),
+          borderLeft: `3px solid ${accent}`,
+          opacity: meta.dimmed ? 0.62 : meta.strike ? 0.45 : 1,
+        }}
+      >
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: meta.dot }} />
+          <span
+            className="text-[12px] font-bold truncate"
+            style={{ color: 'var(--color-text-primary)', textDecoration: meta.strike ? 'line-through' : 'none' }}
+          >
+            {meta.dimmed ? '✓ ' : ''}{shortName}
+          </span>
+          <span className="ml-auto text-[11px] font-semibold flex-shrink-0 font-mono" style={{ color: 'var(--color-text-secondary)' }}>
+            {fmtPrice(props.price)}
+          </span>
+        </div>
+        {props.serviceName && (
+          <div className="text-[11px] leading-tight truncate pl-3" style={{ color: 'var(--color-text-secondary)' }}>
+            {props.serviceName} · {fmtTime12(props.time)}
+          </div>
+        )}
       </div>
     )
   }
@@ -149,59 +189,60 @@ export default function StaffCalendar({ shopId, barberId, barberName, shopCode, 
   const api = calRef.current?.getApi()
 
   return (
-    <div className="flex flex-col w-full" style={{ height: 'calc(100vh - 56px)' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 px-4 py-3 bg-warm-100 border-b border-warm-200 flex-shrink-0 flex-wrap gap-y-2">
+    <div className="chairos-cal flex flex-col w-full" style={{ height: 'calc(100vh - 56px)' }}>
+      <style>{FC_CSS}</style>
 
-        {/* View Tabs */}
-        <div className="flex gap-1 bg-warm-200 rounded-lg p-0.5">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-warm-100 border-b border-warm-200 flex-shrink-0 flex-wrap gap-y-2">
+        {/* View tabs */}
+        <div className="flex gap-1 bg-warm-200 rounded-xl p-1">
           {([['timeGridDay','Day'],['timeGridWeek','Week'],['dayGridMonth','Month']] as [CalView,string][]).map(([v,label]) => (
             <button key={v} onClick={() => changeView(v)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${view===v ? 'bg-warm-50 text-od-green shadow-sm' : 'text-charcoal-500 hover:text-charcoal-900'}`}>
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors min-h-[40px] ${view===v ? 'bg-warm-50 text-od-green shadow-sm' : 'text-charcoal-500 hover:text-charcoal-900'}`}>
               {label}
             </button>
           ))}
         </div>
 
-        {/* Nav */}
+        {/* Date nav */}
         <div className="flex items-center gap-1">
           <button onClick={() => api?.today()}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-warm-200 text-charcoal-600 hover:bg-warm-300 transition-colors">
+            className="px-3 py-2 rounded-xl text-[13px] font-semibold bg-warm-200 text-charcoal-600 hover:bg-warm-300 transition-colors min-h-[40px]">
             Today
           </button>
-          <button onClick={() => api?.prev()}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-charcoal-500 hover:bg-warm-200 transition-colors">
+          <button onClick={() => api?.prev()} aria-label="Previous"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl text-charcoal-500 hover:bg-warm-200 hover:text-charcoal-900 transition-colors">
             ‹
           </button>
-          <div className="min-w-[140px] text-center">
-            <div className="text-sm font-semibold text-charcoal-900">{getDateLabel(view, viewStart)}</div>
-            {weekRevenue !== null && (
-              <div className="text-[10px] text-od-green font-mono font-bold">Week revenue: ${weekRevenue.toFixed(0)}</div>
-            )}
+          <div className="min-w-[150px] text-center px-1">
+            <div className="text-[15px] font-bold text-charcoal-900 leading-tight">{getDateLabel(view, viewStart)}</div>
           </div>
-          <button onClick={() => api?.next()}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-charcoal-500 hover:bg-warm-200 transition-colors">
+          <button onClick={() => api?.next()} aria-label="Next"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl text-charcoal-500 hover:bg-warm-200 hover:text-charcoal-900 transition-colors">
             ›
           </button>
         </div>
 
-        {/* Book button */}
+        {/* Book */}
         <button
           onClick={() => { setBookSlot(null); setShowBook(true) }}
-          className="flex items-center gap-1.5 px-4 py-2 bg-od-green hover:opacity-90 text-white text-xs font-bold rounded-xl transition-opacity">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 4v16m8-8H4"/></svg>
-          Book Client
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-od-green hover:opacity-90 text-white text-[13px] font-bold rounded-xl transition-opacity min-h-[44px]">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 4v16m8-8H4"/></svg>
+          Book client
         </button>
       </div>
 
+      {/* Day at a glance */}
+      <DayGlance appointments={appointments} view={view} viewRange={viewRange} />
+
       {/* Calendar */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-warm-50">
         <FullCalendar
           ref={calRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           headerToolbar={false}
-          height="calc(100vh - 116px)"
+          height="100%"
           expandRows={true}
           stickyHeaderDates={true}
           fixedWeekCount={false}
@@ -216,7 +257,8 @@ export default function StaffCalendar({ shopId, barberId, barberName, shopCode, 
           select={handleSelect}
           eventClick={handleEventClick}
           eventContent={renderEventContent}
-          datesSet={(info: DatesSetArg) => setViewStart(info.start)}
+          datesSet={handleDatesSet}
+          eventMinHeight={36}
           dayMaxEventRows={4}
           dateClick={(info) => {
             if (view === 'dayGridMonth') {
@@ -227,17 +269,20 @@ export default function StaffCalendar({ shopId, barberId, barberName, shopCode, 
         />
       </div>
 
-      {popover && (
-        <AppointmentPopover
-          appointment={popover.appt}
-          barberName={barberName}
-          x={popover.x}
-          y={popover.y}
-          isOwner={false}
-          onClose={() => setPopover(null)}
-          onUpdated={loadAppointments}
-        />
-      )}
+      <AnimatePresence>
+        {popover && (
+          <AppointmentPopover
+            appointment={popover.appt}
+            barberName={barberName}
+            accentColor={accent}
+            x={popover.x}
+            y={popover.y}
+            isOwner={false}
+            onClose={() => setPopover(null)}
+            onUpdated={loadAppointments}
+          />
+        )}
+      </AnimatePresence>
 
       {showBook && (
         <QuickBookModal

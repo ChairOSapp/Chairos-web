@@ -422,11 +422,11 @@ function BookingPageInner() {
   function friendlyPaymentError(raw: string): string {
     const msg = (raw || '').toLowerCase()
     if (msg.includes('declined')) return 'Your card was declined. Double-check the card details or try a different card.'
-    if (msg.includes('insufficient')) return 'Your card doesn\u2019t have enough available for this payment. Try a different card.'
+    if (msg.includes('insufficient')) return 'Your card doesn’t have enough available for this payment. Try a different card.'
     if (msg.includes('expired')) return 'Your card is expired. Try a different card.'
     if (msg.includes('cvv') || msg.includes('cvc') || msg.includes('security code')) return 'The security code (CVV) looks wrong. Check it and try again.'
-    if (msg.includes('invalid') && msg.includes('card')) return 'The card details don\u2019t look right. Check the number and try again.'
-    return raw || 'Payment didn\u2019t go through. Try again or use a different card.'
+    if (msg.includes('invalid') && msg.includes('card')) return 'The card details don’t look right. Check the number and try again.'
+    return raw || 'Payment didn’t go through. Try again or use a different card.'
   }
 
   // Charges the deposit for an already-created appointment. Returns a
@@ -538,7 +538,7 @@ function BookingPageInner() {
       }
     }
     if (!srcId) {
-      setPaymentError('Card form isn\u2019t ready — tap "Try again" by the card form to reload it.')
+      setPaymentError('Card form isn’t ready — tap "Try again" by the card form to reload it.')
       setRetrying(false)
       return
     }
@@ -584,8 +584,8 @@ function BookingPageInner() {
   }
 
   async function handleBook() {
-    if (!clientName || !clientPhone) { setError('Name and phone are required'); return }
-    if (CAPTCHA_ENABLED && !captchaToken) { setError('Please complete the verification check'); return }
+    if (!clientName || !clientPhone) { setError('We need your name and phone number to hold your spot.'); return }
+    if (CAPTCHA_ENABLED && !captchaToken) { setError('Please tick the box below to show you’re not a robot.'); return }
     setSubmitting(true)
     setError('')
     setPaymentError('')
@@ -609,7 +609,7 @@ function BookingPageInner() {
         body: JSON.stringify({ token: captchaToken }),
       })
       if (!captchaRes.ok) {
-        setError('Verification failed, please try again')
+        setError('That didn’t go through — try once more.')
         setSubmitting(false)
         resetCaptcha()
         return
@@ -635,7 +635,7 @@ function BookingPageInner() {
     // The card section below offers an in-app "Try again" (no page refresh
     // exists inside the iOS wrapper).
     if ((shop?.require_card_to_book || requiresDeposit) && !sourceId) {
-      setPaymentError('Card form isn\u2019t ready yet — tap "Try again" below to reload it.')
+      setPaymentError('Card form isn’t ready yet — tap "Try again" below to reload it.')
       setSubmitting(false)
       resetCaptcha()
       return
@@ -679,7 +679,7 @@ function BookingPageInner() {
       const { error: newClientErr } = await supabase
         .from('clients')
         .insert({ id: newId, phone: normalizedPhone, source: 'online_booking', ...clientFields })
-      if (newClientErr) { setError('Failed to create client record. Please try again.'); setSubmitting(false); resetCaptcha(); return }
+      if (newClientErr) { setError('Something went wrong saving your info. Try again.'); setSubmitting(false); resetCaptcha(); return }
       clientId = newId
 
       // Attribute the referral, if any — non-fatal, and only for a
@@ -739,7 +739,7 @@ function BookingPageInner() {
       })
       const createData = await createRes.json()
       if (!createRes.ok || !createData.appointmentId) {
-        setError(createData.error || 'Booking failed. Please try again.')
+        setError(createData.error || 'Couldn’t finish your booking — give it another try.')
         setSubmitting(false)
         resetCaptcha()
         return
@@ -751,7 +751,7 @@ function BookingPageInner() {
         setConfirmedBarberName(createData.barberName)
       }
     } catch {
-      setError('Booking failed. Please try again.')
+      setError('Couldn’t finish your booking — give it another try.')
       setSubmitting(false)
       resetCaptcha()
       return
@@ -814,10 +814,34 @@ function BookingPageInner() {
   }
 
   const today = new Date().toISOString().split('T')[0]
-  const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
-  const brand = shop?.brand_color || '#b8861f'
+
+  // ---- Shop brand system ----
+  // Normalize any stored value to #rrggbb; garbage falls back to ChairOS gold.
+  const normalizeHex = (h: string) => {
+    const m = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec((h || '').trim())
+    if (!m) return '#b8861f'
+    const c = m[1]
+    return '#' + (c.length === 3 ? c.split('').map(x => x + x).join('') : c).toLowerCase()
+  }
+  // Relative luminance of the brand color, so text on brand-colored
+  // surfaces stays readable no matter what the shop picked.
+  const brandLuminance = (hex: string) => {
+    const c = hex.replace('#', '')
+    const [r, g, b] = [0, 2, 4].map(i => parseInt(c.slice(i, i + 2), 16) / 255)
+      .map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+  }
+  const brand = normalizeHex(shop?.brand_color || '#b8861f')
+  const onBrand = brandLuminance(brand) > 0.18 ? '#000000' : '#ffffff'
   const brandLight = brand + '18'
   const brandMid = brand + '33'
+  // Fallback avatar palette leads with the shop's brand color.
+  const COLORS = [brand,'#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
+
+  // Browser tab should say the shop's name, not ours.
+  useEffect(() => {
+    if (shop?.name) document.title = `${shop.name} — Book online`
+  }, [shop?.name])
 
   if (loading) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
@@ -880,13 +904,13 @@ function BookingPageInner() {
             {pricingResult?.appliedRules.map(ar => (
               <div key={ar.rule.id} className="flex justify-between text-sm">
                 <span className="text-charcoal-400">{ar.label}</span>
-                <span className="font-mono font-semibold text-od-green">{ar.displayValue}</span>
+                <span className="font-mono font-semibold" style={{ color: brand }}>{ar.displayValue}</span>
               </div>
             ))}
             {activeReward && (
               <div className="flex justify-between text-sm">
                 <span className="text-charcoal-400">Referral reward</span>
-                <span className="font-mono font-semibold text-od-green">
+                <span className="font-mono font-semibold" style={{ color: brand }}>
                   -{activeReward.type === 'percent_off' ? `${activeReward.value}%` : `$${activeReward.value}`}
                 </span>
               </div>
@@ -898,8 +922,8 @@ function BookingPageInner() {
         </div>
         <div className="flex flex-col gap-2 mt-4">
           <button onClick={resetBookingFlow}
-            className="w-full font-semibold px-4 py-3 rounded-lg text-sm text-black transition-colors"
-            style={{ background: brand }}>
+            className="w-full font-semibold px-4 py-3 rounded-lg text-sm transition-colors"
+            style={{ background: brand, color: onBrand }}>
             Book another appointment
           </button>
           <a href="/my"
@@ -921,7 +945,7 @@ function BookingPageInner() {
         </div>
       )}
 
-      <div style={{ background: shop.hero_url ? 'transparent' : '#0a0a0a' }}
+      <div style={{ background: shop.hero_url ? 'transparent' : `linear-gradient(135deg, color-mix(in srgb, ${brand} 38%, #0a0a0a), #0a0a0a)` }}
         className={`px-6 py-5 border-b border-warm-200 ${shop.hero_url ? '-mt-20 relative z-10' : ''}`}>
         <div className="max-w-2xl mx-auto flex items-center gap-4">
           {shop.logo_url ? (
@@ -965,7 +989,7 @@ function BookingPageInner() {
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
                 style={{
                   background: step > i+1 ? '#22c55e' : step === i+1 ? brand : '#262626',
-                  color: step > i+1 || step === i+1 ? '#000' : '#6b7280'
+                  color: step > i+1 ? '#000' : step === i+1 ? onBrand : '#6b7280'
                 }}>
                 {step > i+1 ? '✓' : i+1}
               </div>
@@ -989,7 +1013,7 @@ function BookingPageInner() {
                   ★ {(shopReviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / shopReviews.length).toFixed(1)} · {shopReviews.length} review{shopReviews.length !== 1 ? 's' : ''}
                 </div>
                 {shop?.slug && (
-                  <a href={`/shop/${shop.slug}/reviews`} className="text-xs text-od-green font-semibold">
+                  <a href={`/shop/${shop.slug}/reviews`} className="text-xs font-semibold" style={{ color: brand }}>
                     See all →
                   </a>
                 )}
@@ -1014,13 +1038,13 @@ function BookingPageInner() {
         {step === 1 && (
           <StepPanel>
             <h2 className="font-serif text-xl text-charcoal-900 mb-1">Choose your {staffLabelLower}</h2>
-            <p className="text-charcoal-500 text-sm mb-6">Pick who you want or select any available {staffLabelLower}.</p>
+            <p className="text-charcoal-500 text-sm mb-6">Pick who you&apos;d like at {shop.name} — or grab the first available {staffLabelLower}.</p>
             <div className="grid grid-cols-2 gap-3 mb-6">
               <Pressable
                 onClick={() => { setSelectedBarber(null); resetWaitlistJoinState(); setStep(2) }}
                 className="bg-warm-100 border-2 border-warm-200 rounded-xl p-4 cursor-pointer transition-all text-center hover:border-warm-400"
                 onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = '#262626')}>
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '')}>
                 <div className="w-14 h-14 rounded-full bg-warm-200 flex items-center justify-center mx-auto mb-3">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -1035,7 +1059,7 @@ function BookingPageInner() {
                   onClick={() => { setSelectedBarber(b); resetWaitlistJoinState(); setStep(2) }}
                   className="bg-warm-100 border-2 border-warm-200 rounded-xl p-4 cursor-pointer transition-all text-center"
                   onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#262626')}>
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '')}>
                   {b.photo_url ? (
                     <img src={b.photo_url} alt={b.barber_name || b.alias}
                       className="w-14 h-14 rounded-full object-cover mx-auto mb-3 border-2"
@@ -1064,8 +1088,14 @@ function BookingPageInner() {
         {step === 2 && (
           <StepPanel>
             <h2 className="font-serif text-xl text-charcoal-900 mb-1">Choose a service</h2>
-            <p className="text-charcoal-500 text-sm mb-6">Select what you'd like done today.</p>
+            <p className="text-charcoal-500 text-sm mb-6">What are you in for today?</p>
             <div className="space-y-2 mb-6">
+              {services.length === 0 && (
+                <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center">
+                  <p className="text-sm font-semibold text-charcoal-900 mb-1">No services listed yet</p>
+                  <p className="text-xs text-charcoal-500">Give {shop.name} a call and they&apos;ll get you sorted.</p>
+                </div>
+              )}
               {services.map((s) => {
                 // Today-only preview of an active promo -- the actual price
                 // (including any recurring peak/off-peak rule) is finalized
@@ -1077,14 +1107,14 @@ function BookingPageInner() {
                   <Pressable key={s.id}
                     onClick={() => { setSelectedService(s); setStep(3) }}
                     className="bg-warm-100 border-2 rounded-xl p-4 cursor-pointer transition-all flex items-center justify-between"
-                    style={{ borderColor: selectedService?.id === s.id ? brand : '#262626' }}
-                    onMouseEnter={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#404040' }}
-                    onMouseLeave={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#262626' }}>
+                    style={{ borderColor: selectedService?.id === s.id ? brand : '#EAE8E0' }}
+                    onMouseEnter={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = brand }}
+                    onMouseLeave={e => { if (selectedService?.id !== s.id) e.currentTarget.style.borderColor = '#EAE8E0' }}>
                     <div>
                       <div className="text-sm font-semibold text-charcoal-900 flex items-center gap-2">
                         {s.name}
                         {todayPromo && (
-                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-od-green/10 text-od-green">{ruleLabel(todayPromo)}</span>
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ background: brandLight, color: brand }}>{ruleLabel(todayPromo)}</span>
                         )}
                       </div>
                       <div className="text-xs text-charcoal-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
@@ -1109,7 +1139,7 @@ function BookingPageInner() {
                   onChange={e => { setSelectedDate(e.target.value); resetWaitlistJoinState() }}
                   className="w-full bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none transition-colors"
                   onFocus={e => e.target.style.borderColor = brand}
-                  onBlur={e => e.target.style.borderColor = '#404040'} />
+                  onBlur={e => e.target.style.borderColor = ''} />
               </div>
               {selectedDate && (
                 <div>
@@ -1129,23 +1159,23 @@ function BookingPageInner() {
                             <div>
                               <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Desired Time</label>
                               <input type="time" value={wlTime} onChange={e => setWlTime(e.target.value)}
-                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
                             </div>
                             <div>
                               <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Phone</label>
                               <input type="tel" value={wlPhone} onChange={e => setWlPhone(e.target.value)} placeholder="(555) 000-0000"
-                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
                             </div>
                           </div>
                           <div>
                             <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1.5">Name</label>
                             <input type="text" value={wlName} onChange={e => setWlName(e.target.value)} placeholder="Your name"
-                              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none" onFocus={e => e.target.style.borderColor = brand} onBlur={e => e.target.style.borderColor = ''} />
                           </div>
                           {wlError && <p className="text-red-400 text-xs">{wlError}</p>}
                           <button onClick={joinWaitlist} disabled={wlSubmitting}
-                            className="w-full font-semibold px-4 py-2 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
-                            style={{ background: brand }}>
+                            className="w-full font-semibold px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+                            style={{ background: brand, color: onBrand }}>
                             {wlSubmitting ? 'Joining…' : `Join Waitlist for ${selectedService?.name || 'this service'}`}
                           </button>
                         </div>
@@ -1155,11 +1185,11 @@ function BookingPageInner() {
                   <div className="grid grid-cols-4 gap-2">
                     {availableSlots.map(t => (
                       <button key={t} onClick={() => setSelectedTime(t)}
-                        className="py-2 rounded-lg text-xs font-medium transition-all border"
+                        className="py-3 rounded-xl text-sm font-semibold transition-all border-2"
                         style={{
-                          background: selectedTime === t ? brand : '#171717',
-                          borderColor: selectedTime === t ? brand : '#404040',
-                          color: selectedTime === t ? '#000' : '#9ca3af'
+                          background: selectedTime === t ? brand : '#ffffff',
+                          borderColor: selectedTime === t ? brand : '#EAE8E0',
+                          color: selectedTime === t ? onBrand : '#1A1A18'
                         }}>
                         {t}
                       </button>
@@ -1169,7 +1199,7 @@ function BookingPageInner() {
                 </div>
               )}
               {pricingResult && pricingResult.appliedRules.length > 0 && (
-                <div className="text-sm rounded-lg px-3 py-2 bg-od-green/10 text-od-green space-y-0.5">
+                <div className="text-sm rounded-lg px-3 py-2 space-y-0.5" style={{ background: brandLight, color: brand }}>
                   {pricingResult.appliedRules.map(ar => (
                     <div key={ar.rule.id}>{ar.label}: {ar.displayValue}</div>
                   ))}
@@ -1180,9 +1210,9 @@ function BookingPageInner() {
             <div className="flex gap-3">
               <button onClick={() => setStep(2)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
               <button
-                onClick={() => { if (!selectedDate || !selectedTime) { setError('Please select a date and time'); return }; setError(''); setStep(4) }}
-                className="ml-auto font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors text-black"
-                style={{ background: brand }}>
+                onClick={() => { if (!selectedDate || !selectedTime) { setError('Pick a date and time first.'); return }; setError(''); setStep(4) }}
+                className="ml-auto font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors"
+                style={{ background: brand, color: onBrand }}>
                 Continue →
               </button>
             </div>
@@ -1197,15 +1227,15 @@ function BookingPageInner() {
                   {failedChargeKind === 'deposit' ? 'Deposit failed — your spot is held' : 'Payment failed — your spot is held'}
                 </h3>
                 <p className="text-red-300/80 text-sm mb-3">
-                  Good news: your appointment is held for about 15 minutes. Nothing was booked incorrectly —
-                  just fix the payment below and retry before the hold expires.
+                  Your spot is held for about 15 minutes, and nothing was charged.
+                  Just fix your payment below and retry before the hold runs out.
                 </p>
                 {paymentError && (
                   <p className="text-amber-400 text-sm mb-4">{paymentError}</p>
                 )}
                 <button onClick={retryPayment} disabled={retrying}
-                  className="w-full font-semibold px-4 py-3 rounded-lg text-sm text-black transition-colors disabled:opacity-50"
-                  style={{ background: brand }}>
+                  className="w-full font-semibold px-4 py-3 rounded-lg text-sm transition-colors disabled:opacity-50"
+                  style={{ background: brand, color: onBrand }}>
                   {retrying ? 'Retrying…' : 'Retry payment'}
                 </button>
                 <p className="text-red-300/60 text-xs mt-3 text-center">
@@ -1233,13 +1263,13 @@ function BookingPageInner() {
               {pricingResult?.appliedRules.map(ar => (
                 <div key={ar.rule.id} className="flex justify-between text-sm">
                   <span className="text-charcoal-400">{ar.label}</span>
-                  <span className="font-mono font-semibold text-od-green">{ar.displayValue}</span>
+                  <span className="font-mono font-semibold" style={{ color: brand }}>{ar.displayValue}</span>
                 </div>
               ))}
               {activeReward && (
                 <div className="flex justify-between text-sm">
                   <span className="text-charcoal-400">Referral reward</span>
-                  <span className="font-mono font-semibold text-od-green">
+                  <span className="font-mono font-semibold" style={{ color: brand }}>
                     -{activeReward.type === 'percent_off' ? `${activeReward.value}%` : `$${activeReward.value}`}
                   </span>
                 </div>
@@ -1267,7 +1297,7 @@ function BookingPageInner() {
                   <input type={f.type} value={f.value} onChange={e => { f.set(e.target.value); if (f.label === 'Phone Number *') checkReturningClient(e.target.value) }} placeholder={f.placeholder}
                     className="w-full bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none transition-colors"
                     onFocus={e => e.target.style.borderColor = brand}
-                    onBlur={e => e.target.style.borderColor = '#404040'} />
+                    onBlur={e => e.target.style.borderColor = ''} />
                   {f.label === 'Phone Number *' && (
                     <p className="text-charcoal-600 text-xs mt-2 leading-relaxed">
                       If you don't finish booking, we may text you a reminder to complete it.
@@ -1306,11 +1336,12 @@ function BookingPageInner() {
                         key={opt.key}
                         type="button"
                         onClick={() => setCardMode(opt.key as 'save' | 'charge')}
-                        className={`p-3 rounded-xl border text-left text-sm transition-colors ${
+                        className={`p-3 rounded-xl border-2 text-left text-sm transition-colors ${
                           cardMode === opt.key
-                            ? 'border-od-green bg-od-green/10 text-charcoal-900'
+                            ? 'text-charcoal-900'
                             : 'border-warm-300 bg-warm-100 text-charcoal-500 hover:border-warm-400'
                         }`}
+                        style={cardMode === opt.key ? { borderColor: brand, background: brandLight } : {}}
                       >
                         <div className="font-semibold">{opt.label}</div>
                         <div className="text-xs opacity-70 mt-0.5">{opt.sub}</div>
@@ -1349,7 +1380,7 @@ function BookingPageInner() {
                 )}
                 <p className="text-neutral-600 text-xs mt-2">
                   {requiresDeposit
-                    ? `A $${depositAmountEstimate} deposit is charged now to hold this slot. Your slot is held for 15 minutes — if payment doesn't go through in that window, it's released. The rest is due at the shop.`
+                    ? `A $${depositAmountEstimate} deposit holds your slot now. You’ve got 15 minutes to pay it — after that the slot opens back up. The rest is due at the shop.`
                     : cardMode === 'save'
                     ? 'Your card is saved securely by Square and charged at checkout.'
                     : `Your card is charged $${finalPrice} now. Tip is added at the shop.`}
@@ -1365,7 +1396,7 @@ function BookingPageInner() {
                   type="checkbox"
                   checked={smsConsent}
                   onChange={e => setSmsConsent(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-od-green"
+                  className="mt-0.5 w-4 h-4 flex-shrink-0" style={{ accentColor: brand }}
                 />
                 <span className="text-xs text-charcoal-500 leading-relaxed">
                   Text me appointment reminders and updates (optional). Message & data rates may apply. Reply STOP to opt out. View our{' '}
@@ -1377,7 +1408,7 @@ function BookingPageInner() {
                   type="checkbox"
                   checked={emailConsent}
                   onChange={e => setEmailConsent(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-od-green"
+                  className="mt-0.5 w-4 h-4 flex-shrink-0" style={{ accentColor: brand }}
                 />
                 <span className="text-xs text-charcoal-500 leading-relaxed">
                   I'd like to receive email updates from {shop.name} (optional).
@@ -1411,8 +1442,8 @@ function BookingPageInner() {
                   happens through its "Retry payment" button instead. */}
               {!paymentFailed && (
                 <button onClick={handleBook} disabled={submitting || !clientName || !clientPhone || (CAPTCHA_ENABLED && !captchaToken)}
-                  className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors text-black disabled:opacity-50"
-                  style={{ background: brand }}>
+                  className="ml-auto font-semibold px-8 py-3 rounded-lg text-sm transition-colors disabled:opacity-50"
+                  style={{ background: brand, color: onBrand }}>
                   {submitting ? 'Processing...' : requiresDeposit ? `Confirm & Pay Deposit $${depositAmountEstimate}` : `Confirm & Pay $${finalPrice}`}
                 </button>
               )}

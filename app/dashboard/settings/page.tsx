@@ -315,7 +315,7 @@ export default function ShopSettings() {
       <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Shop Settings</h1>
-          <p className="text-charcoal-500 text-sm">Customize how your shop appears to clients</p>
+          <p className="text-charcoal-500 text-sm">How your shop shows up for clients</p>
         </div>
 
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
@@ -483,7 +483,7 @@ export default function ShopSettings() {
         {/* CUSTOM URL */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Custom Booking URL</div>
-          <p className="text-xs text-charcoal-500 mb-4">Give your shop a clean URL instead of the shop code. Clients will be able to find you at this address.</p>
+          <p className="text-xs text-charcoal-500 mb-4">A clean link instead of the shop code — clients can find you here.</p>
           <div className="flex items-center gap-0">
             <span className="bg-warm-200 border border-r-0 border-warm-300 rounded-l-lg px-4 py-3 text-xs text-charcoal-500 whitespace-nowrap">chairos.cc/shop/</span>
             <input
@@ -599,7 +599,7 @@ export default function ShopSettings() {
             <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
               <div>
                 <div className="text-sm font-semibold text-charcoal-900 mb-0.5">{staffLabelPlural} collect their own tips & payments</div>
-                <div className="text-xs text-charcoal-500">When on, payments go to each {staffLabel.toLowerCase()}'s Square account and tips stay with them. Turn off if you collect everything and pay {staffLabelPlural.toLowerCase()} out yourself.</div>
+                <div className="text-xs text-charcoal-500">On: each {staffLabel.toLowerCase()}&rsquo;s money goes to their own Square account, tips included. Off: it all comes to you and you pay them out.</div>
               </div>
               <button
                 onClick={() => setBarbersCollectOwnPayments(v => !v)}
@@ -615,7 +615,7 @@ export default function ShopSettings() {
             <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
               <div>
                 <div className="text-sm font-semibold text-charcoal-900 mb-0.5">Require card to book</div>
-                <div className="text-xs text-charcoal-500">Clients must enter a card when booking online. They choose whether to save it for future visits or process it as one-time. Turn off to allow bookings without a card.</div>
+                <div className="text-xs text-charcoal-500">Clients enter a card when they book — they can save it or just pay once. Turn this off to let people book with no card.</div>
               </div>
               <button
                 onClick={() => setRequireCardToBook(v => !v)}
@@ -635,7 +635,7 @@ export default function ShopSettings() {
                   </div>
                 )}
                 <p className="text-xs text-charcoal-500 mb-4">
-                  Your Square account is linked. Appointment payments processed through Square will automatically update the payment status in ChairOS.
+                  Your Square account is linked. Payments taken in Square update ChairOS on their own.
                 </p>
                 <button
                   onClick={handleSquareDisconnect}
@@ -647,7 +647,7 @@ export default function ShopSettings() {
             ) : (
               <div>
                 <p className="text-xs text-charcoal-500 mb-4">
-                  Connect your Square account to accept appointment payments directly. Payments will sync back to ChairOS and mark appointments as paid automatically.
+                  Connect Square to take appointment payments. They sync back and mark appointments paid on their own.
                 </p>
                 <a
                   href="/api/square/connect?role=owner"
@@ -657,7 +657,7 @@ export default function ShopSettings() {
                   </svg>
                   Connect Square Account
                 </a>
-                <p className="text-xs text-charcoal-400 mt-3">You'll be redirected to Square to authorize. Your access token is stored securely.</p>
+                <p className="text-xs text-charcoal-400 mt-3">We&apos;ll send you to Square to connect. Your credentials stay private.</p>
               </div>
             )}
           </div>
@@ -668,18 +668,18 @@ export default function ShopSettings() {
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
             <div className="px-5 py-4 border-b border-warm-200">
               <div className="font-serif text-charcoal-900 text-sm">Deposits</div>
-              <div className="text-xs text-charcoal-500">Collect a deposit at booking for services that require one</div>
+              <div className="text-xs text-charcoal-500">Take a deposit at booking for services that need one</div>
             </div>
             <div className="p-5">
               {vertical === 'tattoo' ? (
                 <div className="text-xs text-charcoal-500 bg-warm-200 rounded-lg p-3 mb-5">
-                  Deposits are required for tattoo bookings and can't be turned off. Consultations skip the deposit by default — toggle that per service in Manage Services.
+                  Deposits are always required for tattoo bookings — that can&apos;t be turned off. Consultations skip the deposit; change that per service under Manage Services.
                 </div>
               ) : (
                 <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
                   <div>
                     <div className="text-sm font-semibold text-charcoal-900 mb-0.5">Require a deposit to book</div>
-                    <div className="text-xs text-charcoal-500">Applies to services with deposits enabled (Manage Services). Consultations skip it by default.</div>
+                    <div className="text-xs text-charcoal-500">Only for services where you&apos;ve switched deposits on (Manage Services). Consultations skip it.</div>
                   </div>
                   <button
                     onClick={() => setDepositsEnabled(v => !v)}
@@ -715,7 +715,7 @@ export default function ShopSettings() {
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Full Refund Window (hours before appointment)</label>
                 <input type="number" min="0" value={depositRefundWindowHours} onChange={e => setDepositRefundWindowHours(e.target.value)}
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
-                <div className="text-xs text-charcoal-500 mt-2">Cancelling at least this many hours before the appointment refunds the deposit in full. Cancelling later forfeits it.</div>
+                <div className="text-xs text-charcoal-500 mt-2">Cancel at least this far ahead and the deposit comes back in full. Cancel later and it&apos;s gone.</div>
               </div>
             </div>
           </div>
@@ -729,13 +729,13 @@ export default function ShopSettings() {
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-warm-200">
             <div className="font-serif text-charcoal-900 text-sm">Waitlist</div>
-            <div className="text-xs text-charcoal-500">When a fully-booked appointment is cancelled, text the next waitlisted client the open slot</div>
+            <div className="text-xs text-charcoal-500">When someone cancels, text the next person on the waitlist about the open slot</div>
           </div>
           <div className="p-5">
             <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Minimum Notice (hours before appointment)</label>
             <input type="number" min="1" value={waitlistMinNoticeHours} onChange={e => setWaitlistMinNoticeHours(e.target.value)}
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
-            <div className="text-xs text-charcoal-500 mt-2">A cancellation with less than this much notice never reaches out to the waitlist -- there's no realistic way for someone to make it in on a last-minute scramble text.</div>
+            <div className="text-xs text-charcoal-500 mt-2">Cancellations inside this window don&apos;t ping the waitlist — nobody&apos;s making it in on that little notice.</div>
           </div>
         </div>
 
@@ -744,7 +744,7 @@ export default function ShopSettings() {
           <div className="px-5 py-4 border-b border-warm-200 flex items-start justify-between gap-4">
             <div>
               <div className="font-serif text-charcoal-900 text-sm">Missed Call Text-Back</div>
-              <div className="text-xs text-charcoal-500">When a call to your shop goes unanswered, automatically text the caller a link to book online</div>
+              <div className="text-xs text-charcoal-500">When you miss a call, automatically text the caller a link to book</div>
             </div>
             <button
               onClick={() => setMissedCallTextbackEnabled(v => !v)}
@@ -763,7 +763,7 @@ export default function ShopSettings() {
               <div className="text-xs text-charcoal-500 mt-2">
                 The Twilio phone number clients call. In your Twilio console, set this number&rsquo;s <span className="font-semibold">Status Callback URL</span> to:
                 <div className="font-mono bg-warm-200 rounded px-2 py-1 mt-1 break-all">{typeof window !== 'undefined' ? window.location.origin : ''}/api/voice/missed-call</div>
-                <div className="mt-1">If this number rings your staff via Twilio {"<Dial>"}, use the same URL as the Dial action. Only unanswered calls trigger a text — answered calls are ignored, one text per caller every 4 hours, and clients who replied STOP are never texted.</div>
+                <div className="mt-1">If this number rings your staff through Twilio {"<Dial>"}, paste the same URL as the Dial action. Only missed calls get a text — answered calls are ignored, one text per caller every 4 hours, and anyone who replied STOP never gets one.</div>
               </div>
             </div>
           )}
@@ -774,7 +774,7 @@ export default function ShopSettings() {
           <div className="px-5 py-4 border-b border-warm-200 flex items-start justify-between gap-4">
             <div>
               <div className="font-serif text-charcoal-900 text-sm">Referral Program</div>
-              <div className="text-xs text-charcoal-500">Reward clients for bringing in new business</div>
+              <div className="text-xs text-charcoal-500">Thank clients for sending new people your way</div>
             </div>
             <button
               onClick={() => setReferralProgramEnabled(v => !v)}
@@ -788,7 +788,7 @@ export default function ShopSettings() {
           {referralProgramEnabled && (
             <div className="p-5">
               <p className="text-xs text-charcoal-500 mb-4">
-                Every client gets their own referral link. When someone new books using it and completes their first visit, the referring client's reward is applied to their next booking automatically. They're also texted their own link after their first completed visit here.
+                Every client gets their own referral link. When someone new books with it and finishes their first visit, the referrer&apos;s reward applies to their next booking automatically. They also get their link texted to them after their first visit here.
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -826,7 +826,7 @@ export default function ShopSettings() {
               </div>
               <div>
                 <div className="font-serif text-charcoal-900 text-sm">Reviews</div>
-                <div className="text-xs text-charcoal-500">Import from Google, manage visibility, assign to {staffLabelPlural.toLowerCase()}</div>
+                <div className="text-xs text-charcoal-500">Pull in Google reviews, choose what shows, and credit the right {staffLabelPlural.toLowerCase()}</div>
               </div>
             </div>
             <button
@@ -862,7 +862,7 @@ export default function ShopSettings() {
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-warm-200">
             <div className="font-serif text-charcoal-900 text-sm">Ad Tracking</div>
-            <div className="text-xs text-charcoal-500">Track bookings from your Meta and Google ad campaigns. Only fires on your public booking page.</div>
+            <div className="text-xs text-charcoal-500">See which ads turn into bookings. Only runs on your public booking page.</div>
           </div>
           <div className="p-5 space-y-4">
             <div>

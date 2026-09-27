@@ -320,12 +320,12 @@ export default function ReviewsPage() {
         }),
       })
       const json = await res.json()
-      if (!res.ok) { setManualError(json.error || 'Failed to save review'); setManualLoading(false); return }
+      if (!res.ok) { setManualError(json.error || 'Couldn’t save that review — try again.'); setManualLoading(false); return }
       await reloadReviews()
       setShowManualModal(false)
       setManualForm({ reviewer_name: '', rating: 5, body: '', review_date: new Date().toISOString().split('T')[0], source: 'manual', barber_id: '' })
     } catch (e: any) {
-      setManualError(e.message || 'Failed to save review')
+      setManualError(e.message || 'Couldn’t save that review — try again.')
     }
     setManualLoading(false)
   }
@@ -340,7 +340,7 @@ export default function ReviewsPage() {
   }
 
   async function deleteReview(id: string) {
-    if (!confirm('Delete this review? This cannot be undone.')) return
+    if (!confirm('Delete this review? You can’t undo it.')) return
     await fetch(`/api/reviews/${id}`, { method: 'DELETE' })
     setReviews(prev => prev.filter(r => r.id !== id))
   }
@@ -436,7 +436,7 @@ export default function ReviewsPage() {
         {reviews.length === 0 ? (
           <div className="bg-warm-100 border border-warm-200 rounded-xl p-10 text-center">
             <div className="text-charcoal-500 text-sm">
-              No reviews yet. Import from Google or add manually.
+              No reviews yet — pull them in from Google or add one by hand.
             </div>
           </div>
         ) : (
@@ -507,7 +507,7 @@ export default function ReviewsPage() {
                             onClick={() => generateResponse(review.id)}
                             disabled={busy}
                             className="text-xs font-semibold text-od-green hover:text-od-green-light transition-colors disabled:opacity-50">
-                            {busy ? 'Generating…' : '✦ Generate AI response draft'}
+                            {busy ? 'Writing…' : '✦ Draft a reply'}
                           </button>
                         )
                       }
@@ -528,7 +528,7 @@ export default function ReviewsPage() {
                             className="w-full bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors resize-none disabled:opacity-60"
                           />
                           <p className="text-xs text-charcoal-500 mt-1">
-                            AI-drafted — edit freely. ChairOS doesn't post replies to Google automatically yet, so approve it, then copy and paste it as your reply on Google (or wherever the review lives).
+                            Drafted for you — make it yours. ChairOS can&apos;t post to Google for you yet, so copy it over once it sounds right.
                           </p>
                           <div className="flex items-center gap-2 flex-wrap mt-2">
                             {dirty && (
