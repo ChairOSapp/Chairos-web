@@ -79,6 +79,12 @@ export default function ClientPortalPage() {
   const [saveResult, setSaveResult] = useState<{ ok: boolean; message: string } | null>(null)
   // Card-on-file consent: unchecked by default, required to save.
   const [cardConsent, setCardConsent] = useState(false)
+  // Wallet view: per-shop card status from /api/portal/cards, plus which
+  // shop's add-card form is currently expanded (only one at a time -- the
+  // Square card element attaches to a single target div).
+  const [walletCards, setWalletCards] = useState<{ shopId: string; status: 'current' | 'stale' | 'none'; brand: string | null; last4: string | null }[] | null>(null)
+  const [walletLoading, setWalletLoading] = useState(false)
+  const [editingShopId, setEditingShopId] = useState<string | null>(null)
   // Earned-but-unredeemed referral rewards, per shop — so clients see
   // "you've earned X off" instead of discovering it only mid-booking.
   const [earnedRewards, setEarnedRewards] = useState<{ shopId: string; shopName: string; rewardText: string }[]>([])
@@ -117,23 +123,58 @@ export default function ClientPortalPage() {
       }
     }
     loadAppointments()
-    if (client.shops.length > 0) {
-      const first = client.shops[0]
-      setSelectedShopId(first.shopId)
-      // Default the card to their first barber at per-barber shops.
-      setSelectedBarberId(first.barbers[0]?.barberId || '')
-    }
     // Earned referral rewards for the "desire" nudge — the referrer sees
     // exactly what they've earned, not just a share link.
     fetch('/api/portal/rewards').then(r => r.json()).then(d => setEarnedRewards(d.rewards || [])).catch(() => {})
   }, [client])
 
+  // Wallet status loads when the payment tab opens (and after saves) --
+  // it's per-shop, so it doesn't belong in the one-shot client load above.
+  async function loadWallet() {
+    setWalletLoading(true)
+    try {
+      const res = await fetch('/api/portal/cards')
+      const data = await res.json()
+      setWalletCards(data.cards || [])
+    } catch {
+      setWalletCards([])
+    } finally {
+      setWalletLoading(false)
+    }
+  }
+  useEffect(() => {
+    if (client && tab === 'payment') loadWallet()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, tab])
+
+  function openWalletForm(shop: PortalShop) {
+    closeWalletForm()
+    setSelectedShopId(shop.shopId)
+    setSelectedBarberId(shop.barbers[0]?.barberId || '')
+    setEditingShopId(shop.shopId)
+  }
+
+  function closeWalletForm() {
+    if (squareCardRef.current) {
+      squareCardRef.current.destroy?.().catch(() => {})
+      squareCardRef.current = null
+      setCardReady(false)
+    }
+    setCardLoading(false)
+    setSquareNotConnected(false)
+    setSquareNotConnectedMsg('')
+    setSaveResult(null)
+    setCardConsent(false)
+    setEditingShopId(null)
+  }
+
   // Square card form -- per-shop widget config (tokenize against the same
   // Square merchant the server saves the card under: the barber's on
   // per-barber shops, the owner's otherwise -- exactly like booking).
-  // Same dynamic-import pattern as the public booking page.
+  // Only inits when the client has opened a shop's add-card form in the
+  // wallet view. Same dynamic-import pattern as the public booking page.
   useEffect(() => {
-    if (tab !== 'payment' || !selectedShopId) return
+    if (tab !== 'payment' || !editingShopId || !selectedShopId) return
     if (squareCardRef.current) return
     // Per-barber shops need a chosen barber before we can tokenize.
     const shopForInit = client?.shops.find(s => s.shopId === selectedShopId)
@@ -196,7 +237,7 @@ export default function ClientPortalPage() {
         setCardReady(false)
       }
     }
-  }, [tab, selectedShopId, selectedBarberId])
+  }, [tab, editingShopId, selectedShopId, selectedBarberId])
 
   async function sendCode() {
     setAuthError('')
@@ -294,6 +335,9 @@ export default function ClientPortalPage() {
       if (!res.ok) { setSaveResult({ ok: false, message: data.error || 'Could not save card' }); return }
       setSaveResult({ ok: true, message: `Saved ${data.brand} ending in ${data.last4}` })
       setClient(prev => prev ? { ...prev, squareCardBrand: data.brand, squareCardLast4: data.last4 } : prev)
+      // The wallet rows read per-shop status from /api/portal/cards --
+      // refresh so this shop flips to "on file" without a reload.
+      loadWallet()
     } catch {
       setSaveResult({ ok: false, message: 'Could not save card' })
     } finally {
@@ -513,87 +557,100 @@ export default function ClientPortalPage() {
 
         {tab === 'payment' && (
           <div>
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Saved Payment Method</div>
-            {client.squareCardBrand && client.squareCardLast4 && (
-              <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-4 flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-                <div className="text-sm text-charcoal-900">{client.squareCardBrand} ending in {client.squareCardLast4} on file</div>
-              </div>
-            )}
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Your wallet</div>
+            <p className="text-xs text-charcoal-500 mb-4">Cards are stored securely by Square — one per shop. Add a card for each shop you visit.</p>
             {client.shops.length === 0 ? (
               <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm">Book somewhere first to save a card.</div>
+            ) : walletLoading ? (
+              <div className="flex items-center gap-2 py-6 text-charcoal-400 text-sm">
+                <div className="w-4 h-4 rounded-full border-2 border-warm-300 border-t-od-green animate-spin flex-shrink-0" />
+                Loading your wallet…
+              </div>
             ) : (
-              <div className="bg-warm-100 border border-warm-200 rounded-xl p-5">
-                {client.shops.length > 1 && (
-                  <div className="mb-4">
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">For which shop?</label>
-                    <select value={selectedShopId} onChange={e => {
-                      const next = client.shops.find(s => s.shopId === e.target.value)
-                      squareCardRef.current = null; setCardReady(false); setSquareNotConnected(false)
-                      setSelectedShopId(e.target.value)
-                      setSelectedBarberId(next?.barbers[0]?.barberId || '')
-                    }}
-                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
-                      {client.shops.map(s => <option key={s.shopId} value={s.shopId}>{s.shopName}</option>)}
-                    </select>
-                  </div>
-                )}
-                {perBarberShop && selectedShop && selectedShop.barbers.length > 0 && (
-                  <div className="mb-4">
-                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">For which barber?</label>
-                    <select value={selectedBarberId} onChange={e => { setSquareNotConnected(false); setSelectedBarberId(e.target.value) }}
-                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
-                      {selectedShop.barbers.map(b => <option key={b.barberId} value={b.barberId}>{b.name}</option>)}
-                    </select>
-                    <p className="text-xs text-charcoal-500 mt-1.5">Cards are kept with your barber, so pick the one you book with.</p>
-                  </div>
-                )}
-                {perBarberShop && selectedShop && selectedShop.barbers.length === 0 ? (
-                  <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
-                    We couldn&apos;t find an active barber for you at {selectedShopName} — book an appointment first, then save your card here.
-                  </div>
-                ) : squareNotConnected ? (
-                  <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
-                    {chargeParty} hasn&apos;t set up card payments yet — you can pay at the shop as usual.
-                    {squareNotConnectedMsg ? <span className="block text-xs text-charcoal-500 mt-1">{squareNotConnectedMsg}</span> : null}
-                  </div>
-                ) : (
-                  <>
-                    <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 mb-3">
-                      {/* Square's attach() needs the target element actually laid out
-                          (not display:none) while it runs, so this stays mounted and
-                          visible the whole time -- the spinner overlays it instead of
-                          hiding it. */}
-                      {cardLoading && (
-                        <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
-                          <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
-                          Loading card form...
+              <div className="space-y-3">
+                {client.shops.map(shop => {
+                  const card = walletCards?.find(c => c.shopId === shop.shopId)
+                  const status = card?.status || 'none'
+                  const open = editingShopId === shop.shopId
+                  return (
+                    <div key={shop.shopId} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-charcoal-900 truncate">{shop.shopName}</div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${status === 'current' ? 'bg-green-500' : status === 'stale' ? 'bg-amber-500' : 'bg-charcoal-300'}`} />
+                            <span className="text-xs text-charcoal-500">
+                              {status === 'current' && card?.brand ? `${card.brand} ending in ${card.last4} on file`
+                                : status === 'current' ? 'Card on file'
+                                : status === 'stale' ? 'Card on file is out of date'
+                                : 'No card on file'}
+                            </span>
+                          </div>
+                        </div>
+                        <button onClick={() => open ? closeWalletForm() : openWalletForm(shop)}
+                          className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-od-green text-white transition-colors">
+                          {open ? 'Close' : status === 'none' ? 'Add card' : 'Update'}
+                        </button>
+                      </div>
+                      {open && (
+                        <div className="mt-4 pt-4 border-t border-warm-200">
+                          {perBarberShop && selectedShop && selectedShop.barbers.length > 0 && (
+                            <div className="mb-4">
+                              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">For which barber?</label>
+                              <select value={selectedBarberId} onChange={e => { setSquareNotConnected(false); setSelectedBarberId(e.target.value) }}
+                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
+                                {selectedShop.barbers.map(b => <option key={b.barberId} value={b.barberId}>{b.name}</option>)}
+                              </select>
+                              <p className="text-xs text-charcoal-500 mt-1.5">Cards are kept with your barber, so pick the one you book with.</p>
+                            </div>
+                          )}
+                          {perBarberShop && selectedShop && selectedShop.barbers.length === 0 ? (
+                            <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
+                              We couldn&apos;t find an active barber for you at {selectedShopName} — book an appointment first, then save your card here.
+                            </div>
+                          ) : squareNotConnected ? (
+                            <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
+                              {chargeParty} hasn&apos;t set up card payments yet — you can pay at the shop as usual.
+                              {squareNotConnectedMsg ? <span className="block text-xs text-charcoal-500 mt-1">{squareNotConnectedMsg}</span> : null}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 mb-3">
+                                {cardLoading && (
+                                  <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
+                                    <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
+                                    Loading card form...
+                                  </div>
+                                )}
+                                <div id="portal-square-card" />
+                                {!cardLoading && !cardReady && (
+                                  <p className="text-neutral-500 text-xs py-2">Card form unavailable right now.</p>
+                                )}
+                              </div>
+                              <button onClick={handleSaveCard} disabled={saving || !cardReady}
+                                className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-white bg-od-green disabled:opacity-50">
+                                {saving ? 'Saving…' : 'Save Card'}
+                              </button>
+                              <label className="flex items-start gap-3 cursor-pointer mt-3">
+                                <input
+                                  type="checkbox"
+                                  checked={cardConsent}
+                                  onChange={e => setCardConsent(e.target.checked)}
+                                  className="mt-0.5 w-4 h-4 flex-shrink-0"
+                                />
+                                <span className="text-xs text-neutral-400 leading-relaxed">{cardConsentText}</span>
+                              </label>
+                              <p className="text-neutral-600 text-xs mt-2">Your card is saved securely by Square. We do not store your full card number.</p>
+                            </>
+                          )}
+                          {saveResult && (
+                            <p className={`text-xs mt-2 ${saveResult.ok ? 'text-od-green' : 'text-amber-400'}`}>{saveResult.message}</p>
+                          )}
                         </div>
                       )}
-                      <div id="portal-square-card" />
-                      {!cardLoading && !cardReady && (
-                        <p className="text-neutral-500 text-xs py-2">Card form unavailable right now.</p>
-                      )}
                     </div>
-                    <button onClick={handleSaveCard} disabled={saving || !cardReady}
-                      className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-white bg-od-green disabled:opacity-50">
-                      {saving ? 'Saving…' : 'Save Card'}
-                    </button>
-                    <label className="flex items-start gap-3 cursor-pointer mt-3">
-                      <input
-                        type="checkbox"
-                        checked={cardConsent}
-                        onChange={e => setCardConsent(e.target.checked)}
-                        className="mt-0.5 w-4 h-4 flex-shrink-0"
-                      />
-                      <span className="text-xs text-neutral-400 leading-relaxed">{cardConsentText}</span>
-                    </label>
-                    <p className="text-neutral-600 text-xs mt-2">Your card is saved securely by Square. We do not store your full card number.</p>
-                  </>
-                )}
-                {saveResult && (
-                  <p className={`text-xs mt-2 ${saveResult.ok ? 'text-od-green' : 'text-amber-400'}`}>{saveResult.message}</p>
-                )}
+                  )
+                })}
               </div>
             )}
           </div>

@@ -7,6 +7,7 @@ import MobileNav from '@/components/MobileNav'
 import TrialCountdownBanner from '@/components/TrialCountdownBanner'
 import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
+import ClientPortalCard from '@/components/ClientPortalCard'
 import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
 import TodayIntelStrip from '@/components/TodayIntelStrip'
@@ -363,6 +364,10 @@ export default function Dashboard() {
         )}
 
         <BriefCard recipientName={ownerName} />
+
+        {/* Client portal discoverability: the portal only works if clients
+            know it exists -- link + QR code the owner can share or display. */}
+        <ClientPortalCard />
 
         {shopId && <RecommendationsPanel shopId={shopId} />}
 

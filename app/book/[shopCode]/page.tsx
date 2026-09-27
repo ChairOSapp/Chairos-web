@@ -1205,7 +1205,8 @@ function BookingPageInner() {
           </button>
           <a href="/my"
             className="w-full font-semibold px-4 py-3 rounded-lg text-sm text-center bg-warm-100 border border-warm-300 text-charcoal-900 transition-colors hover:border-warm-400">
-            View my appointments →
+            <span className="block">Your client portal →</span>
+            <span className="block font-normal text-xs text-charcoal-500 mt-0.5">Manage bookings, keep a card on file &amp; track loyalty — sign in with your phone number.</span>
           </a>
         </div>
       </div>
