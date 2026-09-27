@@ -18,6 +18,15 @@ const DEFAULT_HOURS = DAYS.map(day => ({
   to: day === 'Saturday' || day === 'Sunday' ? '16:00' : '18:00',
 }))
 
+// Normalize a pasted phone number to E.164-ish form so the voice webhook
+// can match the Twilio "To" number against the stored value.
+function normalizeVoiceNumber(raw: string): string | null {
+  const digits = (raw || '').replace(/\D/g, '')
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+  if (digits.length === 10) return `+1${digits}`
+  return digits ? `+${digits}` : null
+}
+
 export default function ShopSettings() {
   const { staffLabel, staffLabelPlural, vertical } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
@@ -41,6 +50,8 @@ export default function ShopSettings() {
   const [depositAmount, setDepositAmount] = useState('20')
   const [depositRefundWindowHours, setDepositRefundWindowHours] = useState('48')
   const [waitlistMinNoticeHours, setWaitlistMinNoticeHours] = useState('4')
+  const [missedCallTextbackEnabled, setMissedCallTextbackEnabled] = useState(false)
+  const [twilioVoiceNumber, setTwilioVoiceNumber] = useState('')
   const [referralProgramEnabled, setReferralProgramEnabled] = useState(false)
   const [referralRewardType, setReferralRewardType] = useState<'percent_off' | 'flat_credit'>('percent_off')
   const [referralRewardValue, setReferralRewardValue] = useState('10')
@@ -118,6 +129,8 @@ export default function ShopSettings() {
     setDepositAmount(String(shop.deposit_amount ?? 20))
     setDepositRefundWindowHours(String(shop.deposit_refund_window_hours ?? 48))
     setWaitlistMinNoticeHours(String(shop.waitlist_min_notice_hours ?? 4))
+    setMissedCallTextbackEnabled(!!shop.missed_call_textback_enabled)
+    setTwilioVoiceNumber(shop.twilio_voice_number || '')
     setReferralProgramEnabled(!!shop.referral_program_enabled)
     setReferralRewardType(shop.referral_reward_type || 'percent_off')
     setReferralRewardValue(String(shop.referral_reward_value ?? 10))
@@ -250,6 +263,8 @@ export default function ShopSettings() {
       deposit_amount: parseFloat(depositAmount) || 0,
       deposit_refund_window_hours: parseInt(depositRefundWindowHours) || 0,
       waitlist_min_notice_hours: parseInt(waitlistMinNoticeHours) || 0,
+      twilio_voice_number: normalizeVoiceNumber(twilioVoiceNumber),
+      missed_call_textback_enabled: missedCallTextbackEnabled,
       referral_program_enabled: referralProgramEnabled,
       referral_reward_type: referralRewardType,
       referral_reward_value: parseFloat(referralRewardValue) || 0,
@@ -722,6 +737,36 @@ export default function ShopSettings() {
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
             <div className="text-xs text-charcoal-500 mt-2">A cancellation with less than this much notice never reaches out to the waitlist -- there's no realistic way for someone to make it in on a last-minute scramble text.</div>
           </div>
+        </div>
+
+        {/* MISSED CALL TEXT-BACK */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200 flex items-start justify-between gap-4">
+            <div>
+              <div className="font-serif text-charcoal-900 text-sm">Missed Call Text-Back</div>
+              <div className="text-xs text-charcoal-500">When a call to your shop goes unanswered, automatically text the caller a link to book online</div>
+            </div>
+            <button
+              onClick={() => setMissedCallTextbackEnabled(v => !v)}
+              style={{ background: missedCallTextbackEnabled ? '#4B5320' : '#d4c9b8' }}
+              className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
+              <span
+                style={{ transform: missedCallTextbackEnabled ? 'translateX(22px)' : 'translateX(2px)' }}
+                className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
+            </button>
+          </div>
+          {missedCallTextbackEnabled && (
+            <div className="p-5">
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Twilio voice number</label>
+              <input type="tel" value={twilioVoiceNumber} onChange={e => setTwilioVoiceNumber(e.target.value)} placeholder="+1 (555) 123-4567"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+              <div className="text-xs text-charcoal-500 mt-2">
+                The Twilio phone number clients call. In your Twilio console, set this number&rsquo;s <span className="font-semibold">Status Callback URL</span> to:
+                <div className="font-mono bg-warm-200 rounded px-2 py-1 mt-1 break-all">{typeof window !== 'undefined' ? window.location.origin : ''}/api/voice/missed-call</div>
+                <div className="mt-1">If this number rings your staff via Twilio {"<Dial>"}, use the same URL as the Dial action. Only unanswered calls trigger a text — answered calls are ignored, one text per caller every 4 hours, and clients who replied STOP are never texted.</div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* REFERRAL PROGRAM */}

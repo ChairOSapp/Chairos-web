@@ -27,6 +27,7 @@ export type RateLimitBucket =
   | 'bookingReply'
   | 'portalOtp'
   | 'waitlistClaim'
+  | 'missedCallTextback'
   | 'email'
 
 // failClosed controls what happens when Redis is unreachable or not
@@ -63,6 +64,12 @@ const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters
   // /api/sms/optout webhook handler before creating an appointment, same
   // reasoning as bookingReply.
   waitlistClaim: { limit: 5, window: '60 s', failClosed: true },
+  // Twilio voice status-callback webhook (missed-call text-back). Each hit
+  // can send a real SMS, so it gets a per-shop spend guard inside the
+  // route (shop-scoped) plus this IP-scoped proxy-level check. Signature-
+  // verified, so failClosed: false — a Redis blip shouldn't drop
+  // legitimate carrier callbacks.
+  missedCallTextback: { limit: 30, window: '1 h', failClosed: false },
   // Platform-sent email on an endpoint reachable right after signup
   // (/api/email/welcome). Sends from the platform's verified sender, so an
   // abuse window burns domain reputation, not just money -- fail closed
@@ -137,6 +144,7 @@ export function getRateLimitBucket(pathname: string): RateLimitBucket | null {
     pathname.startsWith('/api/square/create-payment')
   ) return 'squarePayment'
   if (pathname.startsWith('/api/sms')) return 'sms'
+  if (pathname.startsWith('/api/voice/')) return 'missedCallTextback'
   if (pathname.startsWith('/api/book/')) return 'bookApi'
   if (pathname.startsWith('/book/')) return 'bookPage'
   return null
