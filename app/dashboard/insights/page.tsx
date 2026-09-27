@@ -12,6 +12,7 @@ import BarberPerformanceTable from '@/components/insights/BarberPerformanceTable
 import ClientHealthDashboard from '@/components/insights/ClientHealthDashboard'
 import RevenueIntelligence from '@/components/insights/RevenueIntelligence'
 import OpportunitiesSection from '@/components/insights/OpportunitiesSection'
+import PrescriptiveOpportunities from '@/components/insights/PrescriptiveOpportunities'
 import CrmInsightsPanel from '@/components/insights/CrmInsightsPanel'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
@@ -916,6 +917,11 @@ export default function InsightsPage() {
 
                 {role === 'owner' ? (
                   <>
+                    <PrescriptiveOpportunities
+                      shopId={shop?.id || ''}
+                      shopHours={shop?.hours || null}
+                      barbers={shopBarbers}
+                    />
                     <RevenueIntelligence
                       shopId={shop?.id || ''}
                       period={rev_period}

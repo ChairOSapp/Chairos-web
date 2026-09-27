@@ -1,5 +1,10 @@
 import { VerticalProvider } from '@/lib/VerticalContext'
+import { PageFade } from '@/components/motion'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <VerticalProvider>{children}</VerticalProvider>
+  return (
+    <VerticalProvider>
+      <PageFade>{children}</PageFade>
+    </VerticalProvider>
+  )
 }

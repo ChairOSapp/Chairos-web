@@ -6,6 +6,7 @@ import { track } from '@vercel/analytics'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { FadeBackdrop, ModalPanel } from '@/components/motion'
 
 const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
@@ -541,8 +542,8 @@ export default function ManageBarbers() {
 
       {/* Invite Modal */}
       {inviteModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-sm shadow-xl">
+        <FadeBackdrop className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <ModalPanel className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-sm shadow-xl">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">
               Invite {inviteModal.barber?.barber_name || inviteModal.barber?.alias}
             </div>
@@ -568,14 +569,14 @@ export default function ManageBarbers() {
                 Send Invite
               </button>
             </div>
-          </div>
-        </div>
+          </ModalPanel>
+        </FadeBackdrop>
       )}
 
       {/* Link Modal */}
       {linkModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-sm shadow-xl">
+        <FadeBackdrop className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <ModalPanel className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-sm shadow-xl">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">
               Link {linkModal.barberName}
             </div>
@@ -602,8 +603,8 @@ export default function ManageBarbers() {
                 Link {staffLabel}
               </button>
             </div>
-          </div>
-        </div>
+          </ModalPanel>
+        </FadeBackdrop>
       )}
     </div>
   )

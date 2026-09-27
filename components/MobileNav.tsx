@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { AnimatePresence, FadeBackdrop, SlideUpSheet, StaggerList, StaggerItem } from './motion'
 
 const ITEMS = [
   { label: 'Home',     href: '/dashboard',          icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -44,17 +45,19 @@ export default function MobileNav() {
 
   return (
     <>
+      <AnimatePresence>
       {moreOpen && (
-        <div className="md:hidden fixed inset-0 bg-black/40 z-[60]" onClick={() => setMoreOpen(false)}>
-          <div
+        <FadeBackdrop className="md:hidden fixed inset-0 bg-black/40 z-[60]" onClick={() => setMoreOpen(false)}>
+          <SlideUpSheet
             onClick={e => e.stopPropagation()}
             className="fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] rounded-t-2xl p-4 pb-8 pb-safe-sheet max-h-[70vh] overflow-y-auto"
           >
             <div className="w-10 h-1 bg-warm-300 dark:bg-[#3A3A34] rounded-full mx-auto mb-4" />
-            <div className="grid grid-cols-4 gap-3">
+            <StaggerList className="grid grid-cols-4 gap-3">
               {moreItems.map(item => (
-                <button key={item.href} onClick={() => go(item.href)}
-                  className="flex flex-col items-center gap-1.5 py-2 text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-[#EDECEA] transition-colors">
+                <StaggerItem key={item.href}>
+                <button onClick={() => go(item.href)}
+                  className="w-full flex flex-col items-center gap-1.5 py-2 text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-[#EDECEA] transition-colors">
                   <div className="w-11 h-11 rounded-xl bg-warm-200 dark:bg-[#252521] flex items-center justify-center">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d={item.icon} />
@@ -62,11 +65,13 @@ export default function MobileNav() {
                   </div>
                   <span className="text-[11px] text-center leading-tight">{item.label ?? staffLabelPlural}</span>
                 </button>
+                </StaggerItem>
               ))}
-            </div>
-          </div>
-        </div>
+            </StaggerList>
+          </SlideUpSheet>
+        </FadeBackdrop>
       )}
+      </AnimatePresence>
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] px-2 py-2 pb-safe flex justify-around z-50">
         {ITEMS.map((item) => {

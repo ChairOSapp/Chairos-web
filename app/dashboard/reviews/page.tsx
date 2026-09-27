@@ -6,6 +6,7 @@ import OwnerNav from '@/components/OwnerNav'
 import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { FadeBackdrop, ModalPanel } from '@/components/motion'
 
 type Review = {
   id: string
@@ -580,8 +581,8 @@ export default function ReviewsPage() {
 
       {/* Import from Google Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-md shadow-xl">
+        <FadeBackdrop className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <ModalPanel className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-md shadow-xl">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">
               Import from Google
             </div>
@@ -719,14 +720,14 @@ export default function ReviewsPage() {
                 </button>
               )}
             </div>
-          </div>
-        </div>
+          </ModalPanel>
+        </FadeBackdrop>
       )}
 
       {/* Add Manual Review Modal */}
       {showManualModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+        <FadeBackdrop className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <ModalPanel className="bg-warm-50 border border-warm-200 rounded-2xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">
               Add Review
             </div>
@@ -832,8 +833,8 @@ export default function ReviewsPage() {
                 ) : 'Add Review'}
               </button>
             </div>
-          </div>
-        </div>
+          </ModalPanel>
+        </FadeBackdrop>
       )}
     </div>
   )

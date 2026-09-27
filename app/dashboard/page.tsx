@@ -9,6 +9,7 @@ import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
 import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
+import TodayIntelStrip from '@/components/TodayIntelStrip'
 import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
@@ -372,6 +373,16 @@ export default function Dashboard() {
             {greeting}, {firstName}.
           </div>
         </div>
+
+        {/* 2b. TODAY'S OUTLOOK — predictive strip */}
+        {shopId && (
+          <TodayIntelStrip
+            shopId={shopId}
+            todayAppointments={todayAppointments}
+            barbers={barbers}
+            quietClientCount={totalAtRisk}
+          />
+        )}
 
         {/* 3. TODAY AT A GLANCE */}
         <div className="bg-warm-100 border border-warm-200 rounded-2xl p-5 mb-5">

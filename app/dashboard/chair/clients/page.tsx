@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import ClientNotes from '@/components/ClientNotes'
+import { FadeBackdrop, ModalPanel } from '@/components/motion'
 
 export default function BarberClientsPage() {
   const [profile, setProfile] = useState<any>(null)
@@ -156,9 +157,9 @@ export default function BarberClientsPage() {
         </div>
       </div>
       {selectedClient && (
-        <div className="fixed inset-0 bg-warm-50/80 z-50 flex items-end sm:items-center justify-center p-4 pb-24 sm:pb-4"
+        <FadeBackdrop className="fixed inset-0 bg-warm-50/80 z-50 flex items-end sm:items-center justify-center p-4 pb-24 sm:pb-4"
           onClick={() => setSelectedClient(null)}>
-          <div className="bg-warm-100 border border-warm-200 rounded-2xl w-full max-w-md p-6 mb-20 md:mb-0"
+          <ModalPanel className="bg-warm-100 border border-warm-200 rounded-2xl w-full max-w-md p-6 mb-20 md:mb-0"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <div className="font-serif text-lg text-charcoal-900">Client Details</div>
@@ -206,8 +207,8 @@ export default function BarberClientsPage() {
                 </a>
               )}
             </div>
-          </div>
-        </div>
+          </ModalPanel>
+        </FadeBackdrop>
       )}
       <StaffMobileNav />
     </div>

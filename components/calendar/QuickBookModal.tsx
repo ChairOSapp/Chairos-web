@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { FadeBackdrop, ModalPanel } from '@/components/motion'
 
 interface Barber { barber_id: string; barber_name: string; alias?: string | null }
 interface Service { id: string; name: string; price: number }
@@ -149,8 +150,8 @@ export default function QuickBookModal({
 
   return (
     <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-charcoal-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-warm-100 sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col">
+      <FadeBackdrop className="absolute inset-0 bg-charcoal-900/40 backdrop-blur-sm" onClick={onClose} />
+      <ModalPanel className="relative w-full sm:max-w-md bg-warm-100 sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col">
 
         {/* Header */}
         <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between flex-shrink-0">
@@ -268,7 +269,7 @@ export default function QuickBookModal({
             {submitting ? 'Booking…' : 'Book Appointment'}
           </button>
         </div>
-      </div>
+      </ModalPanel>
     </div>
   )
 }

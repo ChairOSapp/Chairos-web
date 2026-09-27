@@ -6,6 +6,7 @@ import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 import { initMetaPixel, initGoogleTag, trackMetaEvent, trackGoogleEvent } from '@/lib/tracking'
 import { timeStrToMinutes } from '@/lib/availability'
 import { DAY_NAMES, findApplicablePricing, promoActiveOn, isPromoRule, ruleLabel, type PricingRule } from '@/lib/pricing'
+import { StepPanel, Pressable } from '@/components/motion'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -1011,11 +1012,11 @@ function BookingPageInner() {
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
 
         {step === 1 && (
-          <div>
+          <StepPanel>
             <h2 className="font-serif text-xl text-charcoal-900 mb-1">Choose your {staffLabelLower}</h2>
             <p className="text-charcoal-500 text-sm mb-6">Pick who you want or select any available {staffLabelLower}.</p>
             <div className="grid grid-cols-2 gap-3 mb-6">
-              <div
+              <Pressable
                 onClick={() => { setSelectedBarber(null); resetWaitlistJoinState(); setStep(2) }}
                 className="bg-warm-100 border-2 border-warm-200 rounded-xl p-4 cursor-pointer transition-all text-center hover:border-warm-400"
                 onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
@@ -1028,9 +1029,9 @@ function BookingPageInner() {
                 </div>
                 <div className="text-sm font-semibold text-charcoal-900">Any {staffLabel}</div>
                 <div className="text-xs text-charcoal-500 mt-1">First available</div>
-              </div>
+              </Pressable>
               {barbers.map((b, i) => (
-                <div key={b.id}
+                <Pressable key={b.id}
                   onClick={() => { setSelectedBarber(b); resetWaitlistJoinState(); setStep(2) }}
                   className="bg-warm-100 border-2 border-warm-200 rounded-xl p-4 cursor-pointer transition-all text-center"
                   onMouseEnter={e => (e.currentTarget.style.borderColor = brand)}
@@ -1051,17 +1052,17 @@ function BookingPageInner() {
                   )}
                   <div className="text-sm font-semibold text-charcoal-900">{b.barber_name || b.alias}</div>
                   {b.bio && <div className="text-xs text-charcoal-500 mt-1 line-clamp-2">{b.bio}</div>}
-                </div>
+                </Pressable>
               ))}
             </div>
             <button
               onClick={() => { if (shop?.slug) router.push(`/shop/${shop.slug}`); else router.back() }}
               className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
-          </div>
+          </StepPanel>
         )}
 
         {step === 2 && (
-          <div>
+          <StepPanel>
             <h2 className="font-serif text-xl text-charcoal-900 mb-1">Choose a service</h2>
             <p className="text-charcoal-500 text-sm mb-6">Select what you'd like done today.</p>
             <div className="space-y-2 mb-6">
@@ -1073,7 +1074,7 @@ function BookingPageInner() {
                   (r.service_id == null || r.service_id === s.id) && isPromoRule(r) && promoActiveOn(r, today)
                 )
                 return (
-                  <div key={s.id}
+                  <Pressable key={s.id}
                     onClick={() => { setSelectedService(s); setStep(3) }}
                     className="bg-warm-100 border-2 rounded-xl p-4 cursor-pointer transition-all flex items-center justify-between"
                     style={{ borderColor: selectedService?.id === s.id ? brand : '#262626' }}
@@ -1089,16 +1090,16 @@ function BookingPageInner() {
                       <div className="text-xs text-charcoal-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
                     </div>
                     <div className="font-serif text-lg ml-4 flex-shrink-0 font-semibold" style={{ color: brand }}>${s.price}</div>
-                  </div>
+                  </Pressable>
                 )
               })}
             </div>
             <button onClick={() => setStep(1)} className="text-sm text-charcoal-500 hover:text-charcoal-900 transition-colors">← Back</button>
-          </div>
+          </StepPanel>
         )}
 
         {step === 3 && (
-          <div>
+          <StepPanel>
             <h2 className="font-serif text-xl text-charcoal-900 mb-1">Pick a date & time</h2>
             <p className="text-charcoal-500 text-sm mb-6">Choose when you'd like to come in.</p>
             <div className="space-y-4 mb-6">
@@ -1185,11 +1186,11 @@ function BookingPageInner() {
                 Continue →
               </button>
             </div>
-          </div>
+          </StepPanel>
         )}
 
         {step === 4 && (
-          <div>
+          <StepPanel>
             {paymentFailed && (
               <div className="bg-red-950/50 border border-red-800 rounded-xl p-5 mb-6">
                 <h3 className="font-serif text-lg text-red-200 mb-2">
@@ -1417,7 +1418,7 @@ function BookingPageInner() {
               )}
             </div>
             <p className="text-charcoal-600 text-xs text-center mt-6">Powered by ChairOS</p>
-          </div>
+          </StepPanel>
         )}
       </div>
     </div>
