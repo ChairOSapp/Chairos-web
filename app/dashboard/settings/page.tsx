@@ -8,6 +8,7 @@ import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { daysUntil } from '@/lib/billing'
 import ServicesEditor from '@/components/ServicesEditor'
+import SquareHistorySync from '@/components/SquareHistorySync'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
@@ -640,12 +641,15 @@ export default function ShopSettings() {
                 <p className="text-xs text-charcoal-500 mb-4">
                   Your Square account is linked. Payments taken in Square update ChairOS on their own.
                 </p>
+                <SquareHistorySync shopId={shop.id} />
+                <div className="mt-4">
                 <button
                   onClick={handleSquareDisconnect}
                   disabled={disconnectingSquare}
                   className="px-4 py-2 rounded-lg border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">
                   {disconnectingSquare ? 'Disconnecting...' : 'Disconnect Square'}
                 </button>
+                </div>
               </div>
             ) : (
               <div>

@@ -7,6 +7,7 @@ import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { tagColor } from '@/components/ClientTags'
+import ClientImportModal from '@/components/ClientImportModal'
 
 type SortKey = 'name' | 'lastVisit' | 'daysSince' | 'barber' | 'lock' | 'visits' | 'spend'
 type SortDir = 'asc' | 'desc'
@@ -74,6 +75,7 @@ export default function ClientsPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
+  const [showImport, setShowImport] = useState(false)
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 
@@ -294,7 +296,10 @@ export default function ClientsPage() {
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Client Directory</div>
               <h1 className="font-serif text-2xl text-charcoal-900">{clients.length} Clients</h1>
             </div>
-            <button onClick={() => router.push('/dashboard/clients/locks')} className="btn-chairos-outline">Manage Locks</button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowImport(true)} className="btn-chairos-outline">Import</button>
+              <button onClick={() => router.push('/dashboard/clients/locks')} className="btn-chairos-outline">Manage Locks</button>
+            </div>
           </div>
 
           <div className="relative mb-4">
@@ -456,6 +461,13 @@ export default function ClientsPage() {
         </div>
       </div>
       <MobileNav />
+      {showImport && shop && (
+        <ClientImportModal
+          shopId={shop.id}
+          onClose={() => setShowImport(false)}
+          onDone={() => window.location.reload()}
+        />
+      )}
     </div>
   )
 }

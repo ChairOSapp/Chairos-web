@@ -302,6 +302,7 @@ export default function InsightsPage() {
   const [rev_noshowCount, rev_setNoshowCount] = useState(0)
   const [rev_tips, rev_setTips] = useState<Tip[]>([])
   const [rev_loading, rev_setLoading] = useState(true)
+  const [rev_history, rev_setHistory] = useState<{ amount_cents: number; paid_at: string }[]>([])
 
   // Analytics-specific state (original analytics tab)
   const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>('30')
@@ -416,15 +417,25 @@ export default function InsightsPage() {
         ? supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'noshow').eq('barber_id', barberId).gte('date', start).lte('date', end)
         : supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'noshow').gte('date', start).lte('date', end)
 
-      const [{ data: appts }, { data: tipsData }, { count: noshow }] = await Promise.all([
+      const [{ data: appts }, { data: tipsData }, { count: noshow }, { data: historyData }] = await Promise.all([
         baseQuery,
         tipsQuery,
         noshowQuery,
+        supabase.from('square_payment_history')
+          .select('amount_cents, paid_at')
+          .eq('shop_id', shop.id)
+          .gte('paid_at', start)
+          .lte('paid_at', end + 'T23:59:59'),
       ])
 
       rev_setAppointments((appts || []) as unknown as RevAppointment[])
       rev_setTips(tipsData || [])
       rev_setNoshowCount(noshow || 0)
+      // Only pre-ChairOS history counts toward revenue — anything after the
+      // shop joined could already be reflected in appointments (no double count).
+      const joinedAt = shop.created_at ? new Date(shop.created_at).getTime() : 0
+      rev_setHistory(((historyData || []) as { amount_cents: number; paid_at: string }[])
+        .filter(h => h.paid_at && new Date(h.paid_at).getTime() < joinedAt))
     } catch {
       // swallow
     } finally {
@@ -510,10 +521,16 @@ export default function InsightsPage() {
     rev_appointments.forEach(a => {
       map[a.date] = (map[a.date] || 0) + (parseFloat(String(a.price)) || 0)
     })
+    rev_history.forEach(h => {
+      const day = h.paid_at.slice(0, 10)
+      map[day] = (map[day] || 0) + (h.amount_cents || 0) / 100
+    })
     return map
-  }, [rev_appointments])
+  }, [rev_appointments, rev_history])
 
   const rev_totalRevenue = rev_appointments.reduce((s, a) => s + (parseFloat(String(a.price)) || 0), 0)
+    + rev_history.reduce((s, h) => s + (h.amount_cents || 0) / 100, 0)
+  const rev_historyRevenue = rev_history.reduce((s, h) => s + (h.amount_cents || 0) / 100, 0)
   const rev_totalTips = rev_tips.reduce((s, t) => s + (parseFloat(String(t.amount)) || 0), 0)
   const rev_avgPerApt = rev_appointments.length > 0 ? rev_totalRevenue / rev_appointments.length : 0
 
@@ -797,9 +814,15 @@ export default function InsightsPage() {
                 {/* HERO REVENUE + CHART */}
                 <div className="bg-warm-100 border border-warm-200 rounded-2xl p-6 mb-4">
                   <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">Total Revenue</div>
-                  <div className="font-serif text-5xl text-charcoal-900 leading-none mb-5">
+                  <div className="font-serif text-5xl text-charcoal-900 leading-none mb-1">
                     ${rev_totalRevenue.toFixed(2)}
                   </div>
+                  {rev_historyRevenue > 0 && (
+                    <div className="text-xs text-charcoal-500 mb-4">
+                      Includes ${rev_historyRevenue.toFixed(2)} from your Square history before ChairOS
+                    </div>
+                  )}
+                  <div className="mb-5" />
                   <BarChart days={rev_days} revenueByDay={rev_revenueByDay} />
                 </div>
 
