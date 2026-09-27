@@ -21,8 +21,16 @@ function addMins(time: string, mins: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}:00`
 }
 
-function getDateLabel(view: CalView, d: Date): string {
-  if (view === 'timeGridDay') return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+// "14:30" minutes-since-midnight -> "2:30 PM" for the drag-create block label.
+function fmtMinutes(mins: number): string {
+  let h = Math.floor(mins / 60)
+  const m = mins % 60
+  const ap = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${h}:${String(m).padStart(2, '0')} ${ap}`
+}
+
+function getDateLabel(view: CalView, d: Date): string {  if (view === 'timeGridDay') return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   if (view === 'timeGridWeek') {
     const end = new Date(d); end.setDate(d.getDate() + 6)
     const s = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -38,6 +46,7 @@ const FC_CSS = `
 .chairos-cal .fc-day-today { background: ${tint('#4B5320', 0.05)} !important; }
 .chairos-cal .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion { color: #4B5320; font-weight: 800; }
 .chairos-cal .fc-timegrid-slot { height: 40px; }
+.chairos-cal .drag-new-block { transition: top 90ms ease-out; }
 .chairos-cal .fc-event { box-shadow: none; background: transparent; border: none; }
 .chairos-cal .fc-daygrid-event { background: transparent; border: none; }
 .chairos-cal .fc-v-event .fc-event-main { padding: 0; }
@@ -65,6 +74,9 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
   const [bookSlot, setBookSlot] = useState<{ date: string; time: string; barberId?: string } | null>(null)
   const [showBook, setShowBook] = useState(openBookOnLoad || false)
   const calRef = useRef<FullCalendar>(null)
+  const calWrapRef = useRef<HTMLDivElement>(null)
+  // Floating 15-min block for the long-press-to-create gesture (Day view).
+  const [dragNew, setDragNew] = useState<{ top: number; left: number; width: number; height: number; minutes: number } | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
   const loadAppointments = useCallback(async () => {
@@ -204,7 +216,8 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
   function handleSelect(info: DateSelectArg) {
     const dateStr = info.startStr.split('T')[0]
     const timeStr = info.startStr.includes('T') ? info.startStr.split('T')[1].slice(0,8) : '09:00:00'
-    setBookSlot({ date: dateStr, time: timeStr })
+    // Prefill the filtered barber so front-desk booking matches what's on screen.
+    setBookSlot({ date: dateStr, time: timeStr, barberId: filterBarberId ?? undefined })
     setShowBook(true)
     calRef.current?.getApi().unselect()
   }
@@ -316,6 +329,132 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
     )
   }
 
+  // Long-press-to-create (Apple Calendar style) — Day view only, touch only.
+  // Hold a finger on empty time: a 15-min block appears under it showing the
+  // time, follows the drag snapping to 15-min increments, and on release the
+  // booking sheet opens with that time (and the filtered barber) prefilled.
+  // Native touch listeners with a non-passive touchmove: the first move after
+  // the hold calls preventDefault(), which is what stops iOS Safari from
+  // hijacking the gesture into a scroll. Mouse keeps FullCalendar's native
+  // drag-select; presses starting on existing events are left to FullCalendar.
+  useEffect(() => {
+    const wrap = calWrapRef.current
+    if (!wrap || view !== 'timeGridDay') return
+
+    const SLOT_MIN = 7 * 60
+    const SLOT_MAX = 22 * 60
+    const SNAP = 15
+    const HOLD_MS = 350
+    const MOVE_TOL = 12
+
+    let press: { x: number; y: number; timer: ReturnType<typeof setTimeout> } | null = null
+    let dragging = false
+    let curMinutes: number | null = null
+
+    const geom = () => {
+      const slots = wrap.querySelector('.fc-timegrid-slots') as HTMLElement | null
+      const lane = wrap.querySelector('.fc-timegrid-cols .fc-timegrid-col') as HTMLElement | null
+      const slotEl = wrap.querySelector('.fc-timegrid-slot') as HTMLElement | null
+      if (!slots || !lane || !slotEl) return null
+      return {
+        wrapRect: wrap.getBoundingClientRect(),
+        slotsRect: slots.getBoundingClientRect(),
+        laneRect: lane.getBoundingClientRect(),
+        slotH: slotEl.getBoundingClientRect().height, // one 15-min row
+      }
+    }
+
+    const minutesAt = (clientY: number): number | null => {
+      const g = geom()
+      if (!g || g.slotH <= 0) return null
+      const raw = SLOT_MIN + ((clientY - g.slotsRect.top) / g.slotH) * SNAP
+      return Math.min(SLOT_MAX - SNAP, Math.max(SLOT_MIN, Math.round(raw / SNAP) * SNAP))
+    }
+
+    const place = (minutes: number) => {
+      const g = geom()
+      if (!g) return
+      curMinutes = minutes
+      setDragNew({
+        top: (g.slotsRect.top - g.wrapRect.top) + wrap.scrollTop + ((minutes - SLOT_MIN) / SNAP) * g.slotH,
+        left: (g.laneRect.left - g.wrapRect.left) + wrap.scrollLeft + 3,
+        width: Math.max(48, g.laneRect.width - 6),
+        height: g.slotH,
+        minutes,
+      })
+    }
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      const t = e.touches[0]
+      const target = e.target as HTMLElement
+      if (!target.closest('.fc-timegrid-slots') || target.closest('.fc-event')) return
+      const sx = t.clientX, sy = t.clientY
+      press = {
+        x: sx, y: sy,
+        timer: setTimeout(() => {
+          press = null
+          const m = minutesAt(sy)
+          if (m == null) return
+          dragging = true
+          place(m)
+        }, HOLD_MS),
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (!t) return
+      if (press) {
+        // Drifted before the hold fired — it's a scroll, bail out quietly.
+        if (Math.hypot(t.clientX - press.x, t.clientY - press.y) > MOVE_TOL) {
+          clearTimeout(press.timer)
+          press = null
+        }
+        return
+      }
+      if (dragging) {
+        e.preventDefault() // take over the gesture; blocks scroll hijack
+        const m = minutesAt(t.clientY)
+        if (m != null && m !== curMinutes) place(m)
+      }
+    }
+
+    const finish = (commit: boolean) => {
+      if (press) { clearTimeout(press.timer); press = null }
+      if (!dragging) return
+      dragging = false
+      const m = curMinutes
+      curMinutes = null
+      setDragNew(null)
+      if (commit && m != null) {
+        const api = calRef.current?.getApi()
+        const dateStr = api ? toDateStr(api.getDate()) : toDateStr(new Date())
+        const hh = String(Math.floor(m / 60)).padStart(2, '0')
+        const mm = String(m % 60).padStart(2, '0')
+        // Open the booking sheet with the placed time prefilled, plus the
+        // currently filtered barber (Everyone -> no prefill).
+        setBookSlot({ date: dateStr, time: `${hh}:${mm}:00`, barberId: filterBarberId ?? undefined })
+        setShowBook(true)
+      }
+    }
+
+    const onTouchEnd = () => finish(true)
+    const onTouchCancel = () => finish(false)
+
+    wrap.addEventListener('touchstart', onTouchStart, { passive: true })
+    wrap.addEventListener('touchmove', onTouchMove, { passive: false })
+    wrap.addEventListener('touchend', onTouchEnd)
+    wrap.addEventListener('touchcancel', onTouchCancel)
+    return () => {
+      wrap.removeEventListener('touchstart', onTouchStart)
+      wrap.removeEventListener('touchmove', onTouchMove)
+      wrap.removeEventListener('touchend', onTouchEnd)
+      wrap.removeEventListener('touchcancel', onTouchCancel)
+      if (press) clearTimeout(press.timer)
+    }
+  }, [view, filterBarberId])
+
   return (
     <div className="chairos-cal flex flex-col w-full" style={{ height: 'calc(100dvh - 56px)' }}>
       <style>{FC_CSS}</style>
@@ -404,7 +543,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
       <DayGlance appointments={visibleAppointments} view={view} viewRange={viewRange} barberNameFor={barberNameFor} walkInCount={walkIns.length} />
 
       {/* Calendar */}
-      <div className="flex-1 overflow-auto bg-warm-50">
+      <div ref={calWrapRef} className="flex-1 overflow-auto bg-warm-50 relative select-none">
         <FullCalendar
           ref={calRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -422,6 +561,11 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
           nowIndicator={true}
           selectable={true}
           selectMirror={true}
+          // Touch range-select is replaced by the custom long-press-to-create
+          // gesture below (fixed 15-min block with a live time label), so push
+          // FullCalendar's own touch long-press select effectively out of reach.
+          // Mouse drag-select is untouched.
+          selectLongPressDelay={86400000}
           select={handleSelect}
           eventClick={handleEventClick}
           eventContent={renderEventContent}
@@ -435,6 +579,19 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
             }
           }}
         />
+        {/* Floating 15-min block for the long-press-to-create gesture */}
+        {dragNew && (
+          <div
+            className="absolute z-30 pointer-events-none drag-new-block"
+            style={{ top: dragNew.top, left: dragNew.left, width: dragNew.width, height: dragNew.height }}
+          >
+            <div className="w-full h-full rounded-lg border-2 border-od-green bg-od-green/25 shadow-lg flex items-center justify-center">
+              <span className="text-[12px] font-bold text-charcoal-900 bg-warm-50/95 rounded-md px-1.5 py-0.5 shadow-sm">
+                {fmtMinutes(dragNew.minutes)}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Appointment popover */}
