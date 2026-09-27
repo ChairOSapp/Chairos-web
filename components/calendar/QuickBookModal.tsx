@@ -5,7 +5,7 @@ import { useVerticalLabels } from '@/lib/VerticalContext'
 import { FadeBackdrop, ModalPanel } from '@/components/motion'
 
 interface Barber { barber_id: string; barber_name: string; alias?: string | null }
-interface Service { id: string; name: string; price: number }
+interface Service { id: string; name: string; price: number; duration_minutes?: number | null }
 
 interface Props {
   shopId: string
@@ -23,14 +23,21 @@ function toDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
-const TIME_SLOTS = Array.from({ length: 46 }, (_, i) => {
-  const totalMin = 480 + i * 15 // 8:00am → 11:15pm
+const TIME_SLOTS = Array.from({ length: 61 }, (_, i) => {
+  const totalMin = 420 + i * 15 // 7:00am → 10:00pm, matching the calendar grid
   const h = Math.floor(totalMin / 60)
   const m = totalMin % 60
   const ampm = h >= 12 ? 'PM' : 'AM'
   const hour = h % 12 || 12
   return { label: `${hour}:${String(m).padStart(2, '0')} ${ampm}`, value: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00` }
 })
+
+function fmtDuration(min: number) {
+  if (min < 60) return `${min} min`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m ? `${h} hr ${m} min` : `${h} hr`
+}
 
 // Shared field styling: solid fill that stands apart from the warm-100 sheet,
 // visible border, clear focus ring. 16px text prevents iOS auto-zoom on focus.
@@ -62,6 +69,7 @@ export default function QuickBookModal({
   const [barberId, setBarberId] = useState(lockedBarberId || initialBarberId || barbers[0]?.barber_id || '')
   const [serviceId, setServiceId] = useState('')
   const [price, setPrice] = useState('')
+  const [durationMin, setDurationMin] = useState(30)
   const [phone, setPhone] = useState('')
   const [clientName, setClientName] = useState('')
   const [notes, setNotes] = useState('')
@@ -95,7 +103,11 @@ export default function QuickBookModal({
   function onServiceChange(svcId: string) {
     setServiceId(svcId)
     const svc = services.find(s => s.id === svcId)
-    if (svc) setPrice(String(svc.price))
+    if (svc) {
+      setPrice(String(svc.price))
+      // The service dictates the length; the owner can still change it below.
+      setDurationMin(svc.duration_minutes && svc.duration_minutes > 0 ? svc.duration_minutes : 30)
+    }
   }
 
   async function submit() {
@@ -150,6 +162,7 @@ export default function QuickBookModal({
       date,
       time: time.length === 5 ? time + ':00' : time,
       price: parseFloat(price) || svc?.price || 0,
+      duration_minutes: durationMin,
       status: 'confirmed',
       notes: notes || null,
       source: 'manual',
@@ -177,6 +190,16 @@ export default function QuickBookModal({
       })()
     : time
 
+  const endTimeLabel = (() => {
+    const [h, m] = time.split(':').map(Number)
+    if (Number.isNaN(h) || Number.isNaN(m)) return ''
+    const total = h * 60 + m + durationMin
+    const eh = Math.floor(total / 60) % 24
+    const em = total % 60
+    const ampm = eh >= 12 ? 'PM' : 'AM'
+    return `${eh % 12 || 12}:${String(em).padStart(2, '0')} ${ampm}`
+  })()
+
   return (
     <div className="fixed inset-0 z-[150] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <FadeBackdrop className="absolute inset-0 bg-charcoal-900/40 backdrop-blur-sm" onClick={onClose} />
@@ -189,7 +212,7 @@ export default function QuickBookModal({
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-charcoal-400">New appointment</p>
               <h2 className="mt-0.5 font-serif text-[22px] leading-snug text-charcoal-900">
-                {date === today ? 'Today' : new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {displayTime}
+                {date === today ? 'Today' : new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {displayTime}{endTimeLabel ? ` – ${endTimeLabel}` : ''}
               </h2>
             </div>
             <button onClick={onClose} aria-label="Close"
@@ -298,6 +321,27 @@ export default function QuickBookModal({
                   <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0"
                     className={`${inputCls} pl-9`} />
                 </div>
+              </div>
+            </div>
+            <div className="mt-3 min-w-0">
+              <FieldLabel>Duration</FieldLabel>
+              <div className="flex items-center justify-between rounded-xl border border-warm-300 bg-white px-2 py-2">
+                <button type="button" aria-label="Shorten by 15 minutes"
+                  onClick={() => setDurationMin(d => Math.max(15, d - 15))}
+                  className="flex h-11 w-11 items-center justify-center rounded-lg bg-warm-200 text-xl font-bold text-charcoal-700 transition-colors hover:bg-warm-300 active:scale-95">
+                  −
+                </button>
+                <div className="text-center">
+                  <div className="text-base font-bold text-charcoal-900">{fmtDuration(durationMin)}</div>
+                  {serviceId && (
+                    <div className="text-[11px] text-charcoal-400">From {services.find(s => s.id === serviceId)?.name} — change it if you need</div>
+                  )}
+                </div>
+                <button type="button" aria-label="Lengthen by 15 minutes"
+                  onClick={() => setDurationMin(d => Math.min(480, d + 15))}
+                  className="flex h-11 w-11 items-center justify-center rounded-lg bg-warm-200 text-xl font-bold text-charcoal-700 transition-colors hover:bg-warm-300 active:scale-95">
+                  +
+                </button>
               </div>
             </div>
           </section>

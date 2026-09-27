@@ -85,7 +85,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
     const future = new Date(now.getFullYear(), now.getMonth() + 4, 0)
     const { data } = await supabase
       .from('appointments')
-      .select('*, services(name, price)')
+      .select('*, services(name, price, duration_minutes)')
       .eq('shop_id', shopId)
       .gte('date', toDateStr(past))
       .lte('date', toDateStr(future))
@@ -97,7 +97,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
     async function init() {
       const [{ data: b }, { data: s }] = await Promise.all([
         supabase.from('shop_barbers').select('barber_id, barber_name, alias, joined_at').eq('shop_id', shopId).eq('active', true).order('joined_at', { ascending: true }),
-        supabase.from('services').select('id, name, price').eq('shop_id', shopId).eq('active', true).order('price', { ascending: true }),
+        supabase.from('services').select('id, name, price, duration_minutes').eq('shop_id', shopId).eq('active', true).order('price', { ascending: true }),
       ])
       setBarbers(b || [])
       setServices(s || [])
@@ -164,11 +164,13 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
     const apptEvents = visibleAppointments.map(a => {
       const timeStr = a.time || '09:00:00'
       const color = barberColorMap[a.barber_id] || '#65655F'
+      // The appointment's own length wins (service set it, owner may have overridden it).
+      const durMin = a.duration_minutes ?? a.services?.duration_minutes ?? 30
       return {
         id: a.id,
         title: a.client_name || 'Walk-in',
         start: `${a.date}T${timeStr}`,
-        end: `${a.date}T${addMins(timeStr, 30)}`,
+        end: `${a.date}T${addMins(timeStr, durMin)}`,
         backgroundColor: 'transparent',
         borderColor: 'transparent',
         textColor: 'inherit',
