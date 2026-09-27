@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { squareCardInputStyle } from '@/lib/squareCard'
 import type { PortalShop } from '@/lib/portalData'
 
@@ -85,6 +86,11 @@ export default function ClientPortalPage() {
   const [walletCards, setWalletCards] = useState<{ shopId: string; status: 'current' | 'stale' | 'none'; brand: string | null; last4: string | null }[] | null>(null)
   const [walletLoading, setWalletLoading] = useState(false)
   const [editingShopId, setEditingShopId] = useState<string | null>(null)
+  // Card-init failure: specific message + manual retry (same pattern as the
+  // booking page). A failed init used to degrade to a dead "unavailable"
+  // line with no recovery and no diagnostic trail.
+  const [squareError, setSquareError] = useState<string | null>(null)
+  const [squareRetryKey, setSquareRetryKey] = useState(0)
   // Earned-but-unredeemed referral rewards, per shop — so clients see
   // "you've earned X off" instead of discovering it only mid-booking.
   const [earnedRewards, setEarnedRewards] = useState<{ shopId: string; shopName: string; rewardText: string }[]>([])
@@ -186,6 +192,7 @@ export default function ClientPortalPage() {
     setCardLoading(true)
     setSquareNotConnected(false)
     setSquareNotConnectedMsg('')
+    setSquareError(null)
     let isMounted = true
     async function initSquare() {
       try {
@@ -220,10 +227,14 @@ export default function ClientPortalPage() {
         squareCardRef.current = card
         setCardReady(true)
       } catch (e) {
-        // The payment tab already renders "Card form unavailable right
-        // now." when the form never becomes ready, so a failed init (shop
-        // hasn't connected Square, CDN blocked, ...) degrades to that.
+        // Failed init (Square CDN hiccup, attach race, ...) is now loud:
+        // Sentry gets the real error, the client gets a message plus a
+        // retry, instead of the dead "unavailable" line.
         console.error('Square init error:', e)
+        if (isMounted) {
+          Sentry.captureException(e, { tags: { area: 'portal_square_card_init' }, extra: { shopId: selectedShopId } })
+          setSquareError('The card form didn\u2019t load. Check your connection and try again — nothing was saved or charged.')
+        }
       } finally {
         if (isMounted) setCardLoading(false)
       }
@@ -237,7 +248,12 @@ export default function ClientPortalPage() {
         setCardReady(false)
       }
     }
-  }, [tab, editingShopId, selectedShopId, selectedBarberId])
+  }, [tab, editingShopId, selectedShopId, selectedBarberId, squareRetryKey])
+
+  function retrySquareInit() {
+    setSquareError(null)
+    setSquareRetryKey(k => k + 1)
+  }
 
   async function sendCode() {
     setAuthError('')
@@ -610,7 +626,7 @@ export default function ClientPortalPage() {
                             </div>
                           ) : squareNotConnected ? (
                             <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
-                              {chargeParty} hasn&apos;t set up card payments yet — you can pay at the shop as usual.
+                              {`${chargeParty} hasn't set up card payments yet — you can pay at the shop as usual.`}
                               {squareNotConnectedMsg ? <span className="block text-xs text-charcoal-500 mt-1">{squareNotConnectedMsg}</span> : null}
                             </div>
                           ) : (
@@ -623,7 +639,16 @@ export default function ClientPortalPage() {
                                   </div>
                                 )}
                                 <div id="portal-square-card" />
-                                {!cardLoading && !cardReady && (
+                                {!cardLoading && !cardReady && squareError ? (
+                                  <div className="py-2">
+                                    <p className="text-amber-400 text-xs">{squareError}</p>
+                                    {/* In-app recovery: the iOS wrapper has no page refresh. */}
+                                    <button type="button" onClick={retrySquareInit}
+                                      className="mt-2 text-xs font-semibold text-neutral-200 underline underline-offset-2 hover:text-white transition-colors">
+                                      Try again
+                                    </button>
+                                  </div>
+                                ) : !cardLoading && !cardReady && (
                                   <p className="text-neutral-500 text-xs py-2">Card form unavailable right now.</p>
                                 )}
                               </div>
