@@ -19,6 +19,34 @@
 #   APNS_KEY       - contents of the .p8 file (use \n for line breaks)
 # Until those exist, the app registers tokens fine and pushes no-op safely.
 workflows:
+  # Free proof the iOS project compiles — no Apple Developer enrollment needed.
+  # Builds for the iPhone simulator with code signing disabled. Run this first;
+  # ios-testflight below is the paid path (signing + TestFlight upload).
+  ios-simulator-check:
+    name: ChairOS iOS simulator compile check
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Sync Capacitor iOS project
+        script: npx cap sync ios
+      - name: Build for simulator (no code signing)
+        script: |
+          xcodebuild -workspace "ios/App/App.xcworkspace" \
+            -scheme "App" \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+    artifacts:
+      - /tmp/xcodebuild_logs/*.log
+
   ios-testflight:
     name: ChairOS iOS TestFlight
     max_build_duration: 60
