@@ -177,7 +177,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-charcoal-950">
-      <header className="bg-charcoal-900/90 backdrop-blur border-b border-charcoal-800 px-4 md:px-6 h-14 flex items-center justify-between sticky top-0 z-50">
+      <header className="bg-charcoal-900/90 backdrop-blur border-b border-charcoal-800 px-4 md:px-6 min-h-14 pt-[env(safe-area-inset-top)] flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <span className="font-serif text-[#8A9A3B] text-lg">ChairOS</span>
           <span className="text-charcoal-600 text-xs">·</span>
@@ -187,7 +187,7 @@ export default function AdminPage() {
           <button
             onClick={refresh}
             disabled={refreshing || loading}
-            className="flex items-center gap-1.5 text-xs font-semibold text-charcoal-300 border border-charcoal-700 bg-charcoal-800 hover:bg-charcoal-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 text-xs font-semibold text-charcoal-300 border border-charcoal-700 bg-charcoal-800 hover:bg-charcoal-700 px-4 min-h-[44px] rounded-lg transition-colors disabled:opacity-50"
           >
             {refreshing ? (
               <>

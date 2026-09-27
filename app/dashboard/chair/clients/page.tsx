@@ -63,7 +63,7 @@ export default function BarberClientsPage() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50">
+      <header className="bg-warm-100 border-b border-warm-200 px-6 min-h-14 pt-[env(safe-area-inset-top)] flex items-center justify-between sticky top-0 z-50">
         <span className="font-serif text-od-green text-lg">ChairOS</span>
         <button onClick={() => router.push('/dashboard/chair')} className="btn-chairos-outline">My Dashboard</button>
       </header>

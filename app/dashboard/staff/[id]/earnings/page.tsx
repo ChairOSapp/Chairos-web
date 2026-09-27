@@ -129,7 +129,7 @@ export default function BarberEarnings() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <header className="bg-warm-100 border-b border-warm-200 px-6 h-14 flex items-center justify-between sticky top-0 z-50 no-print">
+      <header className="bg-warm-100 border-b border-warm-200 px-6 min-h-14 pt-[env(safe-area-inset-top)] flex items-center justify-between sticky top-0 z-50 no-print">
         <span className="font-serif text-od-green text-lg">ChairOS</span>
         <div className="flex items-center gap-3">
           <button onClick={() => window.print()}
