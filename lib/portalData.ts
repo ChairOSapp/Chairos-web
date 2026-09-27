@@ -8,6 +8,11 @@
 // routes.
 import { SupabaseClient } from '@supabase/supabase-js'
 
+export interface PortalBarber {
+  barberId: string
+  name: string
+}
+
 export interface PortalShop {
   shopId: string
   shopName: string
@@ -16,6 +21,12 @@ export interface PortalShop {
   referralProgramEnabled: boolean
   referralRewardType: string | null
   referralRewardValue: number | null
+  // Per-barber money routing: when true, cards are saved/charged against
+  // the barber's Square merchant (like booking does), so the payment tab
+  // needs a barber picker and must pass barberId to widget-config and
+  // save-card. When false the shop owner's account is used.
+  barbersCollectOwn: boolean
+  barbers: PortalBarber[]
 }
 
 export interface PortalClient {
@@ -46,7 +57,7 @@ export async function resolvePortalClient(admin: SupabaseClient, phone: string):
   // "shops you have a relationship with" reflects real history, not just
   // whether that one membership call happened to succeed.
   const [{ data: memberships }, { data: apptShopIds }] = await Promise.all([
-    admin.from('client_shop_memberships').select('shops(id, name, shop_code, vertical, referral_program_enabled, referral_reward_type, referral_reward_value)').eq('client_id', client.id),
+    admin.from('client_shop_memberships').select('shops(id, name, shop_code, vertical, barbers_collect_own_payments, referral_program_enabled, referral_reward_type, referral_reward_value)').eq('client_id', client.id),
     admin.from('appointments').select('shop_id').eq('client_id', client.id),
   ])
 
@@ -58,6 +69,8 @@ export async function resolvePortalClient(admin: SupabaseClient, phone: string):
     referralProgramEnabled: s.referral_program_enabled === true,
     referralRewardType: s.referral_reward_type ?? null,
     referralRewardValue: s.referral_reward_value ?? null,
+    barbersCollectOwn: s.barbers_collect_own_payments === true,
+    barbers: [],
   })
 
   const shopIdsFromMemberships: PortalShop[] = (memberships || [])
@@ -70,11 +83,29 @@ export async function resolvePortalClient(admin: SupabaseClient, phone: string):
 
   let shopsFromAppointments: PortalShop[] = []
   if (missingShopIds.length > 0) {
-    const { data: extraShops } = await admin.from('shops').select('id, name, shop_code, vertical, referral_program_enabled, referral_reward_type, referral_reward_value').in('id', missingShopIds)
+    const { data: extraShops } = await admin.from('shops').select('id, name, shop_code, vertical, barbers_collect_own_payments, referral_program_enabled, referral_reward_type, referral_reward_value').in('id', missingShopIds)
     shopsFromAppointments = (extraShops || []).map(toPortalShop)
   }
 
   const shops: PortalShop[] = [...shopIdsFromMemberships, ...shopsFromAppointments]
+
+  // For per-barber shops the payment tab needs the barber picker, so load
+  // the active roster for those shops only.
+  const perBarberShops = shops.filter(s => s.barbersCollectOwn)
+  if (perBarberShops.length > 0) {
+    const { data: rosters } = await admin
+      .from('shop_barbers')
+      .select('shop_id, barber_id, barber_name, alias')
+      .in('shop_id', perBarberShops.map(s => s.shopId))
+      .eq('active', true)
+    const byShop = new Map<string, PortalBarber[]>()
+    for (const r of rosters || []) {
+      const list = byShop.get((r as any).shop_id) || []
+      list.push({ barberId: (r as any).barber_id, name: (r as any).barber_name || (r as any).alias || 'Barber' })
+      byShop.set((r as any).shop_id, list)
+    }
+    for (const s of perBarberShops) s.barbers = byShop.get(s.shopId) || []
+  }
 
   return {
     clientId: client.id,

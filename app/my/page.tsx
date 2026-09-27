@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { squareCardInputStyle } from '@/lib/squareCard'
+import type { PortalShop } from '@/lib/portalData'
 
-type PortalShop = { shopId: string; shopName: string; shopCode: string | null; vertical: string; referralProgramEnabled: boolean; referralRewardType: string | null; referralRewardValue: number | null }
 type PortalClient = {
   clientId: string
   fullName: string | null
@@ -63,6 +63,10 @@ export default function ClientPortalPage() {
 
   // Payment tab state
   const [selectedShopId, setSelectedShopId] = useState('')
+  // Per-barber shops (barbers_collect_own_payments): the card is saved
+  // against the barber's Square merchant -- the same account booking and
+  // charging use -- so the client picks which barber the card is for.
+  const [selectedBarberId, setSelectedBarberId] = useState('')
   const squareCardRef = useRef<any>(null)
   const [cardReady, setCardReady] = useState(false)
   const [cardLoading, setCardLoading] = useState(false)
@@ -113,18 +117,27 @@ export default function ClientPortalPage() {
       }
     }
     loadAppointments()
-    if (client.shops.length > 0) setSelectedShopId(client.shops[0].shopId)
+    if (client.shops.length > 0) {
+      const first = client.shops[0]
+      setSelectedShopId(first.shopId)
+      // Default the card to their first barber at per-barber shops.
+      setSelectedBarberId(first.barbers[0]?.barberId || '')
+    }
     // Earned referral rewards for the "desire" nudge — the referrer sees
     // exactly what they've earned, not just a share link.
     fetch('/api/portal/rewards').then(r => r.json()).then(d => setEarnedRewards(d.rewards || [])).catch(() => {})
   }, [client])
 
   // Square card form -- per-shop widget config (tokenize against the same
-  // Square location the server saves the card under). Same dynamic-import
-  // pattern as the public booking page.
+  // Square merchant the server saves the card under: the barber's on
+  // per-barber shops, the owner's otherwise -- exactly like booking).
+  // Same dynamic-import pattern as the public booking page.
   useEffect(() => {
     if (tab !== 'payment' || !selectedShopId) return
     if (squareCardRef.current) return
+    // Per-barber shops need a chosen barber before we can tokenize.
+    const shopForInit = client?.shops.find(s => s.shopId === selectedShopId)
+    if (shopForInit?.barbersCollectOwn && !selectedBarberId) return
 
     const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
     if (!appId) return
@@ -135,7 +148,9 @@ export default function ClientPortalPage() {
     let isMounted = true
     async function initSquare() {
       try {
-        const cfgRes = await fetch(`/api/square/widget-config?portalShopId=${selectedShopId}`)
+        const cfgParams = new URLSearchParams({ portalShopId: selectedShopId })
+        if (selectedBarberId) cfgParams.set('barberId', selectedBarberId)
+        const cfgRes = await fetch(`/api/square/widget-config?${cfgParams}`)
         if (!isMounted) return
         if (!cfgRes.ok) {
           const errData = await cfgRes.json().catch(() => ({} as any))
@@ -181,7 +196,7 @@ export default function ClientPortalPage() {
         setCardReady(false)
       }
     }
-  }, [tab, selectedShopId])
+  }, [tab, selectedShopId, selectedBarberId])
 
   async function sendCode() {
     setAuthError('')
@@ -249,7 +264,13 @@ export default function ClientPortalPage() {
   }
 
   const selectedShopName = client?.shops.find(s => s.shopId === selectedShopId)?.shopName || 'this shop'
-  const cardConsentText = `I agree to save my card with ${selectedShopName} for faster checkout. ${selectedShopName} may charge this card for deposits and appointment payments. My card is stored securely by Square — the shop never sees my full card number. I can remove my card anytime.`
+  const selectedShop = client?.shops.find(s => s.shopId === selectedShopId)
+  const perBarberShop = selectedShop?.barbersCollectOwn === true
+  const selectedBarberName = selectedShop?.barbers.find(b => b.barberId === selectedBarberId)?.name || ''
+  // Who actually charges the card: the barber's merchant on per-barber
+  // shops, the shop otherwise. The disclosure names them accurately.
+  const chargeParty = perBarberShop && selectedBarberName ? `${selectedBarberName} at ${selectedShopName}` : selectedShopName
+  const cardConsentText = `I agree to save my card with ${chargeParty} for faster checkout. ${chargeParty} may charge this card for deposits and appointment payments. My card is stored securely by Square — the shop never sees my full card number. I can remove my card anytime.`
 
   async function handleSaveCard() {
     if (!squareCardRef.current || !selectedShopId) return
@@ -267,7 +288,7 @@ export default function ClientPortalPage() {
       }
       const res = await fetch('/api/portal/save-card', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId: result.token, shopId: selectedShopId, consent: true, consentText: cardConsentText }),
+        body: JSON.stringify({ sourceId: result.token, shopId: selectedShopId, barberId: selectedBarberId || null, consent: true, consentText: cardConsentText }),
       })
       const data = await res.json()
       if (!res.ok) { setSaveResult({ ok: false, message: data.error || 'Could not save card' }); return }
@@ -506,15 +527,34 @@ export default function ClientPortalPage() {
                 {client.shops.length > 1 && (
                   <div className="mb-4">
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">For which shop?</label>
-                    <select value={selectedShopId} onChange={e => { squareCardRef.current = null; setCardReady(false); setSquareNotConnected(false); setSelectedShopId(e.target.value) }}
+                    <select value={selectedShopId} onChange={e => {
+                      const next = client.shops.find(s => s.shopId === e.target.value)
+                      squareCardRef.current = null; setCardReady(false); setSquareNotConnected(false)
+                      setSelectedShopId(e.target.value)
+                      setSelectedBarberId(next?.barbers[0]?.barberId || '')
+                    }}
                       className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
                       {client.shops.map(s => <option key={s.shopId} value={s.shopId}>{s.shopName}</option>)}
                     </select>
                   </div>
                 )}
-                {squareNotConnected ? (
+                {perBarberShop && selectedShop && selectedShop.barbers.length > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">For which barber?</label>
+                    <select value={selectedBarberId} onChange={e => { setSquareNotConnected(false); setSelectedBarberId(e.target.value) }}
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
+                      {selectedShop.barbers.map(b => <option key={b.barberId} value={b.barberId}>{b.name}</option>)}
+                    </select>
+                    <p className="text-xs text-charcoal-500 mt-1.5">Cards are kept with your barber, so pick the one you book with.</p>
+                  </div>
+                )}
+                {perBarberShop && selectedShop && selectedShop.barbers.length === 0 ? (
                   <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
-                    {selectedShopName} hasn&apos;t set up card payments yet — you can pay at the shop as usual.
+                    We couldn&apos;t find an active barber for you at {selectedShopName} — book an appointment first, then save your card here.
+                  </div>
+                ) : squareNotConnected ? (
+                  <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
+                    {chargeParty} hasn&apos;t set up card payments yet — you can pay at the shop as usual.
                     {squareNotConnectedMsg ? <span className="block text-xs text-charcoal-500 mt-1">{squareNotConnectedMsg}</span> : null}
                   </div>
                 ) : (

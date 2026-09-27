@@ -111,8 +111,14 @@ export async function GET(req: NextRequest) {
   } else if (portalShopId) {
     // Customer portal ("my" page): the OTP-verified portal session
     // authorizes, and the shop must be one of the client's own shops —
-    // same authorization as /api/portal/save-card. Cards saved here route
-    // to the shop owner, matching saveCardForClient.
+    // same authorization as /api/portal/save-card.
+    //
+    // Routing must match booking exactly: per-barber shops tokenize
+    // against the barber's Square merchant (the portal passes barberId,
+    // chosen in the payment tab), otherwise the owner's. A card tokenized
+    // against the wrong merchant can't be saved or charged there, which
+    // is why the portal used to fail for shops whose owner never
+    // connected Square while their barbers had.
     const session = readPortalSession(req)
     if (!session) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
     const portalClient = await resolvePortalClient(admin, session.phone)
@@ -126,8 +132,24 @@ export async function GET(req: NextRequest) {
       .eq('id', portalShopId)
       .maybeSingle()
     if (!s) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
-    shop = { id: s.id, owner_id: s.owner_id, barbers_collect_own_payments: false }
-    barberId = null
+    const collectsOwn = (s as any).barbers_collect_own_payments === true
+    let portalBarberId: string | null = null
+    const portalBarberParam = params.get('barberId')
+    if (portalBarberParam) {
+      // The barber must actually work at this shop -- otherwise a client
+      // could tokenize a card against an arbitrary barber's merchant.
+      const { data: sb } = await admin
+        .from('shop_barbers')
+        .select('barber_id')
+        .eq('shop_id', portalShopId)
+        .eq('barber_id', portalBarberParam)
+        .eq('active', true)
+        .maybeSingle()
+      if (!sb) return NextResponse.json({ error: 'Barber not found at this shop' }, { status: 403 })
+      portalBarberId = portalBarberParam
+    }
+    shop = { id: s.id, owner_id: s.owner_id, barbers_collect_own_payments: collectsOwn }
+    barberId = portalBarberId
   } else {
     return NextResponse.json({ error: 'appointmentId, shopCode, rent=1, or portalShopId is required' }, { status: 400 })
   }

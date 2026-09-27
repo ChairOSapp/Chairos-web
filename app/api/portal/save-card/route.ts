@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
   const session = readPortalSession(req)
   if (!session) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
 
-  const { sourceId, shopId, consent, consentText } = await req.json() as {
-    sourceId?: string; shopId?: string; consent?: boolean; consentText?: string
+  const { sourceId, shopId, consent, consentText, barberId } = await req.json() as {
+    sourceId?: string; shopId?: string; consent?: boolean; consentText?: string; barberId?: string | null
   }
   if (!sourceId || !shopId) return NextResponse.json({ error: 'sourceId and shopId are required' }, { status: 400 })
   // Card-network stored-credential rules: no card goes on file without the
@@ -37,7 +37,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'You are not a client of this shop' }, { status: 403 })
   }
 
-  const result = await saveCardForClient(admin, portalClient.clientId, shopId, sourceId, { scope: 'client_card_on_file', text: (consentText as string).trim() })
+  // Per-barber shops save the card under the barber's Square merchant --
+  // the same account booking and charging route to. The barber must be
+  // active at this shop; a token minted against any other merchant is
+  // useless for saving here, so reject it rather than mis-saving.
+  let resolvedBarberId: string | null = null
+  if (barberId) {
+    const { data: sb } = await admin
+      .from('shop_barbers')
+      .select('barber_id')
+      .eq('shop_id', shopId)
+      .eq('barber_id', barberId)
+      .eq('active', true)
+      .maybeSingle()
+    if (!sb) return NextResponse.json({ error: 'Barber not found at this shop' }, { status: 403 })
+    resolvedBarberId = barberId
+  }
+
+  const result = await saveCardForClient(admin, portalClient.clientId, shopId, sourceId, { scope: 'client_card_on_file', text: (consentText as string).trim() }, resolvedBarberId)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status || 500 })
   return NextResponse.json({ saved: true, last4: result.last4, brand: result.brand })
 }
