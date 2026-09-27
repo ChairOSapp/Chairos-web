@@ -35,9 +35,14 @@ workflows:
         script: npm ci
       - name: Sync Capacitor iOS project
         script: npx cap sync ios
+      - name: Resolve Swift packages
+        script: |
+          xcodebuild -resolvePackageDependencies \
+            -project "ios/App/App.xcodeproj" \
+            -scheme "App"
       - name: Build for simulator (no code signing)
         script: |
-          xcodebuild -workspace "ios/App/App.xcworkspace" \
+          xcodebuild -project "ios/App/App.xcodeproj" \
             -scheme "App" \
             -sdk iphonesimulator \
             -configuration Debug \
