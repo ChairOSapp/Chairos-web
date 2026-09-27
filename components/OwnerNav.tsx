@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import NotificationBell from '@/components/NotificationBell'
 import NotificationToast from '@/components/NotificationToast'
+import PushBootstrap from '@/components/PushBootstrap'
 import { NotificationsProvider } from '@/src/context/NotificationsContext'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
@@ -73,6 +74,7 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
           <NotificationsProvider>
             <NotificationBell userId={userId} />
             <NotificationToast userId={userId} />
+            <PushBootstrap />
           </NotificationsProvider>
         )}
         <div className="w-8 h-8 rounded-lg bg-od-green/10 border border-od-green/30 flex items-center justify-center font-serif text-od-green text-sm">

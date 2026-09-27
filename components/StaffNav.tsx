@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import NotificationBell from '@/components/NotificationBell'
 import NotificationToast from '@/components/NotificationToast'
+import PushBootstrap from '@/components/PushBootstrap'
 import { NotificationsProvider } from '@/src/context/NotificationsContext'
 
 export default function StaffNav({ shopName, barberName, color, initial, photoUrl, userId }: {
@@ -89,6 +90,7 @@ export default function StaffNav({ shopName, barberName, color, initial, photoUr
           <NotificationsProvider>
             <NotificationBell userId={userId} />
             <NotificationToast userId={userId} />
+            <PushBootstrap />
           </NotificationsProvider>
         )}
         <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-serif text-sm font-bold flex-shrink-0"

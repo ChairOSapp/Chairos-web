@@ -4,6 +4,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { resolveRefundCredentials, refundSquarePayment } from '@/lib/square'
 import { triggerWaitlistOutreach } from '@/lib/waitlistNotify'
+import { sendNotification, formatApptWhen } from '@/lib/notify'
+import { logger } from '@/lib/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: appointment, error: apptErr } = await supabase
     .from('appointments')
-    .select('id, shop_id, barber_id, service_id, date, time, status')
+    .select('id, shop_id, barber_id, service_id, date, time, status, client_name')
     .eq('id', appointmentId)
     .maybeSingle()
   if (apptErr || !appointment) {
@@ -110,6 +112,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }).eq('id', appointmentId)
 
   await triggerWaitlistOutreach(supabase, appointment, shop.waitlist_min_notice_hours ?? 4)
+
+  // Tell the barber when someone else cancelled their appointment
+  // (owner, or a client via the portal). If the barber cancelled it
+  // themselves, they already know.
+  if (appointment.barber_id && user.id !== appointment.barber_id) {
+    try {
+      let serviceName: string | null = null
+      if (appointment.service_id) {
+        const { data: svc } = await supabase
+          .from('services')
+          .select('name')
+          .eq('id', appointment.service_id)
+          .maybeSingle()
+        serviceName = svc?.name ?? null
+      }
+      await sendNotification({
+        userId: appointment.barber_id,
+        shopId: appointment.shop_id,
+        type: 'booking_cancelled',
+        title: 'Booking cancelled',
+        body: `${appointment.client_name || 'A client'} cancelled${serviceName ? ` their ${serviceName}` : ''} — ${formatApptWhen(appointment.date, appointment.time)}.`,
+      })
+    } catch (err) {
+      logger.warn('cancel_notify_failed', { error: String(err), appointmentId })
+    }
+  }
 
   return NextResponse.json({ cancelled: true, refunded })
 }

@@ -10,6 +10,7 @@ import {
 import { timeStrToMinutes } from '@/lib/availability'
 import { resolveTimeZone, nowWallClock } from '@/lib/wallclock'
 import { logger } from '@/lib/logger'
+import { sendNotification, formatApptWhen } from '@/lib/notify'
 
 function getAdmin() {
   return createClient(
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
 
   const { data: service } = await admin
     .from('services')
-    .select('id, active')
+    .select('id, active, name')
     .eq('id', serviceId)
     .eq('shop_id', shop.id)
     .maybeSingle()
@@ -288,10 +289,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Booking failed. Please try again.' }, { status: 500 })
   }
 
+  // Fire-and-forget: tell the barber about the new booking.
+  notifyBarberOfBooking({
+    barberId: resolvedBarberId,
+    shopId: shop.id,
+    clientName: clientName.trim(),
+    serviceName: service.name ?? null,
+    date,
+    time: time24,
+  })
+
   return NextResponse.json({
     appointmentId: inserted.id,
     price: price.finalPrice,
     barberId: resolvedBarberId,
     barberName: resolvedBarberName,
   })
+}
+
+// Notify the barber about a new online booking (in-app + push when they
+// have the iOS app). Never fails the booking itself.
+async function notifyBarberOfBooking(opts: {
+  barberId: string | null
+  shopId: string
+  clientName: string
+  serviceName: string | null
+  date: string
+  time: string
+}) {
+  if (!opts.barberId) return
+  try {
+    await sendNotification({
+      userId: opts.barberId,
+      shopId: opts.shopId,
+      type: 'booking',
+      title: 'New booking',
+      body: `${opts.clientName} booked${opts.serviceName ? ` a ${opts.serviceName}` : ''} — ${formatApptWhen(opts.date, opts.time)}.`,
+    })
+  } catch (err) {
+    logger.warn('book_create_notify_failed', { error: String(err) })
+  }
 }
