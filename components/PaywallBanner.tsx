@@ -5,15 +5,19 @@ import { getBillingStatus, daysUntil } from '@/lib/billing'
 type Props = {
   subscriptionStatus: string | null | undefined
   subscriptionEndDate: string | null | undefined
+  trialEnd?: string | null | undefined
+  stripeSubscriptionId?: string | null | undefined
 }
 
-export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate }: Props) {
+export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate, trialEnd, stripeSubscriptionId }: Props) {
   const router = useRouter()
 
   const billingStatus = getBillingStatus({
     subscription_status: subscriptionStatus ?? null,
     subscription_end_date: subscriptionEndDate ?? null,
     stripe_customer_id: null,
+    stripe_subscription_id: stripeSubscriptionId ?? null,
+    trial_end: trialEnd ?? null,
   })
 
   if (billingStatus === 'active' || billingStatus === 'trial') return null
@@ -76,6 +80,23 @@ export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate 
           className="flex-shrink-0 bg-amber-600 hover:bg-amber-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
         >
           Go Solo — $25/mo
+        </button>
+      </div>
+    )
+  }
+
+  if (billingStatus === 'expired') {
+    return (
+      <div className="flex items-start gap-4 bg-red-950/40 border border-red-700/50 rounded-xl px-4 py-3.5 mb-5">
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-red-300 mb-0.5">Your free trial has ended</div>
+          <div className="text-xs text-red-400/80">Subscribe to keep sending campaigns and messages, and to keep your dashboard.</div>
+        </div>
+        <button
+          onClick={() => router.push('/subscribe')}
+          className="flex-shrink-0 bg-od-green hover:opacity-80 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
+        >
+          Subscribe Now
         </button>
       </div>
     )

@@ -4,6 +4,9 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { resolveSquareCredentials, squareClientFor, computeDepositAmount } from '@/lib/square'
+import { computeServicePrice } from '@/lib/server-pricing'
+import { timeStrToMinutes } from '@/lib/availability'
+import { logger } from '@/lib/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptErr } = await supabase
       .from('appointments')
-      .select('id, shop_id, barber_id, client_name, status, price, services(name, deposit_required)')
+      .select('id, shop_id, service_id, date, time, barber_id, client_name, status, price, services(name, price, deposit_required)')
       .eq('id', appointmentId)
       .maybeSingle()
 
@@ -76,16 +79,36 @@ export async function POST(req: NextRequest) {
     if (!requiresDeposit) {
       return NextResponse.json({ error: 'Deposit not required for this booking' }, { status: 400 })
     }
-    if (appointment.price === null || appointment.price === undefined) {
+    // Recompute the base price server-side from the service's list price +
+    // pricing_rules for this slot, then honor the booking's stored price
+    // only if it is at-or-below the recomputed price (a referral reward
+    // discount applied at booking time legitimately lowers what the client
+    // owes). The stored price is never trusted blindly: it used to be
+    // client-controlled, so if it exceeds the recomputed price we fall back
+    // to the recomputed one and log the mismatch. The deposit stays a
+    // percentage of what the client actually owes, not the pre-discount
+    // sticker price.
+    const storedPrice = appointment.price == null ? null : Number(appointment.price)
+    if (storedPrice == null || Number.isNaN(storedPrice)) {
       return NextResponse.json({ error: 'This service has no price set yet — ask the shop to set one before booking' }, { status: 400 })
     }
-
-    // Use the appointment's stored price, not the service's list price — the
-    // appointment price already has any applicable pricing_rules adjustment
-    // and referral discount baked in from booking time (see
-    // app/book/[shopCode]/page.tsx), and the deposit must be a percentage of
-    // what the client actually owes, not the pre-discount sticker price.
-    const amount = computeDepositAmount(shop.deposit_type, Number(shop.deposit_amount), Number(appointment.price))
+    let basePrice = storedPrice
+    try {
+      const verifiedPrice = await computeServicePrice(supabase, {
+        serviceId: appointment.service_id,
+        shopId: shop.id,
+        dateStr: appointment.date,
+        timeMinutes: timeStrToMinutes(String(appointment.time).slice(0, 5)),
+      })
+      if (verifiedPrice != null && storedPrice > verifiedPrice + 0.005) {
+        logger.warn('deposit_price_mismatch', { appointmentId, storedPrice, verifiedPrice })
+        basePrice = verifiedPrice
+      }
+    } catch (e) {
+      logger.error('deposit_price_verify_failed', { appointmentId, message: e instanceof Error ? e.message : String(e) })
+      return NextResponse.json({ error: 'Could not verify booking price' }, { status: 500 })
+    }
+    const amount = computeDepositAmount(shop.deposit_type as 'flat' | 'percent', Number(shop.deposit_amount), basePrice)
     depositId = randomUUID()
     const expiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString()
 

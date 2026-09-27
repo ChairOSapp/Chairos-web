@@ -518,43 +518,50 @@ function BookingPageInner() {
     if (period === 'AM' && h === 12) h = 0
     const time24 = `${h.toString().padStart(2,'0')}:${minutes}:00`
 
-    // Create appointment first so we have an ID for Square payment.
-    // appointments' SELECT policy is barber-scoped (auth.uid() = barber_id),
-    // so an anonymous booking -- barber_id is often null ("Any Barber"), and
-    // there's no auth.uid() at all -- can never read back a row it just
-    // inserted. Generating the id client-side (appointments.id already
-    // defaults to gen_random_uuid()) avoids ever needing a
-    // RETURNING/select-after-insert that RLS would block.
-    const newApptId = crypto.randomUUID()
-    const { error: bookErr } = await supabase.from('appointments').insert({
-      id: newApptId,
-      shop_id: shop.id,
-      barber_id: selectedBarber?.barber_id || null,
-      service_id: selectedService.id,
-      client_id: clientId,
-      client_name: clientName,
-      client_phone: clientPhone,
-      client_email: clientEmail || null,
-      date: selectedDate,
-      time: time24,
-      price: finalPrice,
-      status: 'pending',
-      notes: notes || null,
-      payment_status: 'unpaid',
-      source: 'online_booking',
-    })
-
-    if (bookErr) { setError(bookErr.message || 'Booking failed'); setSubmitting(false); resetCaptcha(); return }
-
-    // Mark the reward redeemed now that a real booking used it —
-    // non-fatal, the discount is already reflected in the price above.
-    if (activeReward && clientId && shop?.id) {
-      fetch('/api/book/redeem-reward', {
+    // Create the appointment via POST /api/book/create (service-side).
+    // The server recomputes the price from services.price + pricing_rules
+    // (+ a server-validated referral reward), re-validates the slot
+    // in-request, and enforces idempotency via bookingKey -- the browser
+    // sends NO price fields, so the client can no longer dictate what a
+    // booking costs. A fresh key per attempt keeps double-clicks and
+    // retries from creating duplicate appointments.
+    const bookingKey = crypto.randomUUID()
+    let newApptId: string
+    try {
+      const createRes = await fetch('/api/book/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, shopId: shop.id, rewardId: activeReward.id }),
-      }).catch(() => {})
+        body: JSON.stringify({
+          shopCode: shop.shop_code,
+          serviceId: selectedService.id,
+          barberId: selectedBarber?.barber_id || null,
+          date: selectedDate,
+          time: time24,
+          clientName,
+          clientPhone,
+          clientEmail: clientEmail || null,
+          notes: notes || null,
+          rewardCode: activeReward?.id || null,
+          idempotencyKey: bookingKey,
+        }),
+      })
+      const createData = await createRes.json()
+      if (!createRes.ok || !createData.appointmentId) {
+        setError(createData.error || 'Booking failed. Please try again.')
+        setSubmitting(false)
+        resetCaptcha()
+        return
+      }
+      newApptId = createData.appointmentId
+    } catch {
+      setError('Booking failed. Please try again.')
+      setSubmitting(false)
+      resetCaptcha()
+      return
     }
+
+    // The claimed referral reward (if any) is validated and redeemed
+    // inside /api/book/create -- no separate client-side call.
 
     // Mark the recovery session completed so the abandoned-booking sweep
     // never fires a recovery text for a booking that already went through — non-fatal

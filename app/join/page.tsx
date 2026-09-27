@@ -63,23 +63,19 @@ export default function JoinPage() {
       return
     }
 
-    // Link barber to their profile
-    const { error: linkErr } = await supabase
-      .from('shop_barbers')
-      .update({ barber_id: user.id, active: true })
-      .eq('id', invite.shop_barber_id)
+    // Accept the invite through the security-definer RPC, which atomically
+    // validates the token, links this user to the chair (shop_barbers row),
+    // marks the invite accepted, and flips profiles.role to 'barber'. The
+    // browser cannot do these writes directly (RLS permits none of them for
+    // the invitee), so a failed RPC must surface an error -- never silent
+    // success.
+    const { error: acceptErr } = await supabase.rpc('accept_invite', { p_token: invite.token })
 
-    if (linkErr) { setError(linkErr.message); setLoading(false); return }
-
-    // Mark invite accepted
-    await supabase.from('invites')
-      .update({ accepted: true, accepted_at: new Date().toISOString() })
-      .eq('id', invite.id)
-
-    // Update profile role to barber
-    await supabase.from('profiles')
-      .update({ role: 'barber' })
-      .eq('id', user.id)
+    if (acceptErr) {
+      setError(acceptErr.message || 'Could not accept this invite. It may be invalid or already used.')
+      setLoading(false)
+      return
+    }
 
     setLoading(false)
     setMode('success')

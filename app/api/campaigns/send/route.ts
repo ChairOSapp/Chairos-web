@@ -5,7 +5,8 @@ import { cookies } from 'next/headers'
 import { Resend } from 'resend'
 import twilio from 'twilio'
 import { buildEmailTemplate } from '@/lib/emailTemplates'
-import { generateUnsubscribeToken } from '@/lib/unsubscribeToken'
+import { generateUnsubscribeToken, generateManualUnsubscribeToken } from '@/lib/unsubscribeToken'
+import { requireActiveBilling } from '@/lib/billing'
 import { withRetry } from '@/lib/retry'
 
 function appendStop(message: string): string {
@@ -51,6 +52,12 @@ export async function POST(req: NextRequest) {
 
   const { data: shop } = await admin.from('shops').select('id').eq('owner_id', user.id).eq('id', campaign.shop_id).maybeSingle()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  // Billing gate: campaigns burn Twilio/Resend spend, so expired trials and
+  // cancelled accounts get a 402 (UI turns it into an upsell) before any
+  // recipient rows are written or any message is sent.
+  const billingBlock = await requireActiveBilling(admin, user.id)
+  if (billingBlock) return billingBlock
 
   // Build audience directly (no internal self-fetch)
   const needsSms = campaign.channel === 'sms' || campaign.channel === 'both'
@@ -150,6 +157,26 @@ export async function POST(req: NextRequest) {
     .select('id, client_id, email, phone')
     .eq('campaign_id', campaignId)
 
+  // CAN-SPAM: honor opt-outs recorded by earlier campaigns for this shop.
+  // Unsubscribes are stored as campaign_recipients rows with
+  // email_status='unsubscribed' (see /api/email/unsubscribe); skip those
+  // addresses on every future send.
+  const suppressedEmails = new Set<string>()
+  if (needsEmail) {
+    const emails = [...new Set(clients.map(c => c.email).filter(Boolean))]
+    if (emails.length > 0) {
+      const { data: unsubs } = await admin
+        .from('campaign_recipients')
+        .select('email, campaigns!inner(shop_id)')
+        .eq('campaigns.shop_id', campaign.shop_id)
+        .eq('email_status', 'unsubscribed')
+        .in('email', emails)
+      for (const r of (unsubs ?? []) as unknown as { email: string | null }[]) {
+        if (r.email) suppressedEmails.add(r.email)
+      }
+    }
+  }
+
   for (const client of clients) {
     // Match by client_id (existing clients) or email/phone (manual entries)
     const row = insertedRows?.find(r =>
@@ -174,9 +201,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (needsEmail && client.email && client.email_consent) {
+    if (needsEmail && client.email && client.email_consent && !suppressedEmails.has(client.email)) {
       try {
-        const unsubToken = client.id ? generateUnsubscribeToken(client.id) : generateUnsubscribeToken(client.email)
+        // Manual-list entries have no client row: key their unsubscribe
+        // token to the campaign_recipients row id so the opt-out link
+        // actually resolves (see /api/email/unsubscribe).
+        const unsubToken = client.id
+          ? generateUnsubscribeToken(client.id)
+          : rowId
+            ? generateManualUnsubscribeToken(rowId)
+            : generateUnsubscribeToken(client.email)
         const html = buildEmailTemplate(campaign.email_body ?? '', `${siteUrl}/api/email/unsubscribe?token=${unsubToken}`)
         const { data: sendData, error } = await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL!,

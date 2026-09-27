@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getBillingStatus } from '@/lib/billing'
+import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
 import { isAdminEmail } from '@/lib/admin'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 
@@ -22,7 +22,18 @@ export default function Login() {
   // If already signed in, route immediately
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) await routeUser(user.id)
+      if (!user) return
+      // Deferred welcome email from signup: signup has no session when
+      // email confirmation is required, so the flag fires here, once, with
+      // the session present. The endpoint derives the recipient from the
+      // session itself.
+      try {
+        if (localStorage.getItem('chairos:welcome_email_pending') === '1') {
+          localStorage.removeItem('chairos:welcome_email_pending')
+          fetch('/api/email/welcome', { method: 'POST' }).catch(() => {})
+        }
+      } catch {}
+      await routeUser(user.id)
     })
   }, [])
 
@@ -54,13 +65,13 @@ export default function Login() {
       // was a dead end for solo since it only offers "enter a shop code."
       const { data: ownShop } = await supabase.from('shops').select('id').eq('owner_id', userId).maybeSingle()
       if (!ownShop) { router.push('/onboarding'); return }
-      if (getBillingStatus(prof) === 'blocked') { router.push('/subscribe'); return }
+      if (isBillingBlocked(getBillingStatus(prof))) { router.push('/subscribe'); return }
       router.push('/dashboard/chair')
       return
     }
 
     if (prof?.role === 'owner') {
-      if (getBillingStatus(prof) === 'blocked') { router.push('/subscribe'); return }
+      if (isBillingBlocked(getBillingStatus(prof))) { router.push('/subscribe'); return }
       const { data: shops } = await supabase.from('shops').select('id').eq('owner_id', userId).limit(1)
       if (!shops?.length) { router.push('/onboarding'); return }
       if (!prof?.stripe_customer_id && !prof?.subscription_status) {

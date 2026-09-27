@@ -8,7 +8,7 @@ import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
 import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
-import { getBillingStatus } from '@/lib/billing'
+import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
 
 function getWeekDays(): Date[] {
   const now = new Date()
@@ -143,7 +143,7 @@ export default function BarberDashboard() {
         .maybeSingle()
 
       if (!shopBarber) { router.push('/join'); return }
-      if (getBillingStatus(profile) === 'blocked') { router.push('/subscribe'); return }
+      if (isBillingBlocked(getBillingStatus(profile))) { router.push('/subscribe'); return }
       setShopBarber(shopBarber)
       setOnFloor(shopBarber.on_floor !== false)
       setShop(shopBarber.shops)
@@ -453,6 +453,8 @@ export default function BarberDashboard() {
         <PaywallBanner
           subscriptionStatus={profile?.subscription_status ?? null}
           subscriptionEndDate={profile?.subscription_end_date ?? null}
+          trialEnd={profile?.trial_end ?? null}
+          stripeSubscriptionId={profile?.stripe_subscription_id ?? null}
         />
 
         <BriefCard recipientName={profile?.full_name} />

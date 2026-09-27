@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import * as Sentry from '@sentry/nextjs'
 import { logger } from '@/lib/logger'
 import { withRetry } from '@/lib/retry'
+import { requireActiveBilling } from '@/lib/billing'
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
@@ -53,6 +54,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (user) {
+      // Billing gate: the authenticated path spends the platform's Twilio
+      // budget on the sender's behalf, so expired trials and cancelled
+      // accounts get a 402 before any message is composed or sent. (The
+      // anonymous booking-confirmation path below is the public booking
+      // flow and is intentionally not gated here.)
+      const billingBlock = await requireActiveBilling(admin, user.id)
+      if (billingBlock) return billingBlock
+
       // Owner/staff path: resolve which shop(s) this account may send SMS
       // on behalf of, so this can't be used as an open relay to text
       // arbitrary numbers using the platform's shared Twilio sender.

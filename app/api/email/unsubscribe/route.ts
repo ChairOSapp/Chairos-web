@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { verifyUnsubscribeToken } from '@/lib/unsubscribeToken'
+import { verifyUnsubscribeToken, MANUAL_UNSUB_PREFIX } from '@/lib/unsubscribeToken'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token')
@@ -11,9 +13,9 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  let clientId: string
+  let subject: string
   try {
-    clientId = verifyUnsubscribeToken(token)
+    subject = verifyUnsubscribeToken(token)
   } catch {
     return new NextResponse(confirmationHtml('This unsubscribe link has expired or is invalid.'), {
       headers: { 'Content-Type': 'text/html' },
@@ -25,10 +27,36 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  await supabase
-    .from('clients')
-    .update({ email_consent: false, email_consent_at: null })
-    .eq('id', clientId)
+  if (subject.startsWith(MANUAL_UNSUB_PREFIX)) {
+    // Manual-list campaign recipient: no client row exists, so the opt-out
+    // is keyed to the campaign_recipients row id embedded in the token.
+    const recipientId = subject.slice(MANUAL_UNSUB_PREFIX.length)
+    if (!UUID_RE.test(recipientId)) {
+      return new NextResponse(confirmationHtml('This unsubscribe link has expired or is invalid.'), {
+        headers: { 'Content-Type': 'text/html' },
+      })
+    }
+    // Terminal state: the campaignSend job only processes pending rows,
+    // and /api/campaigns/send suppresses this address on future sends.
+    await supabase
+      .from('campaign_recipients')
+      .update({ email_status: 'unsubscribed' })
+      .eq('id', recipientId)
+  } else if (UUID_RE.test(subject)) {
+    // Existing client token — backwards compatible with emails already sent.
+    await supabase
+      .from('clients')
+      .update({ email_consent: false, email_consent_at: null })
+      .eq('id', subject)
+  } else {
+    // Legacy manual token (sent before the manual: scheme): the subject is
+    // the raw email address. Mark every matching campaign_recipients row
+    // unsubscribed so those old links opt out correctly too.
+    await supabase
+      .from('campaign_recipients')
+      .update({ email_status: 'unsubscribed' })
+      .eq('email', subject)
+  }
 
   return new NextResponse(confirmationHtml("You've been unsubscribed from email messages."), {
     headers: { 'Content-Type': 'text/html' },

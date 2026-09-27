@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { applyRewardDiscount, redeemReward, validateReward } from '@/lib/server-pricing'
 import { logger } from '@/lib/logger'
 
 function getAdmin() {
@@ -9,45 +10,43 @@ function getAdmin() {
   )
 }
 
-// Called (non-fatal, fire-and-forget) right after the public booking page
-// creates an appointment for a client with an active earned reward. No
-// auth session by design, so the reward is re-validated server-side
-// (belongs to this client, this shop, still 'earned') before flipping it
-// to 'redeemed' -- the discount itself was already applied client-side to
-// the price sent with the appointment insert, same trust model the rest
-// of this booking flow already uses for price/deposit amounts; this just
-// keeps the rewards ledger's status accurate for the owner-facing view.
+// Validates a claimed referral reward server-side and flips it to
+// 'redeemed', returning the validated reward details (and the discount
+// amount when a base price is supplied). The discount is computed here,
+// from the ledger -- never from a client-supplied price. The public
+// booking flow redeems through POST /api/book/create instead of calling
+// this directly; this endpoint remains for explicit reward-redemption
+// calls (e.g. staff applying a client's reward manually).
 export async function POST(req: NextRequest) {
-  const { clientId, shopId, rewardId } = await req.json()
+  const { clientId, shopId, rewardId, baseAmount } = await req.json()
   if (!clientId || !shopId || !rewardId) {
     return NextResponse.json({ error: 'clientId, shopId, and rewardId are required' }, { status: 400 })
   }
 
   const admin = getAdmin()
 
-  const { data: reward } = await admin
-    .from('referral_rewards')
-    .select('id, status')
-    .eq('id', rewardId)
-    .eq('shop_id', shopId)
-    .eq('referring_client_id', clientId)
-    .maybeSingle()
+  let reward
+  try {
+    reward = await validateReward(admin, { rewardId, shopId, clientId })
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Reward not found' }, { status: 404 })
+  }
 
-  if (!reward) return NextResponse.json({ error: 'Reward not found' }, { status: 404 })
-  if (reward.status !== 'earned') {
+  let redeemed = false
+  try {
+    redeemed = await redeemReward(admin, reward.id)
+  } catch (e) {
+    logger.error('referral_reward_redeem_failed', { rewardId, message: e instanceof Error ? e.message : String(e) })
+    return NextResponse.json({ error: 'Could not redeem reward' }, { status: 500 })
+  }
+  if (!redeemed) {
     return NextResponse.json({ ok: false, reason: 'not_earned' })
   }
 
-  const { error } = await admin
-    .from('referral_rewards')
-    .update({ status: 'redeemed', redeemed_at: new Date().toISOString() })
-    .eq('id', rewardId)
-    .eq('status', 'earned')
+  const discount =
+    baseAmount != null && !Number.isNaN(Number(baseAmount))
+      ? Math.round((Number(baseAmount) - applyRewardDiscount(Number(baseAmount), reward.type, reward.value)) * 100) / 100
+      : null
 
-  if (error) {
-    logger.error('referral_reward_redeem_failed', { rewardId, message: error.message })
-    return NextResponse.json({ error: 'Could not redeem reward' }, { status: 500 })
-  }
-
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, reward: { id: reward.id, type: reward.type, value: reward.value }, discount })
 }

@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { readPortalSession } from '@/lib/portalSession'
 import { resolvePortalClient } from '@/lib/portalData'
 import { computeAvailableSlots, timeStrToMinutes, type DayHours } from '@/lib/availability'
+import { isSlotAvailable } from '@/lib/server-pricing'
 
 function getAdmin() {
   return createClient(
@@ -113,6 +114,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `No open slots in the next ${SCAN_DAYS_AHEAD} days -- try booking directly on the shop's page.` }, { status: 409 })
   }
 
+  // Re-validate the chosen slot in this same request -- the scan above may
+  // be stale by the time we insert. Excludes the appointment being rebooked
+  // (it is on a different date, but excluded for correctness anyway).
+  const stillFree = await isSlotAvailable(admin, {
+    shopId: shop.id,
+    dateStr: foundDate,
+    timeMinutes: timeStrToMinutes(foundTime.slice(0, 5)),
+    serviceId: service.id,
+    barberId: original.barber_id,
+    excludeAppointmentId: original.id,
+  })
+  if (!stillFree) {
+    return NextResponse.json({ error: 'That slot was just taken -- please try again.' }, { status: 409 })
+  }
+
   const newApptId = randomUUID()
   const { error: insertErr } = await admin.from('appointments').insert({
     id: newApptId,
@@ -130,7 +146,14 @@ export async function POST(req: NextRequest) {
     payment_status: 'unpaid',
     source: 'portal',
   })
-  if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
+  if (insertErr) {
+    // 23505 = the slot unique index fired: someone else booked this exact
+    // (shop, barber, date, time) between our re-check and the insert.
+    if (insertErr.code === '23505') {
+      return NextResponse.json({ error: 'That slot was just taken -- please try again.' }, { status: 409 })
+    }
+    return NextResponse.json({ error: insertErr.message }, { status: 500 })
+  }
 
   if (shop.owner_id) {
     await admin.from('notifications').insert({

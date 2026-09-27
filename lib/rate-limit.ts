@@ -27,6 +27,7 @@ export type RateLimitBucket =
   | 'bookingReply'
   | 'portalOtp'
   | 'waitlistClaim'
+  | 'email'
 
 // failClosed controls what happens when Redis is unreachable or not
 // configured at all: true means the request is blocked (safer default for
@@ -62,6 +63,12 @@ const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters
   // /api/sms/optout webhook handler before creating an appointment, same
   // reasoning as bookingReply.
   waitlistClaim: { limit: 5, window: '60 s', failClosed: true },
+  // Platform-sent email on an endpoint reachable right after signup
+  // (/api/email/welcome). Sends from the platform's verified sender, so an
+  // abuse window burns domain reputation, not just money -- fail closed
+  // like login. Enforced both in proxy.ts (public-path wiring below) and
+  // directly inside the route, so it holds even if the proxy is bypassed.
+  email: { limit: 5, window: '60 s', failClosed: true },
 }
 
 const limiters = new Map<RateLimitBucket, Ratelimit>()
@@ -123,6 +130,7 @@ export function getRateLimitBucket(pathname: string): RateLimitBucket | null {
   if (pathname.startsWith('/api/kiosk/otp')) return 'kioskOtp'
   if (pathname.startsWith('/api/portal/otp')) return 'portalOtp'
   if (pathname.startsWith('/api/waitlist')) return 'waitlist'
+  if (pathname === '/api/email/welcome') return 'email'
   if (
     pathname.startsWith('/api/square/save-card') ||
     pathname.startsWith('/api/square/create-deposit') ||

@@ -3,6 +3,9 @@ import { SquareClient, SquareEnvironment } from 'square'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { computeServicePrice } from '@/lib/server-pricing'
+import { timeStrToMinutes } from '@/lib/availability'
+import { logger } from '@/lib/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const { data: appointment, error: apptErr } = await supabase
       .from('appointments')
-      .select('id, shop_id, price, payment_status, barber_id, client_name, services(name)')
+      .select('id, shop_id, service_id, date, time, price, payment_status, barber_id, client_name, services(name, price)')
       .eq('id', appointmentId)
       .maybeSingle()
 
@@ -118,12 +121,42 @@ export async function POST(req: NextRequest) {
         : SquareEnvironment.Sandbox,
     })
 
-    const amountCents = BigInt(Math.round(parseFloat(appointment.price) * 100))
+    // Never charge appointment.price blindly: recompute the price
+    // server-side from the service's list price + pricing_rules for this
+    // slot. The stored price may legitimately be LOWER (a referral reward
+    // discount applied at booking time) -- honor that -- but it must never
+    // be HIGHER than the recomputed price; on mismatch, charge the
+    // recomputed amount and correct the stored row.
+    const storedPrice = appointment.price == null ? null : Number(appointment.price)
+    if (storedPrice == null || Number.isNaN(storedPrice)) {
+      return NextResponse.json({ error: 'This booking has no price set yet — ask the shop to set one before paying' }, { status: 400 })
+    }
+    let chargeAmount = storedPrice
+    try {
+      const verifiedPrice = await computeServicePrice(supabase, {
+        serviceId: appointment.service_id,
+        shopId: appointment.shop_id,
+        dateStr: appointment.date,
+        timeMinutes: timeStrToMinutes(String(appointment.time).slice(0, 5)),
+      })
+      if (verifiedPrice != null && storedPrice > verifiedPrice + 0.005) {
+        logger.warn('payment_price_mismatch', { appointmentId, storedPrice, verifiedPrice })
+        chargeAmount = verifiedPrice
+        await supabase.from('appointments').update({ price: verifiedPrice }).eq('id', appointmentId)
+      }
+    } catch (e) {
+      logger.error('payment_price_verify_failed', { appointmentId, message: e instanceof Error ? e.message : String(e) })
+      return NextResponse.json({ error: 'Could not verify booking price' }, { status: 500 })
+    }
+
+    const amountCents = BigInt(Math.round(chargeAmount * 100))
     const serviceName = (appointment as any).services?.name || 'Appointment'
 
     const { payment } = await client.payments.create({
       sourceId,
-      idempotencyKey: `${appointmentId}-${Date.now()}`,
+      // Stable per appointment: a retry after a timeout/amiguous failure
+      // dedupes at Square instead of creating a second real charge.
+      idempotencyKey: `payment-${appointmentId}`,
       amountMoney: { amount: amountCents, currency: 'USD' },
       locationId,
       note: `ChairOS - ${serviceName} for ${appointment.client_name}`,
@@ -135,7 +168,7 @@ export async function POST(req: NextRequest) {
       .update({
         payment_status: payment?.status === 'COMPLETED' ? 'paid' : 'failed',
         square_payment_id: payment?.id ?? null,
-        amount_paid: payment?.status === 'COMPLETED' ? parseFloat(appointment.price) : null,
+        amount_paid: payment?.status === 'COMPLETED' ? chargeAmount : null,
       })
       .eq('id', appointmentId)
 

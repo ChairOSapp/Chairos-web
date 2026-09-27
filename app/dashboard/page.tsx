@@ -9,7 +9,7 @@ import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
 import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
-import { getBillingStatus } from '@/lib/billing'
+import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
@@ -154,7 +154,7 @@ export default function Dashboard() {
 
       setProfile(prof)
       if (prof?.role === 'barber') { router.push('/dashboard/chair'); return }
-      if (getBillingStatus(prof) === 'blocked') { router.push('/subscribe'); return }
+      if (isBillingBlocked(getBillingStatus(prof))) { router.push('/subscribe'); return }
 
       if (prof?.role === 'owner') {
         const { data: shops } = await supabase.from('shops').select('*').eq('owner_id', user.id).order('created_at', { ascending: true }).limit(1)
@@ -344,6 +344,8 @@ export default function Dashboard() {
         <PaywallBanner
           subscriptionStatus={profile?.subscription_status ?? null}
           subscriptionEndDate={profile?.subscription_end_date ?? null}
+          trialEnd={profile?.trial_end ?? null}
+          stripeSubscriptionId={profile?.stripe_subscription_id ?? null}
         />
 
         <BriefCard recipientName={ownerName} />

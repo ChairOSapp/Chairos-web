@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import twilio from "twilio"
 import { getResend } from "@/lib/resend"
 import { buildEmailTemplate } from "@/lib/emailTemplates"
-import { generateUnsubscribeToken } from "@/lib/unsubscribeToken"
+import { generateUnsubscribeToken, generateManualUnsubscribeToken } from "@/lib/unsubscribeToken"
 
 function getSupabase() {
   return createClient(
@@ -61,16 +61,20 @@ export const campaignSend = task({
         // SMS send
         if (campaign.channel === 'sms' || campaign.channel === 'both') {
           if (recipient.sms_status === 'pending' && recipient.phone) {
-            // Verify consent
-            const { data: client } = await supabase
-              .from('clients')
-              .select('sms_consent')
-              .eq('id', recipient.client_id)
-              .maybeSingle()
+            // Verify consent. Manual-list recipients have no client row —
+            // consent was captured when the owner built the list in
+            // /api/campaigns/send, so a null client_id means OK.
+            if (recipient.client_id) {
+              const { data: client } = await supabase
+                .from('clients')
+                .select('sms_consent')
+                .eq('id', recipient.client_id)
+                .maybeSingle()
 
-            if (!client?.sms_consent) {
-              await supabase.from('campaign_recipients').update({ sms_status: 'skipped' }).eq('id', recipient.id)
-              continue
+              if (!client?.sms_consent) {
+                await supabase.from('campaign_recipients').update({ sms_status: 'skipped' }).eq('id', recipient.id)
+                continue
+              }
             }
 
             const smsBody = appendStop(campaign.sms_message ?? '')
@@ -101,18 +105,26 @@ export const campaignSend = task({
         // Email send
         if (campaign.channel === 'email' || campaign.channel === 'both') {
           if (recipient.email_status === 'pending' && recipient.email) {
-            const { data: client } = await supabase
-              .from('clients')
-              .select('email_consent')
-              .eq('id', recipient.client_id)
-              .maybeSingle()
+            // Same manual-list carve-out as the SMS branch above.
+            if (recipient.client_id) {
+              const { data: client } = await supabase
+                .from('clients')
+                .select('email_consent')
+                .eq('id', recipient.client_id)
+                .maybeSingle()
 
-            if (!client?.email_consent) {
-              await supabase.from('campaign_recipients').update({ email_status: 'skipped' }).eq('id', recipient.id)
-              continue
+              if (!client?.email_consent) {
+                await supabase.from('campaign_recipients').update({ email_status: 'skipped' }).eq('id', recipient.id)
+                continue
+              }
             }
 
-            const unsubToken = generateUnsubscribeToken(recipient.client_id)
+            // Manual-list recipients have no client row: key their
+            // unsubscribe token to the campaign_recipients row id so the
+            // opt-out link resolves (never mint { sub: null }).
+            const unsubToken = recipient.client_id
+              ? generateUnsubscribeToken(recipient.client_id)
+              : generateManualUnsubscribeToken(recipient.id)
             const unsubUrl = `${siteUrl}/api/email/unsubscribe?token=${unsubToken}`
             const html = buildEmailTemplate(campaign.email_body ?? '', unsubUrl)
 

@@ -55,11 +55,15 @@ export default function Signup() {
 
     track('signup_completed', { role })
 
-    fetch('/api/email/welcome', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name, role }),
-    }).catch(() => {})
+    // The welcome endpoint requires an authenticated session and derives
+    // the recipient from it (no spoofable fields). When email confirmation
+    // is required there is no session yet, so defer the send until the
+    // first sign-in — the login page picks up the flag exactly once.
+    if (signUpData.session) {
+      fetch('/api/email/welcome', { method: 'POST' }).catch(() => {})
+    } else {
+      try { localStorage.setItem('chairos:welcome_email_pending', '1') } catch {}
+    }
 
     // Save SMS consent if given (profile row may not exist yet if email confirmation required)
     if (smsConsent && signUpData.user) {
