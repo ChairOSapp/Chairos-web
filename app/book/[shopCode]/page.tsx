@@ -8,6 +8,7 @@ import { initMetaPixel, initGoogleTag, trackMetaEvent, trackGoogleEvent } from '
 import { timeStrToMinutes } from '@/lib/availability'
 import { DAY_NAMES, findApplicablePricing, promoActiveOn, isPromoRule, ruleLabel, type PricingRule } from '@/lib/pricing'
 import { squareCardInputStyle } from '@/lib/squareCard'
+import { describeSquareInitError, withSquareDiagnostic, type SquareInitStep } from '@/lib/squareInitDiag'
 import { StepPanel, Pressable } from '@/components/motion'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
@@ -345,6 +346,7 @@ function BookingPageInner() {
     let isMounted = true
 
     async function initSquare() {
+      let step: SquareInitStep = 'config-fetch'
       try {
         const cfgParams = new URLSearchParams({ shopCode })
         if (selectedBarber?.barber_id) cfgParams.set('barberId', selectedBarber.barber_id)
@@ -359,25 +361,29 @@ function BookingPageInner() {
         }
         const { locationId } = await cfgRes.json()
         if (!locationId) throw new Error('init_failed')
+        step = 'sdk-import'
         const { payments } = await import('@square/web-sdk')
         if (!isMounted) return
+        step = 'payments-init'
         const paymentsInstance = await payments(appId!, locationId)
         if (!isMounted) return
         if (!paymentsInstance) throw new Error('Square payments init returned null')
+        step = 'card-create'
         const card = await paymentsInstance.card({ style: squareCardInputStyle(true) })
         if (!isMounted) return
+        step = 'card-attach'
         await card.attach('#square-card-container')
         if (!isMounted) return
         squareCardRef.current = card
         setCardReady(true)
       } catch (e: any) {
         if (!isMounted) return
-        console.error('Square init error:', e)
+        console.error('Square init error:', describeSquareInitError(step, e), e)
         Sentry.captureException(e, { tags: { area: 'booking_square_card_init' } })
         setPaymentError(
           String(e?.message) === 'SQUARE_NOT_CONNECTED'
             ? 'This shop isn\u2019t taking card payments online right now — you can continue and pay at the shop.'
-            : 'Card form failed to load. Check your connection and try again — no charge was made. You can also continue and pay at the shop.'
+            : withSquareDiagnostic('Card form failed to load. Check your connection and try again — no charge was made. You can also continue and pay at the shop.', step, e)
         )
       } finally {
         if (isMounted) setCardLoading(false)

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import { squareCardInputStyle } from '@/lib/squareCard'
+import { describeSquareInitError, withSquareDiagnostic, type SquareInitStep } from '@/lib/squareInitDiag'
 import type { PortalShop } from '@/lib/portalData'
 
 type PortalClient = {
@@ -195,6 +196,7 @@ export default function ClientPortalPage() {
     setSquareError(null)
     let isMounted = true
     async function initSquare() {
+      let step: SquareInitStep = 'config-fetch'
       try {
         const cfgParams = new URLSearchParams({ portalShopId: selectedShopId })
         if (selectedBarberId) cfgParams.set('barberId', selectedBarberId)
@@ -216,12 +218,16 @@ export default function ClientPortalPage() {
         }
         const { locationId } = await cfgRes.json()
         if (!locationId) throw new Error('widget_config_failed')
+        step = 'sdk-import'
         const { payments } = await import('@square/web-sdk')
         if (!isMounted) return
+        step = 'payments-init'
         const paymentsInstance = await payments(appId!, locationId)
         if (!isMounted || !paymentsInstance) return
+        step = 'card-create'
         const card = await paymentsInstance.card({ style: squareCardInputStyle(true) })
         if (!isMounted) return
+        step = 'card-attach'
         await card.attach('#portal-square-card')
         if (!isMounted) return
         squareCardRef.current = card
@@ -230,10 +236,10 @@ export default function ClientPortalPage() {
         // Failed init (Square CDN hiccup, attach race, ...) is now loud:
         // Sentry gets the real error, the client gets a message plus a
         // retry, instead of the dead "unavailable" line.
-        console.error('Square init error:', e)
+        console.error('Square init error:', describeSquareInitError(step, e), e)
         if (isMounted) {
           Sentry.captureException(e, { tags: { area: 'portal_square_card_init' }, extra: { shopId: selectedShopId } })
-          setSquareError('The card form didn\u2019t load. Check your connection and try again — nothing was saved or charged.')
+          setSquareError(withSquareDiagnostic('The card form didn\u2019t load. Check your connection and try again — nothing was saved or charged.', step, e))
         }
       } finally {
         if (isMounted) setCardLoading(false)

@@ -11,6 +11,7 @@ import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
 import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
 import { squareCardInputStyle } from '@/lib/squareCard'
+import { describeSquareInitError, withSquareDiagnostic, type SquareInitStep } from '@/lib/squareInitDiag'
 
 export default function BarberDashboard() {
   const [profile, setProfile] = useState<any>(null)
@@ -196,6 +197,7 @@ export default function BarberDashboard() {
 
     let isMounted = true
     async function init() {
+      let step: SquareInitStep = 'config-fetch'
       // Per-shop widget config: booth rent is paid TO the shop owner, so
       // tokenize against the owner's Square location (?rent=1 routes there).
       const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
@@ -216,12 +218,16 @@ export default function BarberDashboard() {
         }
         const { locationId } = await cfgRes.json()
         if (!locationId) throw new Error('init_failed')
+        step = 'sdk-import'
         const { payments } = await import('@square/web-sdk')
         if (!isMounted) return
+        step = 'payments-init'
         const paymentsInstance = await payments(appId!, locationId)
         if (!isMounted || !paymentsInstance) throw new Error('Square payments init returned null')
+        step = 'card-create'
         const card = await paymentsInstance.card({ style: squareCardInputStyle(false) })
         if (!isMounted) return
+        step = 'card-attach'
         await card.attach('#rent-card-container')
         if (!isMounted) return
         rentCardRef.current = card
@@ -230,14 +236,14 @@ export default function BarberDashboard() {
         if (!isMounted) return
         // Log the real cause -- init can throw from the CDN import, an
         // invalid app/location id, or attach() on a missing container.
-        console.error('Square booth-rent card form failed to initialize:', e)
+        console.error('Square booth-rent card form failed to initialize:', describeSquareInitError(step, e), e)
         Sentry.captureException(e, { tags: { area: 'booth_rent_square_card_init' } })
         setRentInitFailed(true)
         const msg = e instanceof Error ? e.message : ''
         setRentCardError(
           msg.startsWith('SQUARE_CONFIG:')
             ? `${msg.slice('SQUARE_CONFIG:'.length)} No charge was made.`
-            : 'Card form failed to load. Check your connection and try again — no charge was made.'
+            : withSquareDiagnostic('Card form failed to load. Check your connection and try again — no charge was made.', step, e)
         )
       } finally {
         if (isMounted) setRentCardLoading(false)

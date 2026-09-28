@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import ClientNotes from '@/components/ClientNotes'
 import { squareCardInputStyle } from '@/lib/squareCard'
+import { describeSquareInitError, withSquareDiagnostic, type SquareInitStep } from '@/lib/squareInitDiag'
 
 const TIP_PRESETS = [
   { label: '15%', pct: 0.15 },
@@ -116,6 +117,7 @@ export default function POSCheckout() {
     let mounted = true
 
     async function init() {
+      let step: SquareInitStep = 'config-fetch'
       try {
         const cfgRes = await fetch(`/api/square/widget-config?appointmentId=${appointmentId}`)
         if (!mounted) return
@@ -128,13 +130,17 @@ export default function POSCheckout() {
         }
         const { locationId } = await cfgRes.json()
         if (!locationId) throw new Error('Card form failed to load. Check your connection and try again.')
+        step = 'sdk-import'
         const { payments } = await import('@square/web-sdk')
         if (!mounted) return
+        step = 'payments-init'
         const p = await payments(appId!, locationId)
         if (!mounted) return
         if (!p) throw new Error('Square payments SDK failed to initialize')
+        step = 'card-create'
         const card = await p.card({ style: squareCardInputStyle(true) })
         if (!mounted) return
+        step = 'card-attach'
         await card.attach('#pos-card-container')
         if (!mounted) return
         squareCardRef.current = card
@@ -143,13 +149,13 @@ export default function POSCheckout() {
         if (!mounted) return
         // Log the real cause -- init can throw from the CDN import, an
         // invalid app/location id, or attach() on a missing container.
-        console.error('Square card form failed to initialize:', e)
+        console.error('Square card form failed to initialize:', describeSquareInitError(step, e), e)
         Sentry.captureException(e, { tags: { area: 'pos_square_card_init' } })
         const msg = String(e?.message || '')
         setCardError(
           msg.startsWith('SQUARE_CONFIG:')
             ? `${msg.slice('SQUARE_CONFIG:'.length)} No charge was made.`
-            : 'Card form failed to load. Check your connection and try again — no charge was made.'
+            : withSquareDiagnostic('Card form failed to load. Check your connection and try again — no charge was made.', step, e)
         )
       } finally {
         if (mounted) setCardLoading(false)
