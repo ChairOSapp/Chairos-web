@@ -7,6 +7,7 @@ const PUBLIC_PATHS = ['/', '/login', '/signup', '/join', '/subscribe', '/privacy
 
 function isPublic(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true
+  if (pathname.startsWith('/schools/')) return true
   if (pathname.startsWith('/book/')) return true
   if (pathname.startsWith('/kiosk/')) return true
   if (pathname === '/my' || pathname.startsWith('/my/')) return true
