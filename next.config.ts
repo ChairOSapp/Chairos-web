@@ -24,10 +24,15 @@ const nextConfig: NextConfig = {
               // Pixel / Google tag, injected only on that shop's own public
               // booking page (app/book/[shopCode]/page.tsx), never site-wide.
               `script-src 'self' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com https://connect.facebook.net https://www.googletagmanager.com${isDev ? " 'unsafe-eval'" : ''}`,
-              "style-src 'self' 'unsafe-inline'",
+              // Square Web Payments SDK: the card iframe pulls its
+              // stylesheet (card-wrapper.css) and fonts from squarecdn, and
+              // tokenizes via pci-connect. Without these, Card.attach()
+              // throws "UnexpectedError: An unexpected error occurred while
+              // using Card." and no card form ever renders. Do not tighten.
+              "style-src 'self' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com",
               "img-src 'self' data: blob: https:",
-              "font-src 'self' data:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://www.facebook.com https://connect.facebook.net https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com",
+              "font-src 'self' data: https://web.squarecdn.com https://sandbox.web.squarecdn.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://web.squarecdn.com https://sandbox.web.squarecdn.com https://pci-connect.squareup.com https://pci-connect.squareupsandbox.com https://challenges.cloudflare.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io https://www.facebook.com https://connect.facebook.net https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com",
               "frame-src 'self' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://challenges.cloudflare.com",
               "frame-ancestors 'self'",
               "base-uri 'self'",
