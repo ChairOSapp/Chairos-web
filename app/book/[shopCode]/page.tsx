@@ -139,7 +139,7 @@ function BookingPageInner() {
 
   // Card-on-file disclosure shown with the opt-in checkbox. Kept as a
   // constant so the exact agreed-to text is what gets stored server-side.
-  const cardConsentText = `I agree to save my card with ${shop?.name || 'this shop'} for faster checkout. ${shop?.name || 'The shop'} may charge this card for deposits and appointment payments. My card is stored securely by Square — the shop never sees my full card number. I can remove my card anytime.`
+  const cardConsentText = `I agree to save my card with ${shop?.name || 'this shop'} for faster checkout. ${shop?.name || 'The shop'} may charge this card for deposits and appointment payments. My card is stored securely by Square. The shop never sees my full card number. I can remove my card anytime.`
 
   // Every peak/off-peak and promo pricing_rules match for the selected
   // service+date+time applies at once -- a promo and a recurring surcharge
@@ -382,8 +382,8 @@ function BookingPageInner() {
         Sentry.captureException(e, { tags: { area: 'booking_square_card_init' } })
         setPaymentError(
           String(e?.message) === 'SQUARE_NOT_CONNECTED'
-            ? 'This shop isn\u2019t taking card payments online right now — you can continue and pay at the shop.'
-            : 'Card form failed to load. Check your connection and try again — no charge was made. You can also continue and pay at the shop.'
+            ? 'This shop isn\u2019t taking card payments online right now. You can continue and pay at the shop.'
+            : 'Card form failed to load. Check your connection and try again. No charge was made. You can also continue and pay at the shop.'
         )
       } finally {
         if (isMounted) setCardLoading(false)
@@ -637,7 +637,7 @@ function BookingPageInner() {
       }
       return { ok: true, message: '' }
     } catch {
-      return { ok: false, message: 'Deposit payment failed — please check your connection and try again.' }
+      return { ok: false, message: 'Deposit payment failed. Please check your connection and try again.' }
     }
   }
 

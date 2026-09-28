@@ -243,7 +243,7 @@ export default function BarberDashboard() {
         setRentCardError(
           msg.startsWith('SQUARE_CONFIG:')
             ? `${msg.slice('SQUARE_CONFIG:'.length)} No charge was made.`
-            : 'Card form failed to load. Check your connection and try again — no charge was made.'
+            : 'Card form failed to load. Check your connection and try again. No charge was made.'
         )
       } finally {
         if (isMounted) setRentCardLoading(false)

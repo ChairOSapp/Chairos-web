@@ -239,7 +239,7 @@ export default function ClientPortalPage() {
         console.error('Square init error:', describeSquareInitError(step, e), e)
         if (isMounted) {
           Sentry.captureException(e, { tags: { area: 'portal_square_card_init' }, extra: { shopId: selectedShopId } })
-          setSquareError('The card form didn\u2019t load. Check your connection and try again — nothing was saved or charged.')
+          setSquareError('The card form didn\u2019t load. Check your connection and try again. Nothing was saved or charged.')
         }
       } finally {
         if (isMounted) setCardLoading(false)

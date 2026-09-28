@@ -489,11 +489,11 @@ export function safeSquareErrorMessage(err: any): string {
   // Keep the 'declined'/'insufficient' keywords: the booking UI keys its
   // friendly copy off them. Copy is deliberately gentle — a decline is
   // never the client's fault to be embarrassed about.
-  if (hay.includes('declin')) return 'Your card was declined — nothing was charged. You\u2019re welcome to try a different card.'
-  if (hay.includes('insufficient')) return 'Your card doesn\u2019t have enough available for this one — nothing was charged. Feel free to try a different card.'
-  if (hay.includes('expired')) return 'This card looks expired — nothing was charged.'
+  if (hay.includes('declin')) return 'Your card was declined. Nothing was charged, and you are welcome to try a different card.'
+  if (hay.includes('insufficient')) return 'There are insufficient funds for this one. Nothing was charged, so feel free to try a different card.'
+  if (hay.includes('expired')) return 'This card looks expired. Nothing was charged.'
   if (hay.includes('cvv') || hay.includes('cvc') || hay.includes('security code')) {
-    return 'The security code (CVV) doesn\u2019t match — nothing was charged. Mind double-checking it?'
+    return 'The security code (CVV) does not match. Nothing was charged. Mind double-checking it?'
   }
-  return 'That didn\u2019t go through — nothing was charged. Please try again or use a different card.'
+  return 'That did not go through. Nothing was charged. Please try again or use a different card.'
 }
