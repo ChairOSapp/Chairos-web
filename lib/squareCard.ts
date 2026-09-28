@@ -26,7 +26,9 @@ export function squareCardInputStyle(dark: boolean): SquareCardStyle {
       color: dark ? '#F5F5F4' : '#1C1917',
       fontFamily: 'inherit',
       fontSize: '16px',
-      lineHeight: '24px',
+      // NOTE: do NOT add lineHeight here. Square's Web Payments SDK
+      // (verified on 1.85.0) rejects it inside attach() with an opaque
+      // UnexpectedError and the whole card form fails to render.
     },
     'input::placeholder': {
       color: dark ? '#A8A29E' : '#78716C',
