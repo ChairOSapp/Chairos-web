@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import { squareCardInputStyle } from '@/lib/squareCard'
-import { describeSquareInitError, withSquareDiagnostic, type SquareInitStep } from '@/lib/squareInitDiag'
+import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
 import type { PortalShop } from '@/lib/portalData'
 
 type PortalClient = {
@@ -239,7 +239,7 @@ export default function ClientPortalPage() {
         console.error('Square init error:', describeSquareInitError(step, e), e)
         if (isMounted) {
           Sentry.captureException(e, { tags: { area: 'portal_square_card_init' }, extra: { shopId: selectedShopId } })
-          setSquareError(withSquareDiagnostic('The card form didn\u2019t load. Check your connection and try again — nothing was saved or charged.', step, e))
+          setSquareError('The card form didn\u2019t load. Check your connection and try again — nothing was saved or charged.')
         }
       } finally {
         if (isMounted) setCardLoading(false)

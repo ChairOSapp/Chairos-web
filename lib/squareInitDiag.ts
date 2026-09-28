@@ -31,7 +31,4 @@ export function describeSquareInitError(step: SquareInitStep, e: unknown): strin
   return parts.join(' | ');
 }
 
-/** Append the diagnostic to a user-facing message (temporary). */
-export function withSquareDiagnostic(userMessage: string, step: SquareInitStep, e: unknown): string {
-  return `${userMessage} [diag: ${describeSquareInitError(step, e)}]`;
-}
+/** Init-step diagnostics stay in console/Sentry only — never user-facing. */

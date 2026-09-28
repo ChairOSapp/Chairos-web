@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import ClientNotes from '@/components/ClientNotes'
 import { squareCardInputStyle } from '@/lib/squareCard'
-import { describeSquareInitError, withSquareDiagnostic, type SquareInitStep } from '@/lib/squareInitDiag'
+import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
 
 const TIP_PRESETS = [
   { label: '15%', pct: 0.15 },
@@ -155,7 +155,7 @@ export default function POSCheckout() {
         setCardError(
           msg.startsWith('SQUARE_CONFIG:')
             ? `${msg.slice('SQUARE_CONFIG:'.length)} No charge was made.`
-            : withSquareDiagnostic('Card form failed to load. Check your connection and try again — no charge was made.', step, e)
+            : 'Card form failed to load. Check your connection and try again — no charge was made.'
         )
       } finally {
         if (mounted) setCardLoading(false)

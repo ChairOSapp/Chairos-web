@@ -11,7 +11,7 @@ import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
 import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
 import { squareCardInputStyle } from '@/lib/squareCard'
-import { describeSquareInitError, withSquareDiagnostic, type SquareInitStep } from '@/lib/squareInitDiag'
+import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
 
 export default function BarberDashboard() {
   const [profile, setProfile] = useState<any>(null)
@@ -243,7 +243,7 @@ export default function BarberDashboard() {
         setRentCardError(
           msg.startsWith('SQUARE_CONFIG:')
             ? `${msg.slice('SQUARE_CONFIG:'.length)} No charge was made.`
-            : withSquareDiagnostic('Card form failed to load. Check your connection and try again — no charge was made.', step, e)
+            : 'Card form failed to load. Check your connection and try again — no charge was made.'
         )
       } finally {
         if (isMounted) setRentCardLoading(false)

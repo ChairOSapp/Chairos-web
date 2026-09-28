@@ -8,7 +8,7 @@ import { initMetaPixel, initGoogleTag, trackMetaEvent, trackGoogleEvent } from '
 import { timeStrToMinutes } from '@/lib/availability'
 import { DAY_NAMES, findApplicablePricing, promoActiveOn, isPromoRule, ruleLabel, type PricingRule } from '@/lib/pricing'
 import { squareCardInputStyle } from '@/lib/squareCard'
-import { describeSquareInitError, withSquareDiagnostic, type SquareInitStep } from '@/lib/squareInitDiag'
+import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
 import { StepPanel, Pressable } from '@/components/motion'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
@@ -383,7 +383,7 @@ function BookingPageInner() {
         setPaymentError(
           String(e?.message) === 'SQUARE_NOT_CONNECTED'
             ? 'This shop isn\u2019t taking card payments online right now — you can continue and pay at the shop.'
-            : withSquareDiagnostic('Card form failed to load. Check your connection and try again — no charge was made. You can also continue and pay at the shop.', step, e)
+            : 'Card form failed to load. Check your connection and try again — no charge was made. You can also continue and pay at the shop.'
         )
       } finally {
         if (isMounted) setCardLoading(false)
