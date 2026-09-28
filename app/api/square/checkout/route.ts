@@ -14,6 +14,7 @@ import {
   isDefinitiveSquareRejection,
   squareNotConnectedMessage,
   recordCardConsent,
+  safeSquareErrorMessage,
 } from '@/lib/square'
 import { logger } from '@/lib/logger'
 
@@ -293,6 +294,9 @@ export async function POST(req: NextRequest) {
       await admin.from('appointments').update({ payment_attempt: paymentAttempt + 1 }).eq('id', appointmentId)
     }
     await admin.from('appointments').update({ payment_status: 'failed' }).eq('id', appointmentId)
-    return NextResponse.json({ error: err.message || 'Payment failed' }, { status: 500 })
+    // Log the raw gateway error server-side; the client only ever sees the
+    // gentle, customer-safe message — never a raw Square error dump.
+    logger.error('Square POS checkout failed', { appointmentId, error: err?.message || String(err) })
+    return NextResponse.json({ error: safeSquareErrorMessage(err) }, { status: 500 })
   }
 }
