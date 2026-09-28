@@ -27,6 +27,7 @@ function isPublic(pathname: string) {
   if (pathname.startsWith('/_next/')) return true
   if (pathname.startsWith('/favicon')) return true
   if (pathname.startsWith('/landing/')) return true
+  if (pathname === '/square-test') return true // hidden card-form diagnostic page (unlinked)
   return false
 }
 
