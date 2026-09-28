@@ -85,8 +85,16 @@ export default function SchoolPitch() {
       </div>
 
       {/* hero */}
-      <div style={{ ...inner, paddingTop: 72, paddingBottom: 56 }}>
-        <div style={eyebrow}>FOUNDING SCHOOL OFFER — PREPARED FOR AMERICAN ACADEMY OF COSMETOLOGY, ORANGE PARK FL</div>
+      <div style={{ ...inner, paddingTop: 56, paddingBottom: 56 }}>
+        <div style={{ ...card, background: CREAM, border: 'none', display: 'flex', alignItems: 'center', gap: 26, marginBottom: 40, flexWrap: 'wrap' }}>
+          <img src="/schools/aac-logo.png" alt="American Academy of Cosmetology" style={{ height: 66, width: 'auto' }} />
+          <div>
+            <div style={{ color: '#6B6B64', fontSize: 12, letterSpacing: 3, fontWeight: 700, marginBottom: 6 }}>PREPARED EXCLUSIVELY FOR</div>
+            <div style={{ color: DARK, fontSize: 22, fontWeight: 700, fontFamily: SERIF }}>American Academy of Cosmetology</div>
+            <div style={{ color: '#6B6B64', fontSize: 14, marginTop: 4 }}>1330 Blanding Blvd, Orange Park, FL · Founding School Offer</div>
+          </div>
+        </div>
+        <div style={eyebrow}>CHAIROS FOR SCHOOLS — CAMPUS LICENSE</div>
         <h1 style={h1}>Your students graduate with a <span style={{ color: OLIVE_DIM }}>booked chair</span>, not an empty one.</h1>
         <p style={sub}>ChairOS runs the student clinic like a real shop — every guest on file, smart campaigns bringing them back, tips tracked per student — and hands every graduate a working client book on day one.</p>
         <div style={{ display: 'flex', gap: 14, marginTop: 32, flexWrap: 'wrap' }}>
@@ -190,7 +198,7 @@ export default function SchoolPitch() {
         <p style={{ ...sub, margin: '0 auto 28px', textAlign: 'center' }}>Founding schools lock the rate for life. There are only a handful of founding slots.</p>
         <a href="mailto:support@chairos.cc?subject=ChairOS%20Campus%20Pilot%20—%20American%20Academy" style={btn}>Talk to Thomas</a>
         <div style={{ color: MUTED, fontSize: 13, marginTop: 48 }}>
-          Thomas Bryant, Founder — ChairOS · Veteran-owned &amp; operated · Jacksonville, FL<br />support@chairos.cc · chairos.cc
+          Thomas Bryant, Founder — ChairOS · Former AAC instructor · Veteran-owned &amp; operated · Jacksonville, FL<br />support@chairos.cc · chairos.cc
         </div>
       </div>
     </div>
