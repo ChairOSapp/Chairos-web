@@ -49,15 +49,16 @@ export default function SquareTestPage() {
         log('STEP config-fetch: requesting widget config')
         const res = await fetch(`/api/square/widget-config?shopCode=${SHOP_CODE}`)
         const cfg = await res.json()
-        log(`STEP config-fetch: status=${res.status} appId=${String(cfg.applicationId).slice(0, 12)}... locationId=${cfg.locationId} env=${cfg.environment}`)
-        if (!cfg.applicationId || !cfg.locationId) throw new Error('missing appId/locationId in config')
+        const appId = cfg.appId ?? cfg.applicationId
+        log(`STEP config-fetch: status=${res.status} appId=${String(appId).slice(0, 12)}... locationId=${cfg.locationId}`)
+        if (!appId || !cfg.locationId) throw new Error('missing appId/locationId in config')
 
         // Step 2: SDK import (static import already done at top)
         log('STEP sdk-import: @square/web-sdk imported')
 
         // Step 3: payments init
         log('STEP payments-init: calling payments()')
-        const p = await payments(cfg.applicationId, cfg.locationId)
+        const p = await payments(appId, cfg.locationId)
         if (!p) throw new Error('payments() returned null')
         log('STEP payments-init: OK')
 
