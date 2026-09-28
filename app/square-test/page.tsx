@@ -70,7 +70,30 @@ export default function SquareTestPage() {
         // Step 5: attach
         log('STEP card-attach: calling attach()')
         await card.attach('#square-test-container')
-        log('STEP card-attach: OK — CARD FORM RENDERED')
+        log('STEP card-attach: OK — CARD FORM RENDERED (minimal)')
+
+        // Step 6: destroy, then retry with the EXACT style config the POS
+        // page passes. If this attach fails, the custom style object is
+        // the trigger for the production failure.
+        log('STEP style-bisect: destroying minimal card, retrying with POS style config')
+        try { await card.destroy() } catch { /* ignore */ }
+        const styled = await p.card({
+          style: {
+            input: {
+              backgroundColor: 'transparent',
+              color: '#F5F5F4',
+              fontFamily: 'inherit',
+              fontSize: '16px',
+              lineHeight: '24px',
+            },
+            'input::placeholder': { color: '#A8A29E' },
+            'input.is-error': { color: '#FCA5A5' },
+            '.message-text': { color: '#FCA5A5' },
+          },
+        } as any)
+        log('STEP style-bisect: styled card() created OK')
+        await styled.attach('#square-test-container')
+        log('STEP style-bisect: OK — STYLED CARD FORM RENDERED (style is NOT the trigger)')
       } catch (e: any) {
         log(`FAILED: step reached, error name=${e?.name} message=${e?.message}`)
       } finally {
