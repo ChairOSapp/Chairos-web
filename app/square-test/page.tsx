@@ -72,28 +72,33 @@ export default function SquareTestPage() {
         await card.attach('#square-test-container')
         log('STEP card-attach: OK — CARD FORM RENDERED (minimal)')
 
-        // Step 6: destroy, then retry with the EXACT style config the POS
-        // page passes. If this attach fails, the custom style object is
-        // the trigger for the production failure.
-        log('STEP style-bisect: destroying minimal card, retrying with POS style config')
+        // Step 6: destroy, then bisect each style key from the POS config
+        // individually. Each attempt gets its own try/catch so one failing
+        // key doesn't stop the rest.
+        log('STEP style-bisect: destroying minimal card, testing each style key alone')
         try { await card.destroy() } catch { /* ignore */ }
-        const styled = await p.card({
-          style: {
-            input: {
-              backgroundColor: 'transparent',
-              color: '#F5F5F4',
-              fontFamily: 'inherit',
-              fontSize: '16px',
-              lineHeight: '24px',
-            },
-            'input::placeholder': { color: '#A8A29E' },
-            'input.is-error': { color: '#FCA5A5' },
-            '.message-text': { color: '#FCA5A5' },
-          },
-        } as any)
-        log('STEP style-bisect: styled card() created OK')
-        await styled.attach('#square-test-container')
-        log('STEP style-bisect: OK — STYLED CARD FORM RENDERED (style is NOT the trigger)')
+        const candidates: Array<[string, any]> = [
+          ['input:full', { input: { backgroundColor: 'transparent', color: '#F5F5F4', fontFamily: 'inherit', fontSize: '16px', lineHeight: '24px' } }],
+          ['input:backgroundColor', { input: { backgroundColor: 'transparent' } }],
+          ['input:color', { input: { color: '#F5F5F4' } }],
+          ['input:fontFamily-inherit', { input: { fontFamily: 'inherit' } }],
+          ['input:fontSize', { input: { fontSize: '16px' } }],
+          ['input:lineHeight', { input: { lineHeight: '24px' } }],
+          ['input::placeholder', { 'input::placeholder': { color: '#A8A29E' } }],
+          ['input.is-error', { 'input.is-error': { color: '#FCA5A5' } }],
+          ['.message-text', { '.message-text': { color: '#FCA5A5' } }],
+        ]
+        for (const [name, style] of candidates) {
+          try {
+            const c = await p.card({ style } as any)
+            await c.attach('#square-test-container')
+            log(`STEP style-bisect: [${name}] OK — rendered`)
+            try { await c.destroy() } catch { /* ignore */ }
+          } catch (e: any) {
+            log(`STEP style-bisect: [${name}] FAILED name=${e?.name} message=${e?.message}`)
+          }
+        }
+        log('STEP style-bisect: done')
       } catch (e: any) {
         log(`FAILED: step reached, error name=${e?.name} message=${e?.message}`)
       } finally {
