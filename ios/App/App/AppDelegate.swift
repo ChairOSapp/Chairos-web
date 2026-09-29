@@ -40,10 +40,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // the plugin (register() resolved, but iOS never delivered a token).
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+        let tokenPrefix = deviceToken.map { String(format: "%02.2hhx", $0) }.joined().prefix(8)
+        postPushDebug("native_token_ok:\(tokenPrefix)")
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+        postPushDebug("native_token_error:\(error.localizedDescription.prefix(100))")
+    }
+
+    // Direct native POST to the debug log, bypassing the JS bridge entirely.
+    // Temporary diagnostic; remove once token registration is confirmed.
+    private func postPushDebug(_ message: String) {
+        guard let url = URL(string: "https://chairos.cc/api/push/register") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["clientError": message])
+        URLSession.shared.dataTask(with: request).resume()
     }
 
     func application(_ application: UIApplication,
