@@ -141,6 +141,7 @@ export async function sendPushToUser(
     // Not an error: APNs creds arrive with the Apple Developer enrollment.
     // The token pipeline and in-app notifications work regardless.
     logger.info('[push] skipped — APNs not configured')
+    await logPushDebug('none', `push_skip_not_configured:${userId.slice(0, 8)}`)
     return { attempted: false, reason: 'apns_not_configured' }
   }
 
@@ -151,7 +152,10 @@ export async function sendPushToUser(
     .eq('user_id', userId)
     .eq('platform', 'ios')
 
-  if (!rows?.length) return { attempted: false, reason: 'no_tokens' }
+  if (!rows?.length) {
+    await logPushDebug('none', `push_skip_no_tokens:${userId.slice(0, 8)}`)
+    return { attempted: false, reason: 'no_tokens' }
+  }
 
   let jwt: string
   try {
