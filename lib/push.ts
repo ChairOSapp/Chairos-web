@@ -66,14 +66,40 @@ async function sendToToken(
         ...data,
       }),
     })
-    if (res.status === 200) return 'sent'
+    if (res.status === 200) {
+      await logPushDebug(deviceToken, 'push_sent_200')
+      return 'sent'
+    }
     // 410 Gone / 400 BadDeviceToken: the token is dead, prune it.
-    if (res.status === 410 || res.status === 400) return 'dead_token'
-    logger.warn('[push] apns rejected', { status: res.status, body: await res.text().catch(() => '') })
+    if (res.status === 410 || res.status === 400) {
+      const bodyText = await res.text().catch(() => '')
+      await logPushDebug(deviceToken, `push_dead_${res.status}:${bodyText.slice(0, 100)}`)
+      return 'dead_token'
+    }
+    const bodyText = await res.text().catch(() => '')
+    logger.warn('[push] apns rejected', { status: res.status, body: bodyText })
+    await logPushDebug(deviceToken, `push_rejected_${res.status}:${bodyText.slice(0, 100)}`)
     return 'failed'
   } catch (err) {
     logger.warn('[push] apns fetch failed', { error: String(err) })
+    await logPushDebug(deviceToken, `push_error:${String(err).slice(0, 100)}`)
     return 'failed'
+  }
+}
+
+// Log push outcomes to push_reg_debug so Apple rejections are visible.
+async function logPushDebug(deviceToken: string, result: string) {
+  try {
+    const admin = getAdmin()
+    await admin.from('push_reg_debug').insert({
+      has_user: true,
+      token_prefix: deviceToken.slice(0, 8),
+      token_ok: true,
+      platform: 'ios',
+      result,
+    })
+  } catch {
+    // Debug logging must never break pushes.
   }
 }
 
@@ -127,7 +153,14 @@ export async function sendPushToUser(
 
   if (!rows?.length) return { attempted: false, reason: 'no_tokens' }
 
-  const jwt = buildApnsJwt()
+  let jwt: string
+  try {
+    jwt = buildApnsJwt()
+  } catch (err) {
+    logger.warn('[push] jwt build failed', { error: String(err) })
+    await logPushDebug(rows[0].token, `push_jwt_failed:${String(err).slice(0, 100)}`)
+    return { attempted: true, sent: 0, pruned: 0 }
+  }
   let sent = 0
   const dead: string[] = []
   for (const row of rows) {
