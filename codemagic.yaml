@@ -26,11 +26,10 @@ workflows:
     integrations:
       app_store_connect: ChairOS
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: cc.chairos.app
-      # ASC API credentials come from the Apple Developer Portal integration
-      # above (Codemagic injects them); no manual env vars needed.
+      # Signing is handled by the scripts below via `app-store-connect
+      # fetch-signing-files --create`, authenticated through the Apple
+      # Developer Portal integration above. (An ios_signing block here would
+      # fetch pre-uploaded identities and fail the build when none exist.)
       node: 22
       xcode: latest
       cocoapods: default
