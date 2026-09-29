@@ -16,11 +16,7 @@ export async function initPushNotifications(): Promise<void> {
 
     const { PushNotifications } = await import('@capacitor/push-notifications')
 
-    const perm = await PushNotifications.requestPermissions()
-    if (perm.receive !== 'granted') return
-
-    await PushNotifications.register()
-
+    // Attach listeners BEFORE register() so the token event can't be missed.
     PushNotifications.addListener('registration', async ({ value }) => {
       try {
         try { localStorage.setItem('chairos_push_token', value) } catch {}
@@ -36,7 +32,19 @@ export async function initPushNotifications(): Promise<void> {
 
     PushNotifications.addListener('registrationError', (err) => {
       console.warn('[push] registration error', err)
+      // Report native registration failures to the server debug log so
+      // they're visible without device console access.
+      fetch('/api/push/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientError: String((err as any)?.error || err) }),
+      }).catch(() => {})
     })
+
+    const perm = await PushNotifications.requestPermissions()
+    if (perm.receive !== 'granted') return
+
+    await PushNotifications.register()
 
     // Tapping a notification deep-links inside the app instead of opening Safari.
     PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
