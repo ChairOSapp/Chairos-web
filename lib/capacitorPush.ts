@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core'
 
 let started = false
+let registrationSettled = false
 
 // Registers the device for push notifications when running inside the
 // native iOS wrapper. No-ops on the plain website. Safe to call multiple
@@ -36,6 +37,7 @@ export async function initPushNotifications(): Promise<void> {
     // Attach listeners BEFORE register() so the token event can't be missed.
     PushNotifications.addListener('registration', async ({ value }) => {
       try {
+        registrationSettled = true
         try { localStorage.setItem('chairos_push_token', value) } catch {}
         await fetch('/api/push/register', {
           method: 'POST',
@@ -49,6 +51,7 @@ export async function initPushNotifications(): Promise<void> {
 
     PushNotifications.addListener('registrationError', (err) => {
       console.warn('[push] registration error', err)
+      registrationSettled = true
       // Report native registration failures to the server debug log so
       // they're visible without device console access.
       fetch('/api/push/register', {
@@ -64,6 +67,12 @@ export async function initPushNotifications(): Promise<void> {
     if (perm.receive !== 'granted') { probe('permission', { receive: perm.receive }); return }
 
     await PushNotifications.register()
+    probe('post_register')
+    // If iOS never calls back with a token or an error, the registration
+    // event never fires. Surface that silence explicitly.
+    setTimeout(() => {
+      if (!registrationSettled) probe('register_no_event')
+    }, 20000)
 
     // Tapping a notification deep-links inside the app instead of opening Safari.
     PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
