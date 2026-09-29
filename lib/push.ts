@@ -32,8 +32,15 @@ function buildApnsJwt(): string {
       iat: Math.floor(Date.now() / 1000),
     })
   ).toString('base64url')
-  // The .p8 from Apple is PKCS#8 PEM; env may carry literal \n escapes.
-  const key = process.env.APNS_KEY!.replace(/\\n/g, '\n')
+  // The .p8 from Apple is PKCS#8 PEM; env may carry literal \n escapes,
+  // \r\n line endings, or stray whitespace from the Vercel dashboard.
+  const key = process.env
+    .APNS_KEY!.replace(/\\n/g, '\n')
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join('\n')
   const signer = createSign('sha256')
   signer.update(`${header}.${payload}`)
   return `${header}.${payload}.${signer.sign(key, 'base64url')}`
