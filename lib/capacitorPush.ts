@@ -11,8 +11,22 @@ export async function initPushNotifications(): Promise<void> {
   if (started) return
   started = true
 
+  // Phone-home probe: every launch attempt logs to push_reg_debug, so a
+  // missing token can be traced to "this code never ran" vs a later step.
+  const probe = (note: string, extra: Record<string, unknown> = {}) => {
+    try {
+      fetch('/api/push/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientError: `probe:${note}`, platform: Capacitor.getPlatform(), ...extra }),
+      }).catch(() => {})
+    } catch { /* ignore */ }
+  }
+
   try {
-    if (!Capacitor.isNativePlatform()) return
+    const isNative = Capacitor.isNativePlatform()
+    probe('init', { isNative })
+    if (!isNative) return
 
     const { PushNotifications } = await import('@capacitor/push-notifications')
 
@@ -42,7 +56,7 @@ export async function initPushNotifications(): Promise<void> {
     })
 
     const perm = await PushNotifications.requestPermissions()
-    if (perm.receive !== 'granted') return
+    if (perm.receive !== 'granted') { probe('permission', { receive: perm.receive }); return }
 
     await PushNotifications.register()
 
@@ -55,6 +69,7 @@ export async function initPushNotifications(): Promise<void> {
     })
   } catch (err) {
     console.warn('[push] init failed', err)
+    probe('init_threw', { error: String((err as any)?.message || err).slice(0, 120) })
   }
 }
 
