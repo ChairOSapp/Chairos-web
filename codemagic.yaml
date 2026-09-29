@@ -51,10 +51,15 @@ workflows:
         script: keychain add-certificates
       - name: Set up code signing settings
         script: xcode-project use-profiles
+      - name: Resolve Swift packages
+        script: |
+          xcodebuild -resolvePackageDependencies \
+            -project "ios/App/App.xcodeproj" \
+            -scheme "App"
       - name: Build IPA
         script: |
           xcode-project build-ipa \
-            --workspace "ios/App/App.xcworkspace" \
+            --project "ios/App/App.xcodeproj" \
             --scheme "App"
     artifacts:
       - build/ios/ipa/*.ipa
