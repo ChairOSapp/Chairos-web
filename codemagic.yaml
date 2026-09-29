@@ -26,6 +26,8 @@ workflows:
     integrations:
       app_store_connect: Apple
     environment:
+      groups:
+        - chairos # imports CERTIFICATE_PRIVATE_KEY for fetch-signing-files --create
       # Signing is handled by the scripts below via `app-store-connect
       # fetch-signing-files --create`, authenticated through the Apple
       # Developer Portal integration above. (An ios_signing block here would
