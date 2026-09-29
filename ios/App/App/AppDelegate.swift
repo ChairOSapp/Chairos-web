@@ -8,6 +8,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        // Direct native APNs test: bypass the JS bridge entirely to see if
+        // iOS will call back at all.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            self.postPushDebug("native_direct_test_start")
+            UIApplication.shared.registerForRemoteNotifications()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                self.postPushDebug("native_is_registered:\(UIApplication.shared.isRegisteredForRemoteNotifications)")
+            }
+        }
         return true
     }
 
