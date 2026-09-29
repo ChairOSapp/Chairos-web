@@ -23,18 +23,15 @@ workflows:
     name: ChairOS iOS TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: ChairOS
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_ids:
-          - cc.chairos.app
-      vars:
-        # Provided by Codemagic's automatic code signing integration.
-        APP_STORE_CONNECT_ISSUER_ID: Encrypted(...)
-        APP_STORE_CONNECT_KEY_IDENTIFIER: Encrypted(...)
-        APP_STORE_CONNECT_PRIVATE_KEY: Encrypted(...)
-        CERTIFICATE_PRIVATE_KEY: Encrypted(...)
-      node: 20
+        bundle_identifier: cc.chairos.app
+      # ASC API credentials come from the Apple Developer Portal integration
+      # above (Codemagic injects them); no manual env vars needed.
+      node: 22
       xcode: latest
       cocoapods: default
     scripts:
