@@ -30,6 +30,9 @@ export async function initPushNotifications(): Promise<void> {
 
     const { PushNotifications } = await import('@capacitor/push-notifications')
 
+    // Does the native side actually have the plugin registered?
+    probe('plugin_available_' + Capacitor.isPluginAvailable('PushNotifications'))
+
     // Attach listeners BEFORE register() so the token event can't be missed.
     PushNotifications.addListener('registration', async ({ value }) => {
       try {
@@ -55,7 +58,9 @@ export async function initPushNotifications(): Promise<void> {
       }).catch(() => {})
     })
 
+    probe('pre_permission')
     const perm = await PushNotifications.requestPermissions()
+    probe('post_permission_' + perm.receive)
     if (perm.receive !== 'granted') { probe('permission', { receive: perm.receive }); return }
 
     await PushNotifications.register()
