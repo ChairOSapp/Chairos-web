@@ -52,6 +52,33 @@ function apnsHost(): string {
     : 'https://api.push.apple.com'
 }
 
+import { connect, type ClientHttp2Session } from 'node:http2'
+
+// APNs requires HTTP/2 — Node's fetch (HTTP/1.1) gets its connection dropped.
+// We keep one H2 session per host and reuse it across sends in the same lambda.
+let h2Session: ClientHttp2Session | null = null
+let h2SessionHost = ''
+
+function getH2Session(host: string): ClientHttp2Session {
+  if (h2Session && h2SessionHost === host && !h2Session.destroyed) {
+    return h2Session
+  }
+  if (h2Session) {
+    try {
+      h2Session.destroy()
+    } catch {
+      // ignore
+    }
+  }
+  h2Session = connect(host)
+  h2SessionHost = host
+  h2Session.on('error', () => {
+    // Session will be recreated on next send.
+    h2Session = null
+  })
+  return h2Session
+}
+
 async function sendToToken(
   jwt: string,
   deviceToken: string,
@@ -60,35 +87,52 @@ async function sendToToken(
   data: Record<string, string>
 ): Promise<'sent' | 'dead_token' | 'failed'> {
   try {
-    const res = await fetch(`${apnsHost()}/3/device/${deviceToken}`, {
-      method: 'POST',
-      headers: {
-        authorization: `bearer ${jwt}`,
-        'apns-topic': APNS_BUNDLE_ID,
-        'apns-push-type': 'alert',
-        'apns-priority': '10',
-      },
-      body: JSON.stringify({
-        aps: { alert: { title, body }, sound: 'default' },
-        ...data,
-      }),
+    const host = apnsHost()
+    const session = getH2Session(host)
+    const payload = JSON.stringify({
+      aps: { alert: { title, body }, sound: 'default' },
+      ...data,
     })
-    if (res.status === 200) {
+
+    const result = await new Promise<{ status: number; body: string }>(
+      (resolve, reject) => {
+        const req = session.request({
+          ':method': 'POST',
+          ':path': `/3/device/${deviceToken}`,
+          authorization: `bearer ${jwt}`,
+          'apns-topic': APNS_BUNDLE_ID,
+          'apns-push-type': 'alert',
+          'apns-priority': '10',
+          'content-length': Buffer.byteLength(payload),
+        })
+        let bodyText = ''
+        req.on('response', (headers) => {
+          const status = Number(headers[':status'] ?? 0)
+          req.on('data', (chunk) => {
+            bodyText += chunk.toString()
+          })
+          req.on('end', () => resolve({ status, body: bodyText }))
+        })
+        req.on('error', reject)
+        req.end(payload)
+      }
+    )
+
+    const { status } = result
+    if (status === 200) {
       await logPushDebug(deviceToken, 'push_sent_200')
       return 'sent'
     }
     // 410 Gone / 400 BadDeviceToken: the token is dead, prune it.
-    if (res.status === 410 || res.status === 400) {
-      const bodyText = await res.text().catch(() => '')
-      await logPushDebug(deviceToken, `push_dead_${res.status}:${bodyText.slice(0, 100)}`)
+    if (status === 410 || status === 400) {
+      await logPushDebug(deviceToken, `push_dead_${status}:${result.body.slice(0, 100)}`)
       return 'dead_token'
     }
-    const bodyText = await res.text().catch(() => '')
-    logger.warn('[push] apns rejected', { status: res.status, body: bodyText })
-    await logPushDebug(deviceToken, `push_rejected_${res.status}:${bodyText.slice(0, 100)}`)
+    logger.warn('[push] apns rejected', { status, body: result.body })
+    await logPushDebug(deviceToken, `push_rejected_${status}:${result.body.slice(0, 100)}`)
     return 'failed'
   } catch (err) {
-    logger.warn('[push] apns fetch failed', { error: String(err) })
+    logger.warn('[push] apns h2 failed', { error: String(err) })
     await logPushDebug(deviceToken, `push_error:${String(err).slice(0, 100)}`)
     return 'failed'
   }
