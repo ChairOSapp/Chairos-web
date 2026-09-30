@@ -8,6 +8,7 @@ import {
   getSeatUsage,
   type ShopMemberRole,
 } from '@/lib/shopMembers'
+import { syncSeatBilling } from '@/lib/seatBilling'
 
 async function getClients() {
   const cookieStore = await cookies()
@@ -116,6 +117,9 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const seats = await getSeatUsage(admin, shop)
+  // Role changes don't alter seat counts (owner<->admin are both seats),
+  // but sync anyway -- cheap and keeps Stripe honest if counts drifted.
+  void syncSeatBilling(admin, shop.id)
   return NextResponse.json({ member: updated, seats })
 }
 
@@ -156,9 +160,9 @@ export async function DELETE(
   const { error } = await admin.from('shop_members').delete().eq('id', member.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // TODO(billing): when Stripe per-seat billing lands, recompute
-  // getSeatUsage() here and drop the subscription quantity if the shop
-  // fell back within its included seats.
+  // Removing a seat can drop the shop back within its included count --
+  // sync removes the Stripe item when overage hits zero. Fire-and-forget.
   const seats = await getSeatUsage(admin, shop)
+  void syncSeatBilling(admin, shop.id)
   return NextResponse.json({ removed: member.id, seats })
 }

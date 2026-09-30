@@ -9,6 +9,7 @@ import {
   listShopMembers,
   type ShopMemberRole,
 } from '@/lib/shopMembers'
+import { syncSeatBilling } from '@/lib/seatBilling'
 
 async function getClients() {
   const cookieStore = await cookies()
@@ -155,15 +156,16 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // TODO(billing): when Stripe per-seat billing lands, check seats.billable
-  // here and update the subscription quantity / metered usage.
+  // Billing is live: extra seats become a subscription item on the owner's
+  // plan (one invoice, itemized). Fire-and-forget -- sync never throws.
   const seats = await getSeatUsage(admin, shop)
+  void syncSeatBilling(admin, shop.id)
 
   return NextResponse.json({
     member: { ...member, email: profile.email, full_name: null },
     seats,
     seatNotice: seats.billable
-      ? `This shop now uses ${seats.used} of ${seats.included} included seats. The extra ${seats.overage} will be billed per seat once billing is enabled.`
+      ? `This shop now uses ${seats.used} of ${seats.included} included seats. The extra ${seats.overage} ${seats.overage === 1 ? 'seat' : 'seats'} will appear as a line item on the next invoice.`
       : null,
   })
 }
