@@ -39,6 +39,9 @@ export default function ConsentFormsPage() {
   const [success, setSuccess] = useState('')
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const [selectedFileName, setSelectedFileName] = useState<string>('')
+  const [showSignModal, setShowSignModal] = useState(false)
+  const [todayAppts, setTodayAppts] = useState<any[]>([])
+  const [loadingAppts, setLoadingAppts] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -169,6 +172,21 @@ export default function ConsentFormsPage() {
     setViewerUrl(signedUrlData.signedUrl)
   }
 
+  async function openSignModal() {
+    setShowSignModal(true)
+    setLoadingAppts(true)
+    const today = new Date().toISOString().split('T')[0]
+    const { data } = await supabase
+      .from('appointments')
+      .select('id, client_name, date, time, services(name)')
+      .eq('shop_id', shop.id)
+      .eq('date', today)
+      .order('time', { ascending: true })
+      .limit(20)
+    setTodayAppts(data || [])
+    setLoadingAppts(false)
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
       <div className="text-od-green text-sm">Loading...</div>
@@ -271,12 +289,7 @@ export default function ConsentFormsPage() {
           <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between">
             <span className="font-serif text-charcoal-900 text-sm">Signed Records ({signatures.length})</span>
             <button
-              onClick={() => {
-                const apptId = window.prompt('Enter the appointment ID for in-person signing:')
-                if (apptId?.trim()) {
-                  window.location.href = `/consent/${apptId.trim()}`
-                }
-              }}
+              onClick={openSignModal}
               className="btn-chairos-outline text-xs"
             >
               ✍️ Sign on this device
@@ -329,6 +342,37 @@ export default function ConsentFormsPage() {
                 </a>
               </div>
             </object>
+          </div>
+        </div>
+      )}
+
+      {showSignModal && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4" onClick={() => setShowSignModal(false)}>
+          <div className="bg-warm-50 rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-warm-200">
+              <span className="font-semibold text-charcoal-900 text-sm">Select appointment for in-person signing</span>
+              <button onClick={() => setShowSignModal(false)} className="text-charcoal-500 text-lg px-2">✕</button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              {loadingAppts ? (
+                <p className="text-center text-charcoal-500 text-sm py-8">Loading today's appointments…</p>
+              ) : todayAppts.length === 0 ? (
+                <p className="text-center text-charcoal-500 text-sm py-8">No appointments today. The client needs an appointment to sign against.</p>
+              ) : (
+                <div className="space-y-2">
+                  {todayAppts.map(a => (
+                    <button
+                      key={a.id}
+                      onClick={() => window.location.href = `/consent/${a.id}`}
+                      className="w-full text-left p-3 bg-white border border-warm-200 rounded-lg hover:border-charcoal-400 transition-colors"
+                    >
+                      <div className="font-semibold text-charcoal-900 text-sm">{a.client_name}</div>
+                      <div className="text-xs text-charcoal-500">{a.time?.slice(0,5)} · {a.services?.name || 'Service'}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -74,7 +74,15 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
   if (loadError) {
     return (
       <div className="min-h-screen bg-warm-50 flex items-center justify-center p-6">
-        <p className="text-charcoal-500 text-sm max-w-sm text-center">{loadError}</p>
+        <div className="text-center">
+          <p className="text-charcoal-500 text-sm max-w-sm mb-6">{loadError}</p>
+          <button
+            onClick={() => window.history.back()}
+            className="btn-chairos"
+          >
+            ← Go back
+          </button>
+        </div>
       </div>
     )
   }
