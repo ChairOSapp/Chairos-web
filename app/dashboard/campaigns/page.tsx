@@ -23,6 +23,7 @@ function audienceLabels(staffLabel: string): Record<string, string> {
     lapsed_clients: 'Lapsed Clients',
     specific_barber: `By ${staffLabel}`,
     specific_service: 'By Service',
+    specific_clients: 'Chosen clients',
     no_booking_since: 'No Booking Since',
     has_tag: 'Has Tag',
     manual_list: 'Manual list — type them in yourself',
@@ -81,6 +82,10 @@ function CampaignsInner() {
   const [noBookingSinceDate, setNoBookingSinceDate] = useState('')
   const [tagFilter, setTagFilter] = useState('')
   const [shopTags, setShopTags] = useState<string[]>([])
+  // Clients handed over by an insight/opportunity button ("8 clients at
+  // risk" etc.) — the exact list the suggestion was computed from.
+  const [chosenClientIds, setChosenClientIds] = useState<string[]>([])
+  const [chosenClients, setChosenClients] = useState<{ id: string; full_name: string | null }[]>([])
   const [manualEmails, setManualEmails] = useState('')
   const [manualPhones, setManualPhones] = useState('')
   const [channel, setChannel] = useState<'sms' | 'email' | 'both'>('sms')
@@ -130,14 +135,45 @@ function CampaignsInner() {
     load()
   }, [])
 
-  // Pre-fill intent from query param (from analytics page)
+  async function fetchChosenClientNames(ids: string[]) {
+    if (ids.length === 0) { setChosenClients([]); return }
+    const { data } = await supabase.from('clients').select('id, full_name').in('id', ids)
+    const rows = (data ?? []) as { id: string; full_name: string | null }[]
+    const byId = new Map(rows.map(r => [r.id, r]))
+    // Keep the order the IDs arrived in so the list matches the suggestion
+    setChosenClients(ids.map(id => byId.get(id)).filter(Boolean) as { id: string; full_name: string | null }[])
+  }
+
+  // Pre-fill from an insight/opportunity button: the suggestion carries the
+  // exact client list it was computed from (clientIds), plus a suggested
+  // title and intent. The builder preselects those clients as the audience
+  // instead of defaulting to everyone.
   useEffect(() => {
     const preIntent = searchParams.get('intent')
-    if (preIntent) {
-      setIntent(decodeURIComponent(preIntent))
+    const preTitle = searchParams.get('title')
+    const preClientIds = (searchParams.get('clientIds') ?? '').split(',').map(s => s.trim()).filter(Boolean)
+    const preAudience = searchParams.get('audience')
+    const preBarberId = searchParams.get('barberId')
+    if (preIntent || preTitle || preClientIds.length > 0 || preAudience) {
+      if (preIntent) setIntent(preIntent)
+      if (preTitle) setName(preTitle)
+      if (preClientIds.length > 0) {
+        setAudienceType('specific_clients')
+        setChosenClientIds(preClientIds)
+        fetchChosenClientNames(preClientIds)
+      } else if (preAudience === 'specific_barber' && preBarberId) {
+        setAudienceType('specific_barber')
+        setSelectedBarberId(preBarberId)
+      } else if (preAudience === 'all_clients') {
+        setAudienceType('all_clients')
+      }
       setSelected(null)
       setBuilderStep(1)
+      setAudiencePreview(null)
+      setError('')
+      setSuccess('')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
   function startNew() {
@@ -155,6 +191,8 @@ function CampaignsInner() {
     setServiceFilter('')
     setNoBookingSinceDate('')
     setTagFilter('')
+    setChosenClientIds([])
+    setChosenClients([])
     setManualEmails('')
     setManualPhones('')
     setChannel('sms')
@@ -180,6 +218,9 @@ function CampaignsInner() {
     setAiGenerated(c.ai_generated)
     setChannel(c.channel as any)
     setAudienceType(c.audience_type)
+    const restoredIds: string[] = Array.isArray(c.audience_filters?.client_ids) ? c.audience_filters.client_ids : []
+    setChosenClientIds(restoredIds)
+    fetchChosenClientNames(restoredIds)
     setScheduleType((c.schedule_type as any) ?? 'now')
     setScheduledAt(c.scheduled_at ?? '')
     setRecurrenceRule(c.recurrence_rule ?? 'weekly')
@@ -220,6 +261,7 @@ function CampaignsInner() {
     if (audienceType === 'specific_service') return { service: serviceFilter }
     if (audienceType === 'no_booking_since') return { date: noBookingSinceDate }
     if (audienceType === 'has_tag') return { tag: tagFilter }
+    if (audienceType === 'specific_clients') return { client_ids: chosenClientIds }
     if (audienceType === 'manual_list') return {
       emails: manualEmails.split('\n').map(s => s.trim()).filter(Boolean),
       phones: manualPhones.split('\n').map(s => s.trim()).filter(Boolean),
@@ -388,7 +430,7 @@ function CampaignsInner() {
         <div className="w-72 flex-shrink-0 hidden md:block">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-serif text-lg text-charcoal-900">Campaigns</h2>
-            <button onClick={startNew} className="bg-od-green text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-od-green-light transition-colors">
+            <button onClick={startNew} className="btn-chairos">
               + New
             </button>
           </div>
@@ -425,7 +467,7 @@ function CampaignsInner() {
           {/* Mobile: list at top */}
           <div className="md:hidden mb-4 flex items-center justify-between">
             <h2 className="font-serif text-lg text-charcoal-900">Campaigns</h2>
-            <button onClick={startNew} className="bg-od-green text-white text-xs font-semibold px-3 py-1.5 rounded-lg">+ New</button>
+            <button onClick={startNew} className="btn-chairos">+ New</button>
           </div>
 
           {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-4">{error}</p>}
@@ -476,7 +518,7 @@ function CampaignsInner() {
                   <button
                     onClick={handleGenerate}
                     disabled={!intent.trim() || generating}
-                    className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm disabled:opacity-50 hover:bg-od-green-light transition-colors"
+                    className="btn-chairos"
                   >
                     {generating ? 'Writing...' : 'Write my message'}
                   </button>
@@ -532,7 +574,7 @@ function CampaignsInner() {
                   <button onClick={handleGenerate} disabled={generating} className="text-sm text-od-green hover:text-od-green-light transition-colors disabled:opacity-50">
                     {generating ? 'Regenerating...' : '↻ Regenerate'}
                   </button>
-                  <button onClick={() => setBuilderStep(3)} className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
+                  <button onClick={() => setBuilderStep(3)} className="btn-chairos">
                     Audience
                   </button>
                 </div>
@@ -602,6 +644,34 @@ function CampaignsInner() {
                       )}
                     </div>
                   )}
+                  {audienceType === 'specific_clients' && (
+                    <div>
+                      <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Chosen Clients</label>
+                      {chosenClients.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {chosenClients.map(c => (
+                            <span key={c.id} className="inline-flex items-center gap-1.5 bg-warm-200 border border-warm-300 rounded-full pl-3 pr-1.5 py-1 text-xs text-charcoal-900">
+                              {c.full_name || 'Client'}
+                              <button
+                                onClick={() => {
+                                  setChosenClientIds(chosenClientIds.filter(id => id !== c.id))
+                                  setChosenClients(chosenClients.filter(x => x.id !== c.id))
+                                  setAudiencePreview(null)
+                                }}
+                                className="text-charcoal-400 hover:text-charcoal-900 font-bold px-1"
+                                aria-label={`Remove ${c.full_name || 'client'}`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-charcoal-500">No clients attached — come back through an insight button to pick clients, or switch audience type.</p>
+                      )}
+                      <p className="text-xs text-charcoal-500 mt-1">Only people who said yes to texts or emails get the message — anyone opted out is skipped automatically.</p>
+                    </div>
+                  )}
                   {audienceType === 'manual_list' && (
                     <div className="space-y-4">
                       <div>
@@ -643,7 +713,7 @@ function CampaignsInner() {
                           <p className="text-sm font-semibold text-charcoal-900">
                             {manualEmails.split('\n').map(s => s.trim()).filter(Boolean).length + manualPhones.split('\n').map(s => s.trim()).filter(Boolean).length} recipients entered
                           </p>
-                          <p className="text-xs text-charcoal-500 mt-0.5">We skip consent checks for numbers you type in yourself.</p>
+                          <p className="text-xs text-charcoal-500 mt-0.5">We match what you type against your client list — only people who said yes to texts or emails get the message. Everyone else is skipped.</p>
                         </div>
                       )}
                     </div>
@@ -667,7 +737,7 @@ function CampaignsInner() {
                 </div>
                 <div className="flex gap-3 justify-between mt-6">
                   <button onClick={() => setBuilderStep(2)} className="btn-chairos-outline">Back</button>
-                  <button onClick={() => setBuilderStep(4)} className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
+                  <button onClick={() => setBuilderStep(4)} className="btn-chairos">
                     Channel
                   </button>
                 </div>
@@ -697,7 +767,7 @@ function CampaignsInner() {
                 )}
                 <div className="flex gap-3 justify-between mt-6">
                   <button onClick={() => setBuilderStep(3)} className="btn-chairos-outline">Back</button>
-                  <button onClick={() => setBuilderStep(5)} className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
+                  <button onClick={() => setBuilderStep(5)} className="btn-chairos">
                     Schedule
                   </button>
                 </div>
@@ -769,7 +839,7 @@ function CampaignsInner() {
                 )}
                 <div className="flex gap-3 justify-between mt-6">
                   <button onClick={() => setBuilderStep(4)} className="btn-chairos-outline">Back</button>
-                  <button onClick={() => setBuilderStep(6)} className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors">
+                  <button onClick={() => setBuilderStep(6)} className="btn-chairos">
                     Review
                   </button>
                 </div>
@@ -814,11 +884,11 @@ function CampaignsInner() {
                   <button onClick={() => setBuilderStep(5)} className="btn-chairos-outline">Back</button>
                   <div className="flex gap-2">
                     <button onClick={handleSaveDraft} disabled={saving}
-                      className="border border-warm-300 text-charcoal-500 hover:text-charcoal-900 font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                      className="btn-chairos-outline">
                       {saving ? 'Saving...' : 'Save Draft'}
                     </button>
                     <button onClick={handleSend} disabled={sending || !name.trim()}
-                      className="bg-od-green text-white font-semibold px-6 py-2.5 rounded-lg text-sm hover:bg-od-green-light transition-colors disabled:opacity-50">
+                      className="btn-chairos">
                       {sending ? 'Processing...' : scheduleType === 'now' ? 'Send Now' : 'Schedule Campaign'}
                     </button>
                   </div>

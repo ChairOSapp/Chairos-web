@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { buildCampaignHref } from '@/lib/campaignHref'
 
 // Prescriptive "opportunity" insights: tell the owner what to DO, not just
 // what happened. All heuristics are computed client-side from shop-scoped
@@ -273,8 +274,6 @@ export default function PrescriptiveOpportunities({ shopId, shopHours, barbers }
 
   if (!shopId) return null
 
-  const campaignHref = (intent: string) => `/dashboard/campaigns?intent=${encodeURIComponent(intent)}`
-
   return (
     <div className="mb-6">
       <div className="font-serif text-2xl text-charcoal-900">Opportunities</div>
@@ -295,7 +294,11 @@ export default function PrescriptiveOpportunities({ shopId, shopHours, barbers }
                   ≈{moneyCard.openSlots} open {staffLabel} slots going unfilled — worth up to {money(moneyCard.amount)} if every slot fills.
                   {moneyCard.estimated && <span className="text-charcoal-500"> (Estimated — set shop hours in Settings for precision.)</span>}
                 </p>
-                <button onClick={() => router.push(campaignHref('Fill open slots over the next 2 weeks'))} className="btn-chairos">
+                <button onClick={() => router.push(buildCampaignHref({
+                  intent: 'Fill open slots over the next 2 weeks',
+                  title: 'Fill open slots',
+                  audience: 'all_clients',
+                }))} className="btn-chairos">
                   Fill them
                 </button>
               </>
@@ -317,7 +320,11 @@ export default function PrescriptiveOpportunities({ shopId, shopHours, barbers }
                     </li>
                   ))}
                 </ul>
-                <button onClick={() => router.push(campaignHref(`Win back ${quietClients.length} quiet clients`))} className="btn-chairos">
+                <button onClick={() => router.push(buildCampaignHref({
+                  intent: `Win back ${quietClients.length} quiet clients`,
+                  title: 'Win back quiet clients',
+                  clientIds: quietClients.map(c => c.id),
+                }))} className="btn-chairos">
                   Win back
                 </button>
               </>
@@ -340,7 +347,11 @@ export default function PrescriptiveOpportunities({ shopId, shopHours, barbers }
                   ))}
                 </ul>
                 <button
-                  onClick={() => router.push(campaignHref(`Fill dead hours: ${deadHours.map(d => `${SHORT_DAYS[d.dow]} ${hourLabel(d.hour)}`).join(', ')}`))}
+                  onClick={() => router.push(buildCampaignHref({
+                    intent: `Fill dead hours: ${deadHours.map(d => `${SHORT_DAYS[d.dow]} ${hourLabel(d.hour)}`).join(', ')}`,
+                    title: 'Dead-hours promo',
+                    audience: 'all_clients',
+                  }))}
                   className="btn-chairos"
                 >
                   Create promo

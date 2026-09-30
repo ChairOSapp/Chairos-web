@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+import { buildCampaignHref } from '@/lib/campaignHref'
 
 // Hours 8am–7pm (8..19 inclusive) = 12 hours
 const HOUR_LABELS = Array.from({ length: 12 }, (_, i) => {
@@ -165,7 +166,11 @@ export default function PeakHoursHeatmap({ shopId, period }: Props) {
             </div>
           )}
           <a
-            href={`/dashboard/campaigns?intent=${encodeURIComponent(fillDayIntent)}`}
+            href={buildCampaignHref({
+              intent: fillDayIntent,
+              title: `Fill ${busiestDayName} slots`,
+              audience: 'all_clients',
+            })}
             className="inline-block text-xs font-semibold text-od-green hover:text-od-green-light transition-colors mt-1"
           >
             Fill {busiestDayName} slots →

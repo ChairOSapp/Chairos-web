@@ -63,9 +63,10 @@ export const campaignSend = task({
         // SMS send
         if (campaign.channel === 'sms' || campaign.channel === 'both') {
           if (recipient.sms_status === 'pending' && recipient.phone) {
-            // Verify consent. Manual-list recipients have no client row —
-            // consent was captured when the owner built the list in
-            // /api/campaigns/send, so a null client_id means OK.
+            // Verify consent. All audiences (including manual list) now
+            // resolve to client rows in /api/campaigns/send, so a recipient
+            // with no client row is only a legacy/safety case — treat it as
+            // OK rather than failing closed on old data.
             if (recipient.client_id) {
               const { data: client } = await supabase
                 .from('clients')

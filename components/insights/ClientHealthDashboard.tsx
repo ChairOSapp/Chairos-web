@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { buildCampaignHref } from '@/lib/campaignHref'
 
 interface Appointment {
   id: string
@@ -198,7 +199,14 @@ export default function ClientHealthDashboard({
       color: 'text-amber-400',
       badgeBg: 'bg-amber-100 text-amber-700',
       sub: '30–59 days away',
-      cta: { label: 'Create Campaign', href: `/dashboard/campaigns?intent=${encodeURIComponent('Re-engage fading clients before they go cold')}` },
+      cta: {
+        label: 'Create Campaign',
+        href: buildCampaignHref({
+          intent: 'Re-engage fading clients before they go cold',
+          title: 'Re-engage fading clients',
+          clientIds: fadingRows.map(r => r.clientId),
+        }),
+      },
     },
     {
       key: 'cold' as DrawerBucket,
@@ -207,7 +215,14 @@ export default function ClientHealthDashboard({
       color: 'text-red-400',
       badgeBg: 'bg-red-100 text-red-700',
       sub: '60+ days — act now',
-      cta: { label: 'Create Campaign', href: `/dashboard/campaigns?intent=${encodeURIComponent('Win back gone-cold clients')}` },
+      cta: {
+        label: 'Create Campaign',
+        href: buildCampaignHref({
+          intent: 'Win back gone-cold clients',
+          title: 'Win back gone-cold clients',
+          clientIds: coldRows.map(r => r.clientId),
+        }),
+      },
     },
   ]
 

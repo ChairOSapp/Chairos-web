@@ -2,6 +2,7 @@
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { buildCampaignHref } from '@/lib/campaignHref'
 
 interface Appointment {
   id: string
@@ -36,7 +37,11 @@ interface InsightCard {
   icon: string
   text: string
   action: string
-  href: string
+  intent: string
+  title: string
+  clientIds?: string[]
+  audience?: 'all_clients' | 'specific_barber'
+  barberId?: string
 }
 
 export default function OpportunitiesSection({ shopId: _shopId, appointments, barbers, isBarber = false }: Props) {
@@ -64,7 +69,9 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
         icon: 'Slowest Day',
         text: `Fill ${dayName} slots — only ${slowestDayEntry.count} cuts on ${dayName}s recently`,
         action: `Boost ${dayName} Bookings`,
-        href: `/dashboard/campaigns?intent=${encodeURIComponent(`Boost ${dayName} bookings with a ${dayName} special`)}`,
+        intent: `Boost ${dayName} bookings with a ${dayName} special`,
+        title: `Boost ${dayName} bookings`,
+        audience: 'all_clients',
       })
     }
 
@@ -75,18 +82,23 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
       const t = new Date(a.date + 'T12:00:00').getTime()
       if (!clientLast[a.client_id] || t > clientLast[a.client_id]) clientLast[a.client_id] = t
     }
-    const coldCount = Object.values(clientLast).filter(t => (nowMs - t) / 86400000 >= 60).length
+    const coldIds = Object.entries(clientLast)
+      .filter(([, t]) => (nowMs - t) / 86400000 >= 60)
+      .map(([id]) => id)
+    const coldCount = coldIds.length
     if (coldCount > 0) {
       result.push({
         icon: 'Gone Cold',
         text: `${coldCount} clients have gone cold since their last visit`,
         action: 'Win Them Back',
-        href: `/dashboard/campaigns?intent=${encodeURIComponent(`Win back ${coldCount} gone-cold clients`)}`,
+        intent: `Win back ${coldCount} gone-cold clients`,
+        title: 'Win back gone-cold clients',
+        clientIds: coldIds,
       })
     }
 
     // Card 3 — Lowest come-back barber (min 5 first-timers)
-    let lowestBarber: { name: string; rate: number } | null = null
+    let lowestBarber: { id: string; name: string; rate: number } | null = null
     for (const b of barbers) {
       const bDone = done.filter(a => a.barber_id === b.barber_id)
       const first: Record<string, number> = {}
@@ -106,7 +118,7 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
       }
       const rate = ret / ftCount
       if (!lowestBarber || rate < lowestBarber.rate) {
-        lowestBarber = { name: b.barber_name || b.alias || staffLabel, rate }
+        lowestBarber = { id: b.barber_id, name: b.barber_name || b.alias || staffLabel, rate }
       }
     }
     if (lowestBarber) {
@@ -114,7 +126,10 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
         icon: 'Come-Back Rate',
         text: `${lowestBarber.name} has a ${(lowestBarber.rate * 100).toFixed(0)}% come-back rate — help clients rebook with them`,
         action: `Boost Rebooking`,
-        href: `/dashboard/campaigns?intent=${encodeURIComponent(`Boost rebooking rate for ${lowestBarber.name}`)}`,
+        intent: `Boost rebooking rate for ${lowestBarber.name}`,
+        title: `Boost rebooking for ${lowestBarber.name}`,
+        audience: 'specific_barber',
+        barberId: lowestBarber.id,
       })
     }
 
@@ -134,7 +149,9 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
         icon: 'Light Day',
         text: `${lightestDay.label} has only ${upcomingCounts[lightestDay.date]} bookings — fill it now`,
         action: 'Fill Slots',
-        href: `/dashboard/campaigns?intent=${encodeURIComponent(`Fill ${lightestDay.label} appointment slots`)}`,
+        intent: `Fill ${lightestDay.label} appointment slots`,
+        title: `Fill ${lightestDay.label} slots`,
+        audience: 'all_clients',
       })
     }
 
@@ -152,7 +169,16 @@ export default function OpportunitiesSection({ shopId: _shopId, appointments, ba
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">{card.icon}</div>
             <p className="text-sm text-charcoal-900 mb-3">{card.text}</p>
             {!isBarber && (
-              <button onClick={() => router.push(card.href)} className="btn-chairos">
+              <button
+                onClick={() => router.push(buildCampaignHref({
+                  intent: card.intent,
+                  title: card.title,
+                  clientIds: card.clientIds,
+                  audience: card.audience,
+                  barberId: card.barberId,
+                }))}
+                className="btn-chairos"
+              >
                 {card.action}
               </button>
             )}

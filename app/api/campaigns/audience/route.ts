@@ -147,6 +147,18 @@ export async function POST(req: NextRequest) {
     const { data } = await admin.from('clients').select(clientSelect).in('id', taggedIds)
     clients = data ?? []
 
+  } else if (audienceType === 'specific_clients') {
+    // Client IDs carried over from an insight/opportunity button. They come
+    // from the request body, so scope to this shop's clients — never return
+    // another shop's client data.
+    const ids: string[] = Array.isArray(audienceFilters?.client_ids)
+      ? audienceFilters.client_ids.filter((id: any) => typeof id === 'string' && id.length > 0)
+      : []
+    if (ids.length === 0) return NextResponse.json({ clients: [], count: 0 })
+
+    const { data } = await admin.from('clients').select(clientSelect).eq('shop_id', shopId).in('id', ids)
+    clients = data ?? []
+
   } else if (audienceType === 'manual_list') {
     const clientIds: string[] = audienceFilters?.clientIds ?? []
     if (clientIds.length === 0) return NextResponse.json({ clients: [], count: 0 })

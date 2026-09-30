@@ -19,6 +19,13 @@ function appendStop(message: string): string {
   return message.slice(0, 160 - suffix.length).trimEnd() + suffix
 }
 
+// Last-10-digits normalization so a typed "+1 (202) 555-0100" matches a
+// stored "2025550100". Used to resolve manual-list entries to client rows.
+function normalizePhone(p: string | null | undefined): string {
+  const digits = String(p ?? '').replace(/\D/g, '')
+  return digits.length >= 10 ? digits.slice(-10) : digits
+}
+
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -153,20 +160,40 @@ export async function POST(req: NextRequest) {
       clients = (data ?? []).filter(c => (!needsSms || c.sms_consent) && (!needsEmail || (c.email_consent && c.email)))
     }
 
-  } else if (campaign.audience_type === 'manual_list') {
-    // Raw emails/phones entered by owner — no consent check, no client lookup
-    const emails: string[] = (filters.emails ?? []).filter(Boolean)
-    const phones: string[] = (filters.phones ?? []).filter(Boolean)
-    const emailSet = new Set(emails)
-    const phoneSet = new Set(phones)
-    // Merge: one entry per unique contact, pairing email+phone when both present
-    const allContacts = new Map<string, { id: null; email: string | null; phone: string | null; email_consent: true; sms_consent: true }>()
-    for (const e of emails) allContacts.set(`email:${e}`, { id: null, email: e, phone: null, email_consent: true, sms_consent: true })
-    for (const p of phones) {
-      // If there's already an email entry, skip; otherwise create phone-only entry
-      allContacts.set(`phone:${p}`, { id: null, email: null, phone: p, email_consent: true, sms_consent: true })
+  } else if (campaign.audience_type === 'specific_clients') {
+    // Client IDs handed over by an insight/opportunity button. Resolve
+    // server-side and verify every ID belongs to this shop — never trust
+    // the stored list blindly — then consent-filter per channel: anyone
+    // opted out or never consented is excluded.
+    const ids: string[] = Array.isArray(filters.client_ids)
+      ? filters.client_ids.filter((id: any) => typeof id === 'string' && id.length > 0)
+      : []
+    if (ids.length > 0) {
+      const { data } = await admin.from('clients').select('id, full_name, phone, email, sms_consent, email_consent').eq('shop_id', campaign.shop_id).in('id', ids)
+      clients = (data ?? []).filter(c => (!needsSms || c.sms_consent) && (!needsEmail || (c.email_consent && c.email)))
     }
-    clients = [...allContacts.values()]
+
+  } else if (campaign.audience_type === 'manual_list') {
+    // Typed-in contacts are resolved against the shop's client list and
+    // consent-filtered per channel. Anything not on the client list (no
+    // consent record) or opted out is dropped — a typed-in address is not
+    // consent.
+    const emails: string[] = (filters.emails ?? []).filter(Boolean).map((e: any) => String(e).trim().toLowerCase())
+    const phones: string[] = (filters.phones ?? []).filter(Boolean).map((p: any) => normalizePhone(p)).filter(Boolean)
+    if (emails.length > 0 || phones.length > 0) {
+      const { data } = await admin.from('clients').select('id, full_name, phone, email, sms_consent, email_consent').eq('shop_id', campaign.shop_id)
+      const rows = data ?? []
+      const matched = new Map<string, any>()
+      for (const e of emails) {
+        const hit = rows.find(c => (c.email ?? '').trim().toLowerCase() === e)
+        if (hit) matched.set(hit.id, hit)
+      }
+      for (const p of phones) {
+        const hit = rows.find(c => normalizePhone(c.phone) === p)
+        if (hit) matched.set(hit.id, hit)
+      }
+      clients = [...matched.values()].filter(c => (!needsSms || c.sms_consent) && (!needsEmail || (c.email_consent && c.email)))
+    }
   } else if (campaign.audience_type === 'has_tag') {
     // Tag audiences are previewable via /api/campaigns/audience but were
     // previously unsendable here (silently reached nobody).
