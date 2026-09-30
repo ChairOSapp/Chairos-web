@@ -2,6 +2,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import Lightbox from 'yet-another-react-lightbox'
+import Zoom from 'yet-another-react-lightbox/plugins/zoom'
+import 'yet-another-react-lightbox/styles.css'
 
 type Note = {
   id: string
@@ -35,6 +38,7 @@ export default function ClientNotes({
 
   const [notes, setNotes] = useState<Note[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string[]>>({})
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null)
   const [loading, setLoading] = useState(mode === 'full')
   const [expanded, setExpanded] = useState(mode === 'full')
   const [body, setBody] = useState('')
@@ -209,13 +213,18 @@ export default function ClientNotes({
                 {(photoUrls[n.id]?.length ?? 0) > 0 && (
                   <div className="flex gap-2 flex-wrap">
                     {photoUrls[n.id].map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setLightbox({ urls: photoUrls[n.id], index: i })}
+                        className="p-0 bg-transparent border-0 cursor-pointer"
+                      >
                         <img
                           src={url}
                           alt="Note attachment"
                           className={`w-16 h-16 rounded-lg object-cover border ${dark ? 'border-charcoal-700' : 'border-warm-300'}`}
                         />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -223,6 +232,15 @@ export default function ClientNotes({
             ))}
           </div>
         )
+      )}
+      {lightbox && (
+        <Lightbox
+          open
+          close={() => setLightbox(null)}
+          index={lightbox.index}
+          slides={lightbox.urls.map((src) => ({ src }))}
+          plugins={[Zoom]}
+        />
       )}
     </div>
   )
