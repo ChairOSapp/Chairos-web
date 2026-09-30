@@ -114,6 +114,7 @@ function BookingPageInner() {
   // Why the current day has no slots: 'closed' | 'no_hours' | 'full' --
   // so the page can explain instead of just showing the waitlist.
   const [slotsReason, setSlotsReason] = useState<string | null>(null)
+  const [slotsMaxAdvance, setSlotsMaxAdvance] = useState<number | null>(null)
   // Waitlist target date -- defaults to the picked date until the customer
   // chooses a different one (e.g. "an earlier date").
   const [wlDate, setWlDate] = useState('')
@@ -210,6 +211,27 @@ function BookingPageInner() {
     const entry = (hours as Array<{ day: string; open: boolean; from: string; to: string }>).find(h => h.day === dayName)
     if (!entry) return null
     return entry.open ? `Open today ${entry.from} – ${entry.to}` : 'Closed today'
+  })()
+
+  // Plain-language booking rules for the customer, from the shop's
+  // settings — shown under the date picker so expectations are set
+  // before they pick a time.
+  const rulesLine = (() => {
+    if (!shop) return null
+    const parts: string[] = []
+    const minAdv = shop.min_advance_minutes ?? 120
+    if (minAdv > 0) parts.push(`Book at least ${minAdv >= 60 ? `${Math.round(minAdv / 60)}h` : `${minAdv}min`} ahead`)
+    const maxDays = shop.max_advance_days ?? 90
+    if (maxDays > 0) parts.push(`Up to ${maxDays} days out`)
+    const cancelWin = shop.cancellation_window_hours ?? 24
+    if (cancelWin > 0) parts.push(`Please cancel at least ${cancelWin}h ahead`)
+    return parts.length ? parts.join(' · ') : null
+  })()
+  const maxBookableDate = (() => {
+    const days = shop?.max_advance_days ?? 90
+    const d = new Date()
+    d.setDate(d.getDate() + days)
+    return d.toLocaleDateString('en-CA')
   })()
 
   useEffect(() => {
@@ -411,7 +433,7 @@ function BookingPageInner() {
   // Real server-side availability, buffer-aware — replaces a fixed time
   // list that showed every slot regardless of existing bookings.
   useEffect(() => {
-    if (!selectedDate || !selectedService) { setAvailableSlots([]); setSlotsReason(null); return }
+    if (!selectedDate || !selectedService) { setAvailableSlots([]); setSlotsReason(null); setSlotsMaxAdvance(null); return }
     let cancelled = false
     setLoadingSlots(true)
     setSelectedTime('')
@@ -423,8 +445,8 @@ function BookingPageInner() {
     params.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone)
     fetch(`/api/book/availability?${params.toString()}`)
       .then(r => r.json())
-      .then(data => { if (!cancelled) { setAvailableSlots(data.slots || []); setSlotsReason(data.reason || null) } })
-      .catch(() => { if (!cancelled) { setAvailableSlots([]); setSlotsReason(null) } })
+      .then(data => { if (!cancelled) { setAvailableSlots(data.slots || []); setSlotsReason(data.reason || null); setSlotsMaxAdvance(data.maxAdvanceDays ?? null) } })
+      .catch(() => { if (!cancelled) { setAvailableSlots([]); setSlotsReason(null); setSlotsMaxAdvance(null) } })
       .finally(() => { if (!cancelled) setLoadingSlots(false) })
     return () => { cancelled = true }
   }, [selectedDate, selectedService, selectedBarber, shopCode, slotsRefreshKey])
@@ -488,6 +510,7 @@ function BookingPageInner() {
       : 'this day'
     if (slotsReason === 'closed') return `They're closed on ${dayLabel}s — pick another day above, or join the waitlist and we'll text you if a spot opens up.`
     if (slotsReason === 'no_hours') return `This shop hasn't set their booking hours yet — join the waitlist and we'll text you as soon as booking opens.`
+    if (slotsReason === 'too_far') return `This shop only books ${slotsMaxAdvance ?? 90} days out — pick an earlier date.`
     return `No times available this day — try another date, or join the waitlist for a specific time and we'll text you if it opens up.`
   }
 
@@ -1458,11 +1481,12 @@ function BookingPageInner() {
             <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Date</label>
-                <input type="date" value={selectedDate} min={today}
+                <input type="date" value={selectedDate} min={today} max={maxBookableDate}
                   onChange={e => { setSelectedDate(e.target.value); setWlDate(''); resetWaitlistJoinState() }}
                   className="w-full min-w-0 bg-warm-100 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none transition-colors"
                   onFocus={e => e.target.style.borderColor = brand}
                   onBlur={e => e.target.style.borderColor = ''} />
+                {rulesLine && <p className="text-charcoal-500 text-xs mt-2">{rulesLine}</p>}
               </div>
               {selectedDate && (
                 <div>

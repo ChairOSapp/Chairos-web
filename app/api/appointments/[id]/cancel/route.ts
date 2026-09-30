@@ -53,12 +53,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('owner_id, barbers_collect_own_payments, deposit_refund_window_hours, waitlist_min_notice_hours')
+    .select('owner_id, barbers_collect_own_payments, deposit_refund_window_hours, waitlist_min_notice_hours, cancellation_window_hours')
     .eq('id', appointment.shop_id)
     .maybeSingle()
   if (!shop) {
     return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
   }
+
+  // Late-cancel policy: cancelling inside the shop's cancellation window
+  // flags the appointment so the owner can see (and report on) short-notice
+  // cancellations. The deposit refund window is a separate, money-specific
+  // knob and keeps its own logic below.
+  const apptDateTime = new Date(`${appointment.date}T${appointment.time}`)
+  const hoursUntilAppointment = (apptDateTime.getTime() - Date.now()) / (60 * 60 * 1000)
+  const lateCancel = hoursUntilAppointment < (shop.cancellation_window_hours ?? 24)
 
   const isOwner = shop.owner_id === user.id
   const isBarber = appointment.barber_id === user.id
@@ -75,8 +83,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   let refunded = false
   if (paidDeposit?.square_payment_id) {
-    const apptDateTime = new Date(`${appointment.date}T${appointment.time}`)
-    const hoursUntilAppointment = (apptDateTime.getTime() - Date.now()) / (60 * 60 * 1000)
     const withinRefundWindow = hoursUntilAppointment >= (shop.deposit_refund_window_hours ?? 48)
 
     if (withinRefundWindow) {
@@ -108,6 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   await supabase.from('appointments').update({
     status: 'cancelled',
+    late_cancel: lateCancel,
     ...(reason ? { cancellation_reason: reason } : {}),
   }).eq('id', appointmentId)
 
@@ -139,5 +146,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  return NextResponse.json({ cancelled: true, refunded })
+  return NextResponse.json({ cancelled: true, refunded, lateCancel })
 }

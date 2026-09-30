@@ -51,6 +51,16 @@ export default function ShopSettings() {
   const [depositAmount, setDepositAmount] = useState('20')
   const [depositRefundWindowHours, setDepositRefundWindowHours] = useState('48')
   const [waitlistMinNoticeHours, setWaitlistMinNoticeHours] = useState('4')
+  // Booking rules (Task 1): how far ahead clients can book, and the
+  // late-cancel window. Stored as columns on shops, like the deposit and
+  // waitlist knobs above.
+  const [minAdvanceMinutes, setMinAdvanceMinutes] = useState('120')
+  const [maxAdvanceDays, setMaxAdvanceDays] = useState('90')
+  const [cancellationWindowHours, setCancellationWindowHours] = useState('24')
+  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState('30')
+  const [dateExceptions, setDateExceptions] = useState<any[]>([])
+  const [newExceptionDate, setNewExceptionDate] = useState('')
+  const [newExceptionNote, setNewExceptionNote] = useState('')
   const [missedCallTextbackEnabled, setMissedCallTextbackEnabled] = useState(false)
   const [twilioVoiceNumber, setTwilioVoiceNumber] = useState('')
   const [referralProgramEnabled, setReferralProgramEnabled] = useState(false)
@@ -130,6 +140,16 @@ export default function ShopSettings() {
     setDepositAmount(String(shop.deposit_amount ?? 20))
     setDepositRefundWindowHours(String(shop.deposit_refund_window_hours ?? 48))
     setWaitlistMinNoticeHours(String(shop.waitlist_min_notice_hours ?? 4))
+    setMinAdvanceMinutes(String(shop.min_advance_minutes ?? 120))
+    setMaxAdvanceDays(String(shop.max_advance_days ?? 90))
+    setCancellationWindowHours(String(shop.cancellation_window_hours ?? 24))
+    setSlotIntervalMinutes(String(shop.slot_interval_minutes ?? 30))
+    const { data: exc } = await supabase
+      .from('shop_date_exceptions')
+      .select('*')
+      .eq('shop_id', shop.id)
+      .order('date', { ascending: true })
+    setDateExceptions(exc || [])
     setMissedCallTextbackEnabled(!!shop.missed_call_textback_enabled)
     setTwilioVoiceNumber(shop.twilio_voice_number || '')
     setReferralProgramEnabled(!!shop.referral_program_enabled)
@@ -267,6 +287,10 @@ export default function ShopSettings() {
       deposit_amount: parseFloat(depositAmount) || 0,
       deposit_refund_window_hours: parseInt(depositRefundWindowHours) || 0,
       waitlist_min_notice_hours: parseInt(waitlistMinNoticeHours) || 0,
+      min_advance_minutes: Math.max(0, parseInt(minAdvanceMinutes) || 0),
+      max_advance_days: Math.max(1, parseInt(maxAdvanceDays) || 90),
+      cancellation_window_hours: Math.max(0, parseInt(cancellationWindowHours) || 0),
+      slot_interval_minutes: Math.max(5, parseInt(slotIntervalMinutes) || 30),
       twilio_voice_number: normalizeVoiceNumber(twilioVoiceNumber),
       missed_call_textback_enabled: missedCallTextbackEnabled,
       referral_program_enabled: referralProgramEnabled,
@@ -278,6 +302,28 @@ export default function ShopSettings() {
     setSuccess('Settings saved.')
     setSaving(false)
     setTimeout(() => setSuccess(''), 3000)
+  }
+
+  async function addDateException() {
+    if (!newExceptionDate || !shop) return
+    const { data, error } = await supabase.from('shop_date_exceptions').insert({
+      shop_id: shop.id,
+      date: newExceptionDate,
+      is_closed: true,
+      note: newExceptionNote.trim() || null,
+    }).select().single()
+    if (error) { setError(error.message); return }
+    setDateExceptions(prev => [...prev, data].sort((a, b) => a.date.localeCompare(b.date)))
+    setNewExceptionDate('')
+    setNewExceptionNote('')
+    setSuccess('Closed date added — no one can book that day.')
+    setTimeout(() => setSuccess(''), 3000)
+  }
+
+  async function removeDateException(id: string) {
+    const { error } = await supabase.from('shop_date_exceptions').delete().eq('id', id)
+    if (error) { setError(error.message); return }
+    setDateExceptions(prev => prev.filter(e => e.id !== id))
   }
 
   async function handleSaveTaxInfo() {
@@ -725,6 +771,75 @@ export default function ShopSettings() {
         </>)}
 
         {tab === 'booking' && (<>
+
+        {/* BOOKING RULES */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200">
+            <div className="font-serif text-charcoal-900 text-sm">Booking Rules</div>
+            <div className="text-xs text-charcoal-500">How far ahead clients can book, and how late they can cancel</div>
+          </div>
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Minimum advance notice (minutes)</label>
+              <input type="number" min="0" step="15" value={minAdvanceMinutes} onChange={e => setMinAdvanceMinutes(e.target.value)}
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+              <div className="text-xs text-charcoal-500 mt-2">Nobody can grab a slot starting sooner than this. Stops same-hour ambush bookings.</div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Booking window (days out)</label>
+              <input type="number" min="1" value={maxAdvanceDays} onChange={e => setMaxAdvanceDays(e.target.value)}
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+              <div className="text-xs text-charcoal-500 mt-2">How far ahead the calendar opens. Keeps the schedule from filling up a year out.</div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Late-cancel window (hours)</label>
+              <input type="number" min="0" value={cancellationWindowHours} onChange={e => setCancellationWindowHours(e.target.value)}
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+              <div className="text-xs text-charcoal-500 mt-2">Cancelling inside this window flags the booking as a late cancel on your calendar.</div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Slot spacing (minutes)</label>
+              <input type="number" min="5" step="5" value={slotIntervalMinutes} onChange={e => setSlotIntervalMinutes(e.target.value)}
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+              <div className="text-xs text-charcoal-500 mt-2">Times offered on the booking page — every 15 or 30 minutes, your call.</div>
+            </div>
+          </div>
+        </div>
+
+        {/* CLOSED DATES */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200">
+            <div className="font-serif text-charcoal-900 text-sm">Closed Dates</div>
+            <div className="text-xs text-charcoal-500">One-off days you're closed — vacations, holidays, sick days. No one can book these dates.</div>
+          </div>
+          <div className="p-5">
+            {dateExceptions.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {dateExceptions.map(e => (
+                  <div key={e.id} className="flex items-center justify-between bg-warm-200 rounded-lg px-3 py-2">
+                    <div>
+                      <div className="text-sm font-medium text-charcoal-900">
+                        {new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                      {e.note && <div className="text-xs text-charcoal-500">{e.note}</div>}
+                    </div>
+                    <button onClick={() => removeDateException(e.id)} className="text-charcoal-600 hover:text-red-400 transition-colors text-lg leading-none px-2">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input type="date" value={newExceptionDate} onChange={e => setNewExceptionDate(e.target.value)}
+                className="bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+              <input value={newExceptionNote} onChange={e => setNewExceptionNote(e.target.value)} placeholder="Note (optional) — e.g. Christmas"
+                className="flex-1 bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+              <button onClick={addDateException} disabled={!newExceptionDate}
+                className="px-6 py-3 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* WAITLIST */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">

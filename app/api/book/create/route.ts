@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
   const { data: shop } = await admin
     .from('shops')
-    .select('id, shop_code')
+    .select('id, shop_code, min_advance_minutes, max_advance_days')
     .eq('shop_code', String(shopCode).toUpperCase())
     .maybeSingle()
   if (!shop) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
@@ -150,6 +150,45 @@ export async function POST(req: NextRequest) {
     // 'no_staff': the shop has no active staff on record -- keep barber_id
     // NULL and fall back to shop-wide availability, as before. The
     // null-barber slot guard trigger still prevents double-booking.
+  }
+
+  // Booking rules, mirrored from /api/book/availability: the availability
+  // read in the browser may be stale, so the create path re-checks the
+  // shop's horizon, one-off closures, and minimum-advance window here.
+  // All comparisons are wall-clock in the customer's timezone, exactly
+  // like the availability route (shops carry no timezone column).
+  const minAdvanceMin = shop.min_advance_minutes ?? 120
+  const maxAdvanceDays = shop.max_advance_days ?? 90
+  {
+    const tzForRules = resolveTimeZone(body.timeZone)
+    const todayStr = nowWallClock(tzForRules).slice(0, 10)
+    const horizon = new Date(todayStr + 'T12:00:00')
+    horizon.setDate(horizon.getDate() + maxAdvanceDays)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const horizonStr = `${horizon.getFullYear()}-${pad(horizon.getMonth() + 1)}-${pad(horizon.getDate())}`
+    if (maxAdvanceDays > 0 && date > horizonStr) {
+      return NextResponse.json({ error: `This shop only takes bookings up to ${maxAdvanceDays} days out` }, { status: 400 })
+    }
+    const { data: closed } = await admin
+      .from('shop_date_exceptions')
+      .select('id')
+      .eq('shop_id', shop.id)
+      .eq('date', date)
+      .eq('is_closed', true)
+      .maybeSingle()
+    if (closed) {
+      return NextResponse.json({ error: 'The shop is closed that day. Please pick another date.' }, { status: 400 })
+    }
+    const nowWall = nowWallClock(tzForRules)
+    const [dPart, tPart] = nowWall.split('T')
+    const [y, mo, da] = dPart.split('-').map(Number)
+    const [h, mi, s] = tPart.split(':').map(Number)
+    const cutoff = new Date(y, mo - 1, da, h, mi + minAdvanceMin, s || 0)
+    const cutoffWall = `${cutoff.getFullYear()}-${pad(cutoff.getMonth() + 1)}-${pad(cutoff.getDate())}T${pad(cutoff.getHours())}:${pad(cutoff.getMinutes())}:${pad(cutoff.getSeconds())}`
+    if (`${date}T${time24}` <= cutoffWall) {
+      const label = minAdvanceMin >= 60 ? `${Math.round(minAdvanceMin / 60)} hours` : `${minAdvanceMin} minutes`
+      return NextResponse.json({ error: `Please book at least ${label} ahead` }, { status: 400 })
+    }
   }
 
   // Reject past dates/times server-side, evaluated in the customer's

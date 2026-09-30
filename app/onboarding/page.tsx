@@ -7,6 +7,16 @@ import { withIndefiniteArticle } from '@/lib/VerticalContext'
 
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 
+// Same shape as the settings page's DEFAULT_HOURS so the two stay in
+// sync: typical shop hours pre-filled, owner just confirms or tweaks.
+const WEEKDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+const DEFAULT_HOURS = WEEKDAYS.map(day => ({
+  day,
+  open: day !== 'Sunday',
+  from: '09:00',
+  to: day === 'Saturday' || day === 'Sunday' ? '16:00' : '18:00',
+}))
+
 type Vertical = 'barbershop' | 'salon' | 'tattoo'
 
 const VERTICAL_OPTIONS: { value: Vertical; name: string; blurb: string }[] = [
@@ -55,6 +65,15 @@ export default function Onboarding() {
   const [rentDueDay, setRentDueDay] = useState('monday')
   const [lateFeeRate, setLateFeeRate] = useState('5')
   const [lateFeeInterval, setLateFeeInterval] = useState<'daily'|'weekly'>('daily')
+
+  const [hours, setHours] = useState(DEFAULT_HOURS)
+
+  function toggleDay(i: number) {
+    setHours(prev => prev.map((h, idx) => idx === i ? { ...h, open: !h.open } : h))
+  }
+  function setDayTime(i: number, key: 'from' | 'to', value: string) {
+    setHours(prev => prev.map((h, idx) => idx === i ? { ...h, [key]: value } : h))
+  }
 
   const router = useRouter()
   const supabase = createClient()
@@ -169,6 +188,15 @@ export default function Onboarding() {
       if (!shop) throw new Error('Failed to create shop — please try again.')
       const createdShop = shop as any
 
+      // Hours are collected in onboarding now (pre-filled defaults the
+      // owner confirms), so no shop can finish setup with zero bookable
+      // hours and land on the "No times available" dead end.
+      const { error: hoursErr } = await supabase
+        .from('shops')
+        .update({ hours })
+        .eq('id', createdShop.id)
+      if (hoursErr) throw hoursErr
+
       track('shop_created', { vertical })
       track('booking_page_published', { vertical })
 
@@ -224,7 +252,7 @@ export default function Onboarding() {
   const staffLabel = verticalMeta[activeVertical].staff_label
   const staffLabelPlural = verticalMeta[activeVertical].staff_label_plural
 
-  const stepLabel = isSolo ? ['Shop Info', 'Services'] : ['Shop Info', 'Services', staffLabelPlural]
+  const stepLabel = isSolo ? ['Shop Info', 'Services', 'Hours'] : ['Shop Info', 'Services', staffLabelPlural, 'Hours']
 
   if (checking) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
@@ -385,15 +413,9 @@ export default function Onboarding() {
               <button onClick={() => setStep(1)} className="px-6 py-3 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
                 Back
               </button>
-              {isSolo ? (
-                <button onClick={handleLaunch} disabled={loading} className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm disabled:opacity-50">
-                  {loading ? 'Setting up...' : 'Finish Setup →'}
-                </button>
-              ) : (
-                <button onClick={() => setStep(3)} className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm">
-                  Continue →
-                </button>
-              )}
+              <button onClick={() => setStep(3)} className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm">
+                Continue →
+              </button>
             </div>
           </div>
         )}
@@ -522,9 +544,68 @@ export default function Onboarding() {
               <button onClick={() => setStep(2)} className="px-6 py-3 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
                 Back
               </button>
-              <button onClick={handleLaunch} disabled={loading || !shopName}
+              <button onClick={() => setStep(4)}
                 className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm disabled:opacity-50">
-                {loading ? 'Setting up your shop...' : 'Launch My Shop →'}
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === (isSolo ? 3 : 4) && (
+          <div>
+            <div className="mb-5">
+              <h2 className="font-serif text-xl text-charcoal-900 mb-1">Your hours</h2>
+              <p className="text-charcoal-500 text-sm">We've filled in typical shop hours — adjust them to match your schedule. Clients can only book when you're open.</p>
+            </div>
+            <div className="space-y-2 mb-5">
+              {hours.map((h, i) => (
+                <div key={h.day} className="flex items-center gap-3 bg-warm-200 rounded-lg px-3 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleDay(i)}
+                    aria-label={`${h.day} ${h.open ? 'open' : 'closed'}`}
+                    className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${h.open ? 'bg-od-green' : 'bg-warm-400'}`}
+                  >
+                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${h.open ? 'left-5' : 'left-1'}`} />
+                  </button>
+                  <div className="w-24 text-sm font-medium text-charcoal-900">{h.day}</div>
+                  {h.open ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="time"
+                        value={h.from}
+                        onChange={e => setDayTime(i, 'from', e.target.value)}
+                        className="flex-1 min-w-0 bg-warm-300 border border-warm-400 rounded-lg px-2 py-1.5 text-charcoal-900 text-sm outline-none focus:border-od-green"
+                      />
+                      <span className="text-charcoal-400 text-xs">to</span>
+                      <input
+                        type="time"
+                        value={h.to}
+                        onChange={e => setDayTime(i, 'to', e.target.value)}
+                        className="flex-1 min-w-0 bg-warm-300 border border-warm-400 rounded-lg px-2 py-1.5 text-charcoal-900 text-sm outline-none focus:border-od-green"
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-xs text-charcoal-500 flex-1">Closed</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setStep(isSolo ? 2 : 3)} className="px-6 py-3 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                Back
+              </button>
+              <button
+                onClick={() => {
+                  if (!hours.some(h => h.open)) { setError('Open at least one day so clients can book.'); return }
+                  setError('')
+                  handleLaunch()
+                }}
+                disabled={loading}
+                className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm disabled:opacity-50"
+              >
+                {loading ? 'Setting up...' : isSolo ? 'Finish Setup →' : 'Launch My Shop →'}
               </button>
             </div>
           </div>

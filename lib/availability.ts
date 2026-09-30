@@ -8,6 +8,10 @@ export interface DayHours {
   open: boolean
   from: string // "HH:MM", 24h
   to: string // "HH:MM", 24h
+  /** Intra-day breaks (lunch, errands). Treated as blocked intervals with
+   *  no buffers — nothing can start or end inside them, but they don't
+   *  push other appointments around. */
+  breaks?: { from: string; to: string }[]
 }
 
 export interface BlockedInterval {
@@ -77,13 +81,24 @@ export function computeAvailableSlots({
   const closeMin = timeStrToMinutes(dayHours.to)
   if (closeMin <= openMin) return []
 
+  // Breaks are blocked intervals with no buffers of their own; a candidate
+  // slot must not overlap them, same as any booked appointment.
+  const breakBlocks: BlockedInterval[] = (dayHours.breaks || [])
+    .map(b => {
+      const s = timeStrToMinutes(b.from)
+      const e = timeStrToMinutes(b.to)
+      return { startMin: s, endMin: e, bufferBeforeMin: 0, bufferAfterMin: 0 }
+    })
+    .filter(b => b.endMin > b.startMin && b.startMin >= openMin && b.endMin <= closeMin)
+  const allBlocked = [...existing, ...breakBlocks]
+
   const slots: string[] = []
   for (let candidateStart = openMin; candidateStart + serviceDurationMin <= closeMin; candidateStart += slotIntervalMin) {
     const candidateEnd = candidateStart + serviceDurationMin
     const occupiedStart = candidateStart - serviceBufferBeforeMin
     const occupiedEnd = candidateEnd + serviceBufferAfterMin
 
-    const conflicts = existing.some(block => {
+    const conflicts = allBlocked.some(block => {
       const blockedStart = block.startMin - block.bufferBeforeMin
       const blockedEnd = block.endMin + block.bufferAfterMin
       return occupiedStart < blockedEnd && occupiedEnd > blockedStart
@@ -93,4 +108,15 @@ export function computeAvailableSlots({
   }
 
   return slots
+}
+
+/** True when the requested date is past the shop's booking horizon.
+ *  Pure date-string math (YYYY-MM-DD compares lexicographically). */
+export function dateIsBeyondHorizon(dateStr: string, todayStr: string, maxAdvanceDays: number): boolean {
+  if (maxAdvanceDays <= 0) return false
+  const today = new Date(todayStr + 'T12:00:00')
+  today.setDate(today.getDate() + maxAdvanceDays)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const horizon = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+  return dateStr > horizon
 }
