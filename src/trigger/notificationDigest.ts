@@ -1,7 +1,9 @@
 import { schedules } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
+import { render } from "@react-email/render"
 import { logger } from "@/lib/logger"
+import NotificationDigest from "@/emails/NotificationDigest"
 
 function getSupabase() {
   return createClient(
@@ -57,24 +59,25 @@ export const notificationDigest = schedules.task({
       if (!unread || unread.length === 0) continue
 
       const firstName = (profile.full_name || '').split(' ')[0] || 'there'
-      const items = unread
-        .map(n => `<li style="margin-bottom:8px"><strong>${escapeHtml(n.title)}</strong><br><span style="color:#555">${escapeHtml(n.body)}</span></li>`)
-        .join('')
-      const more = unread.length === 20 ? `<p>…and more in your inbox.</p>` : ''
+      const html = await render(
+        NotificationDigest({
+          firstName,
+          items: (unread as { title: string; body: string; created_at: string }[]).map(n => ({
+            title: n.title,
+            body: n.body,
+            created_at: n.created_at,
+          })),
+          more: unread.length === 20,
+          inboxUrl: `${appUrl}/dashboard/notifications`,
+        })
+      )
 
       try {
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL!,
           to: profile.email,
           subject: `Your ChairOS digest — ${unread.length} unread alert${unread.length === 1 ? '' : 's'}`,
-          html: `
-            <p>Hi ${escapeHtml(firstName)},</p>
-            <p>Here's what happened in your shop today:</p>
-            <ul>${items}</ul>
-            ${more}
-            <p><a href="${appUrl}/dashboard/notifications">View all notifications</a></p>
-            <p style="color:#888;font-size:12px">You're getting this because you turned on the daily digest in Settings &gt; Notifications.</p>
-          `,
+          html,
         })
         sent++
         logger.info('notification_digest_sent', { userId: pref.user_id, count: unread.length })
@@ -87,11 +90,3 @@ export const notificationDigest = schedules.task({
     return { sent }
   },
 })
-
-function escapeHtml(s: string): string {
-  return (s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}

@@ -7,6 +7,7 @@ import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import ClientNotes from '@/components/ClientNotes'
 import ClientTags from '@/components/ClientTags'
+import ClientTimeline from '@/components/ClientTimeline'
 
 interface Client {
   id: string
@@ -165,14 +166,6 @@ export default function ClientProfilePage() {
     ? shopBarbers.find(b => b.barber_id === lock.barber_id)
     : null
 
-  const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-    done: { label: 'Done', color: 'text-od-green' },
-    noshow: { label: 'No-show', color: 'text-red-400' },
-    cancelled: { label: 'Cancelled', color: 'text-charcoal-400' },
-    pending: { label: 'Pending', color: 'text-charcoal-500' },
-    confirmed: { label: 'Confirmed', color: 'text-charcoal-700' },
-  }
-
   return (
     <div className="min-h-screen bg-warm-50">
       {profile?.role === 'barber' ? (
@@ -262,41 +255,19 @@ export default function ClientProfilePage() {
           </div>
         )}
 
-        {/* APPOINTMENT HISTORY */}
-        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-warm-200">
-            <div className="font-serif text-charcoal-900">Appointment History</div>
+        {/* CLIENT TIMELINE */}
+        <div className="mb-1">
+          <div className="px-1 py-2">
+            <div className="font-serif text-charcoal-900">Client Timeline</div>
             <div className="text-xs text-charcoal-500 mt-0.5">{appointments.length} total</div>
           </div>
-          {appointments.length === 0 ? (
-            <div className="p-8 text-center text-charcoal-500 text-sm">No appointment history found.</div>
-          ) : (
-            <div className="divide-y divide-warm-200">
-              {appointments.map(a => {
-                const barber = shopBarbers.find(b => b.barber_id === a.barber_id)
-                const st = STATUS_LABELS[a.status] || { label: a.status, color: 'text-charcoal-500' }
-                return (
-                  <div key={a.id} className="px-5 py-3 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs font-mono text-od-green">
-                          {new Date(a.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
-                        <span className={`text-xs font-semibold ${st.color}`}>{st.label}</span>
-                      </div>
-                      <div className="text-sm text-charcoal-900">
-                        {(a.services as any)?.name || 'Service'}
-                        {barber && <span className="text-charcoal-500"> · {barber.barber_name || barber.alias}</span>}
-                      </div>
-                    </div>
-                    <div className="font-mono text-sm font-semibold text-charcoal-900">
-                      {a.status === 'done' ? `$${parseFloat(String(a.price)).toFixed(2)}` : '—'}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          <ClientTimeline
+            appointments={appointments}
+            barberName={(barberId) => {
+              const b = shopBarbers.find(x => x.barber_id === barberId)
+              return b ? (b.barber_name || b.alias || 'Staff') : 'Staff'
+            }}
+          />
         </div>
 
         {/* CLIENT NOTES */}

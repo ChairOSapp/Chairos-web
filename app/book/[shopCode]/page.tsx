@@ -6,6 +6,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
 import { initMetaPixel, initGoogleTag, trackMetaEvent, trackGoogleEvent } from '@/lib/tracking'
 import { timeStrToMinutes } from '@/lib/availability'
+import AddToCalendarButton from '@/components/AddToCalendarButton'
 import { DAY_NAMES, findApplicablePricing, promoActiveOn, isPromoRule, ruleLabel, type PricingRule } from '@/lib/pricing'
 import { squareCardInputStyle } from '@/lib/squareCard'
 import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
@@ -1221,6 +1222,17 @@ function BookingPageInner() {
                 <span className="font-mono font-semibold text-charcoal-900">${finalPrice}</span>
               </div>
             )}
+          </div>
+          <div className="mb-6 flex justify-center">
+            <AddToCalendarButton
+              name={`${selectedService.name} at ${shop.name}`}
+              startDate={selectedDate}
+              startTime={(() => { const m = timeStrToMinutes(selectedTime); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` })()}
+              endTime={(() => { const m = timeStrToMinutes(selectedTime) + (selectedService.duration_minutes ?? 30); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` })()}
+              timeZone={typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC'}
+              location={[shop.address, shop.city].filter(Boolean).join(', ') || undefined}
+              description={`Booked via ChairOS${selectedBarber?.barber_name || selectedBarber?.alias ? ` with ${selectedBarber.barber_name || selectedBarber.alias}` : ''}.`}
+            />
           </div>
           <p className="text-charcoal-600 text-xs">
             {smsConsent && smsSent ? `Confirmation text sent to ${clientPhone}.` : 'Booking confirmed.'} Powered by ChairOS.

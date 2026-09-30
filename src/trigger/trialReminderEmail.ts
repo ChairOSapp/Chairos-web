@@ -1,7 +1,9 @@
 import { schedules } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
+import { render } from "@react-email/render"
 import { logger } from "@/lib/logger"
+import TrialReminder from "@/emails/TrialReminder"
 
 function getSupabase() {
   return createClient(
@@ -48,17 +50,18 @@ export const trialReminderEmail = schedules.task({
     for (const profile of due) {
       if (!profile.email) continue
       const firstName = (profile.full_name || '').split(' ')[0] || 'there'
+      const html = await render(
+        TrialReminder({
+          firstName,
+          subscribeUrl: `${process.env.NEXT_PUBLIC_APP_URL}/subscribe`,
+        })
+      )
       try {
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL!,
           to: profile.email,
           subject: 'Your ChairOS trial ends in 5 days',
-          html: `
-            <p>Hi ${firstName},</p>
-            <p>Your 30-day ChairOS trial ends in 5 days. To keep your shop, bookings, and staff running without interruption, add a payment method any time before then.</p>
-            <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/subscribe">Choose your plan</a></p>
-            <p>— The ChairOS team</p>
-          `,
+          html,
         })
         await supabase.from('profiles').update({ trial_reminder_sent_at: new Date().toISOString() }).eq('id', profile.id)
         sent++

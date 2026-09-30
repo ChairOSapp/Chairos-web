@@ -73,7 +73,8 @@ export default function ClientsPage() {
   const [tab, setTab] = useState<FilterTab>('all')
   const [sortKey, setSortKey] = useState<SortKey>('lastVisit')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // Tapping a row opens the full client card (detail page); the inline
+  // expansion was replaced so the phone flow lands on the real profile.
   const [page, setPage] = useState(1)
   const [showImport, setShowImport] = useState(false)
   const router = useRouter()
@@ -232,14 +233,6 @@ export default function ClientsPage() {
     else { setSortKey(k); setSortDir('desc') }
   }
 
-  function toggleExpand(id: string) {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
   function fmtDate(d: string) {
     return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
@@ -379,13 +372,12 @@ export default function ClientsPage() {
                   </thead>
                   <tbody>
                     {sorted.slice(0, page * PAGE_SIZE).map(row => {
-                      const isExpanded = expanded.has(row.clientId)
                       const lastBarberName = barberMap[row.lastBarberId || ''] || '—'
                       const lockedToName = barberMap[row.lockedToBarberId || ''] || '—'
                       return (
                         <React.Fragment key={row.clientId}>
                           <tr
-                            onClick={() => toggleExpand(row.clientId)}
+                            onClick={() => router.push(`/dashboard/clients/${row.clientId}`)}
                             className={`border-b border-warm-200 cursor-pointer hover:bg-warm-200/40 transition-colors ${rowAccent(row.daysSince)}`}
                           >
                             <td className="px-3 py-3">
@@ -414,30 +406,11 @@ export default function ClientsPage() {
                             <td className="px-3 py-3 font-mono text-charcoal-900">${row.totalSpend.toFixed(0)}</td>
                             <td className="px-3 py-3 text-charcoal-400 text-center">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                                style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                                style={{ transform: 'rotate(-90deg)' }}>
                                 <polyline points="6 9 12 15 18 9" />
                               </svg>
                             </td>
                           </tr>
-                          {isExpanded && (
-                            <tr className="border-b border-warm-200">
-                              <td colSpan={8} className="px-4 py-3 bg-warm-200/20">
-                                <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 mb-2">Appointment History</div>
-                                <div className="divide-y divide-warm-200/60">
-                                  {row.appts.slice(0, 20).map((a, i) => (
-                                    <div key={i} className="flex items-center gap-6 py-1.5 text-xs text-charcoal-600">
-                                      <span className="text-charcoal-400 w-28 flex-shrink-0">{fmtDate(a.date)}</span>
-                                      <span className="font-mono">${a.price.toFixed(0)}</span>
-                                      <span className="text-charcoal-400">{barberMap[a.barber_id || ''] || '—'}</span>
-                                    </div>
-                                  ))}
-                                  {row.appts.length > 20 && (
-                                    <div className="py-1.5 text-xs text-charcoal-400">+{row.appts.length - 20} more visits</div>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
                         </React.Fragment>
                       )
                     })}
