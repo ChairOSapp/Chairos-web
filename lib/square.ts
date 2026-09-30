@@ -1,6 +1,7 @@
 import { SquareClient, SquareEnvironment } from 'square'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { logger } from './logger'
+import { fromDollars, percentOf, toCents } from './money'
 
 export interface SaveCardResult {
   ok: boolean
@@ -433,7 +434,9 @@ export function squareNotConnectedMessage(who: 'shop owner' | 'barber'): string 
 
 /** Computes a deposit amount in dollars from the shop's deposit settings and the service price. */
 export function computeDepositAmount(depositType: 'flat' | 'percent', depositAmount: number, servicePrice: number): number {
-  return depositType === 'flat' ? depositAmount : Math.round(servicePrice * (depositAmount / 100) * 100) / 100
+  // Integer-cents: flat is exact, percent uses dinero multiplication.
+  if (depositType === 'flat') return toCents(fromDollars(depositAmount)) / 100
+  return toCents(percentOf(fromDollars(servicePrice), depositAmount)) / 100
 }
 
 /** Refunds a completed Square payment in full. Used for the Task 4 late-payment race and Task 6 cancellation refunds. */

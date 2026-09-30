@@ -7,6 +7,7 @@ import { resolveShopSquareAccount, withFreshSquareClient, isSquareReconnectRequi
 import { computeServicePrice } from '@/lib/server-pricing'
 import { timeStrToMinutes } from '@/lib/availability'
 import { logger } from '@/lib/logger'
+import { fromDollars, toCents } from '@/lib/money'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -229,7 +230,8 @@ export async function POST(req: NextRequest) {
       )
     }
     const locationId = route.locationId
-    const amountCents = BigInt(Math.round(chargeAmount * 100))
+    // Integer-cents via dinero: the DB stores dollars, convert safely once.
+    const amountCents = BigInt(toCents(fromDollars(chargeAmount)))
 
     // Receipts: Square emails the client a receipt when buyerEmailAddress
     // is set (per the shop's Square receipt settings).

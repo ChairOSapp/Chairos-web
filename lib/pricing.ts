@@ -5,6 +5,7 @@
 // simultaneously (a promo and a recurring surcharge can both hit the same
 // slot) — see findApplicablePricing.
 import { timeStrToMinutes } from './availability'
+import { fromDollars, multiply, toCents, toDinero, maxZero } from './money'
 
 export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -74,8 +75,10 @@ export function recurringAppliesAt(
 }
 
 export function applyAdjustment(price: number, rule: Pick<PricingRule, 'flat_price' | 'percent_adjustment'>): number {
-  if (rule.flat_price != null) return Math.round(rule.flat_price * 100) / 100
-  return Math.round(price * (1 + (rule.percent_adjustment || 0) / 100) * 100) / 100
+  // Integer-cents math: flat sets the price, percent multiplies.
+  if (rule.flat_price != null) return toCents(fromDollars(rule.flat_price)) / 100
+  const adjusted = multiply(fromDollars(price), 1 + (rule.percent_adjustment || 0) / 100)
+  return toCents(adjusted) / 100
 }
 
 export function ruleLabel(rule: Pick<PricingRule, 'name' | 'promo_name'>): string {
@@ -125,7 +128,7 @@ export function findApplicablePricing(
       if (aSpecific !== bSpecific) return bSpecific - aSpecific
       return Math.abs(b.flat_price! - price) - Math.abs(a.flat_price! - price)
     })[0]
-    base = Math.round(bestFlat.flat_price! * 100) / 100
+    base = toCents(fromDollars(bestFlat.flat_price!)) / 100
     appliedRules.push({ rule: bestFlat, isPromo: isPromoRule(bestFlat), label: ruleLabel(bestFlat), displayValue: `$${base}` })
   }
 
@@ -135,7 +138,8 @@ export function findApplicablePricing(
   }
 
   const combinedMultiplier = percentRules.reduce((acc, r) => acc * (1 + (r.percent_adjustment || 0) / 100), 1)
-  const finalPrice = Math.max(0, Math.round(base * combinedMultiplier * 100) / 100)
+  // Integer-cents: multiply base by the combined percent multiplier, clamp at zero.
+  const finalPrice = toCents(maxZero(multiply(fromDollars(base), combinedMultiplier))) / 100
 
   return { originalPrice: price, finalPrice, appliedRules }
 }

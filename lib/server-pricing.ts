@@ -9,6 +9,7 @@
 // meant for API routes only -- never import this module into client
 // components.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fromDollars, multiply, subtract, toCents, maxZero } from './money'
 import {
   DAY_NAMES,
   findApplicablePricing,
@@ -54,8 +55,13 @@ export interface BookingPrice {
 
 /** Mirrors the client-side reward math in app/book/[shopCode]/page.tsx. */
 export function applyRewardDiscount(price: number, type: string, value: number): number {
-  const discounted = type === 'percent_off' ? price * (1 - value / 100) : price - value
-  return Math.max(0, Math.round(discounted * 100) / 100)
+  // Integer-cents: percent multiplies, flat subtracts, clamp at zero.
+  const base = fromDollars(price)
+  const discounted =
+    type === 'percent_off'
+      ? multiply(base, 1 - value / 100)
+      : subtract(base, fromDollars(value))
+  return toCents(maxZero(discounted)) / 100
 }
 
 /**

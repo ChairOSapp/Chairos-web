@@ -17,6 +17,7 @@ import {
   safeSquareErrorMessage,
 } from '@/lib/square'
 import { logger } from '@/lib/logger'
+import { fromDollars, subtract, add, toCents } from '@/lib/money'
 
 const admin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -131,8 +132,11 @@ export async function POST(req: NextRequest) {
   }
   const tipDollars = Math.max(0, parseFloat(String(tipAmount)) || 0)
   const discountDollars = Math.max(0, Math.min(servicePrice, parseFloat(String(discount)) || 0))
-  const chargeBase = servicePrice - discountDollars
-  const totalCents = BigInt(Math.round((chargeBase + tipDollars) * 100))
+  // Integer-cents via dinero for the charge amount. No float addition.
+  // chargeBaseDollars stays a dollar number for DB writes (amount_paid, total).
+  const chargeBaseDinero = subtract(fromDollars(servicePrice), fromDollars(discountDollars))
+  const chargeBase = toCents(chargeBaseDinero) / 100
+  const totalCents = BigInt(toCents(add(chargeBaseDinero, fromDollars(tipDollars))))
 
   // paymentAttempt is read inside the try but declared here so the catch
   // block can rotate it after a clean decline.

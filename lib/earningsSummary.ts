@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { fromDollars, add, multiply, toCents, toDinero } from './money'
 
 export interface EarningsSummary {
   totalRevenue: number
@@ -56,16 +57,33 @@ export async function computeEarningsSummary(
     .gte('paid_at', startDate)
     .lte('paid_at', `${endDate}T23:59:59`)
 
-  const totalRevenue = (appointments ?? []).reduce((sum, a) => sum + (parseFloat(a.price) || 0), 0)
-  const compensationBase = shopBarber?.compensation_type === 'commission'
-    ? totalRevenue * (shopBarber?.commission_rate || 0.7)
-    : totalRevenue
-  const totalTips = (tips ?? []).reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
-  const boothRentPaid = (rentPayments ?? []).reduce((sum, r) => sum + (parseFloat(r.total_due) || 0), 0)
+  // Integer-cents summation via dinero: each amount converted once at the
+  // boundary, summed as integers. Commission multiplies in cents.
+  const totalRevenueDinero = (appointments ?? []).reduce(
+    (sum, a) => add(sum, fromDollars(parseFloat(a.price) || 0)),
+    toDinero(0)
+  )
+  const compensationBaseDinero =
+    shopBarber?.compensation_type === 'commission'
+      ? multiply(totalRevenueDinero, shopBarber?.commission_rate || 0.7)
+      : totalRevenueDinero
+  const totalTipsDinero = (tips ?? []).reduce(
+    (sum, t) => add(sum, fromDollars(parseFloat(t.amount) || 0)),
+    toDinero(0)
+  )
+  const boothRentPaidDinero = (rentPayments ?? []).reduce(
+    (sum, r) => add(sum, fromDollars(parseFloat(r.total_due) || 0)),
+    toDinero(0)
+  )
+
+  const totalRevenue = toCents(totalRevenueDinero) / 100
+  const totalTips = toCents(totalTipsDinero) / 100
+  const boothRentPaid = toCents(boothRentPaidDinero) / 100
+  const compensation = toCents(add(compensationBaseDinero, totalTipsDinero)) / 100
 
   return {
     totalRevenue,
-    compensation: compensationBase + totalTips,
+    compensation,
     totalTips,
     appointmentCount: (appointments ?? []).length,
     compensationType: shopBarber?.compensation_type ?? null,
