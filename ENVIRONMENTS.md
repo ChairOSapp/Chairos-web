@@ -4,6 +4,13 @@ Three tiers. `dev` is where you work day to day, `staging` is the
 pre-production checkpoint, `main` is production and its workflow is
 unchanged.
 
+**Current state (2026-09-30):** `dev` and `staging` were fast-forwarded to
+the `main` tip (`934cee8`) after sitting frozen since 2026-09-09 — they had
+never been deployed on Vercel. Vercel domains `staging.chairos.cc` →
+`staging` and `dev.chairos.cc` → `dev` are added and verified; the
+Cloudflare CNAME records are still pending (Section 2). Pushing `dev` and
+`staging` triggers their first real preview deployments.
+
 ## 1. Branch workflow
 
 ```
@@ -25,32 +32,21 @@ git push origin dev
 
 ## 2. Vercel — auto-deploy per branch
 
-**Status: not yet configured.** This repo's Vercel project is on a personal
-(non-team) account that the Vercel MCP integration can't reach, and the
-Vercel CLI isn't installed locally, so this step needs to be done by hand
-(or by an agent after `vercel login` has been run interactively — that step
-requires a browser and can't be scripted).
+**Status: configured 2026-09-30.** Every non-production branch auto-deploys
+as a Preview — pushing `dev` or `staging` triggers a build with that
+branch's env vars automatically.
 
-Steps to finish this:
+Domains (Project → Settings → Domains), each pinned to its branch:
+- `staging.chairos.cc` → `staging` branch (added 2026-09-30, verified)
+- `dev.chairos.cc` → `dev` branch (added 2026-09-30, verified)
 
-1. `npm i -g vercel` (if not already installed).
-2. `vercel login`, then `vercel link` from the repo root to connect it to
-   the existing Vercel project.
-3. In the Vercel dashboard → Project → Settings → Git:
-   - Confirm **Production Branch** is `main` (unchanged).
-   - Every other branch auto-deploys as a Preview by default — `dev` and
-     `staging` pushes will already trigger preview builds with no extra
-     config once the repo is linked.
-4. In Project → Settings → Domains, add:
-   - `staging.chairos.cc` → assign it to the `staging` **branch** (not
-     Production). Vercel will show a CNAME/A record to add — Cloudflare is
-     confirmed as the DNS host for `chairos.cc`, so add that record there
-     (proxy status doesn't matter for the CNAME target, but keep it
-     consistent with the other subdomains already on the zone).
-   - `dev` stays on Vercel's auto-generated preview URL
-     (`chairos-web-git-dev-<team>.vercel.app`) — acceptable per spec since
-     dev is expected to be less stable; a `dev.chairos.cc` domain can be
-     added later the same way if wanted.
+**Still pending — Cloudflare DNS (chairos.cc zone):** add two CNAME
+records, both pointing at `cname.vercel-dns.com`:
+- `staging` → `cname.vercel-dns.com`
+- `dev` → `cname.vercel-dns.com`
+
+Until those records exist, the branches are reachable on their
+auto-generated `*.vercel.app` preview URLs.
 
 ## 3. Supabase — separate branches for dev and staging
 
@@ -159,9 +155,26 @@ on where these actually need to end up):
   whoever has dashboard access rather than read off a screenshot.
   `SQUARE_WEBHOOK_SIGNATURE_KEY` needs an actual webhook subscription
   created against a real dev/staging URL first (Section 2), so that's
-  still pending on Vercel being linked too.
+  still pending on the DNS records. Still missing on dev/staging
+  (2026-09-30): `SQUARE_ACCESS_TOKEN`, `SQUARE_APPLICATION_SECRET`,
+  `SQUARE_LOCATION_ID` (+ `NEXT_PUBLIC_SQUARE_LOCATION_ID`) — sandbox
+  values, set as Preview env vars on the `dev` and `staging` branches.
 
-**Once Vercel is linked** (step 2), these get set per-branch via
+**Still missing on dev/staging (2026-09-30):** `ANTHROPIC_API_KEY` and
+`GOOGLE_PLACES_API_KEY` — production-only right now, so AI/Places features
+break on the lower envs. Add them in the Vercel dashboard as Preview env
+vars on the `dev` and `staging` branches (copy the values from the
+production entries; the API credential can't decrypt them).
+
+**Known contamination risk — Redis is shared:** `KV_URL` / `REDIS_URL`
+(and the other `KV_*` vars) are set for Production+Preview with no branch
+scoping, so `dev` and `staging` talk to the **same Upstash Redis as
+production**. OTP codes, rate-limit counters, and anything else stored in
+Redis are shared across all three environments. Fix: create a second
+Upstash Redis for dev/staging and set its keys as Preview env vars on the
+`dev` and `staging` branches.
+
+Branch-scoped vars get set per-branch via
 `vercel env add <NAME> preview --git-branch dev` (and again with
 `--git-branch staging`), so they're scoped to exactly those two branches
 and never touch Production's environment variables.
@@ -219,19 +232,19 @@ data back, not just a clean schema):**
 commit that introduced it on `dev`/`staging` in git — otherwise the next
 auto-deploy just reintroduces the same schema change.
 
-## 6. Verification checklist (Task 7)
+## 6. Verification checklist (updated 2026-09-30)
 
-- [ ] Push a trivial change to `dev` → confirm it auto-deploys, `staging`
-      and `main` untouched. *(Pending: needs Vercel linked per Section 2.)*
-- [ ] Merge `dev` → `staging` → confirm the same.
-- [ ] Deliberately push a broken change, then roll it back (Section 5) →
-      confirm the rollback restores working state.
+- [x] dev/staging branches exist on origin and track current `main`.
+- [ ] Push `dev` → confirm it auto-deploys as a Preview, `staging` and
+      `main` untouched. *(Pending: needs the push — one-time PAT.)*
+- [ ] Push `staging` → confirm the same.
+- [ ] Open `dev.chairos.cc` / `staging.chairos.cc` → confirm they serve
+      the right branch. *(Pending: Cloudflare CNAME records.)*
+- [ ] Deliberately push a broken change to `dev`, then roll it back
+      (Section 5) → confirm the rollback restores working state.
 - [ ] Confirm `main`/production was never touched during any of the above.
-
-The git-branch side of this (creating `dev`/`staging`, merge flow) and the
-Supabase side (isolated branches, baseline fix, seed data) are done and
-independently verifiable right now. The deploy-and-rollback verification
-in this section needs Vercel linked first (Section 2) — nothing to test
-against yet without that.
+- [ ] Close the env gaps in Section 4 (Square sandbox token/secret/
+      location, Anthropic + Places keys, test webhook secrets, Redis
+      isolation).
 
 <!-- verified: first Vercel auto-deploy trigger, 2026-09-09T14:37:27Z -->
