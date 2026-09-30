@@ -21,6 +21,8 @@ export default function ManagePricing() {
   const [userId, setUserId] = useState<string | null>(null)
   const [tab, setTab] = useState<'recurring' | 'promo'>('recurring')
   const [showForm, setShowForm] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [formActive, setFormActive] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -69,7 +71,7 @@ export default function ManagePricing() {
   function resetForm() {
     setRuleName(''); setServiceIds([]); setDays([]); setStartTime(''); setEndTime('')
     setStartDate(''); setEndDate(''); setAdjustMode('percent'); setPercentValue(''); setFlatPriceValue('')
-    setEditingId(null); setError('')
+    setEditingId(null); setError(''); setFormActive(true); setConfirmDeleteId(null)
   }
 
   function toggleService(id: string) {
@@ -82,6 +84,7 @@ export default function ManagePricing() {
 
   function openEdit(r: PricingRule) {
     setEditingId(r.id)
+    setFormActive(r.active)
     setRuleName(isPromoRule(r) ? (r.promo_name || '') : r.name)
     setServiceIds(r.service_id ? [r.service_id] : [])
     setDays(r.days_of_week || [])
@@ -126,6 +129,7 @@ export default function ManagePricing() {
       end_date: tab === 'promo' ? endDate : null,
       flat_price: adjustMode === 'flat_price' ? parseFloat(flatPriceValue) : null,
       percent_adjustment: adjustMode === 'percent' ? parseFloat(percentValue) : null,
+      active: editingId ? formActive : true,
     })
 
     // "All services" (serviceIds empty) is one row with service_id = null.
@@ -166,6 +170,20 @@ export default function ManagePricing() {
       ;({ error } = await supabase.from('pricing_rules').update({ active: !current }).eq('id', id))
     }
     if (error) { setError(error.message); return }
+    await loadData()
+  }
+
+  async function deleteRule(id: string) {
+    await supabase.auth.getSession()
+    let { error } = await supabase.from('pricing_rules').delete().eq('id', id)
+    if (error?.message?.includes('row-level security')) {
+      await supabase.auth.refreshSession()
+      ;({ error } = await supabase.from('pricing_rules').delete().eq('id', id))
+    }
+    setConfirmDeleteId(null)
+    if (error) { setError(error.message); return }
+    setSuccess('Rule deleted.')
+    setTimeout(() => setSuccess(''), 3000)
     await loadData()
   }
 
@@ -231,6 +249,15 @@ export default function ManagePricing() {
                   placeholder={tab === 'promo' ? 'e.g. Fall Special' : 'e.g. Weekend Peak'}
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
               </div>
+              {editingId && (
+                <button type="button" onClick={() => setFormActive(!formActive)}
+                  className="flex items-center justify-between w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 mb-6">
+                  <span className="text-sm text-charcoal-900">This rule is <span className="font-semibold">{formActive ? 'on' : 'off'}</span></span>
+                  <span className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors" style={{ background: formActive ? '#4B5320' : '#d4c9b8' }}>
+                    <span className="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform" style={{ transform: formActive ? 'translateX(22px)' : 'translateX(2px)' }} />
+                  </span>
+                </button>
+              )}
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Applies To</label>
                 <div className="border border-warm-300 rounded-lg bg-warm-200 max-h-40 overflow-y-auto divide-y divide-warm-300">
@@ -360,7 +387,7 @@ export default function ManagePricing() {
                       </div>
                     )}
                     <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.active ? 'bg-green-500/10 text-green-500' : 'bg-warm-200 text-charcoal-500'}`}>
-                      {r.active ? 'Active' : 'Hidden'}
+                      {r.active ? 'On' : 'Off'}
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => openEdit(r)}
@@ -370,11 +397,22 @@ export default function ManagePricing() {
                       <button onClick={() => toggleActive(r.id, r.active)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                           r.active
-                            ? 'bg-warm-200 border-warm-300 text-charcoal-400 hover:border-red-500 hover:text-red-400'
+                            ? 'bg-warm-200 border-warm-300 text-charcoal-400 hover:border-od-green hover:text-od-green'
                             : 'bg-green-500/10 border-green-500/30 text-green-500'
                         }`}>
-                        {r.active ? 'Hide' : 'Show'}
+                        {r.active ? 'Turn off' : 'Turn on'}
                       </button>
+                      {confirmDeleteId === r.id ? (
+                        <button onClick={() => deleteRule(r.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 border border-red-500/40 text-red-500">
+                          Sure?
+                        </button>
+                      ) : (
+                        <button onClick={() => setConfirmDeleteId(r.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-warm-200 border border-warm-300 text-charcoal-400 hover:border-red-500 hover:text-red-400 transition-colors">
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
