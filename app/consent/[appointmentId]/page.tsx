@@ -21,10 +21,12 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
   const [numPages, setNumPages] = useState(0)
   const [reachedEnd, setReachedEnd] = useState(true)
   const [typedName, setTypedName] = useState('')
+  const [artistName, setArtistName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [result, setResult] = useState<{ accessToken: string } | null>(null)
   const sigPadRef = useRef<SignaturePadHandle>(null)
+  const artistSigPadRef = useRef<SignaturePadHandle>(null)
   const supabase = createClient()
   const today = new Date().toISOString().slice(0, 10)
 
@@ -49,6 +51,12 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
     if (!signatureImageDataUrl) { setSubmitError('Please draw your signature'); return }
 
     setSubmitting(true)
+    // Artist signature is optional — if provided, include it
+    let artistSignatureImageDataUrl: string | null = null
+    if (artistSigPadRef.current && !artistSigPadRef.current.isEmpty()) {
+      artistSignatureImageDataUrl = artistSigPadRef.current.toPngDataUrl()
+    }
+
     const { data, error } = await supabase.functions.invoke('sign-consent-form', {
       body: {
         appointmentId,
@@ -56,6 +64,8 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
         typedName: typedName.trim(),
         signatureImageDataUrl,
         signedDate: today,
+        artistName: artistName.trim() || undefined,
+        artistSignatureImageDataUrl: artistSignatureImageDataUrl || undefined,
       },
     })
     setSubmitting(false)
@@ -148,6 +158,23 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
             <SignaturePad ref={sigPadRef} />
           </div>
           <div className="text-xs text-charcoal-500">Date: {today}</div>
+
+          <div className="pt-4 border-t border-warm-200">
+            <div className="text-sm font-semibold text-charcoal-900 mb-3">Artist Signature (optional)</div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Artist Name</label>
+              <input
+                value={artistName}
+                onChange={e => setArtistName(e.target.value)}
+                placeholder="Artist name"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green"
+              />
+            </div>
+            <div className="mt-3">
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Artist Signature</label>
+              <SignaturePad ref={artistSigPadRef} />
+            </div>
+          </div>
 
           {submitError && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3">{submitError}</p>}
 

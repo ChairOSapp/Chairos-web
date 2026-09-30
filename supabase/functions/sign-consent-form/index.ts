@@ -39,12 +39,14 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { appointmentId, templateId, typedName, signatureImageDataUrl, signedDate } = body as {
+    const { appointmentId, templateId, typedName, signatureImageDataUrl, signedDate, artistName, artistSignatureImageDataUrl } = body as {
       appointmentId?: string;
       templateId?: string;
       typedName?: string;
       signatureImageDataUrl?: string;
       signedDate?: string;
+      artistName?: string;
+      artistSignatureImageDataUrl?: string;
     };
 
     if (!appointmentId || !templateId || !typedName?.trim() || !signatureImageDataUrl || !signedDate) {
@@ -104,31 +106,121 @@ Deno.serve(async (req: Request) => {
     const signatureBytes = Uint8Array.from(atob(pngMatch[1]), (c) => c.charCodeAt(0));
     const signatureImage = await pdfDoc.embedPng(signatureBytes);
 
+    // Try to fill AcroForm fields if the PDF has them
+    let formFilled = false;
+    try {
+      const form = pdfDoc.getForm();
+      const fields = form.getFields();
+      const fieldNames = fields.map(f => f.getName());
+
+      // Fill text fields
+      const fillText = (name: string, value: string) => {
+        if (fieldNames.includes(name)) {
+          try {
+            const tf = form.getTextField(name);
+            tf.setText(value);
+            formFilled = true;
+          } catch {}
+        }
+      };
+      fillText('ClientName', typedName.trim());
+      fillText('ClientDate', signedDate);
+      if (artistName?.trim()) fillText('ArtistName', artistName.trim());
+
+      // For signature images: draw at the field's position
+      const drawSigAtField = async (fieldName: string, img: any) => {
+        if (!fieldNames.includes(fieldName)) return false;
+        try {
+          const field = form.getTextField(fieldName);
+          const widgets = field.acroField.getWidgets();
+          if (widgets.length === 0) return false;
+          const widget = widgets[0];
+          const rect = widget.getRectangle();
+          const page = pdfDoc.getPages().find(p => p.ref === widget.P()?.get('P')) || pdfDoc.getPages()[0];
+          // rect is {x, y, width, height} in PDF coords (y from bottom)
+          const maxW = rect.width;
+          const scale = Math.min(1, maxW / img.width);
+          const dw = img.width * scale;
+          const dh = img.height * scale;
+          // Center vertically in the field
+          const dx = rect.x + (rect.width - dw) / 2;
+          const dy = rect.y + (rect.height - dh) / 2;
+          page.drawImage(img, { x: dx, y: dy, width: dw, height: dh });
+          // Remove the field so it doesn't overlay the image
+          form.removeField(field);
+          return true;
+        } catch { return false; }
+      };
+
+      const clientSigDrawn = await drawSigAtField('ClientSignature', signatureImage);
+      if (clientSigDrawn) formFilled = true;
+
+      if (artistSignatureImageDataUrl) {
+        const artistPngMatch = artistSignatureImageDataUrl.match(/^data:image\/png;base64,(.+)$/);
+        if (artistPngMatch) {
+          const artistBytes = Uint8Array.from(atob(artistPngMatch[1]), (c) => c.charCodeAt(0));
+          const artistImg = await pdfDoc.embedPng(artistBytes);
+          const artistSigDrawn = await drawSigAtField('ArtistSignature', artistImg);
+          if (artistSigDrawn) formFilled = true;
+          if (artistName?.trim()) {
+            // Fill ArtistDate if exists
+            fillText('ArtistDate', signedDate);
+          }
+        }
+      }
+
+      // Flatten the form so fields are not editable
+      if (formFilled) form.flatten();
+    } catch (e) {
+      // No form fields or error — fall back to append-at-bottom
+      console.log('Form fill failed, using fallback:', e);
+    }
+
     const lastPage = pdfDoc.getPages().at(-1);
     const pageWidth = lastPage ? lastPage.getWidth() : 612;
-    const sigPage = pdfDoc.addPage([pageWidth, 320]);
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    let y = 280;
-    sigPage.drawText("Signature Confirmation", { x: 50, y, size: 16, font: boldFont, color: rgb(0, 0, 0) });
-    y -= 30;
-    sigPage.drawText(`Signed by: ${typedName}`, { x: 50, y, size: 12, font });
-    y -= 20;
-    sigPage.drawText(`Date: ${signedDate}`, { x: 50, y, size: 12, font });
-    y -= 30;
+    // If form fields were filled, skip the appended confirmation page.
+    // Otherwise, add it as a fallback.
+    if (!formFilled) {
+      const sigPage = pdfDoc.addPage([pageWidth, 320]);
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    const maxSigWidth = 220;
-    const scale = Math.min(1, maxSigWidth / signatureImage.width);
-    const sigDrawWidth = signatureImage.width * scale;
-    const sigDrawHeight = signatureImage.height * scale;
-    sigPage.drawImage(signatureImage, { x: 50, y: y - sigDrawHeight, width: sigDrawWidth, height: sigDrawHeight });
-    y -= sigDrawHeight + 20;
+      let y = 280;
+      sigPage.drawText("Signature Confirmation", { x: 50, y, size: 16, font: boldFont, color: rgb(0, 0, 0) });
+      y -= 30;
+      sigPage.drawText(`Signed by: ${typedName}`, { x: 50, y, size: 12, font });
+      y -= 20;
+      sigPage.drawText(`Date: ${signedDate}`, { x: 50, y, size: 12, font });
+      y -= 30;
 
-    sigPage.drawText(
-      "This document was signed electronically. A record of this signature, including the signer's IP address and timestamp, is retained by ChairOS.",
-      { x: 50, y, size: 8, font, color: rgb(0.4, 0.4, 0.4), maxWidth: pageWidth - 100 }
-    );
+      const maxSigWidth = 220;
+      const scale = Math.min(1, maxSigWidth / signatureImage.width);
+      const sigDrawWidth = signatureImage.width * scale;
+      const sigDrawHeight = signatureImage.height * scale;
+      sigPage.drawImage(signatureImage, { x: 50, y: y - sigDrawHeight, width: sigDrawWidth, height: sigDrawHeight });
+      y -= sigDrawHeight + 20;
+
+      if (artistName?.trim() && artistSignatureImageDataUrl) {
+        sigPage.drawText(`Artist: ${artistName.trim()}`, { x: 50, y, size: 12, font });
+        y -= 30;
+        const artistPngMatch = artistSignatureImageDataUrl.match(/^data:image\/png;base64,(.+)$/);
+        if (artistPngMatch) {
+          const artistBytes = Uint8Array.from(atob(artistPngMatch[1]), (c) => c.charCodeAt(0));
+          const artistImg = await pdfDoc.embedPng(artistBytes);
+          const aScale = Math.min(1, maxSigWidth / artistImg.width);
+          const aW = artistImg.width * aScale;
+          const aH = artistImg.height * aScale;
+          sigPage.drawImage(artistImg, { x: 50, y: y - aH, width: aW, height: aH });
+          y -= aH + 20;
+        }
+      }
+
+      sigPage.drawText(
+        "This document was signed electronically. A record of this signature, including the signer's IP address and timestamp, is retained by ChairOS.",
+        { x: 50, y, size: 8, font, color: rgb(0.4, 0.4, 0.4), maxWidth: pageWidth - 100 }
+      );
+    }
 
     const flattenedBytes = await pdfDoc.save();
 
