@@ -38,6 +38,7 @@ export default function ConsentFormsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
+  const [selectedFileName, setSelectedFileName] = useState<string>('')
   const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -115,6 +116,7 @@ export default function ConsentFormsPage() {
 
     setSuccess(`Version ${nextVersion} uploaded and activated.`)
     if (fileRef.current) fileRef.current.value = ''
+    setSelectedFileName('')
     setUploading(false)
     await loadData()
   }
@@ -200,14 +202,31 @@ export default function ConsentFormsPage() {
 
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-6">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Upload New Version</div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <input ref={fileRef} type="file" accept="application/pdf" className="text-sm text-charcoal-700 flex-1 min-w-0" />
+          <div className="flex flex-col gap-3">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name || '')}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="w-full px-4 py-3 border-2 border-dashed border-warm-300 rounded-lg text-sm text-charcoal-700 bg-white/50 hover:border-charcoal-400 transition-colors text-center"
+            >
+              {selectedFileName ? (
+                <span className="font-semibold text-charcoal-900">📄 {selectedFileName}</span>
+              ) : (
+                <span><span className="font-semibold">Step 1:</span> Tap to choose a PDF file</span>
+              )}
+            </button>
             <button
               onClick={handleUpload}
-              disabled={uploading}
-              className="btn-chairos shrink-0"
+              disabled={uploading || !selectedFileName}
+              className="btn-chairos w-full disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {uploading ? 'Uploading…' : 'Upload'}
+              {uploading ? 'Uploading…' : 'Step 2: Upload'}
             </button>
           </div>
           <p className="text-xs text-charcoal-500 mt-2">Each upload creates a new version. The previous version stays on file for existing signed records but is deactivated.</p>
