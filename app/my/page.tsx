@@ -379,7 +379,7 @@ export default function ClientPortalPage() {
       <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
           <h1 className="font-serif text-2xl text-charcoal-900 text-center mb-1">ChairOS</h1>
-          <p className="text-charcoal-500 text-sm text-center mb-6">Sign in to see your bookings, saved card, and loyalty points.</p>
+          <p className="text-charcoal-500 text-sm text-center mb-6">Sign in to see your bookings, saved card, and referral rewards.</p>
           <div className="bg-warm-100 border border-warm-200 rounded-xl p-6">
             {!otpSent ? (
               <>

@@ -35,8 +35,8 @@ export const viewport: Viewport = {
   themeColor: '#4B5320',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // NOTE: no maximumScale / userScalable:false — disabling pinch zoom
+  // breaks accessibility zoom on iOS (pre-App-Store audit finding).
   viewportFit: 'cover',
 }
 

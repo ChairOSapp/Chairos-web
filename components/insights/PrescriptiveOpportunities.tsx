@@ -292,7 +292,7 @@ export default function PrescriptiveOpportunities({ shopId, shopHours, barbers }
               <>
                 <div className="font-serif text-3xl text-charcoal-900 mb-1">{money(moneyCard.amount)}</div>
                 <p className="text-sm text-charcoal-900 mb-3">
-                  ≈{moneyCard.openSlots} open {staffLabel} slots going unfilled — that&apos;s revenue walking past the door.
+                  ≈{moneyCard.openSlots} open {staffLabel} slots going unfilled — worth up to {money(moneyCard.amount)} if every slot fills.
                   {moneyCard.estimated && <span className="text-charcoal-500"> (Estimated — set shop hours in Settings for precision.)</span>}
                 </p>
                 <button onClick={() => router.push(campaignHref('Fill open slots over the next 2 weeks'))} className="btn-chairos">

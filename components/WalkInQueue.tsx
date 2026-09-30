@@ -176,7 +176,7 @@ export default function WalkInQueue({
                       {busy[w.id] ? 'Working…' : 'Start'}
                     </button>
                     <button
-                      onClick={() => done(w)}
+                      onClick={() => { if (window.confirm(`Mark ${w.client_name} as done?`)) done(w) }}
                       disabled={busy[w.id]}
                       className="bg-warm-200 hover:bg-warm-300 disabled:opacity-50 text-charcoal-600 text-xs font-semibold px-3 py-2 rounded-lg transition-colors min-h-[44px]"
                     >
@@ -215,7 +215,7 @@ export default function WalkInQueue({
                       {busy[w.id] ? 'Working…' : 'Start'}
                     </button>
                     <button
-                      onClick={() => dismiss(w)}
+                      onClick={() => { if (window.confirm(`Remove ${w.client_name} from the walk-in queue?`)) dismiss(w) }}
                       disabled={busy[w.id]}
                       className="text-charcoal-500 hover:text-charcoal-300 text-xs px-2 py-2 transition-colors min-h-[44px]"
                     >

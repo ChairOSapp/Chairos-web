@@ -60,11 +60,12 @@ export default function TodayIntelStrip({
     return b ? b.barber_name || b.alias || 'Staff' : 'Staff'
   }
 
-  // Booked revenue from today's non-cancelled appointments (already loaded by the page).
+  // Booked revenue from today's live appointments (already loaded by the page).
+  // No-shows are excluded: a booking that never showed up is not revenue.
   const bookedRevenue = useMemo(
     () =>
       todayAppointments
-        .filter(a => a.status !== 'cancelled')
+        .filter(a => a.status !== 'cancelled' && a.status !== 'noshow' && a.status !== 'no_show')
         .reduce((s, a) => s + (parseFloat(a.price) || 0), 0),
     [todayAppointments]
   )
