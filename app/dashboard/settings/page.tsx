@@ -69,6 +69,13 @@ export default function ShopSettings() {
   const [savingNotifs, setSavingNotifs] = useState(false)
   const [missedCallTextbackEnabled, setMissedCallTextbackEnabled] = useState(false)
   const [twilioVoiceNumber, setTwilioVoiceNumber] = useState('')
+  // Platform-owned missed-call text-back add-on ($10/mo): ChairOS provisions
+  // the Twilio number, the shop just forwards unanswered calls to it.
+  const [missedCallAddonActive, setMissedCallAddonActive] = useState(false)
+  const [missedCallNumber, setMissedCallNumber] = useState('')
+  const [addonBusy, setAddonBusy] = useState(false)
+  const [provisioning, setProvisioning] = useState(false)
+  const [addonError, setAddonError] = useState('')
   const [referralProgramEnabled, setReferralProgramEnabled] = useState(false)
   const [referralRewardType, setReferralRewardType] = useState<'percent_off' | 'flat_credit'>('percent_off')
   const [referralRewardValue, setReferralRewardValue] = useState('10')
@@ -167,6 +174,8 @@ export default function ShopSettings() {
     }
     setMissedCallTextbackEnabled(!!shop.missed_call_textback_enabled)
     setTwilioVoiceNumber(shop.twilio_voice_number || '')
+    setMissedCallAddonActive(!!shop.missed_call_addon_active)
+    setMissedCallNumber(shop.missed_call_number || '')
     setReferralProgramEnabled(!!shop.referral_program_enabled)
     setReferralRewardType(shop.referral_reward_type || 'percent_off')
     setReferralRewardValue(String(shop.referral_reward_value ?? 10))
@@ -381,6 +390,76 @@ export default function ShopSettings() {
     setTaxInfoSuccess('Saved.')
     setTimeout(() => setTaxInfoSuccess(''), 3000)
   }
+
+  // ---- Missed-call text-back add-on ($10/mo) ----
+  function formatPhoneDisplay(e164: string) {
+    const d = e164.replace(/\D/g, '')
+    if (d.length === 11 && d.startsWith('1')) return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`
+    return e164
+  }
+
+  async function addMissedCallAddon() {
+    setAddonBusy(true)
+    setAddonError('')
+    try {
+      const res = await fetch('/api/stripe/addon/missed-call', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not add the add-on.')
+      setMissedCallAddonActive(true)
+    } catch (err: any) {
+      setAddonError(err.message || 'Something went wrong.')
+    } finally {
+      setAddonBusy(false)
+    }
+  }
+
+  async function removeMissedCallAddon() {
+    if (!window.confirm('Remove the missed-call text-back? Your forwarding number will be released.')) return
+    setAddonBusy(true)
+    setAddonError('')
+    try {
+      const res = await fetch('/api/stripe/addon/missed-call', { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not remove the add-on.')
+      setMissedCallAddonActive(false)
+      setMissedCallNumber('')
+      setMissedCallTextbackEnabled(false)
+    } catch (err: any) {
+      setAddonError(err.message || 'Something went wrong.')
+    } finally {
+      setAddonBusy(false)
+    }
+  }
+
+  async function provisionMissedCallNumber() {
+    setProvisioning(true)
+    setAddonError('')
+    try {
+      const res = await fetch('/api/voice/provision-number', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not get a number.')
+      setMissedCallNumber(data.number)
+    } catch (err: any) {
+      setAddonError(err.message || 'Something went wrong.')
+    } finally {
+      setProvisioning(false)
+    }
+  }
+
+  // Bring-your-own-Twilio block for shops that wired their own number
+  // before the platform add-on existed — keeps working unchanged.
+  const byoVoiceBlock = (
+    <div>
+      <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Your Twilio voice number</label>
+      <input type="tel" value={twilioVoiceNumber} onChange={e => setTwilioVoiceNumber(e.target.value)} placeholder="+1 (555) 123-4567"
+        className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+      <div className="text-xs text-charcoal-500 mt-2">
+        The Twilio phone number clients call. In your Twilio console, set this number&rsquo;s <span className="font-semibold">Status Callback URL</span> to:
+        <div className="font-mono bg-warm-200 rounded px-2 py-1 mt-1 break-all">{typeof window !== 'undefined' ? window.location.origin : ''}/api/voice/missed-call</div>
+        <div className="mt-1">If this number rings your staff through Twilio {"<Dial>"}, paste the same URL as the Dial action. Only missed calls get a text — answered calls are ignored, one text per caller every 4 hours, and anyone who replied STOP never gets one.</div>
+      </div>
+    </div>
+  )
 
   if (loading) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
@@ -957,25 +1036,79 @@ export default function ShopSettings() {
               <div className="font-serif text-charcoal-900 text-sm">Missed Call Text-Back</div>
               <div className="text-xs text-charcoal-500">When you miss a call, automatically text the caller a link to book</div>
             </div>
-            <button
-              onClick={() => setMissedCallTextbackEnabled(v => !v)}
-              style={{ background: missedCallTextbackEnabled ? '#4B5320' : '#d4c9b8' }}
-              className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
-              <span
-                style={{ transform: missedCallTextbackEnabled ? 'translateX(22px)' : 'translateX(2px)' }}
-                className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
-            </button>
+            {(missedCallAddonActive || twilioVoiceNumber) && (
+              <button
+                onClick={() => setMissedCallTextbackEnabled(v => !v)}
+                style={{ background: missedCallTextbackEnabled ? '#4B5320' : '#d4c9b8' }}
+                className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
+                <span
+                  style={{ transform: missedCallTextbackEnabled ? 'translateX(22px)' : 'translateX(2px)' }}
+                  className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
+              </button>
+            )}
           </div>
-          {missedCallTextbackEnabled && (
+
+          {addonError && (
+            <div className="px-5 pt-4">
+              <p className="text-red-400 text-xs bg-red-950 border border-red-900 rounded-lg p-3">{addonError}</p>
+            </div>
+          )}
+
+          {!missedCallAddonActive && !twilioVoiceNumber && (
             <div className="p-5">
-              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Twilio voice number</label>
-              <input type="tel" value={twilioVoiceNumber} onChange={e => setTwilioVoiceNumber(e.target.value)} placeholder="+1 (555) 123-4567"
-                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
-              <div className="text-xs text-charcoal-500 mt-2">
-                The Twilio phone number clients call. In your Twilio console, set this number&rsquo;s <span className="font-semibold">Status Callback URL</span> to:
-                <div className="font-mono bg-warm-200 rounded px-2 py-1 mt-1 break-all">{typeof window !== 'undefined' ? window.location.origin : ''}/api/voice/missed-call</div>
-                <div className="mt-1">If this number rings your staff through Twilio {"<Dial>"}, paste the same URL as the Dial action. Only missed calls get a text — answered calls are ignored, one text per caller every 4 hours, and anyone who replied STOP never gets one.</div>
-              </div>
+              <p className="text-sm text-charcoal-700 mb-2">Never lose a booking to a missed call. When you can&rsquo;t pick up, we text the caller a link to book online — automatically.</p>
+              <p className="text-xs text-charcoal-500 mb-4">We provide the phone number, so there&rsquo;s nothing technical to set up. You just forward your unanswered calls to it. <span className="font-semibold text-charcoal-700">$10/month</span>, added to your subscription — one recovered haircut pays for months of it. Cancel anytime.</p>
+              <button onClick={addMissedCallAddon} disabled={addonBusy}
+                className="bg-od-green hover:bg-od-green-light text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                {addonBusy ? 'Adding…' : 'Add it for $10/mo'}
+              </button>
+            </div>
+          )}
+
+          {!missedCallAddonActive && !!twilioVoiceNumber && missedCallTextbackEnabled && (
+            <div className="p-5">
+              {byoVoiceBlock}
+            </div>
+          )}
+
+          {missedCallAddonActive && (
+            <div className="p-5">
+              {missedCallTextbackEnabled ? (
+                missedCallNumber ? (
+                  <>
+                    <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Forward unanswered calls to</div>
+                    <div className="font-mono text-2xl text-charcoal-900 mb-4">{formatPhoneDisplay(missedCallNumber)}</div>
+                    <ol className="text-sm text-charcoal-600 space-y-2 list-decimal list-inside mb-4">
+                      <li>On your business phone, turn on <span className="font-semibold">conditional call forwarding</span> — the kind that only kicks in when you don&rsquo;t answer.</li>
+                      <li>Enter the number above as the forwarding number.</li>
+                      <li>Test it: call your shop from another phone, let it ring out, and check the text comes through.</li>
+                    </ol>
+                    <p className="text-xs text-charcoal-500">Texts come from this number, so callers recognize it. One text per caller every 4 hours, and anyone who replies STOP never gets another.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-charcoal-700 mb-4">You&rsquo;re subscribed. Grab your number and you&rsquo;re one step from done.</p>
+                    <button onClick={provisionMissedCallNumber} disabled={provisioning}
+                      className="bg-od-green hover:bg-od-green-light text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                      {provisioning ? 'Getting your number…' : 'Get my forwarding number'}
+                    </button>
+                  </>
+                )
+              ) : (
+                <p className="text-sm text-charcoal-500">Flip the switch above to turn it on. You&rsquo;ll get a forwarding number in the next step.</p>
+              )}
+
+              {twilioVoiceNumber && (
+                <div className="mt-5 pt-4 border-t border-warm-200">
+                  <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Advanced: your own Twilio number</div>
+                  {byoVoiceBlock}
+                </div>
+              )}
+
+              <button onClick={removeMissedCallAddon} disabled={addonBusy}
+                className="text-xs text-charcoal-500 underline underline-offset-2 hover:text-charcoal-700 mt-5 disabled:opacity-50">
+                Remove the add-on
+              </button>
             </div>
           )}
         </div>

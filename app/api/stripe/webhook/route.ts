@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import * as Sentry from '@sentry/nextjs'
 import { notifySlack as notifySlackShared } from '@/lib/slack'
 import { logger } from '@/lib/logger'
+import { missedCallAddonPriceId, syncAddonForCustomer } from '@/lib/missedCallAddon'
 
 // Next.js App Router does NOT auto-parse bodies — req.text() receives the raw bytes
 // that Stripe needs for signature verification. No bodyParser config is required here.
@@ -180,6 +181,15 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe, supabase: any) {
         payload: subscription as any,
       })
       logger.info('stripe_subscription_updated', { customerId, newStatus })
+
+      // Missed-call text-back add-on: the subscription item is the source
+      // of truth for the per-shop flag (added or removed).
+      const addonPrice = missedCallAddonPriceId()
+      if (addonPrice) {
+        const items = (subscription as any).items?.data || []
+        const hasAddon = items.some((i: any) => i?.price?.id === addonPrice)
+        await syncAddonForCustomer(supabase, customerId, hasAddon)
+      }
       break
     }
 
@@ -238,6 +248,11 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe, supabase: any) {
         payload: subscription as any,
       })
       logger.info('stripe_subscription_deleted', { customerId })
+
+      // The whole subscription is gone, so any add-on item went with it —
+      // clear the flag and release the platform Twilio numbers.
+      await syncAddonForCustomer(supabase, customerId, false)
+
       await notifySlack(`⚠️ ChairOS subscription cancelled\nCustomer: ${customerId}`)
       break
     }
