@@ -22,6 +22,29 @@ function formatWhen(iso: string) {
 }
 
 /**
+ * Notifications created before the link column existed carry no deep link.
+ * Fall back to the right destination by type so every tap lands somewhere
+ * useful instead of just flashing the row read.
+ */
+function fallbackLink(type: string): string | null {
+  if (['booking', 'booking_cancelled', 'walk_in', 'appointment_waitlist_claimed',
+       'appointment_waitlist_expired', 'abandoned_booking_recovery',
+       'abandoned_booking_recovery_confirmed', 'rebooking_sms'].includes(type))
+    return '/dashboard/calendar'
+  if (['payment', 'billing', 'booth_rent_charge', 'deposit_late_payment_refund',
+       'deposit_webhook_anomaly', 'external_payment_reconciliation', 'tip'].includes(type))
+    return '/dashboard/unmatched-payments'
+  if (['lapse_alert', 'client'].includes(type)) return '/dashboard/clients'
+  if (type === 'review') return '/dashboard/reviews'
+  if (['campaign_attribution_error', 'referral_sms'].includes(type)) return '/dashboard/campaigns'
+  if (['sms_help', 'sms_optin', 'sms_optout', 'missed_call_textback', 'manual'].includes(type))
+    return '/dashboard/consent'
+  if (['daily_brief', 'weekly', 'daily', 'recurring', 'owner', 'barber', 'profile'].includes(type))
+    return '/dashboard/insights'
+  return null
+}
+
+/**
  * The single notification inbox, rendered by both the owner and the chair
  * notifications pages. Reads from NotificationsContext (the one live,
  * realtime-backed feed) so the bell badge, toasts, and this list can never
@@ -32,9 +55,10 @@ export default function NotificationsInbox() {
   const { notifications, unreadCount, markAllRead, markRead, loading } = useNotifications()
   const router = useRouter()
 
-  function openNotification(n: { id: string; link?: string | null }) {
+  function openNotification(n: { id: string; link?: string | null; type: string }) {
     markRead(n.id)
-    if (n.link) router.push(n.link)
+    const dest = n.link || fallbackLink(n.type)
+    if (dest) router.push(dest)
   }
 
   if (loading) return (
@@ -46,10 +70,12 @@ export default function NotificationsInbox() {
   const today = notifications.filter(n => isToday(n.created_at))
   const earlier = notifications.filter(n => !isToday(n.created_at))
 
-  const renderRow = (n: any) => (
+  const renderRow = (n: any) => {
+    const dest = n.link || fallbackLink(n.type)
+    return (
     <div key={n.id}
       onClick={() => openNotification(n)}
-      className={`px-5 py-4 flex items-start gap-3 transition-colors ${n.link ? 'cursor-pointer hover:bg-warm-200/60' : ''} ${!n.read ? 'bg-od-green/5' : ''}`}>
+      className={`px-5 py-4 flex items-start gap-3 transition-colors ${dest ? 'cursor-pointer hover:bg-warm-200/60' : ''} ${!n.read ? 'bg-od-green/5' : ''}`}>
       <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${getDotColor(n.type)} ${n.read ? 'opacity-30' : ''}`} />
       <div className="flex-1 min-w-0">
         <div className={`text-sm font-semibold ${n.read ? 'text-charcoal-400' : 'text-charcoal-900'}`}>
@@ -62,7 +88,8 @@ export default function NotificationsInbox() {
         <div className="w-1.5 h-1.5 rounded-full bg-od-green flex-shrink-0 mt-2" />
       )}
     </div>
-  )
+    )
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
