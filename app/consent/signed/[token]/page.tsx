@@ -40,20 +40,26 @@ export default function SignedConsentPage({ params }: { params: Promise<{ token:
   }
 
   return (
-    <div className="min-h-screen bg-warm-50 py-16 px-6">
-      <div className="max-w-md mx-auto text-center">
-        <h1 className="font-serif text-2xl text-od-green mb-2">Your Signed Consent Form</h1>
-        <p className="text-charcoal-500 text-sm mb-1">{info.shopName} · v{info.templateVersion}</p>
-        <p className="text-charcoal-500 text-sm mb-8">Signed {new Date(info.signedAt).toLocaleString()}</p>
-        <a
-          href={info.signedUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block bg-od-green hover:bg-od-green-light text-white font-semibold px-6 py-3 rounded-lg text-sm transition-colors"
-        >
-          View / Download PDF
-        </a>
-        <p className="text-charcoal-400 text-xs mt-6">This link expires after 15 minutes. Save this page's URL to return later.</p>
+    <div className="min-h-screen bg-warm-50 py-8 px-4">
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-6">
+          <h1 className="font-serif text-2xl text-od-green mb-2">Your Signed Consent Form</h1>
+          <p className="text-charcoal-500 text-sm mb-1">{info.shopName} · v{info.templateVersion}</p>
+          <p className="text-charcoal-500 text-sm">Signed {new Date(info.signedAt).toLocaleString()}</p>
+        </div>
+        <div className="bg-white border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <object
+            data={info.signedUrl}
+            type="application/pdf"
+            className="w-full h-[70vh]"
+          >
+            <div className="p-8 text-center">
+              <p className="text-charcoal-700 mb-4">Unable to display PDF inline.</p>
+              <a href={info.signedUrl} className="underline text-od-green">Open PDF</a>
+            </div>
+          </object>
+        </div>
+        <p className="text-charcoal-400 text-xs text-center">This link expires after 15 minutes. Save this page's URL to return later.</p>
       </div>
     </div>
   )
