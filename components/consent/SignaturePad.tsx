@@ -1,5 +1,6 @@
 'use client'
-import { useRef, useState, useImperativeHandle, forwardRef } from 'react'
+import { useRef, useEffect, useImperativeHandle, forwardRef, useState } from 'react'
+import SignaturePadLib from 'signature_pad'
 
 export interface SignaturePadHandle {
   toPngDataUrl: () => string | null
@@ -7,82 +8,79 @@ export interface SignaturePadHandle {
   isEmpty: () => boolean
 }
 
-// Plain canvas pointer-drawing pad — no signature library needed for
-// something this simple, keeps the dependency footprint down.
+// Smooth, pressure-like signature drawing powered by the `signature_pad`
+// library (szimek/signature_pad): velocity-based bezier strokes instead of
+// raw lineTo segments, plus proper devicePixelRatio scaling so signatures
+// stay crisp on retina/iPhone displays.
 const SignaturePad = forwardRef<SignaturePadHandle>(function SignaturePad(_props, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const drawing = useRef(false)
-  const hasDrawn = useRef(false)
+  const padRef = useRef<SignaturePadLib | null>(null)
   const [, forceRender] = useState(0)
 
-  function getCanvasPoint(e: React.PointerEvent<HTMLCanvasElement>) {
-    const canvas = canvasRef.current!
-    const rect = canvas.getBoundingClientRect()
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
-  }
-
-  function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    drawing.current = true
-    canvas.setPointerCapture(e.pointerId)
-    const ctx = canvas.getContext('2d')!
-    const { x, y } = getCanvasPoint(e)
-    ctx.beginPath()
-    ctx.moveTo(x, y)
-  }
 
-  function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (!drawing.current) return
-    const canvas = canvasRef.current!
-    const ctx = canvas.getContext('2d')!
-    const { x, y } = getCanvasPoint(e)
-    ctx.lineWidth = 2
-    ctx.lineCap = 'round'
-    ctx.strokeStyle = '#141412'
-    ctx.lineTo(x, y)
-    ctx.stroke()
-    hasDrawn.current = true
-  }
+    const pad = new SignaturePadLib(canvas, {
+      minWidth: 1.2,
+      maxWidth: 3.2,
+      penColor: '#141412',
+      backgroundColor: 'rgba(255,255,255,0)',
+      throttle: 16,
+      minDistance: 5,
+    })
+    padRef.current = pad
 
-  function handlePointerUp() {
-    drawing.current = false
+    // Scale the backing store for the device pixel ratio so strokes are
+    // crisp on retina screens. Preserve any in-progress signature across
+    // resizes (e.g. orientation change).
+    function resizeCanvas() {
+      const el = canvasRef.current
+      if (!el) return
+      const data = pad.toData()
+      const ratio = Math.max(window.devicePixelRatio || 1, 1)
+      el.width = Math.floor(el.offsetWidth * ratio)
+      el.height = Math.floor(el.offsetHeight * ratio)
+      const ctx = el.getContext('2d')
+      if (ctx) ctx.scale(ratio, ratio)
+      pad.clear()
+      if (data.length > 0) pad.fromData(data)
+    }
+    resizeCanvas()
+    window.addEventListener('resize', resizeCanvas)
+    pad.addEventListener('endStroke', () => forceRender(n => n + 1))
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas)
+      pad.off()
+      padRef.current = null
+    }
+  }, [])
+
+  function doClear() {
+    padRef.current?.clear()
     forceRender(n => n + 1)
   }
 
   useImperativeHandle(ref, () => ({
-    toPngDataUrl: () => (hasDrawn.current ? canvasRef.current?.toDataURL('image/png') ?? null : null),
-    clear: () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height)
-      hasDrawn.current = false
-      forceRender(n => n + 1)
+    toPngDataUrl: () => {
+      const pad = padRef.current
+      if (!pad || pad.isEmpty()) return null
+      return pad.toDataURL('image/png')
     },
-    isEmpty: () => !hasDrawn.current,
+    clear: doClear,
+    isEmpty: () => padRef.current?.isEmpty() ?? true,
   }))
 
   return (
     <div>
       <canvas
         ref={canvasRef}
-        width={500}
-        height={150}
-        className="w-full bg-white border border-warm-300 rounded-lg touch-none cursor-crosshair"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
+        className="w-full h-[150px] bg-white border border-warm-300 rounded-lg touch-none cursor-crosshair"
       />
       <button
         type="button"
-        onClick={() => {
-          const canvas = canvasRef.current
-          if (!canvas) return
-          canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height)
-          hasDrawn.current = false
-          forceRender(n => n + 1)
-        }}
+        onClick={doClear}
         className="mt-1 text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors"
       >
         Clear
