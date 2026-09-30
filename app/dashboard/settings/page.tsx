@@ -1341,6 +1341,18 @@ export default function ShopSettings() {
           </div>
         )}
 
+        {/* Team seats: extra owners/admins. Base plan includes 1 owner seat;
+            additional seats are billed per seat (school package includes 5). */}
+        {profile?.role !== 'barber' && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">Team & Admin Seats</div>
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-charcoal-500">Add co-owners or admins. Extra seats beyond your plan&apos;s included count are billed per seat.</div>
+              <button onClick={() => router.push('/dashboard/settings/team')} className="btn-chairos whitespace-nowrap">Manage Team</button>
+            </div>
+          </div>
+        )}
+
         </>)}
 
         {tab === 'services' && (<>

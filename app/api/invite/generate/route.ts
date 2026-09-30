@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { getManagedShop, getShopRole } from '@/lib/shopMembers'
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
@@ -21,20 +22,19 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (profile?.role !== 'owner') {
-    return NextResponse.json({ error: 'Owner only' }, { status: 403 })
-  }
-
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const { data: shop } = await admin
-    .from('shops').select('id').eq('owner_id', user.id).maybeSingle()
+  // Owners AND admins may invite chairs/barbers. Only owners may manage
+  // owner/admin seats (see app/api/shop/members).
+  const shop = await getManagedShop(admin, user.id)
   if (!shop) return NextResponse.json({ error: 'No shop found' }, { status: 404 })
+  const role = await getShopRole(admin, shop.id, user.id)
+  if (!role) {
+    return NextResponse.json({ error: 'Owner or admin only' }, { status: 403 })
+  }
 
   const { data: invite, error } = await admin
     .from('shop_invites')
