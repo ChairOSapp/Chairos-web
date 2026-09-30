@@ -327,12 +327,12 @@ export default function ManageBarbers() {
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">First Name *</label>
                 <input value={barberName} onChange={e => setBarberName(e.target.value)} placeholder="Marcus"
-                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green" />
               </div>
               <div>
                 <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Alias / Specialty</label>
                 <input value={barberAlias} onChange={e => setBarberAlias(e.target.value)} placeholder="Fade King"
-                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green" />
               </div>
             </div>
 
@@ -347,7 +347,7 @@ export default function ManageBarbers() {
                   value={barberEmail}
                   onChange={e => setBarberEmail(e.target.value)}
                   placeholder="barber@email.com"
-                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                  className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green" />
                 <p className="text-xs text-charcoal-600 mt-1">An invite link will be generated for you to share with them.</p>
               </div>
             )}
@@ -370,7 +370,7 @@ export default function ManageBarbers() {
                   <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{staffLabel} Commission %</label>
                   <div className="relative">
                     <input type="number" min="1" max="100" value={commissionRate} onChange={e => setCommissionRate(e.target.value)}
-                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green pr-8" />
                     <span className="absolute right-3 top-3 text-charcoal-400 text-sm">%</span>
                   </div>
                   <div className="text-xs text-charcoal-500 mt-1">Shop keeps {100 - parseInt(commissionRate || '0')}%</div>
@@ -379,7 +379,7 @@ export default function ManageBarbers() {
                   <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">{staffLabel} Tip %</label>
                   <div className="relative">
                     <input type="number" min="1" max="100" value={tipSplit} onChange={e => setTipSplit(e.target.value)}
-                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green pr-8" />
                     <span className="absolute right-3 top-3 text-charcoal-400 text-sm">%</span>
                   </div>
                   <div className="text-xs text-charcoal-500 mt-1">Default 100% to {staffLabel.toLowerCase()}</div>
@@ -393,12 +393,12 @@ export default function ManageBarbers() {
                   <div>
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Weekly Rent $</label>
                     <input type="number" value={boothRent} onChange={e => setBoothRent(e.target.value)} placeholder="150"
-                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Due Every</label>
                     <select value={rentDueDay} onChange={e => setRentDueDay(e.target.value)}
-                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green">
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green">
                       {DAYS.map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>)}
                     </select>
                   </div>
@@ -408,14 +408,14 @@ export default function ManageBarbers() {
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Late Fee %</label>
                     <div className="relative">
                       <input type="number" value={lateFeeRate} onChange={e => setLateFeeRate(e.target.value)} placeholder="5"
-                        className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green pr-8" />
+                        className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green pr-8" />
                       <span className="absolute right-3 top-3 text-charcoal-400 text-sm">%</span>
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Applied Per</label>
                     <select value={lateFeeInterval} onChange={e => setLateFeeInterval(e.target.value as any)}
-                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green">
+                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green">
                       <option value="daily">Day</option>
                       <option value="weekly">Week</option>
                     </select>
@@ -554,7 +554,7 @@ export default function ManageBarbers() {
               onChange={e => setInviteModal(m => ({ ...m, value: e.target.value }))}
               placeholder="barber@email.com"
               autoFocus
-              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green mb-4"
+              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green mb-4"
             />
             <div className="flex gap-3">
               <button
@@ -588,7 +588,7 @@ export default function ManageBarbers() {
               onChange={e => setLinkModal(m => ({ ...m, value: e.target.value }))}
               placeholder="barber@email.com"
               autoFocus
-              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green mb-4"
+              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-base outline-none focus:border-od-green mb-4"
             />
             <div className="flex gap-3">
               <button
