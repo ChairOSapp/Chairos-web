@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
+import PortfolioGallery, { type PortfolioPhoto } from '@/components/PortfolioGallery'
 
 export default function ShopProfile() {
   const params = useParams()
@@ -14,8 +15,9 @@ export default function ShopProfile() {
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [activeTab, setActiveTab] = useState<'services'|'team'|'reviews'>('services')
+  const [activeTab, setActiveTab] = useState<'services'|'team'|'reviews'|'gallery'>('services')
   const [reviews, setReviews] = useState<any[]>([])
+  const [portfolio, setPortfolio] = useState<PortfolioPhoto[]>([])
   // Public page — no logged-in user, so the label comes from this shop's
   // own vertical, not useVerticalLabels() (which resolves via session).
   const [staffLabelLower, setStaffLabelLower] = useState('barber')
@@ -58,6 +60,25 @@ export default function ShopProfile() {
         .order('created_at', { ascending: false })
         .limit(5)
       setReviews(reviewsData || [])
+
+      // Portfolio gallery (public read). Join barber names client-side.
+      const { data: photos } = await supabase
+        .from('portfolio_photos')
+        .select('id, photo_url, caption, barber_id')
+        .eq('shop_id', shop.id)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true })
+      const barberNameById = new Map(
+        (barbers || []).map((b: any) => [b.barber_id, b.barber_name || b.alias])
+      )
+      setPortfolio(
+        (photos || []).map((p: any) => ({
+          id: p.id,
+          photo_url: p.photo_url,
+          caption: p.caption,
+          barber_name: p.barber_id ? barberNameById.get(p.barber_id) || null : null,
+        }))
+      )
 
       setLoading(false)
     }
@@ -183,10 +204,10 @@ export default function ShopProfile() {
         )}
 
         {/* TABS */}
-        <div className="flex gap-1 bg-warm-100 border border-warm-200 rounded-xl p-1 mb-6 w-fit">
+        <div className="flex gap-1 bg-warm-100 border border-warm-200 rounded-xl p-1 mb-6 w-fit max-w-full overflow-x-auto">
           {(['services','team','reviews'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
-              className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all"
+              className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all whitespace-nowrap"
               style={{
                 background: activeTab === tab ? brand : 'transparent',
                 color: activeTab === tab ? '#000' : '#6b7280'
@@ -194,6 +215,16 @@ export default function ShopProfile() {
               {tab === 'services' ? `Services (${services.length})` : tab === 'team' ? `The Team (${barbers.length})` : `Reviews (${reviews.length})`}
             </button>
           ))}
+          {portfolio.length > 0 && (
+            <button onClick={() => setActiveTab('gallery')}
+              className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all whitespace-nowrap"
+              style={{
+                background: activeTab === 'gallery' ? brand : 'transparent',
+                color: activeTab === 'gallery' ? '#000' : '#6b7280'
+              }}>
+              Gallery ({portfolio.length})
+            </button>
+          )}
         </div>
 
         {/* SERVICES TAB */}
@@ -313,6 +344,16 @@ export default function ShopProfile() {
                 </a>
               </>
             )}
+          </div>
+        )}
+
+        {/* GALLERY TAB */}
+        {activeTab === 'gallery' && (
+          <div>
+            <p className="text-charcoal-500 text-sm mb-4">
+              Real work from {shop.name} — tap any photo to view it full-screen.
+            </p>
+            <PortfolioGallery photos={portfolio} />
           </div>
         )}
 

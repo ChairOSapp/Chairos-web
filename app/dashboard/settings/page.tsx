@@ -1353,6 +1353,18 @@ export default function ShopSettings() {
           </div>
         )}
 
+        {/* Portfolio: before/after photos shown in a swipeable gallery on the
+            public booking page. */}
+        {profile?.role !== 'barber' && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-4">Portfolio</div>
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-charcoal-500">Show off your best work — clients book with their eyes first.</div>
+              <button onClick={() => router.push('/dashboard/settings/portfolio')} className="btn-chairos whitespace-nowrap">Manage Portfolio</button>
+            </div>
+          </div>
+        )}
+
         </>)}
 
         {tab === 'services' && (<>
