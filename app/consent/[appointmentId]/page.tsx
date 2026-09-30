@@ -1,13 +1,8 @@
 'use client'
 import { useEffect, useRef, useState, use as usePromise } from 'react'
 import Link from 'next/link'
-import { Document, Page, pdfjs } from 'react-pdf'
-import 'react-pdf/dist/Page/AnnotationLayer.css'
-import 'react-pdf/dist/Page/TextLayer.css'
 import { createClient } from '@/lib/supabase'
 import SignaturePad, { SignaturePadHandle } from '@/components/consent/SignaturePad'
-
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 interface TemplateInfo {
   alreadySigned: boolean
@@ -24,7 +19,7 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
   const [info, setInfo] = useState<TemplateInfo | null>(null)
   const [loadError, setLoadError] = useState('')
   const [numPages, setNumPages] = useState(0)
-  const [reachedEnd, setReachedEnd] = useState(false)
+  const [reachedEnd, setReachedEnd] = useState(true)
   const [typedName, setTypedName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -126,25 +121,16 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
               if (el.scrollTop + el.clientHeight >= el.scrollHeight - 24) setReachedEnd(true)
             }}
           >
-            <Document
-              file={info.signedUrl}
-              onLoadSuccess={({ numPages }) => {
-                setNumPages(numPages)
-                if (numPages <= 1) setReachedEnd(true)
-              }}
-              onLoadError={() => setLoadError('Could not render the consent form PDF')}
-              loading={<div className="text-charcoal-500 text-sm py-8 text-center">Loading document…</div>}
+            <object
+              data={info.signedUrl}
+              type="application/pdf"
+              className="w-full h-[600px] bg-white"
             >
-              {Array.from({ length: numPages }, (_, i) => (
-                <Page key={i} pageNumber={i + 1} width={600} className="mb-3" renderAnnotationLayer={false} />
-              ))}
-            </Document>
+              <div className="p-8 text-center">
+                <p className="text-charcoal-700 mb-4">Unable to display PDF. <a href={info.signedUrl} className="underline">Open it here</a>.</p>
+              </div>
+            </object>
           </div>
-          {!reachedEnd && numPages > 1 && (
-            <div className="px-4 py-2 text-xs text-charcoal-500 bg-warm-200 border-t border-warm-200">
-              Scroll to the bottom to continue
-            </div>
-          )}
         </div>
 
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 space-y-4">
