@@ -47,6 +47,7 @@ export default function ShopSettings() {
   const [disconnectingSquare, setDisconnectingSquare] = useState(false)
   const [barbersCollectOwnPayments, setBarbersCollectOwnPayments] = useState(false)
   const [requireCardToBook, setRequireCardToBook] = useState(false)
+  const [requireConsentForm, setRequireConsentForm] = useState(false)
   const [depositsEnabled, setDepositsEnabled] = useState(false)
   const [depositType, setDepositType] = useState<'flat' | 'percent'>('percent')
   const [depositAmount, setDepositAmount] = useState('20')
@@ -148,6 +149,7 @@ export default function ShopSettings() {
     if (shop.hours) setHours(shop.hours)
     setBarbersCollectOwnPayments(!!shop.barbers_collect_own_payments)
     setRequireCardToBook(!!shop.require_card_to_book)
+    setRequireConsentForm(!!shop.require_consent_form)
     setDepositsEnabled(!!shop.deposits_enabled)
     setDepositType(shop.deposit_type || 'percent')
     setDepositAmount(String(shop.deposit_amount ?? 20))
@@ -303,6 +305,7 @@ export default function ShopSettings() {
       hours,
       barbers_collect_own_payments: barbersCollectOwnPayments,
       require_card_to_book: requireCardToBook,
+      require_consent_form: requireConsentForm,
       google_place_id: googlePlaceId.trim() || null,
       meta_pixel_id: metaPixelId.trim() || null,
       google_tag_id: googleTagId.trim() || null,
@@ -847,6 +850,22 @@ export default function ShopSettings() {
                 className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
                 <span
                   style={{ transform: requireCardToBook ? 'translateX(22px)' : 'translateX(2px)' }}
+                  className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
+              </button>
+            </div>
+
+            {/* Require consent form toggle */}
+            <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-warm-200">
+              <div>
+                <div className="text-sm font-semibold text-charcoal-900 mb-0.5">Require signed consent form to book</div>
+                <div className="text-xs text-charcoal-500">Clients must sign your consent form before a booking can be confirmed. You can also have them sign in person on your phone. Turn this off to let people book with no consent form.</div>
+              </div>
+              <button
+                onClick={() => setRequireConsentForm(v => !v)}
+                style={{ background: requireConsentForm ? '#4B5320' : '#d4c9b8' }}
+                className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
+                <span
+                  style={{ transform: requireConsentForm ? 'translateX(22px)' : 'translateX(2px)' }}
                   className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
               </button>
             </div>

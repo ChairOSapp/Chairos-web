@@ -223,6 +223,47 @@ export async function POST(req: NextRequest) {
     clientId = rpcData?.[0]?.client_id ?? null
   }
 
+  // Consent gate: if the shop requires a signed consent form, the client
+  // must have signed the active version before a booking can be confirmed.
+  if (shop.require_consent_form) {
+    const { data: activeTemplate } = await admin
+      .from('consent_form_templates')
+      .select('version')
+      .eq('shop_id', shop.id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (!activeTemplate) {
+      return NextResponse.json(
+        { error: 'This shop requires a signed consent form, but no consent form is available. Please contact the shop.' },
+        { status: 400 }
+      )
+    }
+
+    let hasSigned = false
+    if (clientId) {
+      const { data: signature } = await admin
+        .from('consent_form_signatures')
+        .select('id')
+        .eq('shop_id', shop.id)
+        .eq('client_id', clientId)
+        .eq('template_version', activeTemplate.version)
+        .maybeSingle()
+      hasSigned = !!signature
+    }
+
+    if (!hasSigned) {
+      return NextResponse.json(
+        {
+          error: 'CONSENT_REQUIRED',
+          message: 'A signed consent form is required before booking. Please sign the consent form first.',
+          shopId: shop.id,
+        },
+        { status: 400 }
+      )
+    }
+  }
+
   // Server-side price: services.price + pricing_rules + validated reward.
   // Throws when the service is unbookable or the reward is invalid.
   const timeMinutes = timeStrToMinutes(time24.slice(0, 5))
