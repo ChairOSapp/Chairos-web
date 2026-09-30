@@ -70,15 +70,27 @@ export default function ClientProfilePage() {
       const { data: shopData } = await supabase
         .from('shops').select('*').eq('owner_id', user.id).maybeSingle()
       // A Solo Chair (role='barber') owns their own one-person shop and
-      // reaches individual client profiles the same way an owner would;
-      // a hired barber (role='barber', no shop of their own) doesn't get
-      // this page at all -- send them to their own dashboard instead.
-      if (!shopData) {
+      // reaches individual client profiles the same way an owner would.
+      // A hired barber (role='barber', no shop of their own) views clients
+      // of the shop they work at -- resolved through shop_barbers -- so a
+      // tap on the chair Clients tab opens the full client card instead of
+      // a dead-end modal.
+      let shop = shopData
+      if (!shop) {
+        const { data: sb } = await supabase
+          .from('shop_barbers').select('shop_id').eq('barber_id', user.id).maybeSingle()
+        if (sb?.shop_id) {
+          const { data: hiredShop } = await supabase
+            .from('shops').select('*').eq('id', sb.shop_id).maybeSingle()
+          shop = hiredShop
+        }
+      }
+      if (!shop) {
         if (prof?.role === 'barber') { router.push('/dashboard/chair'); return }
         setLoading(false)
         return
       }
-      setShop(shopData)
+      setShop(shop)
 
       const [
         { data: clientData },
@@ -87,13 +99,13 @@ export default function ClientProfilePage() {
         { data: barbers },
       ] = await Promise.all([
         supabase.from('clients').select('id, full_name, phone, email, total_visits, last_visit_date').eq('id', id).maybeSingle(),
-        supabase.from('client_locks').select('locked, loyalty_protected, last_booking_date, booking_count, barber_id').eq('client_id', id).eq('shop_id', shopData.id).maybeSingle(),
+        supabase.from('client_locks').select('locked, loyalty_protected, last_booking_date, booking_count, barber_id').eq('client_id', id).eq('shop_id', shop.id).maybeSingle(),
         supabase.from('appointments')
           .select('id, date, time, price, status, barber_id, services(name)')
-          .eq('shop_id', shopData.id)
+          .eq('shop_id', shop.id)
           .eq('client_id', id)
           .order('date', { ascending: false }),
-        supabase.from('shop_barbers').select('barber_id, barber_name, alias, color').eq('shop_id', shopData.id),
+        supabase.from('shop_barbers').select('barber_id, barber_name, alias, color').eq('shop_id', shop.id),
       ])
 
       setClient(clientData)
