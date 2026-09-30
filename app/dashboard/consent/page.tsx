@@ -178,7 +178,7 @@ export default function ConsentFormsPage() {
             <button
               onClick={handleUpload}
               disabled={uploading}
-              className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="btn-chairos"
             >
               {uploading ? 'Uploading…' : 'Upload'}
             </button>
@@ -207,7 +207,7 @@ export default function ConsentFormsPage() {
                         Deactivate
                       </button>
                     ) : (
-                      <button onClick={() => activate(t.id)} className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-500 hover:border-od-green hover:text-od-green transition-colors">
+                      <button onClick={() => activate(t.id)} className="btn-chairos-outline">
                         Activate
                       </button>
                     )}
@@ -230,7 +230,7 @@ export default function ConsentFormsPage() {
                     <div className="text-sm font-semibold text-charcoal-900">{s.clients?.full_name || 'Unknown client'}</div>
                     <div className="text-xs text-charcoal-500">v{s.template_version} · {new Date(s.signed_at).toLocaleString()}</div>
                   </div>
-                  <button onClick={() => viewSigned(s.id)} className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-500 hover:border-od-green hover:text-od-green transition-colors">
+                  <button onClick={() => viewSigned(s.id)} className="btn-chairos-outline">
                     View
                   </button>
                 </div>

@@ -210,7 +210,7 @@ export default function BarberEarningsPage() {
         <div className="flex items-center justify-end gap-2 mb-6">
           {!drillMode && (
             <button onClick={handleGenerateReport} disabled={generating}
-              className="px-3 py-1.5 bg-warm-200 border border-warm-300 hover:border-od-green text-charcoal-900 font-semibold rounded-lg text-xs transition-colors disabled:opacity-50">
+              className="btn-chairos-outline">
               {generating ? 'Generating...' : 'Generate 1099 Summary'}
             </button>
           )}
@@ -225,11 +225,11 @@ export default function BarberEarningsPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <button onClick={() => setYear(y => y - 1)}
-              className="w-8 h-8 bg-warm-200 border border-warm-300 rounded-lg text-charcoal-400 hover:text-charcoal-900 text-sm transition-colors">←</button>
+              className="btn-chairos-outline">←</button>
             <span className="font-mono text-charcoal-900 font-semibold w-12 text-center">{year}</span>
             <button onClick={() => setYear(y => y + 1)}
               disabled={year >= new Date().getFullYear()}
-              className="w-8 h-8 bg-warm-200 border border-warm-300 rounded-lg text-charcoal-400 hover:text-charcoal-900 text-sm transition-colors disabled:opacity-30">→</button>
+              className="btn-chairos-outline">→</button>
           </div>
           <div className="flex gap-1">
             {TIME_FILTERS.map(f => (
@@ -493,7 +493,7 @@ export default function BarberEarningsPage() {
         )}
 
       </div>
-      <StaffMobileNav />
+      <StaffMobileNav userId={userId || undefined} />
     </div>
   )
 }

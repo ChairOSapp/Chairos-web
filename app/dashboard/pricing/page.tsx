@@ -231,7 +231,7 @@ export default function ManagePricing() {
 
         {!showForm && (
           <button onClick={() => openCreate(tab)}
-            className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors mb-6">
+            className="btn-chairos mb-6">
             + {tab === 'recurring' ? 'Add Recurring Rule' : 'Add Promo'}
           </button>
         )}
@@ -348,11 +348,11 @@ export default function ManagePricing() {
 
             <div className="flex gap-3">
               <button onClick={() => { resetForm(); setShowForm(false) }}
-                className="px-6 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                className="btn-chairos-outline">
                 Cancel
               </button>
               <button onClick={handleSave} disabled={saving}
-                className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="btn-chairos flex-1">
                 {saving ? 'Saving...' : editingId ? 'Save Changes' : (tab === 'promo' ? 'Create Promo' : 'Add Rule')}
               </button>
             </div>
@@ -391,7 +391,7 @@ export default function ManagePricing() {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => openEdit(r)}
-                        className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors">
+                        className="btn-chairos-outline">
                         Edit
                       </button>
                       <button onClick={() => toggleActive(r.id, r.active)}

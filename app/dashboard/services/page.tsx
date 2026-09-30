@@ -155,7 +155,7 @@ export default function ManageServices() {
           </div>
           <button
             onClick={() => { resetForm(); setMode('custom'); setShowForm(!showForm) }}
-            className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+            className="btn-chairos">
             + Add Service
           </button>
         </div>
@@ -246,11 +246,11 @@ export default function ManageServices() {
                 )}
                 <div className="flex gap-3">
                   <button onClick={() => { resetForm(); setShowForm(false) }}
-                    className="px-6 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                    className="btn-chairos-outline">
                     Cancel
                   </button>
                   <button onClick={handleSave} disabled={saving}
-                    className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                    className="btn-chairos flex-1">
                     {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add Service'}
                   </button>
                 </div>
@@ -279,7 +279,7 @@ export default function ManageServices() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => openEdit(s)}
-                      className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors">
+                      className="btn-chairos-outline">
                       Edit
                     </button>
                     <button onClick={() => toggleActive(s.id, s.active)}

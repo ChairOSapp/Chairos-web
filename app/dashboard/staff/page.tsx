@@ -278,7 +278,7 @@ export default function ManageBarbers() {
             </button>
             <button
               onClick={() => { resetForm(); setInviteResult(null); setShowForm(!showForm) }}
-              className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+              className="btn-chairos">
               + Add {staffLabel}
             </button>
           </div>
@@ -306,7 +306,7 @@ export default function ManageBarbers() {
                   setSuccess('Link copied!')
                   setTimeout(() => setSuccess(''), 2000)
                 }}
-                className="bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors flex-shrink-0">
+                className="btn-chairos flex-shrink-0">
                 Copy Link
               </button>
             </div>
@@ -442,7 +442,7 @@ export default function ManageBarbers() {
                       type="button"
                       onClick={() => photoRef.current?.click()}
                       disabled={uploadingPhoto}
-                      className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors disabled:opacity-50">
+                      className="btn-chairos-outline">
                       {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
                     </button>
                     <input
@@ -466,11 +466,11 @@ export default function ManageBarbers() {
 
             <div className="flex gap-3">
               <button onClick={() => { resetForm(); setShowForm(false) }}
-                className="px-6 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                className="btn-chairos-outline">
                 Cancel
               </button>
               <button onClick={handleSave} disabled={saving}
-                className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="btn-chairos flex-1">
                 {saving ? 'Saving...' : editingId ? 'Save Changes' : barberEmail ? 'Add & Generate Invite' : `Add ${staffLabel}`}
               </button>
             </div>
@@ -515,7 +515,7 @@ export default function ManageBarbers() {
                       </button>
                     )}
                     <button onClick={() => openEdit(b)}
-                      className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors">
+                      className="btn-chairos-outline">
                       Edit
                     </button>
                     <button onClick={() => router.push(`/dashboard/staff/${b.id}/earnings`)}
@@ -559,13 +559,13 @@ export default function ManageBarbers() {
             <div className="flex gap-3">
               <button
                 onClick={() => setInviteModal({ open: false, barber: null, value: '' })}
-                className="flex-1 px-4 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                className="btn-chairos-outline flex-1">
                 Cancel
               </button>
               <button
                 onClick={handleInviteSubmit}
                 disabled={!inviteModal.value.trim()}
-                className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="btn-chairos flex-1">
                 Send Invite
               </button>
             </div>
@@ -593,7 +593,7 @@ export default function ManageBarbers() {
             <div className="flex gap-3">
               <button
                 onClick={() => setLinkModal({ open: false, id: '', barberName: '', value: '' })}
-                className="flex-1 px-4 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                className="btn-chairos-outline flex-1">
                 Cancel
               </button>
               <button

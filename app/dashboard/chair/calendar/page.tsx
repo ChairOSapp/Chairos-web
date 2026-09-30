@@ -83,7 +83,7 @@ function StaffCalendarPageInner() {
           openApptOnLoad={openAppt || undefined}
         />
       </div>
-      <StaffMobileNav />
+      <StaffMobileNav userId={shopBarber?.userId} />
     </div>
   )
 }

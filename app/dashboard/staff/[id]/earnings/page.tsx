@@ -133,11 +133,11 @@ export default function BarberEarnings() {
         <span className="font-serif text-od-green text-lg">ChairOS</span>
         <div className="flex items-center gap-3">
           <button onClick={() => window.print()}
-            className="px-4 py-1.5 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-xs transition-colors">
+            className="btn-chairos">
             Print / Save PDF
           </button>
           <button onClick={handleGenerateReport} disabled={generating}
-            className="px-4 py-1.5 bg-warm-200 border border-warm-300 hover:border-od-green text-charcoal-900 font-semibold rounded-lg text-xs transition-colors disabled:opacity-50">
+            className="btn-chairos-outline">
             {generating ? 'Generating...' : 'Generate 1099 Summary'}
           </button>
           <button onClick={() => router.push('/dashboard/staff')} className="btn-chairos-outline">{staffLabelPlural}</button>
@@ -152,11 +152,11 @@ export default function BarberEarnings() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setYear(y => y - 1)}
-              className="w-8 h-8 bg-warm-200 border border-warm-300 rounded-lg text-charcoal-400 hover:text-charcoal-900 transition-colors text-sm">←</button>
+              className="btn-chairos-outline">←</button>
             <span className="font-mono text-charcoal-900 font-semibold px-2">{year}</span>
             <button onClick={() => setYear(y => y + 1)}
               disabled={year >= new Date().getFullYear()}
-              className="w-8 h-8 bg-warm-200 border border-warm-300 rounded-lg text-charcoal-400 hover:text-charcoal-900 transition-colors text-sm disabled:opacity-30">→</button>
+              className="btn-chairos-outline">→</button>
           </div>
         </div>
 

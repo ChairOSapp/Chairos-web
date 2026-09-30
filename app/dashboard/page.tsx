@@ -50,7 +50,7 @@ const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
         className="w-14 bg-warm-200 border border-warm-300 rounded px-2 py-1.5 text-xs text-charcoal-900 outline-none focus:border-od-green [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       <button onClick={handleAddTip} disabled={saving || !value}
-        className="bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-white border border-green-500/30 rounded px-2 py-1.5 text-xs transition-colors disabled:opacity-50">
+        className="btn-chairos-outline">
         {saving ? '...' : '+ Tip'}
       </button>
     </div>
@@ -477,7 +477,7 @@ export default function Dashboard() {
                       {checkable ? (
                         <button
                           onClick={() => router.push(`/dashboard/pos/${a.id}`)}
-                          className="flex-shrink-0 text-xs font-bold px-2.5 py-1.5 rounded-lg bg-od-green text-white hover:opacity-90 transition-opacity whitespace-nowrap"
+                          className="btn-chairos flex-shrink-0 whitespace-nowrap"
                         >
                           Check Out
                         </button>

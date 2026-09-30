@@ -260,7 +260,7 @@ export default function ClientProfilePage() {
             <button
               onClick={sendRebookingSMS}
               disabled={smsSending || smsResult === 'sent'}
-              className="w-full py-3 rounded-xl bg-od-green text-white text-sm font-semibold transition-opacity disabled:opacity-50"
+              className="btn-chairos w-full"
             >
               {smsSending ? 'Sending…' : smsResult === 'sent' ? 'SMS Sent ✓' : smsResult === 'error' ? 'Failed — Tap to Retry' : 'Send Rebooking SMS'}
             </button>

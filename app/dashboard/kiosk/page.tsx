@@ -161,7 +161,7 @@ export default function KioskSettings() {
               </div>
               <div>
                 <button onClick={() => logoRef.current?.click()} disabled={uploadingLogo}
-                  className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors disabled:opacity-50">
+                  className="btn-chairos-outline">
                   {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
                 </button>
                 <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
@@ -250,7 +250,7 @@ export default function KioskSettings() {
         </div>
 
         <button onClick={handleSave} disabled={saving}
-          className="bg-od-green hover:bg-od-green-light text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+          className="btn-chairos">
           {saving ? 'Saving...' : 'Save Kiosk Settings'}
         </button>
       </div>

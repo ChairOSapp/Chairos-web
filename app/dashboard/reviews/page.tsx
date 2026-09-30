@@ -416,7 +416,7 @@ export default function ReviewsPage() {
             </button>
             <button
               onClick={() => { setShowManualModal(true); setManualError('') }}
-              className="bg-od-green text-white font-semibold px-4 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity">
+              className="btn-chairos">
               Add Review
             </button>
           </div>
@@ -543,7 +543,7 @@ export default function ReviewsPage() {
                           <div className="flex items-center gap-2 flex-wrap mt-2">
                             {dirty && (
                               <button onClick={() => saveResponseEdit(review.id)} disabled={busy}
-                                className="text-xs font-semibold text-charcoal-900 bg-warm-200 border border-warm-300 hover:border-warm-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                                className="btn-chairos-outline">
                                 Save Edit
                               </button>
                             )}
@@ -555,13 +555,13 @@ export default function ReviewsPage() {
                             )}
                             {(response.status === 'approved' || response.status === 'pending') && (
                               <button onClick={() => copyResponse(review.id)}
-                                className="text-xs font-semibold text-charcoal-900 bg-warm-200 border border-warm-300 hover:border-warm-400 px-3 py-1.5 rounded-lg transition-colors">
+                                className="btn-chairos-outline">
                                 {copiedId === review.id ? 'Copied ✓' : 'Copy'}
                               </button>
                             )}
                             {response.status === 'approved' && (
                               <button onClick={() => setResponseStatus(review.id, 'posted')} disabled={busy}
-                                className="text-xs font-semibold text-charcoal-900 bg-warm-200 border border-warm-300 hover:border-warm-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                                className="btn-chairos-outline">
                                 Mark as Posted
                               </button>
                             )}
@@ -687,14 +687,14 @@ export default function ReviewsPage() {
             <div className="flex gap-3">
               <button
                 onClick={resetImportModal}
-                className="flex-1 px-4 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                className="btn-chairos-outline flex-1">
                 {importResult ? 'Done' : 'Cancel'}
               </button>
               {!importResult && candidates && !showAdvanced && (
                 <button
                   onClick={() => selectedCandidateId && handleImport(selectedCandidateId)}
                   disabled={importLoading || !selectedCandidateId}
-                  className="flex-1 bg-od-green text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
+                  className="btn-chairos flex-1">
                   {importLoading ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
@@ -707,7 +707,7 @@ export default function ReviewsPage() {
                 <button
                   onClick={() => handleImport()}
                   disabled={importLoading || !importPlaceId.trim()}
-                  className="flex-1 bg-od-green text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
+                  className="btn-chairos flex-1">
                   {importLoading ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
@@ -720,7 +720,7 @@ export default function ReviewsPage() {
                 <button
                   onClick={handleSearch}
                   disabled={searchLoading || !searchQuery.trim()}
-                  className="flex-1 bg-od-green text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
+                  className="btn-chairos flex-1">
                   {searchLoading ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
@@ -828,13 +828,13 @@ export default function ReviewsPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => { setShowManualModal(false); setManualError('') }}
-                className="flex-1 px-4 py-2.5 bg-warm-200 border border-warm-300 rounded-lg text-sm text-charcoal-400 hover:text-charcoal-900 transition-colors">
+                className="btn-chairos-outline flex-1">
                 Cancel
               </button>
               <button
                 onClick={handleManualSubmit}
                 disabled={manualLoading || !manualForm.reviewer_name.trim()}
-                className="flex-1 bg-od-green text-white font-semibold py-2.5 rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
+                className="btn-chairos flex-1">
                 {manualLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />

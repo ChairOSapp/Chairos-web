@@ -163,7 +163,7 @@ export default function BarberRequestsPage() {
                     <button
                       onClick={() => handleApprove(req)}
                       disabled={actionLoading === req.id}
-                      className="px-4 py-1.5 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-xs transition-colors disabled:opacity-50">
+                      className="btn-chairos">
                       {actionLoading === req.id ? 'Processing...' : 'Approve'}
                     </button>
                     <button

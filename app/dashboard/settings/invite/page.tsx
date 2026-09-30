@@ -96,7 +96,7 @@ export default function InvitePage() {
               <button
                 onClick={generateShopCode}
                 disabled={generatingCode}
-                className="px-4 py-3 bg-od-green text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="btn-chairos"
               >
                 {generatingCode ? 'Generating…' : 'Generate Code'}
               </button>
@@ -117,14 +117,14 @@ export default function InvitePage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => copy(inviteLink, 'link')}
-                  className="flex-1 px-4 py-2 bg-od-green text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                  className="btn-chairos flex-1"
                 >
                   {copied === 'link' ? 'Copied!' : 'Copy Link'}
                 </button>
                 <button
                   onClick={generateLink}
                   disabled={generating}
-                  className="px-4 py-2 bg-warm-200 border border-warm-300 text-charcoal-600 text-sm font-semibold rounded-lg hover:border-warm-400 transition-colors disabled:opacity-50"
+                  className="btn-chairos-outline"
                 >
                   New Link
                 </button>
@@ -134,7 +134,7 @@ export default function InvitePage() {
             <button
               onClick={generateLink}
               disabled={generating}
-              className="w-full py-3 bg-od-green text-white font-semibold text-sm rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="btn-chairos w-full"
             >
               {generating ? 'Generating...' : 'Generate Invite Link'}
             </button>

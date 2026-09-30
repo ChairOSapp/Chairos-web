@@ -123,7 +123,7 @@ export default function AppointmentHistory() {
           </select>
           {(filterBarber || filterStatus || filterMonth) && (
             <button onClick={() => { setFilterBarber(''); setFilterStatus(''); setFilterMonth('') }}
-              className="px-3 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:text-charcoal-900 transition-colors">
+              className="btn-chairos-outline">
               Clear filters
             </button>
           )}

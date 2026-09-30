@@ -50,7 +50,7 @@ export default function BarberNotificationsPage() {
       <div className="p-5 pb-24">
         <NotificationsInbox />
       </div>
-      <StaffMobileNav />
+      <StaffMobileNav userId={user?.id} />
     </div>
   )
 }

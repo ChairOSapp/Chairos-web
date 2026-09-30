@@ -165,7 +165,7 @@ export default function BarberReviewsPage() {
         </div>
 
       </div>
-      <StaffMobileNav />
+      <StaffMobileNav userId={userId || undefined} />
     </div>
   )
 }

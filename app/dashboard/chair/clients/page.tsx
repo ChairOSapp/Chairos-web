@@ -10,6 +10,7 @@ export default function BarberClientsPage() {
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'locked'|'atrisk'|'loyalty'>('locked')
+  const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -18,6 +19,7 @@ export default function BarberClientsPage() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
+    setUserId(user.id)
 
     const { data: profile } = await supabase
       .from('profiles').select('*').eq('id', user.id).maybeSingle()
@@ -153,7 +155,7 @@ export default function BarberClientsPage() {
           )}
         </div>
       </div>
-      <StaffMobileNav />
+      <StaffMobileNav userId={userId || undefined} />
     </div>
   )
 }

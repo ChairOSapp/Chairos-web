@@ -167,7 +167,7 @@ export default function UnmatchedPaymentsPage() {
                       <button
                         onClick={() => manualPick[p.id] && resolveMatch(p.id, p.square_payment_id, manualPick[p.id])}
                         disabled={!manualPick[p.id] || resolving === p.id}
-                        className="mt-2 bg-od-green hover:bg-od-green-light text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors disabled:opacity-50">
+                        className="btn-chairos mt-2">
                         {resolving === p.id ? 'Matching…' : 'Confirm Match'}
                       </button>
                     </div>

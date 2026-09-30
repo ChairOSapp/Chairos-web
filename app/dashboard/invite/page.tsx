@@ -99,7 +99,7 @@ export default function InviteBarber() {
             <div className="font-mono text-3xl font-bold text-od-green tracking-widest">{shop?.shop_code}</div>
             <button
               onClick={() => navigator.clipboard.writeText(shop?.shop_code)}
-              className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors">
+              className="btn-chairos-outline">
               Copy Code
             </button>
           </div>
@@ -142,7 +142,7 @@ export default function InviteBarber() {
               </div>
 
               <button type="submit" disabled={sending}
-                className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="btn-chairos w-full">
                 {sending ? 'Sending...' : 'Send Invite'}
               </button>
             </form>

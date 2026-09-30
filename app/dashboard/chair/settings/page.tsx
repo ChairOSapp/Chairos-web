@@ -258,7 +258,7 @@ function BarberSettingsInner() {
               <button
                 onClick={() => photoRef.current?.click()}
                 disabled={uploadingPhoto}
-                className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors disabled:opacity-50">
+                className="btn-chairos-outline">
                 {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
               </button>
               <input ref={photoRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
@@ -360,7 +360,7 @@ function BarberSettingsInner() {
                 <button
                   onClick={handleDisconnectSquare}
                   disabled={disconnectingSquare}
-                  className="px-4 py-2 rounded-lg border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">
+                  className="px-4 py-2 rounded-lg border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-50">
                   {disconnectingSquare ? 'Disconnecting...' : 'Disconnect Square'}
                 </button>
               </div>
@@ -418,14 +418,14 @@ function BarberSettingsInner() {
             </div>
             <button
               onClick={() => router.push(shop?.owner_id === userId ? '/dashboard/reviews' : '/dashboard/chair/reviews')}
-              className="px-3 py-1.5 bg-od-green text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap">
+              className="btn-chairos whitespace-nowrap">
               View Reviews
             </button>
           </div>
         </div>
 
         <button onClick={handleSave} disabled={saving}
-          className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+          className="btn-chairos w-full">
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
 
@@ -453,7 +453,7 @@ function BarberSettingsInner() {
             </div>
           </div>
           <button onClick={handleSaveTaxInfo} disabled={savingTaxInfo}
-            className="mt-4 px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-900 hover:border-od-green transition-colors disabled:opacity-50">
+            className="btn-chairos-outline mt-4">
             {savingTaxInfo ? 'Saving...' : 'Save Tax Info'}
           </button>
           {taxInfoSuccess && <span className="ml-3 text-xs text-od-green">{taxInfoSuccess}</span>}
@@ -484,7 +484,7 @@ function BarberSettingsInner() {
               </div>
             </div>
             <button onClick={handleSaveBusinessInfo} disabled={savingBusinessInfo}
-              className="mt-4 px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-900 hover:border-od-green transition-colors disabled:opacity-50">
+              className="btn-chairos-outline mt-4">
               {savingBusinessInfo ? 'Saving...' : 'Save Business Info'}
             </button>
             {businessInfoSuccess && <span className="ml-3 text-xs text-od-green">{businessInfoSuccess}</span>}
@@ -537,7 +537,7 @@ function BarberSettingsInner() {
           </button>
         </div>
       </div>
-      <StaffMobileNav />
+      <StaffMobileNav userId={userId || undefined} />
     </div>
   )
 }

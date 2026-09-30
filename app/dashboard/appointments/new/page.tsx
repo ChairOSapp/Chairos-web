@@ -176,11 +176,11 @@ export default function NewAppointment() {
               setNotes(''); setSelectedBarber(''); setSelectedService(''); setTime(''); setPrice('')
               setSmsFailed(false)
             }}
-              className="flex-1 bg-warm-200 border border-warm-300 text-charcoal-400 font-semibold py-3 rounded-lg text-sm hover:text-charcoal-900 transition-colors">
+              className="btn-chairos-outline flex-1">
               Book Another
             </button>
             <button onClick={() => router.push('/dashboard')}
-              className="flex-1 bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors">
+              className="btn-chairos flex-1">
               Back to Dashboard
             </button>
           </div>
@@ -296,7 +296,7 @@ export default function NewAppointment() {
           </div>
 
           <button onClick={handleBook} disabled={saving}
-            className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+            className="btn-chairos w-full">
             {saving ? 'Booking...' : 'Book Appointment'}
           </button>
         </div>

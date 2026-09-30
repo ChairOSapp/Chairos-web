@@ -762,7 +762,7 @@ export default function BarberDashboard() {
                 </div>
               </div>
               <button onClick={handleWalkIn} disabled={bookingSubmitting || !bookingName || !bookingPhone || !bookingService || !bookingTime}
-                className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+                className="btn-chairos w-full">
                 {bookingSubmitting ? 'Booking...' : 'Book Walk-In'}
               </button>
             </div>
@@ -892,7 +892,7 @@ export default function BarberDashboard() {
         </div>
 
       </div>
-      <StaffMobileNav />
+      <StaffMobileNav userId={barberId || undefined} />
     </div>
   )
 }

@@ -543,7 +543,7 @@ export default function ShopSettings() {
                 <button
                   onClick={() => logoRef.current?.click()}
                   disabled={uploadingLogo}
-                  className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors disabled:opacity-50">
+                  className="btn-chairos-outline">
                   {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
                 </button>
                 <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
@@ -572,7 +572,7 @@ export default function ShopSettings() {
               <button
                 onClick={() => heroRef.current?.click()}
                 disabled={uploadingHero}
-                className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors disabled:opacity-50">
+                className="btn-chairos-outline">
                 {uploadingHero ? 'Uploading...' : 'Upload Banner Photo'}
               </button>
               <input ref={heroRef} type="file" accept="image/*" onChange={handleHeroUpload} className="hidden" />
@@ -790,7 +790,7 @@ export default function ShopSettings() {
             <button
               onClick={saveNotifPrefs}
               disabled={savingNotifs}
-              className="mt-4 px-6 py-3 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-sm disabled:opacity-50 transition-colors">
+              className="btn-chairos mt-4">
               {savingNotifs ? 'Saving...' : 'Save notification preferences'}
             </button>
           </div>
@@ -866,7 +866,7 @@ export default function ShopSettings() {
                 <button
                   onClick={handleSquareDisconnect}
                   disabled={disconnectingSquare}
-                  className="px-4 py-2 rounded-lg border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition-colors disabled:opacity-50">
+                  className="px-4 py-2 rounded-lg border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-50">
                   {disconnectingSquare ? 'Disconnecting...' : 'Disconnect Square'}
                 </button>
                 </div>
@@ -1008,7 +1008,7 @@ export default function ShopSettings() {
               <input value={newExceptionNote} onChange={e => setNewExceptionNote(e.target.value)} placeholder="Note (optional) — e.g. Christmas"
                 className="flex-1 bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
               <button onClick={addDateException} disabled={!newExceptionDate}
-                className="px-6 py-3 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                className="btn-chairos">
                 Add
               </button>
             </div>
@@ -1175,7 +1175,7 @@ export default function ShopSettings() {
             </div>
             <button
               onClick={() => router.push('/dashboard/reviews')}
-              className="px-3 py-1.5 bg-od-green text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap">
+              className="btn-chairos whitespace-nowrap">
               Manage Reviews
             </button>
           </div>
@@ -1239,7 +1239,7 @@ export default function ShopSettings() {
         </>)}
 
         <button onClick={handleSave} disabled={saving}
-          className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm transition-colors disabled:opacity-50">
+          className="btn-chairos w-full">
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
 
@@ -1269,7 +1269,7 @@ export default function ShopSettings() {
             </div>
           </div>
           <button onClick={handleSaveTaxInfo} disabled={savingTaxInfo}
-            className="mt-4 px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-900 hover:border-od-green transition-colors disabled:opacity-50">
+            className="btn-chairos-outline mt-4">
             {savingTaxInfo ? 'Saving...' : 'Save Tax Info'}
           </button>
           {taxInfoSuccess && <span className="ml-3 text-xs text-od-green">{taxInfoSuccess}</span>}
