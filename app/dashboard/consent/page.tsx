@@ -37,6 +37,7 @@ export default function ConsentFormsPage() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -145,7 +146,7 @@ export default function ConsentFormsPage() {
       setError('Could not open the signed PDF: ' + (error?.message || 'unknown error'))
       return
     }
-    window.location.href = signedUrlData.signedUrl
+    setViewerUrl(signedUrlData.signedUrl)
   }
 
   async function viewTemplate(filePath: string | null) {
@@ -160,7 +161,7 @@ export default function ConsentFormsPage() {
       setError('Could not open the template PDF: ' + (error?.message || 'unknown error'))
       return
     }
-    window.location.href = signedUrlData.signedUrl
+    setViewerUrl(signedUrlData.signedUrl)
   }
 
   if (loading) return (
@@ -265,6 +266,27 @@ export default function ConsentFormsPage() {
           )}
         </div>
       </div>
+
+      {viewerUrl && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col" onClick={() => setViewerUrl(null)}>
+          <div className="flex items-center justify-between p-4">
+            <span className="text-white text-sm font-semibold">Consent Form</span>
+            <button
+              onClick={() => setViewerUrl(null)}
+              className="text-white text-sm px-4 py-2 bg-white/10 rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+          <div className="flex-1 px-4 pb-4" onClick={(e) => e.stopPropagation()}>
+            <iframe
+              src={viewerUrl}
+              className="w-full h-full rounded-lg bg-white"
+              title="Consent form PDF"
+            />
+          </div>
+        </div>
+      )}
 
       <MobileNav />
     </div>
