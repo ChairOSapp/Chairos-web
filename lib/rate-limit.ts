@@ -144,6 +144,7 @@ export function getClientIp(request: Request): string {
 export function getRateLimitBucket(pathname: string): RateLimitBucket | null {
   if (pathname === '/login') return 'login'
   if (pathname.startsWith('/api/kiosk/status')) return 'kioskStatus'
+  if (pathname.startsWith('/api/kiosk/appointments')) return 'kioskStatus'
   if (pathname.startsWith('/api/kiosk/otp')) return 'kioskOtp'
   if (pathname.startsWith('/api/portal/otp')) return 'portalOtp'
   if (pathname.startsWith('/api/waitlist')) return 'waitlist'

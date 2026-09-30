@@ -39,18 +39,53 @@ export async function GET(req: NextRequest) {
     .eq('active', true)
   const staffList = (barbers || []).filter(b => b.barber_id)
 
-  const { data: services } = await supabase
-    .from('services')
-    .select('name, duration_minutes, buffer_before_minutes, buffer_after_minutes')
-    .eq('shop_id', shop.id)
-    .eq('active', true)
-    .order('duration_minutes', { ascending: true })
-    .limit(1)
-  const referenceService = services?.[0] || { name: null, duration_minutes: 15, buffer_before_minutes: 0, buffer_after_minutes: 0 }
+  // Optional ?serviceId= computes slots against that service's real
+  // duration + buffers instead of the shop's shortest service (which is
+  // the right default for the lobby "open today" glance, where no service
+  // is picked yet, but wrong once the customer has chosen one).
+  const serviceIdParam = req.nextUrl.searchParams.get('serviceId')
+  let referenceService: { name: string | null; duration_minutes: number; buffer_before_minutes: number; buffer_after_minutes: number }
+  if (serviceIdParam) {
+    const { data: svc } = await supabase
+      .from('services')
+      .select('name, duration_minutes, buffer_before_minutes, buffer_after_minutes')
+      .eq('id', serviceIdParam)
+      .eq('shop_id', shop.id)
+      .eq('active', true)
+      .maybeSingle()
+    if (!svc) {
+      return NextResponse.json({ error: 'Service not found' }, { status: 400 })
+    }
+    referenceService = {
+      name: svc.name,
+      duration_minutes: svc.duration_minutes,
+      buffer_before_minutes: svc.buffer_before_minutes ?? 0,
+      buffer_after_minutes: svc.buffer_after_minutes ?? 0,
+    }
+  } else {
+    const { data: services } = await supabase
+      .from('services')
+      .select('name, duration_minutes, buffer_before_minutes, buffer_after_minutes')
+      .eq('shop_id', shop.id)
+      .eq('active', true)
+      .order('duration_minutes', { ascending: true })
+      .limit(1)
+    referenceService = services?.[0] || { name: null, duration_minutes: 15, buffer_before_minutes: 0, buffer_after_minutes: 0 }
+  }
 
+  // Optional ?date=YYYY-MM-DD for booking ahead; defaults to today.
   const now = new Date()
-  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const dayName = DAY_NAMES[now.getDay()]
+  const pad2 = (n: number) => String(n).padStart(2, '0')
+  const todayStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
+  const dateParam = req.nextUrl.searchParams.get('date')
+  if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+    return NextResponse.json({ error: 'date must be YYYY-MM-DD' }, { status: 400 })
+  }
+  if (dateParam && dateParam < todayStr) {
+    return NextResponse.json({ error: 'date cannot be in the past' }, { status: 400 })
+  }
+  const date = dateParam || todayStr
+  const dayName = DAY_NAMES[new Date(date + 'T12:00:00').getDay()]
   const hoursForDay = ((shop.hours as any[]) || []).find(h => h.day === dayName) as DayHours | undefined
 
   if (staffList.length === 0) {

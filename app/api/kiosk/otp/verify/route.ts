@@ -19,7 +19,7 @@ function normalizePhone(raw: string): string {
 const MAX_ATTEMPTS = 5
 
 export async function POST(req: NextRequest) {
-  const { shopCode, phone, code } = await req.json()
+  const { shopCode, phone, code, checkinAppointmentId, today } = await req.json()
   if (!shopCode || !phone || !code) {
     return NextResponse.json({ error: 'shopCode, phone, and code are required' }, { status: 400 })
   }
@@ -63,6 +63,46 @@ export async function POST(req: NextRequest) {
 
   // Correct code -- consume it and create the real walk-in.
   await admin.from('kiosk_otp_codes').delete().eq('id', otpRow.id)
+
+  // Appointment check-in: the kiosk looked the appointment up by phone
+  // first, then proved ownership of that phone with the code above.
+  // Same OTP security as the walk-in flow, no second code needed.
+  if (checkinAppointmentId) {
+    const { data: appt } = await admin
+      .from('appointments')
+      .select('id, shop_id, client_phone, client_name, date, time, status')
+      .eq('id', checkinAppointmentId)
+      .maybeSingle()
+    const phoneMatches =
+      !!appt &&
+      String(appt.client_phone || '').replace(/\D/g, '').slice(-10) ===
+        e164.replace(/\D/g, '').slice(-10)
+    const todayValid = !today || /^\d{4}-\d{2}-\d{2}$/.test(String(today))
+    const todayOk = todayValid && (!today || appt?.date === today)
+    if (!appt || appt.shop_id !== shop.id || !phoneMatches || appt.status === 'cancelled' || !todayOk) {
+      return NextResponse.json({ error: 'Could not check in that appointment.' }, { status: 400 })
+    }
+    const { error: confirmErr } = await admin
+      .from('appointments')
+      .update({ status: 'confirmed', updated_at: new Date().toISOString() })
+      .eq('id', appt.id)
+    if (confirmErr) {
+      logger.error('kiosk_appt_checkin_failed', { shopId: shop.id, message: confirmErr.message })
+      return NextResponse.json({ error: 'Could not check in right now' }, { status: 500 })
+    }
+    if (shop.owner_id) {
+      await admin.from('notifications').insert({
+        user_id: shop.owner_id,
+        shop_id: shop.id,
+        type: 'walk_in',
+        title: 'Appointment check-in',
+        body: `${appt.client_name} checked in at the kiosk for their appointment.`,
+        read: false,
+      })
+    }
+    logger.info('kiosk_appt_checkin', { shopId: shop.id, appointmentId: appt.id })
+    return NextResponse.json({ appointmentId: appt.id })
+  }
 
   const walkInId = randomUUID()
   const { error: insertError } = await admin.from('walk_ins').insert({
