@@ -173,12 +173,12 @@ export default function ConsentFormsPage() {
 
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-6">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Upload New Version</div>
-          <div className="flex items-center gap-3">
-            <input ref={fileRef} type="file" accept="application/pdf" className="text-sm text-charcoal-700" />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <input ref={fileRef} type="file" accept="application/pdf" className="text-sm text-charcoal-700 flex-1 min-w-0" />
             <button
               onClick={handleUpload}
               disabled={uploading}
-              className="btn-chairos"
+              className="btn-chairos shrink-0"
             >
               {uploading ? 'Uploading…' : 'Upload'}
             </button>
