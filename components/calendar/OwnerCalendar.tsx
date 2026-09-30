@@ -57,9 +57,11 @@ interface Props {
   shopName: string
   shopCode?: string
   openBookOnLoad?: boolean
+  /** Deep link: open this appointment's detail popover once loaded (?appt=<id>). */
+  openApptOnLoad?: string
 }
 
-export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Props) {
+export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad, openApptOnLoad }: Props) {
   const { staffLabel } = useVerticalLabels()
   const [view, setView] = useState<CalView>('dayGridMonth')
   const [viewStart, setViewStart] = useState(new Date())
@@ -75,6 +77,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
   const [showBook, setShowBook] = useState(openBookOnLoad || false)
   const calRef = useRef<FullCalendar>(null)
   const calWrapRef = useRef<HTMLDivElement>(null)
+  const deepLinkOpened = useRef(false)
   // Floating 15-min block for the long-press-to-create gesture (Day view).
   const [dragNew, setDragNew] = useState<{ top: number; left: number; width: number; height: number; minutes: number } | null>(null)
   const supabase = useMemo(() => createClient(), [])
@@ -146,6 +149,23 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad }: Prop
     const b = barbers.find(x => x.barber_id === id)
     return b?.barber_name || b?.alias || ''
   }, [barbers])
+
+  // Deep link (?appt=<id>): once appointments are loaded, jump the
+  // calendar to the appointment's date and open its detail popover,
+  // centered on screen. Used by notification tap-through.
+  useEffect(() => {
+    if (!openApptOnLoad || deepLinkOpened.current || appointments.length === 0) return
+    const appt = appointments.find(a => a.id === openApptOnLoad)
+    if (!appt) return
+    deepLinkOpened.current = true
+    try { calRef.current?.getApi().gotoDate(appt.date) } catch { /* stay on current view */ }
+    setPopover({
+      appt,
+      barberName: barberNameFor(appt.barber_id) || staffLabel,
+      x: Math.max(24, Math.round(window.innerWidth / 2)),
+      y: Math.max(24, Math.round(window.innerHeight / 3)),
+    })
+  }, [openApptOnLoad, appointments, barberNameFor, staffLabel])
 
   // Appointments in the current view (for filter-chip counts)
   const rangeAppointments = useMemo(() => {

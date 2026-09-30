@@ -34,6 +34,7 @@ function CalendarPageInner() {
   const router = useRouter()
   const params = useSearchParams()
   const openBook = params.get('book') === '1'
+  const openAppt = params.get('appt')
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
@@ -45,7 +46,7 @@ function CalendarPageInner() {
         supabase.from('shops').select('id, name, shop_code, invite_code, slug').eq('owner_id', user.id).maybeSingle(),
       ])
       setProfile(prof)
-      if (prof?.role === 'barber') { router.push('/dashboard/chair/calendar'); return }
+      if (prof?.role === 'barber') { router.push('/dashboard/chair/calendar' + (openAppt ? `?appt=${encodeURIComponent(openAppt)}` : '')); return }
       if (!shopData) { router.push('/onboarding'); return }
       setShop(shopData)
       setLoading(false)
@@ -67,6 +68,7 @@ function CalendarPageInner() {
           shopName={shop.name}
           shopCode={shop.invite_code || shop.shop_code}
           openBookOnLoad={openBook}
+          openApptOnLoad={openAppt || undefined}
         />
       </div>
       <MobileNav />

@@ -140,7 +140,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         type: 'booking_cancelled',
         title: 'Booking cancelled',
         body: `${appointment.client_name || 'A client'} cancelled${serviceName ? ` their ${serviceName}` : ''} — ${formatApptWhen(appointment.date, appointment.time)}.`,
-        link: '/dashboard/calendar',
+        link: `/dashboard/calendar?appt=${appointmentId}`,
       })
     } catch (err) {
       logger.warn('cancel_notify_failed', { error: String(err), appointmentId })

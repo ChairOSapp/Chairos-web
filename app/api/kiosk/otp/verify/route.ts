@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
         type: 'walk_in',
         title: 'Appointment check-in',
         body: `${appt.client_name} checked in at the kiosk for their appointment.`,
+        link: `/dashboard/calendar?appt=${appt.id}`,
         read: false,
       })
     }

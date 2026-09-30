@@ -36,6 +36,7 @@ function StaffCalendarPageInner() {
   const router = useRouter()
   const params = useSearchParams()
   const openBook = params.get('book') === '1'
+  const openAppt = params.get('appt')
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
@@ -79,6 +80,7 @@ function StaffCalendarPageInner() {
           color={color}
           shopCode={shop?.invite_code || shop?.shop_code}
           openBookOnLoad={openBook}
+          openApptOnLoad={openAppt || undefined}
         />
       </div>
       <StaffMobileNav />

@@ -48,9 +48,11 @@ interface Props {
   color?: string
   shopCode?: string
   openBookOnLoad?: boolean
+  /** Deep link: open this appointment's detail popover once loaded (?appt=<id>). */
+  openApptOnLoad?: string
 }
 
-export default function StaffCalendar({ shopId, barberId, barberName, color, shopCode, openBookOnLoad }: Props) {
+export default function StaffCalendar({ shopId, barberId, barberName, color, shopCode, openBookOnLoad, openApptOnLoad }: Props) {
   const [view, setView] = useState<CalView>('dayGridMonth')
   const [viewStart, setViewStart] = useState(new Date())
   const [viewRange, setViewRange] = useState<{ start: Date; end: Date } | null>(null)
@@ -64,6 +66,7 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
   const [bookSlot, setBookSlot] = useState<{ date: string; time: string } | null>(null)
   const [showBook, setShowBook] = useState(openBookOnLoad || false)
   const calRef = useRef<FullCalendar>(null)
+  const deepLinkOpened = useRef(false)
   const supabase = useMemo(() => createClient(), [])
   const accent = color || '#4B5320'
 
@@ -97,6 +100,22 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
     }
     init()
   }, [shopId, barberId, supabase, loadAppointments])
+
+  // Deep link (?appt=<id>): once appointments are loaded, jump the
+  // calendar to the appointment's date and open its detail popover,
+  // centered on screen. Used by notification tap-through.
+  useEffect(() => {
+    if (!openApptOnLoad || deepLinkOpened.current || appointments.length === 0) return
+    const appt = appointments.find(a => a.id === openApptOnLoad)
+    if (!appt) return
+    deepLinkOpened.current = true
+    try { calRef.current?.getApi().gotoDate(appt.date) } catch { /* stay on current view */ }
+    setPopover({
+      appt,
+      x: Math.max(24, Math.round(window.innerWidth / 2)),
+      y: Math.max(24, Math.round(window.innerHeight / 3)),
+    })
+  }, [openApptOnLoad, appointments])
 
   useEffect(() => {
     const channel = supabase.channel('barber-cal-appts')

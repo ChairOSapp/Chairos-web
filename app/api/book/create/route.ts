@@ -330,6 +330,7 @@ export async function POST(req: NextRequest) {
 
   // Fire-and-forget: tell the barber about the new booking.
   notifyBarberOfBooking({
+    appointmentId: inserted.id,
     barberId: resolvedBarberId,
     shopId: shop.id,
     clientName: clientName.trim(),
@@ -349,6 +350,7 @@ export async function POST(req: NextRequest) {
 // Notify the barber about a new online booking (in-app + push when they
 // have the iOS app). Never fails the booking itself.
 async function notifyBarberOfBooking(opts: {
+  appointmentId: string
   barberId: string | null
   shopId: string
   clientName: string
@@ -364,7 +366,7 @@ async function notifyBarberOfBooking(opts: {
       type: 'booking',
       title: 'New booking',
       body: `${opts.clientName} booked${opts.serviceName ? ` a ${opts.serviceName}` : ''} — ${formatApptWhen(opts.date, opts.time)}.`,
-      link: '/dashboard/calendar',
+      link: `/dashboard/calendar?appt=${opts.appointmentId}`,
     })
   } catch (err) {
     logger.warn('book_create_notify_failed', { error: String(err) })
