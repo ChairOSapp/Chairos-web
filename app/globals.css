@@ -374,3 +374,8 @@ body {
 .pb-safe-sheet {
   padding-bottom: calc(2rem + env(safe-area-inset-bottom));
 }
+/* Top safe-area for sticky/fixed headers under the notch/status bar.
+   Where the inset is 0 this is a no-op, so desktop appearance is unchanged. */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}

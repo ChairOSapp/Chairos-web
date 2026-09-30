@@ -92,6 +92,7 @@ export default function StaffMobileNav({ userId }: { userId?: string }) {
       )}
       </AnimatePresence>
 
+      <div aria-hidden className="md:hidden h-[calc(4rem+env(safe-area-inset-bottom))]" />
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] px-2 py-2 pb-safe flex justify-around z-50">
         {ITEMS.map((item) => {
           const active = pathname === item.href || (item.href !== '/dashboard/chair' && pathname.startsWith(item.href))

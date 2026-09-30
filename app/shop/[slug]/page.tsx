@@ -121,7 +121,7 @@ export default function ShopProfile() {
       </div>
 
       {/* STICKY BOOK BUTTON */}
-      <div className="sticky top-0 z-50 bg-warm-50/95 backdrop-blur border-b border-warm-200 px-6 py-3">
+      <div className="sticky top-0 z-50 bg-warm-50/95 backdrop-blur border-b border-warm-200 px-6 py-3 pt-[env(safe-area-inset-top)]">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {shop.logo_url && (

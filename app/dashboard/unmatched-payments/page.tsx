@@ -122,7 +122,7 @@ export default function UnmatchedPaymentsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-warm-50 pb-20 md:pb-0">
+    <div className="min-h-screen bg-warm-50 md:pb-0">
       <OwnerNav shopName={shop?.name || ''} ownerName={profile?.full_name || 'Owner'} initials={initials} userId={profile?.id} />
       <div className="p-6 max-w-3xl mx-auto pb-24 md:pb-8">
         <div className="mb-6">

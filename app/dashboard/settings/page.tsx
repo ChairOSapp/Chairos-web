@@ -484,7 +484,7 @@ export default function ShopSettings() {
         <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
       )}
 
-      <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
+      <div className="p-6 max-w-3xl mx-auto md:pb-0">
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Shop Settings</h1>
           <p className="text-charcoal-500 text-sm">How your shop shows up for clients</p>

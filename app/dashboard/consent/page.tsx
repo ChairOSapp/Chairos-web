@@ -153,7 +153,7 @@ export default function ConsentFormsPage() {
     <div className="min-h-screen bg-warm-50">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
 
-      <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
+      <div className="p-6 max-w-3xl mx-auto md:pb-0">
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Consent Forms</h1>
           <p className="text-charcoal-500 text-sm">

@@ -107,7 +107,7 @@ export default function BarberRequestsPage() {
     <div className="min-h-screen bg-warm-50">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
 
-      <div className="p-6 max-w-3xl mx-auto pb-20 md:pb-0">
+      <div className="p-6 max-w-3xl mx-auto md:pb-0">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Join Requests</h1>

@@ -227,7 +227,7 @@ function BarberSettingsInner() {
         userId={userId || undefined}
       />
 
-      <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
+      <div className="p-6 max-w-2xl mx-auto md:pb-0">
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">My Profile</h1>
           <p className="text-charcoal-500 text-sm">{shop?.name} · How clients see you</p>

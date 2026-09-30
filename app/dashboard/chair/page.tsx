@@ -476,7 +476,7 @@ export default function BarberDashboard() {
         userId={barberId || undefined}
       />
 
-      <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
+      <div className="p-6 max-w-2xl mx-auto md:pb-0">
 
         <PaywallBanner
           subscriptionStatus={profile?.subscription_status ?? null}

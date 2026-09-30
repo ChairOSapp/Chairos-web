@@ -647,7 +647,7 @@ export default function InsightsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-warm-50 pb-20 md:pb-0">
+    <div className="min-h-screen bg-warm-50 md:pb-0">
       {isSoloChair ? (
         <StaffNav
           shopName={shop?.name || ''}

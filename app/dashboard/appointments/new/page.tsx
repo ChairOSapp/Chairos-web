@@ -193,7 +193,7 @@ export default function NewAppointment() {
     <div className="min-h-screen bg-warm-50">
       <OwnerNav shopName={shop?.name} ownerName={''} initials={initials} userId={userId || undefined} />
 
-      <div className="p-6 max-w-2xl mx-auto pb-20 md:pb-0">
+      <div className="p-6 max-w-2xl mx-auto md:pb-0">
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">New Appointment</h1>
           <p className="text-charcoal-500 text-sm">Book a walk-in or call-in for {shop?.name}</p>
