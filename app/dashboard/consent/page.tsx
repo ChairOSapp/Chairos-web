@@ -75,7 +75,10 @@ export default function ConsentFormsPage() {
 
   async function handleUpload() {
     const file = fileRef.current?.files?.[0]
-    if (!file) return
+    if (!file) {
+      setError('Please choose a PDF file first, then tap Upload.')
+      return
+    }
     if (file.type !== 'application/pdf') { setError('Please upload a PDF file'); return }
     setUploading(true)
     setError('')
@@ -268,22 +271,32 @@ export default function ConsentFormsPage() {
       </div>
 
       {viewerUrl && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col" onClick={() => setViewerUrl(null)}>
-          <div className="flex items-center justify-between p-4">
+        <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col" onClick={() => setViewerUrl(null)}>
+          <div className="flex items-center justify-between p-4 bg-black">
             <span className="text-white text-sm font-semibold">Consent Form</span>
             <button
               onClick={() => setViewerUrl(null)}
-              className="text-white text-sm px-4 py-2 bg-white/10 rounded-lg"
+              className="text-white text-sm px-4 py-2 bg-white/20 rounded-lg font-semibold"
             >
-              Close
+              ✕ Close
             </button>
           </div>
-          <div className="flex-1 px-4 pb-4" onClick={(e) => e.stopPropagation()}>
-            <iframe
-              src={viewerUrl}
-              className="w-full h-full rounded-lg bg-white"
-              title="Consent form PDF"
-            />
+          <div className="flex-1 bg-white" onClick={(e) => e.stopPropagation()}>
+            <object
+              data={viewerUrl}
+              type="application/pdf"
+              className="w-full h-full"
+            >
+              <div className="p-8 text-center">
+                <p className="text-charcoal-700 mb-4">Unable to display PDF inline.</p>
+                <a
+                  href={viewerUrl}
+                  className="btn-chairos"
+                >
+                  Open PDF
+                </a>
+              </div>
+            </object>
           </div>
         </div>
       )}
