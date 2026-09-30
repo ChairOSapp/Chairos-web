@@ -108,16 +108,31 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     )
   }
-
   let squareClient = getSquareClient(route.accessToken)
   const locationId = route.locationId
 
   const servicePrice = parseFloat(String(appt.price)) || 0
+  const serviceName = (appt as any).services?.name || 'Service'
+
+  // A service with no price set must never be checked out as $0 (plus
+  // tip). Block with an owner-actionable message instead of silently
+  // undercharging -- the owner sets the price in Services, then reruns
+  // checkout. The POS page mirrors this with its own blocked banner.
+  if (appt.price == null) {
+    return NextResponse.json(
+      {
+        code: 'service_price_missing',
+        error: `Set a price for "${serviceName}" first — then run the checkout again.`,
+        serviceName,
+        settingsPath: '/dashboard/services',
+      },
+      { status: 400 }
+    )
+  }
   const tipDollars = Math.max(0, parseFloat(String(tipAmount)) || 0)
   const discountDollars = Math.max(0, Math.min(servicePrice, parseFloat(String(discount)) || 0))
   const chargeBase = servicePrice - discountDollars
   const totalCents = BigInt(Math.round((chargeBase + tipDollars) * 100))
-  const serviceName = (appt as any).services?.name || 'Service'
 
   // paymentAttempt is read inside the try but declared here so the catch
   // block can rotate it after a clean decline.

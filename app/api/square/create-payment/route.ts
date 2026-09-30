@@ -125,7 +125,10 @@ export async function POST(req: NextRequest) {
     // recomputed amount and correct the stored row.
     const storedPrice = appointment.price == null ? null : Number(appointment.price)
     if (storedPrice == null || Number.isNaN(storedPrice)) {
-      return NextResponse.json({ error: 'This booking has no price set yet — ask the shop to set one before paying' }, { status: 400 })
+      // The service never had a price set (preset-created): block with a
+      // plain message naming the service instead of an opaque failure.
+      const missingName = (appointment as any).services?.name || 'service'
+      return NextResponse.json({ error: `This service ("${missingName}") has no price set yet — ask the shop to set one before paying` }, { status: 400 })
     }
     let chargeAmount = storedPrice
     try {

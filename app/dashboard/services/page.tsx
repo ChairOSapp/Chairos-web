@@ -72,7 +72,9 @@ export default function ManageServices() {
   function openEdit(s: any) {
     setEditingId(s.id)
     setSvcName(s.name)
-    setSvcPrice(String(s.price))
+    // A preset-created service with no price opens the field empty -- the
+    // owner types a price (handleSave already requires one).
+    setSvcPrice(s.price == null ? '' : String(s.price))
     setSvcDuration(String(s.duration_minutes))
     setSvcDesc(s.description || '')
     setSvcDepositRequired(!!s.deposit_required)
@@ -260,20 +262,32 @@ export default function ManageServices() {
         )}
 
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+          {(() => {
+            const missing = services.filter((s: any) => s.price == null).length
+            return missing > 0 ? (
+              <div className="text-xs text-amber-800 bg-amber-100/70 border-b border-amber-300 px-5 py-2.5">
+                {missing} service{missing === 1 ? '' : 's'} still need{missing === 1 ? 's' : ''} a price.
+                Bookings for {missing === 1 ? 'it' : 'them'} go through as pay-at-shop — deposits and checkout stay blocked until you set one.
+              </div>
+            ) : null
+          })()}
           {services.length === 0 ? (
             <div className="p-8 text-center text-charcoal-500 text-sm">No services yet. Add your first service above.</div>
           ) : (
             <div className="divide-y divide-warm-200">
               {services.map((s) => (
-                <div key={s.id} className={`px-5 py-4 flex items-center gap-4 ${!s.active ? 'opacity-50' : ''}`}>
+                <div key={s.id} className={`px-5 py-4 flex items-center gap-4 ${!s.active ? 'opacity-50' : ''} ${s.price == null ? 'bg-amber-50/60' : ''}`}>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-charcoal-900 flex items-center gap-2">
                       {s.name}
+                      {s.price == null && <span className="text-xs font-semibold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded">Needs a price</span>}
                       {depositsApplicable && s.deposit_required && <span className="text-xs text-od-green bg-od-green/10 px-1.5 py-0.5 rounded">Deposit</span>}
                     </div>
                     <div className="text-xs text-charcoal-500 mt-0.5">{s.description} · {s.duration_minutes} mins</div>
                   </div>
-                  <div className="font-mono text-lg text-od-green font-semibold">${s.price}</div>
+                  {s.price == null
+                    ? <div className="text-xs font-semibold text-amber-700">Price not set</div>
+                    : <div className="font-mono text-lg text-od-green font-semibold">${s.price}</div>}
                   <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${s.active ? 'bg-green-500/10 text-green-500' : 'bg-warm-200 text-charcoal-500'}`}>
                     {s.active ? 'Active' : 'Hidden'}
                   </div>

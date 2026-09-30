@@ -5,7 +5,7 @@ import { useVerticalLabels } from '@/lib/VerticalContext'
 import { claimWalkIn, finishWalkIn, removeWalkIn, seatWalkIn, waitingLabel, type WalkIn } from '@/lib/walkIns'
 
 type Barber = { id: string; barber_id: string; barber_name: string; alias: string }
-type Service = { id: string; name: string; price: number }
+type Service = { id: string; name: string; price: number | null }
 
 // Shared by app/dashboard/page.tsx (owner, shop-wide) and
 // app/dashboard/chair/page.tsx (staff, same shop). When actingBarberId is

@@ -23,7 +23,8 @@ export interface WalkIn {
 export interface WalkInService {
   id: string
   name: string
-  price: number
+  /** null when the service has no list price (pay-at-shop flow) */
+  price: number | null
 }
 
 /** "just walked in" / "waiting 12 min" / "waiting 1 hr 5 min" */
@@ -134,7 +135,11 @@ export async function seatWalkIn(
         client_phone: walkIn.client_phone,
         date: todayStr(),
         time: nowTime(),
-        price: service?.price ?? 0,
+        // The appointment price is the service's list price at seat time.
+        // A service with no price stays NULL (pay at the shop) -- never
+        // written as 0, which would look like a deliberately free service
+        // and silently undercharge downstream checkout.
+        price: service?.price ?? null,
         status: 'confirmed',
         source: 'walk_in',
       })

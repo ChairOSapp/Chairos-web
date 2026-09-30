@@ -5,7 +5,7 @@ import { useVerticalLabels } from '@/lib/VerticalContext'
 import { FadeBackdrop, ModalPanel } from '@/components/motion'
 
 interface Barber { barber_id: string; barber_name: string; alias?: string | null }
-interface Service { id: string; name: string; price: number; duration_minutes?: number | null }
+interface Service { id: string; name: string; price: number | null; duration_minutes?: number | null }
 
 interface Props {
   shopId: string
@@ -104,7 +104,9 @@ export default function QuickBookModal({
     setServiceId(svcId)
     const svc = services.find(s => s.id === svcId)
     if (svc) {
-      setPrice(String(svc.price))
+      // A service with no price leaves the field empty -- the owner types
+      // one in (or the submit guard below blocks with a plain message).
+      setPrice(svc.price == null ? '' : String(svc.price))
       // The service dictates the length; the owner can still change it below.
       setDurationMin(svc.duration_minutes && svc.duration_minutes > 0 ? svc.duration_minutes : 30)
     }
@@ -152,6 +154,17 @@ export default function QuickBookModal({
     }
 
     const svc = services.find(s => s.id === serviceId)
+    // Never write a silent $0: a service with no list price and no typed-in
+    // price blocks here with a plain message (the owner can type a price in
+    // the field above instead). With no service selected at all, the price
+    // stays NULL (pay at the shop) rather than 0.
+    const enteredPrice = price.trim() === '' ? NaN : parseFloat(price)
+    if (svc && svc.price == null && Number.isNaN(enteredPrice)) {
+      setSubmitting(false)
+      setError(`Set a price for "${svc.name}" first — type one in the price field, or add it in Services.`)
+      return
+    }
+    const bookingPrice = Number.isNaN(enteredPrice) ? (svc?.price ?? null) : enteredPrice
     const { error: err } = await supabase.from('appointments').insert({
       shop_id: shopId,
       barber_id: barberId || null,
@@ -161,7 +174,7 @@ export default function QuickBookModal({
       client_phone: phone,
       date,
       time: time.length === 5 ? time + ':00' : time,
-      price: parseFloat(price) || svc?.price || 0,
+      price: bookingPrice,
       duration_minutes: durationMin,
       status: 'confirmed',
       notes: notes || null,
@@ -309,7 +322,7 @@ export default function QuickBookModal({
                 <div className="relative">
                   <select value={serviceId} onChange={e => onServiceChange(e.target.value)} className={`${inputCls} appearance-none pr-11`}>
                     <option value="">Select…</option>
-                    {services.map(s => <option key={s.id} value={s.id}>{s.name} — ${Number(s.price).toFixed(0)}</option>)}
+                    {services.map(s => <option key={s.id} value={s.id}>{s.name} — {s.price != null ? `$${Number(s.price).toFixed(0)}` : 'no price set'}</option>)}
                   </select>
                   <ChevronIcon />
                 </div>

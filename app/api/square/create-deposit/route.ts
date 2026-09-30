@@ -101,7 +101,9 @@ export async function POST(req: NextRequest) {
     // sticker price.
     const storedPrice = appointment.price == null ? null : Number(appointment.price)
     if (storedPrice == null || Number.isNaN(storedPrice)) {
-      return NextResponse.json({ error: 'This service has no price set yet — ask the shop to set one before booking' }, { status: 400 })
+      // The service never had a price set (preset-created): block with a
+      // plain message naming the service instead of an opaque failure.
+      return NextResponse.json({ error: `This service ("${service?.name || 'service'}") has no price set yet — ask the shop to set one before booking` }, { status: 400 })
     }
     let basePrice = storedPrice
     try {

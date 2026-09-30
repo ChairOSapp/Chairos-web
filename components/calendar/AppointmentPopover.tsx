@@ -15,7 +15,7 @@ interface Appointment {
   shop_id?: string
   date: string
   time: string
-  price: number
+  price: number | null
   status: string
   payment_status?: string
   barber_id?: string
@@ -211,7 +211,11 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
 
         {/* Price hero */}
         <div className="px-4 pt-3 pb-1 flex items-baseline gap-2 min-w-0">
-          <span className="font-serif text-[28px] leading-none text-charcoal-900">{fmtPrice(appointment.price)}</span>
+          {appointment.price == null ? (
+            <span className="font-serif text-[22px] leading-none text-amber-700">Price not set</span>
+          ) : (
+            <span className="font-serif text-[28px] leading-none text-charcoal-900">{fmtPrice(appointment.price)}</span>
+          )}
           {appointment.serviceName && (
             <span className="text-[13px] text-charcoal-500 truncate">{appointment.serviceName}</span>
           )}
@@ -318,12 +322,21 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
           <div className="px-4 py-3 border-t border-warm-200 space-y-2">
             {opError && <p className="text-xs text-red-500">{opError}</p>}
             {notDone && unpaid && (
-              <button
-                onClick={() => { onClose(); router.push(`/dashboard/pos/${appointment.id}`) }}
-                className="w-full py-3 rounded-xl text-sm font-bold bg-od-green text-white hover:opacity-90 transition-opacity"
-              >
-                Check out · ${Number(appointment.price).toFixed(2)}
-              </button>
+              appointment.price == null ? (
+                <button
+                  onClick={() => { onClose(); if (isOwner) router.push('/dashboard/services') }}
+                  className="w-full py-3 rounded-xl text-sm font-bold bg-amber-500/15 text-amber-700 border border-amber-500/40 hover:bg-amber-500/25 transition-colors"
+                >
+                  {isOwner ? 'Set a price to check out' : 'Ask the owner to set a price first'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => { onClose(); router.push(`/dashboard/pos/${appointment.id}`) }}
+                  className="w-full py-3 rounded-xl text-sm font-bold bg-od-green text-white hover:opacity-90 transition-opacity"
+                >
+                  Check out · ${Number(appointment.price).toFixed(2)}
+                </button>
+              )
             )}
             <div className="grid grid-cols-3 gap-2">
               {appointment.status !== 'done' && (

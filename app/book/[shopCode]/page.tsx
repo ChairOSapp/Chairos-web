@@ -633,6 +633,7 @@ function BookingPageInner() {
     // mapping never echoes raw text: a backend slip must not leak payment
     // processor internals onto the customer's screen.
     const msg = (raw || '').toLowerCase()
+    if (msg.includes('no price set')) return 'This service doesn\u2019t have a price set yet \u2014 please call the shop to finish booking.'
     if (msg.includes('declined')) return 'Your card was declined. Double-check the card details or try a different card.'
     if (msg.includes('insufficient')) return 'Your card doesn’t have enough available for this payment. Try a different card.'
     if (msg.includes('expired')) return 'Your card is expired. Try a different card.'
@@ -887,11 +888,12 @@ function BookingPageInner() {
     }
 
     // Deposit configuration sanity: a required deposit that can't be
-    // computed to a positive cent amount (misconfigured flat deposit of
-    // $0, service total $0 with a percent deposit, ...) must not reach
-    // Square. Block and tell the shop side, not the customer.
+    // computed to a positive cent amount (service has no price yet,
+    // misconfigured flat deposit of $0, service total $0 with a percent
+    // deposit, ...) must not reach Square. Block with a plain message that
+    // tells the customer what to do instead of an opaque failure.
     if (requiresDeposit && (depositAmountEstimate == null || depositAmountEstimate <= 0)) {
-      setError('Something isn’t set up right on our end — please call the shop to book.')
+      setError('This service doesn’t have a price set yet — please call the shop to finish booking.')
       resetCaptcha()
       return
     }

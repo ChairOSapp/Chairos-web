@@ -306,6 +306,34 @@ export default function POSCheckout() {
   )
 
   // Extra bottom padding so the sticky charge bar never covers content
+  // A service with no price set blocks checkout entirely (mirrors the
+  // /api/square/checkout guard): charging $0 plus tip would silently
+  // undercharge. The owner sets the price in Services first.
+  if (appt && appt.price == null) {
+    const svcName = appt?.services?.name || 'this service'
+    return (
+      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm text-center">
+          <div className="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-6 mb-4">
+            <div className="text-amber-400 font-semibold text-base mb-2">Set a price for &ldquo;{svcName}&rdquo; first</div>
+            <p className="text-charcoal-400 text-sm">Checkout is blocked until this service has a price. Add one in Services, then come back here.</p>
+          </div>
+          <div className="space-y-2">
+            <button
+              onClick={() => router.push('/dashboard/services')}
+              className="w-full bg-[#7A8C3A] text-black font-semibold py-3 rounded-xl text-sm hover:bg-[#8FA043] transition-colors"
+            >
+              Go to Services
+            </button>
+            <button onClick={() => router.back()} className="w-full bg-charcoal-800 text-charcoal-300 font-semibold py-3 rounded-xl text-sm hover:bg-charcoal-700 transition-colors">
+              ← Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-charcoal-950 p-5 pb-40">
       <div className="max-w-sm mx-auto">
