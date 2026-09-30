@@ -76,7 +76,9 @@ export async function initPushNotifications(): Promise<void> {
 
     // Tapping a notification deep-links inside the app instead of opening Safari.
     PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      const url = action.notification.data?.url
+      const data = action.notification.data ?? {}
+      // Server sends `link`; older builds used `url`. Accept both.
+      const url = typeof data.url === 'string' ? data.url : data.link
       if (typeof url === 'string' && url.startsWith('/')) {
         window.location.href = url
       }
