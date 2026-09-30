@@ -8,7 +8,18 @@
 -- 3. Per-user channel preferences (push / in-app per event type) + a daily
 --    digest email toggle. Stored as a jsonb map; missing keys = defaults.
 
-alter publication supabase_realtime add table public.notifications;
+-- (Idempotent: skips if some other migration already added it.)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+END $$;
 
 alter table public.notifications
   add column if not exists link text;
