@@ -16,6 +16,8 @@ interface Client {
   email: string | null
   total_visits: number
   last_visit_date: string | null
+  physical_consent_on_file: boolean
+  physical_consent_note: string | null
 }
 
 interface ClientLock {
@@ -98,7 +100,7 @@ export default function ClientProfilePage() {
         { data: appts },
         { data: barbers },
       ] = await Promise.all([
-        supabase.from('clients').select('id, full_name, phone, email, total_visits, last_visit_date').eq('id', id).maybeSingle(),
+        supabase.from('clients').select('id, full_name, phone, email, total_visits, last_visit_date, physical_consent_on_file, physical_consent_note').eq('id', id).maybeSingle(),
         supabase.from('client_locks').select('locked, loyalty_protected, last_booking_date, booking_count, barber_id').eq('client_id', id).eq('shop_id', shop.id).maybeSingle(),
         supabase.from('appointments')
           .select('id, date, time, price, status, barber_id, services(name)')
@@ -135,6 +137,23 @@ export default function ClientProfilePage() {
       setSmsResult('error')
     } finally {
       setSmsSending(false)
+    }
+  }
+
+  async function togglePhysicalConsent() {
+    if (!client) return
+    const newValue = !client.physical_consent_on_file
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase
+      .from('clients')
+      .update({
+        physical_consent_on_file: newValue,
+        physical_consent_marked_at: newValue ? new Date().toISOString() : null,
+        physical_consent_marked_by: newValue ? user?.id : null,
+      })
+      .eq('id', client.id)
+    if (!error) {
+      setClient({ ...client, physical_consent_on_file: newValue })
     }
   }
 
@@ -281,6 +300,26 @@ export default function ClientProfilePage() {
             }}
           />
         </div>
+
+        {/* PHYSICAL CONSENT */}
+        {client && (
+          <div className="mt-5 bg-warm-100 border border-warm-200 rounded-xl p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-charcoal-900 mb-1">Physical consent form on file</div>
+                <div className="text-xs text-charcoal-500">If the client signed a paper consent form, mark it here to skip the digital consent gate when booking.</div>
+              </div>
+              <button
+                onClick={togglePhysicalConsent}
+                style={{ background: client.physical_consent_on_file ? '#4B5320' : '#d4c9b8' }}
+                className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors">
+                <span
+                  style={{ transform: client.physical_consent_on_file ? 'translateX(22px)' : 'translateX(2px)' }}
+                  className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform block" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* CLIENT NOTES */}
         {client && shop?.id && (

@@ -242,14 +242,24 @@ export async function POST(req: NextRequest) {
 
     let hasSigned = false
     if (clientId) {
-      const { data: signature } = await admin
-        .from('consent_form_signatures')
-        .select('id')
-        .eq('shop_id', shop.id)
-        .eq('client_id', clientId)
-        .eq('template_version', activeTemplate.version)
+      // Physical form on file bypasses the digital consent gate
+      const { data: client } = await admin
+        .from('clients')
+        .select('physical_consent_on_file')
+        .eq('id', clientId)
         .maybeSingle()
-      hasSigned = !!signature
+      if (client?.physical_consent_on_file) {
+        hasSigned = true
+      } else {
+        const { data: signature } = await admin
+          .from('consent_form_signatures')
+          .select('id')
+          .eq('shop_id', shop.id)
+          .eq('client_id', clientId)
+          .eq('template_version', activeTemplate.version)
+          .maybeSingle()
+        hasSigned = !!signature
+      }
     }
 
     if (!hasSigned) {
