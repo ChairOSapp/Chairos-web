@@ -14,13 +14,18 @@ export type ShopMember = {
 }
 
 // ---------------------------------------------------------------------------
-// Seat configuration. COUNTS ONLY -- prices are TBD.
-// TODO(billing): when Stripe per-seat billing lands, call getSeatUsage() from
+// Seat configuration.
+// Stripe Price ID for extra admin/owner seats (ChairOS Extra Admin Seat).
+// TODO(billing): when per-seat billing goes live, call getSeatUsage() from
 // the seat-change API routes and/or a periodic sync, and update the Stripe
-// subscription quantity (or metered usage) for the overage. Until then the
-// API flags overages in its response and the UI surfaces them as billable.
+// subscription quantity for the overage via:
+//   stripe.subscriptionItems.create/update({ price: SEAT_CONFIG.stripeExtraSeatPriceId, quantity: overage })
+// Until then the API flags overages in its response and the UI surfaces them
+// as billable.
 // ---------------------------------------------------------------------------
 export const SEAT_CONFIG = {
+  /** Stripe Price ID for an extra admin/owner seat (monthly, per unit). */
+  stripeExtraSeatPriceId: 'price_1ULNttPWMhJ6JfbDRhb4lD2a',
   /** Owner seats included on every plan (the primary shops.owner_id). */
   includedOwnerSeats: 1,
   /** Extra owner/admin seats included on the standard plan. */
