@@ -10,6 +10,7 @@ import { daysUntil } from '@/lib/billing'
 import ServicesEditor from '@/components/ServicesEditor'
 import SquareHistorySync from '@/components/SquareHistorySync'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { NOTIFICATION_EVENT_TYPES, defaultChannels } from '@/lib/notificationEvents'
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 const DEFAULT_HOURS = DAYS.map(day => ({
@@ -61,6 +62,11 @@ export default function ShopSettings() {
   const [dateExceptions, setDateExceptions] = useState<any[]>([])
   const [newExceptionDate, setNewExceptionDate] = useState('')
   const [newExceptionNote, setNewExceptionNote] = useState('')
+  // Notification channel preferences (Task 3): per event type, push and/or
+  // in-app. Stored as a jsonb map; a missing key means the type's defaults.
+  const [notifChannels, setNotifChannels] = useState<Record<string, string[]>>({})
+  const [digestEmail, setDigestEmail] = useState(false)
+  const [savingNotifs, setSavingNotifs] = useState(false)
   const [missedCallTextbackEnabled, setMissedCallTextbackEnabled] = useState(false)
   const [twilioVoiceNumber, setTwilioVoiceNumber] = useState('')
   const [referralProgramEnabled, setReferralProgramEnabled] = useState(false)
@@ -150,6 +156,15 @@ export default function ShopSettings() {
       .eq('shop_id', shop.id)
       .order('date', { ascending: true })
     setDateExceptions(exc || [])
+    const { data: notifPrefs } = await supabase
+      .from('notification_preferences')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (notifPrefs) {
+      setNotifChannels((notifPrefs.channels as Record<string, string[]>) || {})
+      setDigestEmail(!!notifPrefs.digest_email)
+    }
     setMissedCallTextbackEnabled(!!shop.missed_call_textback_enabled)
     setTwilioVoiceNumber(shop.twilio_voice_number || '')
     setReferralProgramEnabled(!!shop.referral_program_enabled)
@@ -324,6 +339,34 @@ export default function ShopSettings() {
     const { error } = await supabase.from('shop_date_exceptions').delete().eq('id', id)
     if (error) { setError(error.message); return }
     setDateExceptions(prev => prev.filter(e => e.id !== id))
+  }
+
+  function effNotifChannels(key: string): string[] {
+    const v = notifChannels[key]
+    return Array.isArray(v) ? v : defaultChannels(key)
+  }
+
+  function toggleNotifChannel(key: string, ch: 'push' | 'in_app') {
+    setNotifChannels(prev => {
+      const cur = effNotifChannels(key)
+      const next = cur.includes(ch) ? cur.filter(c => c !== ch) : [...cur, ch]
+      return { ...prev, [key]: next }
+    })
+  }
+
+  async function saveNotifPrefs() {
+    if (!userId) return
+    setSavingNotifs(true)
+    const { error } = await supabase.from('notification_preferences').upsert({
+      user_id: userId,
+      channels: notifChannels,
+      digest_email: digestEmail,
+      updated_at: new Date().toISOString(),
+    })
+    setSavingNotifs(false)
+    if (error) { setError(error.message); return }
+    setSuccess('Notification preferences saved.')
+    setTimeout(() => setSuccess(''), 3000)
   }
 
   async function handleSaveTaxInfo() {
@@ -619,6 +662,58 @@ export default function ShopSettings() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* NOTIFICATIONS */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-warm-200">
+            <div className="font-serif text-charcoal-900 text-sm">Notifications</div>
+            <div className="text-xs text-charcoal-500">Choose which alerts reach you, and where. Turning both off for a type mutes it.</div>
+          </div>
+          <div className="p-6">
+            <div className="flex items-center justify-between gap-4 pb-4 mb-2 border-b border-warm-200">
+              <div>
+                <div className="text-sm font-medium text-charcoal-900">Daily digest email</div>
+                <div className="text-xs text-charcoal-500 mt-0.5">One evening email summarizing the day&apos;s unread alerts.</div>
+              </div>
+              <button
+                onClick={() => setDigestEmail(v => !v)}
+                aria-label="Daily digest email"
+                className={`w-11 h-6 rounded-full relative transition-colors flex-shrink-0 ${digestEmail ? 'bg-od-green' : 'bg-warm-300'}`}>
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${digestEmail ? 'left-[22px]' : 'left-0.5'}`} />
+              </button>
+            </div>
+            <div className="divide-y divide-warm-200">
+              {NOTIFICATION_EVENT_TYPES.map(e => {
+                const cur = effNotifChannels(e.key)
+                return (
+                  <div key={e.key} className="flex items-center justify-between gap-4 py-3">
+                    <div className="text-sm text-charcoal-900">{e.label}</div>
+                    <div className="flex gap-2">
+                      {(['push', 'in_app'] as const).map(ch => (
+                        <button
+                          key={ch}
+                          onClick={() => toggleNotifChannel(e.key, ch)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                            cur.includes(ch)
+                              ? 'bg-od-green border-od-green text-white'
+                              : 'bg-warm-200 border-warm-300 text-charcoal-500'
+                          }`}>
+                          {ch === 'push' ? 'Push' : 'In-app'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <button
+              onClick={saveNotifPrefs}
+              disabled={savingNotifs}
+              className="mt-4 px-6 py-3 bg-od-green hover:bg-od-green-light text-white font-semibold rounded-lg text-sm disabled:opacity-50 transition-colors">
+              {savingNotifs ? 'Saving...' : 'Save notification preferences'}
+            </button>
           </div>
         </div>
 

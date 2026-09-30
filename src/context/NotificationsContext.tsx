@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-type Notification = { id: string; title: string; body: string; type: string; read: boolean; created_at: string }
+type Notification = { id: string; title: string; body: string; type: string; read: boolean; created_at: string; link?: string | null }
 type NotificationsContextType = {
   notifications: Notification[]
   unreadCount: number
@@ -28,6 +28,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!userId) return
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let pollTimer: ReturnType<typeof setInterval> | null = null
+    let subscribed = false
 
     async function load() {
       setLoading(true)
@@ -46,9 +48,29 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       .channel(`notifications:${userId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => load())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => load())
-      .subscribe()
+      .subscribe((status) => {
+        // The iOS WebView doesn't always hold a realtime socket (and the
+        // table was missing from the realtime publication entirely until
+        // the notification-center migration). When the socket isn't live,
+        // poll so the badge and toasts never go stale for minutes.
+        if (status === 'SUBSCRIBED') {
+          subscribed = true
+          if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+        }
+      })
 
-    return () => { if (channel) supabase.removeChannel(channel) }
+    // Start polling; the SUBSCRIBED callback above cancels it once the
+    // socket is confirmed. Also refresh on window focus (cheap catch-all
+    // for a WebView that slept in the background).
+    pollTimer = setInterval(() => { if (!subscribed) load() }, 30000)
+    const onFocus = () => load()
+    window.addEventListener('focus', onFocus)
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+      if (pollTimer) clearInterval(pollTimer)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [userId, supabase])
 
   async function markAllRead() {

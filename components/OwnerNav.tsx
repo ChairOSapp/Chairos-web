@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase'
 import NotificationBell from '@/components/NotificationBell'
 import NotificationToast from '@/components/NotificationToast'
 import PushBootstrap from '@/components/PushBootstrap'
-import { NotificationsProvider } from '@/src/context/NotificationsContext'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
 const NAV_ITEMS = [
@@ -71,11 +70,11 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
           <div className="text-xs text-charcoal-500 dark:text-[#A8A89E]">{shopName}</div>
         </div>
         {userId && (
-          <NotificationsProvider>
+          <>
             <NotificationBell userId={userId} />
             <NotificationToast userId={userId} />
             <PushBootstrap />
-          </NotificationsProvider>
+          </>
         )}
         <div className="w-8 h-8 rounded-lg bg-od-green/10 border border-od-green/30 flex items-center justify-center font-serif text-od-green text-sm">
           {initials}

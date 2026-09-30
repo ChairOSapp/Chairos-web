@@ -364,6 +364,7 @@ async function notifyBarberOfBooking(opts: {
       type: 'booking',
       title: 'New booking',
       body: `${opts.clientName} booked${opts.serviceName ? ` a ${opts.serviceName}` : ''} — ${formatApptWhen(opts.date, opts.time)}.`,
+      link: '/dashboard/calendar',
     })
   } catch (err) {
     logger.warn('book_create_notify_failed', { error: String(err) })

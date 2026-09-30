@@ -291,6 +291,7 @@ async function handleUnreferencedPayment(payment: any) {
       type: 'payment',
       title: 'Square payment needs matching',
       body: `A $${amount.toFixed(2)} payment came through Square outside ChairOS and couldn't be auto-matched to an appointment. Review it in Unmatched Payments.`,
+      link: '/dashboard/unmatched-payments',
     })
   }
 
