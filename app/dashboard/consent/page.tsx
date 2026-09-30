@@ -10,6 +10,7 @@ interface Template {
   version: number
   is_active: boolean
   uploaded_at: string
+  file_path: string | null
 }
 
 function logAudit(shopId: string, action: string, entityId: string, metadata: Record<string, unknown>) {
@@ -56,7 +57,7 @@ export default function ConsentFormsPage() {
 
     const { data: templateRows } = await supabase
       .from('consent_form_templates')
-      .select('id, version, is_active, uploaded_at')
+      .select('id, version, is_active, uploaded_at, file_path')
       .eq('shop_id', shop.id)
       .order('version', { ascending: false })
     setTemplates(templateRows || [])
@@ -133,11 +134,33 @@ export default function ConsentFormsPage() {
       .select('signed_pdf_path')
       .eq('id', signatureId)
       .maybeSingle()
-    if (!data) return
-    const { data: signedUrlData } = await supabase.storage
+    if (!data?.signed_pdf_path) {
+      setError('Signed PDF not found for this record.')
+      return
+    }
+    const { data: signedUrlData, error } = await supabase.storage
       .from('consent-signed')
       .createSignedUrl(data.signed_pdf_path, 900)
-    if (signedUrlData?.signedUrl) window.open(signedUrlData.signedUrl, '_blank')
+    if (error || !signedUrlData?.signedUrl) {
+      setError('Could not open the signed PDF: ' + (error?.message || 'unknown error'))
+      return
+    }
+    window.location.href = signedUrlData.signedUrl
+  }
+
+  async function viewTemplate(filePath: string | null) {
+    if (!filePath) {
+      setError('Template file not found.')
+      return
+    }
+    const { data: signedUrlData, error } = await supabase.storage
+      .from('consent-templates')
+      .createSignedUrl(filePath, 900)
+    if (error || !signedUrlData?.signedUrl) {
+      setError('Could not open the template PDF: ' + (error?.message || 'unknown error'))
+      return
+    }
+    window.location.href = signedUrlData.signedUrl
   }
 
   if (loading) return (
@@ -202,6 +225,9 @@ export default function ConsentFormsPage() {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t.is_active ? 'bg-green-500/10 text-green-600' : 'bg-warm-200 text-charcoal-500'}`}>
                       {t.is_active ? 'Active' : 'Inactive'}
                     </span>
+                    <button onClick={() => viewTemplate(t.file_path)} className="btn-chairos-outline">
+                      View
+                    </button>
                     {t.is_active ? (
                       <button onClick={() => deactivate(t.id)} className="px-3 py-1.5 bg-warm-200 border border-warm-300 rounded-lg text-xs text-charcoal-500 hover:border-red-400 hover:text-red-400 transition-colors">
                         Deactivate
