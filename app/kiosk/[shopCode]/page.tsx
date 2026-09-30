@@ -664,20 +664,11 @@ export default function KioskCheckIn() {
   )
 
   // ---- Home: one screen, four big choices + language ----
+  // The language toggle lives at the bottom: the top of the screen can sit
+  // under the iOS wrapper's URL bar, which would cover it and eat taps.
   const homeScreen = (
-    <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto w-full gap-5">
-      <div className="flex rounded-xl border-2 border-warm-300 overflow-hidden w-full max-w-xs" role="group" aria-label="Language / Idioma">
-        {(['es', 'en'] as KioskLang[]).map(l => {
-          const active = lang === l
-          return (
-            <button key={l} type="button" onClick={() => pickLang(l)} aria-pressed={active}
-              className="flex-1 min-h-[56px] text-xl font-bold transition-colors active:scale-[0.98]"
-              style={active ? { background: theme.primary, color: '#fff' } : { color: theme.primary }}>
-              {l === 'es' ? 'Español' : 'English'}
-            </button>
-          )
-        })}
-      </div>
+    <div className="h-full overflow-y-auto">
+    <div className="min-h-full flex flex-col items-center justify-center max-w-2xl mx-auto w-full gap-5 py-8">
       {logo('w-20 h-20')}
       <div className="text-center">
         <h1 className="font-serif text-4xl md:text-5xl" style={{ color: theme.primary }}>{shop.name}</h1>
@@ -716,6 +707,19 @@ export default function KioskCheckIn() {
         ))}
       </div>
       <p className="text-charcoal-400 text-base">{t('homeIdleNote')}</p>
+      <div className="flex rounded-xl border-2 border-warm-300 overflow-hidden w-full max-w-xs mt-2" role="group" aria-label="Language / Idioma">
+        {(['es', 'en'] as KioskLang[]).map(l => {
+          const active = lang === l
+          return (
+            <button key={l} type="button" onClick={() => pickLang(l)} aria-pressed={active}
+              className="flex-1 min-h-[56px] text-xl font-bold transition-colors active:scale-[0.98]"
+              style={active ? { background: theme.primary, color: '#fff' } : { color: theme.primary }}>
+              {l === 'es' ? 'Español' : 'English'}
+            </button>
+          )
+        })}
+      </div>
+    </div>
     </div>
   )
 
