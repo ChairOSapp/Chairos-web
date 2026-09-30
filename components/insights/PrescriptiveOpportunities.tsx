@@ -53,12 +53,6 @@ function toMin(hm: string) {
   const [h, m] = hm.split(':').map(Number)
   return h * 60 + (m || 0)
 }
-function median(nums: number[]) {
-  if (nums.length === 0) return 0
-  const s = [...nums].sort((a, b) => a - b)
-  const mid = Math.floor(s.length / 2)
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
-}
 function money(n: number) {
   return '$' + Math.round(n).toLocaleString('en-US')
 }
@@ -164,32 +158,6 @@ export default function PrescriptiveOpportunities({ shopId, shopHours, barbers }
     return { amount: openSlots * avgTicket, openSlots, estimated }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hist, upcoming, numBarbers, shopHours])
-
-  // ---------- Card 2: quiet clients ----------
-  const quietClients = useMemo(() => {
-    const byClient: Record<string, string[]> = {}
-    for (const a of hist) {
-      if (!a.client_id || !BLOCKING_DONE.includes(a.status)) continue
-      if (!byClient[a.client_id]) byClient[a.client_id] = []
-      byClient[a.client_id].push(a.date)
-    }
-    const nowMs = new Date(fmt(new Date()) + 'T12:00:00').getTime()
-    const out: { id: string; name: string; overdueDays: number; interval: number }[] = []
-    for (const [cid, dates] of Object.entries(byClient)) {
-      if (dates.length < 2) continue
-      const sorted = [...new Set(dates)].sort()
-      const gaps: number[] = []
-      for (let i = 1; i < sorted.length; i++) {
-        gaps.push((new Date(sorted[i] + 'T12:00:00').getTime() - new Date(sorted[i - 1] + 'T12:00:00').getTime()) / 86400000)
-      }
-      const interval = Math.round(median(gaps))
-      if (interval <= 0) continue
-      const lastMs = new Date(sorted[sorted.length - 1] + 'T12:00:00').getTime()
-      const overdueDays = Math.floor((nowMs - lastMs) / 86400000) - interval
-      if (overdueDays > 0) out.push({ id: cid, name: clientNames[cid] || 'Client', overdueDays, interval })
-    }
-    return out.sort((a, b) => b.overdueDays - a.overdueDays).slice(0, 8)
-  }, [hist, clientNames])
 
   // ---------- Card 3: dead hours ----------
   const deadHours = useMemo(() => {
@@ -304,32 +272,6 @@ export default function PrescriptiveOpportunities({ shopId, shopHours, barbers }
               </>
             ) : (
               <p className="text-sm text-charcoal-900">Not enough booking history yet to estimate this.</p>
-            )}
-          </div>
-
-          {/* Card 2 — quiet clients */}
-          <div className="bg-warm-100 border border-warm-200 rounded-xl p-4">
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Quiet clients</div>
-            {quietClients.length > 0 ? (
-              <>
-                <ul className="mb-3 space-y-1.5">
-                  {quietClients.map(c => (
-                    <li key={c.id} className="text-sm text-charcoal-900">
-                      <span className="font-semibold">{c.name}</span>
-                      <span className="text-charcoal-500"> — {c.overdueDays}d overdue (usually every ~{c.interval}d)</span>
-                    </li>
-                  ))}
-                </ul>
-                <button onClick={() => router.push(buildCampaignHref({
-                  intent: `Win back ${quietClients.length} quiet clients`,
-                  title: 'Win back quiet clients',
-                  clientIds: quietClients.map(c => c.id),
-                }))} className="btn-chairos">
-                  Win back
-                </button>
-              </>
-            ) : (
-              <p className="text-sm text-charcoal-900">Everyone&apos;s on schedule — nice.</p>
             )}
           </div>
 
