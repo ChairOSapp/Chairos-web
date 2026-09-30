@@ -91,6 +91,7 @@ export default function ShopSettings() {
   const [brandColor, setBrandColor] = useState('#b8861f')
   const [slug, setSlug] = useState('')
   const [phone, setPhone] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
   const [address, setAddress] = useState('')
   const [city, setCity] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
@@ -142,6 +143,7 @@ export default function ShopSettings() {
     setBrandColor(shop.brand_color || '#b8861f')
     setSlug(shop.slug || '')
     setPhone(shop.phone || '')
+    setContactEmail(shop.contact_email || '')
     setAddress(shop.address || '')
     setCity(shop.city || '')
     setLogoUrl(shop.logo_url || '')
@@ -298,6 +300,7 @@ export default function ShopSettings() {
       brand_color: brandColor,
       slug: slug || null,
       phone,
+      contact_email: contactEmail.trim() || null,
       address,
       city,
       logo_url: logoUrl,
@@ -646,6 +649,12 @@ export default function ShopSettings() {
                 <input value={city} onChange={e => setCity(e.target.value)}
                   className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
               </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Contact Email</label>
+              <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} type="email" placeholder="hello@yourshop.com"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+              <p className="text-xs text-charcoal-500 mt-1">Shown on your public booking page so clients can reach you.</p>
             </div>
             <div>
               <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Street Address</label>

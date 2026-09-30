@@ -162,7 +162,7 @@ export default function ShopProfile() {
       <div className="max-w-3xl mx-auto px-6 py-8">
 
         {/* ABOUT */}
-        {(shop.bio || shop.address || shop.phone) && (
+        {(shop.bio || shop.address || shop.phone || shop.contact_email) && (
           <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mb-6">
             {shop.bio && (
               <p className="text-charcoal-700 text-sm leading-relaxed mb-4">{shop.bio}</p>
@@ -183,6 +183,14 @@ export default function ShopProfile() {
                   </svg>
                   {shop.phone}
                 </div>
+              )}
+              {shop.contact_email && (
+                <a href={`mailto:${shop.contact_email}`} className="flex items-center gap-2 text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>
+                  </svg>
+                  {shop.contact_email}
+                </a>
               )}
             </div>
             {shop.hours && Array.isArray(shop.hours) && (
