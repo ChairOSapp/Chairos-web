@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
   const { data: shop } = await admin
     .from('shops')
-    .select('id, shop_code, min_advance_minutes, max_advance_days')
+    .select('id, shop_code, min_advance_minutes, max_advance_days, require_consent_form')
     .eq('shop_code', String(shopCode).toUpperCase())
     .maybeSingle()
   if (!shop) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })

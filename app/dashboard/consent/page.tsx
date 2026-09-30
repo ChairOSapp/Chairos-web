@@ -268,7 +268,20 @@ export default function ConsentFormsPage() {
         </div>
 
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-warm-200 font-serif text-charcoal-900 text-sm">Signed Records ({signatures.length})</div>
+          <div className="px-5 py-4 border-b border-warm-200 flex items-center justify-between">
+            <span className="font-serif text-charcoal-900 text-sm">Signed Records ({signatures.length})</span>
+            <button
+              onClick={() => {
+                const apptId = window.prompt('Enter the appointment ID for in-person signing:')
+                if (apptId?.trim()) {
+                  window.location.href = `/consent/${apptId.trim()}`
+                }
+              }}
+              className="btn-chairos-outline text-xs"
+            >
+              ✍️ Sign on this device
+            </button>
+          </div>
           {signatures.length === 0 ? (
             <div className="p-6 text-center text-charcoal-500 text-sm">No signed consent forms yet.</div>
           ) : (

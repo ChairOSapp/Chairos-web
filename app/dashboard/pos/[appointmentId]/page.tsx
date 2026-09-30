@@ -236,13 +236,13 @@ export default function POSCheckout() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-charcoal-950 flex items-center justify-center">
+    <div className="min-h-screen bg-warm-50 dark:bg-charcoal-950 flex items-center justify-center">
       <div className="w-8 h-8 rounded-full border-2 border-[#7A8C3A] border-t-transparent animate-spin" />
     </div>
   )
 
   if (error && !appt) return (
-    <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-warm-50 dark:bg-charcoal-950 flex items-center justify-center p-6">
       <div className="text-center">
         <p className="text-red-400 text-sm mb-4">{error}</p>
         <button onClick={() => router.back()} className="text-[#7A8C3A] text-sm font-semibold">← Go back</button>
@@ -251,7 +251,7 @@ export default function POSCheckout() {
   )
 
   if (success && receiptData) return (
-    <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-warm-50 dark:bg-charcoal-950 flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-full bg-[#7A8C3A]/10 border border-[#7A8C3A]/30 flex items-center justify-center mx-auto mb-4">
@@ -259,14 +259,14 @@ export default function POSCheckout() {
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <div className="font-serif text-3xl text-white mb-1">Payment complete</div>
+          <div className="font-serif text-3xl text-charcoal-900 dark:text-white mb-1">Payment complete</div>
           <div className="text-charcoal-400 text-sm">{appt?.client_name}</div>
         </div>
 
-        <div className="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 mb-6 space-y-3">
+        <div className="bg-warm-100 dark:bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 mb-6 space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-charcoal-400">Service</span>
-            <span className="text-white font-mono">${receiptData.service.toFixed(2)}</span>
+            <span className="text-charcoal-900 dark:text-white font-mono">${receiptData.service.toFixed(2)}</span>
           </div>
           {receiptData.discount > 0 && (
             <div className="flex justify-between text-sm">
@@ -276,10 +276,10 @@ export default function POSCheckout() {
           )}
           <div className="flex justify-between text-sm">
             <span className="text-charcoal-400">Tip</span>
-            <span className="text-white font-mono">${receiptData.tip.toFixed(2)}</span>
+            <span className="text-charcoal-900 dark:text-white font-mono">${receiptData.tip.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm border-t border-charcoal-700 pt-3">
-            <span className="text-white font-semibold">Total</span>
+            <span className="text-charcoal-900 dark:text-white font-semibold">Total</span>
             <span className="text-[#7A8C3A] font-serif text-xl">${receiptData.total.toFixed(2)}</span>
           </div>
           {receiptData.cardSaved && (
@@ -296,7 +296,7 @@ export default function POSCheckout() {
           </button>
           <button
             onClick={() => router.push('/dashboard')}
-            className="w-full bg-charcoal-800 text-charcoal-300 font-semibold py-3 rounded-xl text-sm hover:bg-charcoal-700 transition-colors"
+            className="w-full bg-warm-200 dark:bg-charcoal-800 text-charcoal-300 font-semibold py-3 rounded-xl text-sm hover:bg-charcoal-700 transition-colors"
           >
             Dashboard
           </button>
@@ -312,7 +312,7 @@ export default function POSCheckout() {
   if (appt && appt.price == null) {
     const svcName = appt?.services?.name || 'this service'
     return (
-      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-warm-50 dark:bg-charcoal-950 flex items-center justify-center p-6">
         <div className="w-full max-w-sm text-center">
           <div className="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-6 mb-4">
             <div className="text-amber-400 font-semibold text-base mb-2">Set a price for &ldquo;{svcName}&rdquo; first</div>
@@ -325,7 +325,7 @@ export default function POSCheckout() {
             >
               Go to Services
             </button>
-            <button onClick={() => router.back()} className="w-full bg-charcoal-800 text-charcoal-300 font-semibold py-3 rounded-xl text-sm hover:bg-charcoal-700 transition-colors">
+            <button onClick={() => router.back()} className="w-full bg-warm-200 dark:bg-charcoal-800 text-charcoal-300 font-semibold py-3 rounded-xl text-sm hover:bg-charcoal-700 transition-colors">
               ← Go back
             </button>
           </div>
@@ -335,28 +335,28 @@ export default function POSCheckout() {
   }
 
   return (
-    <div className="min-h-screen bg-charcoal-950 p-5 pb-40">
+    <div className="min-h-screen bg-warm-50 dark:bg-charcoal-950 p-5 pb-40">
       <div className="max-w-sm mx-auto">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-7 pt-2">
-          <button onClick={() => router.back()} className="w-11 h-11 -ml-2 flex items-center justify-center text-charcoal-400 hover:text-white transition-colors flex-shrink-0" aria-label="Back">
+          <button onClick={() => router.back()} className="w-11 h-11 -ml-2 flex items-center justify-center text-charcoal-400 hover:text-charcoal-900 dark:text-white transition-colors flex-shrink-0" aria-label="Back">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           </button>
           <div>
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Checkout</div>
-            <div className="font-serif text-lg text-white leading-tight">{appt?.client_name}</div>
+            <div className="font-serif text-lg text-charcoal-900 dark:text-white leading-tight">{appt?.client_name}</div>
           </div>
         </div>
 
         {/* Service summary */}
-        <div className="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 mb-5">
+        <div className="bg-warm-100 dark:bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 mb-5">
           <div className="flex justify-between items-start mb-1">
             <div>
-              <div className="text-white font-semibold text-sm">{appt?.services?.name || 'Service'}</div>
+              <div className="text-charcoal-900 dark:text-white font-semibold text-sm">{appt?.services?.name || 'Service'}</div>
               {client && <div className="text-xs text-charcoal-400 mt-0.5">{client.full_name}</div>}
             </div>
-            <div className="font-serif text-2xl text-white">${servicePrice.toFixed(2)}</div>
+            <div className="font-serif text-2xl text-charcoal-900 dark:text-white">${servicePrice.toFixed(2)}</div>
           </div>
           {client?.square_card_last4 && (
             <div className="mt-3 pt-3 border-t border-charcoal-700 flex items-center gap-2">
@@ -384,7 +384,7 @@ export default function POSCheckout() {
                 className={`py-3 rounded-xl text-sm font-semibold transition-colors ${
                   !useCustomTip && tipPreset === p.pct
                     ? 'bg-[#7A8C3A] text-black'
-                    : 'bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700'
+                    : 'bg-warm-200 dark:bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700'
                 }`}
               >
                 {p.label}
@@ -413,7 +413,7 @@ export default function POSCheckout() {
                   value={customTip}
                   onChange={e => setCustomTip(e.target.value)}
                   placeholder="0.00"
-                  className="w-full bg-charcoal-800 border border-charcoal-600 rounded-lg pl-7 pr-3 py-2 text-base text-white outline-none focus:border-[#7A8C3A] transition-colors"
+                  className="w-full bg-warm-200 dark:bg-charcoal-800 border border-charcoal-600 rounded-lg pl-7 pr-3 py-2 text-base text-charcoal-900 dark:text-white outline-none focus:border-[#7A8C3A] transition-colors"
                   autoFocus
                 />
               </div>
@@ -437,7 +437,7 @@ export default function POSCheckout() {
                 setDiscount(v)
               }}
               placeholder="0.00"
-              className={`w-full bg-charcoal-800 border rounded-xl pl-7 pr-3 py-2.5 text-base text-white outline-none transition-colors ${
+              className={`w-full bg-warm-200 dark:bg-charcoal-800 border rounded-xl pl-7 pr-3 py-2.5 text-base text-charcoal-900 dark:text-white outline-none transition-colors ${
                 discountInvalid ? 'border-red-500 focus:border-red-400' : 'border-charcoal-600 focus:border-[#7A8C3A]'
               }`}
             />
@@ -448,7 +448,7 @@ export default function POSCheckout() {
         </div>
 
         {/* Total breakdown */}
-        <div className="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 mb-5">
+        <div className="bg-warm-100 dark:bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 mb-5">
           <div className="flex justify-between items-center mb-2 text-sm text-charcoal-400">
             <span>Service</span><span className="font-mono">${servicePrice.toFixed(2)}</span>
           </div>
@@ -461,7 +461,7 @@ export default function POSCheckout() {
             <span>Tip</span><span className="font-mono">${tipAmount.toFixed(2)}</span>
           </div>
           <div className="flex justify-between items-center pt-3 border-t border-charcoal-700">
-            <span className="text-white font-semibold">Total</span>
+            <span className="text-charcoal-900 dark:text-white font-semibold">Total</span>
             <span className="font-serif text-3xl text-[#7A8C3A]">${total.toFixed(2)}</span>
           </div>
         </div>
@@ -476,7 +476,7 @@ export default function POSCheckout() {
                 className={`w-full flex items-center gap-3 p-4 rounded-xl border transition-colors text-left ${
                   mode === 'card-on-file'
                     ? 'bg-[#7A8C3A]/10 border-[#7A8C3A]/40 text-[#7A8C3A]'
-                    : 'bg-charcoal-800 border-charcoal-700 text-charcoal-300 hover:border-charcoal-500'
+                    : 'bg-warm-200 dark:bg-charcoal-800 border-charcoal-700 text-charcoal-300 hover:border-charcoal-500'
                 }`}
               >
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${mode === 'card-on-file' ? 'border-[#7A8C3A]' : 'border-charcoal-500'}`}>
@@ -493,7 +493,7 @@ export default function POSCheckout() {
               className={`w-full flex items-center gap-3 p-4 rounded-xl border transition-colors text-left ${
                 mode === 'manual'
                   ? 'bg-[#7A8C3A]/10 border-[#7A8C3A]/40 text-[#7A8C3A]'
-                  : 'bg-charcoal-800 border-charcoal-700 text-charcoal-300 hover:border-charcoal-500'
+                  : 'bg-warm-200 dark:bg-charcoal-800 border-charcoal-700 text-charcoal-300 hover:border-charcoal-500'
               }`}
             >
               <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${mode === 'manual' ? 'border-[#7A8C3A]' : 'border-charcoal-500'}`}>
@@ -510,7 +510,7 @@ export default function POSCheckout() {
         {/* Card form (manual mode) */}
         {mode === 'manual' && (
           <div className="mb-5">
-            <div className="bg-charcoal-900 border border-charcoal-700 rounded-xl p-4">
+            <div className="bg-warm-100 dark:bg-charcoal-900 border border-charcoal-700 rounded-xl p-4">
               {cardLoading && (
                 <div className="flex items-center gap-2 text-xs text-charcoal-400 py-4">
                   <div className="w-4 h-4 rounded-full border-2 border-charcoal-500 border-t-transparent animate-spin" />
@@ -528,7 +528,7 @@ export default function POSCheckout() {
                   <button
                     type="button"
                     onClick={() => { setCardError(null); setCardRetryKey(k => k + 1) }}
-                    className="text-xs font-semibold px-4 py-2 rounded-lg bg-charcoal-800 border border-charcoal-600 text-charcoal-200 hover:text-white transition-colors"
+                    className="text-xs font-semibold px-4 py-2 rounded-lg bg-warm-200 dark:bg-charcoal-800 border border-charcoal-600 text-charcoal-200 hover:text-charcoal-900 dark:text-white transition-colors"
                   >
                     Try again
                   </button>
@@ -545,7 +545,7 @@ export default function POSCheckout() {
               <label className="flex items-center gap-3 cursor-pointer">
                 <div
                   onClick={() => { setSaveCard(v => !v); setSaveCardConsent(false) }}
-                  className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${saveCard ? 'bg-[#7A8C3A] border-[#7A8C3A]' : 'border-charcoal-600 bg-charcoal-800'}`}
+                  className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${saveCard ? 'bg-[#7A8C3A] border-[#7A8C3A]' : 'border-charcoal-600 bg-warm-200 dark:bg-charcoal-800'}`}
                 >
                   {saveCard && (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -582,7 +582,7 @@ export default function POSCheckout() {
       </div>
 
       {/* Sticky charge bar -- the money button stays one tap away, no scrolling */}
-      <div className="fixed bottom-0 left-0 right-0 bg-charcoal-950/95 backdrop-blur border-t border-charcoal-800 pb-[env(safe-area-inset-bottom)]">
+      <div className="fixed bottom-0 left-0 right-0 bg-warm-50 dark:bg-charcoal-950/95 backdrop-blur border-t border-charcoal-800 pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-sm mx-auto px-5 pt-3 pb-4">
           <div className="flex items-center justify-between mb-2.5">
             <span className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Total due</span>
