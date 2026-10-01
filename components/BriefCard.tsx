@@ -48,6 +48,13 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
   })
   const supabase = createClient()
   const router = useRouter()
+
+  function dismissBrief() {
+    if (brief) {
+      try { localStorage.setItem('chairos:brief_dismissed', brief.id) } catch {}
+    }
+    setDismissed(true)
+  }
   const { staffLabelPlural } = useVerticalLabels()
 
   function toggleBriefCollapsed() {
@@ -76,6 +83,15 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
 
       setBrief(data ?? null)
       setLoading(false)
+
+      // Restore dismissed state for this specific brief
+      if (data) {
+        try {
+          if (localStorage.getItem('chairos:brief_dismissed') === data.id) {
+            setDismissed(true)
+          }
+        } catch {}
+      }
 
       if (data && !data.read_at) {
         await supabase.from('briefs').update({ read_at: new Date().toISOString() }).eq('id', data.id)
@@ -143,7 +159,7 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
           <div className="font-serif text-lg text-od-green leading-snug">{c.headline ?? brief.summary}</div>
         </button>
         <button
-          onClick={() => setDismissed(true)}
+          onClick={dismissBrief}
           className="text-charcoal-400 hover:text-charcoal-600 ml-4 mt-0.5 flex-shrink-0"
           aria-label="Dismiss brief"
         >
