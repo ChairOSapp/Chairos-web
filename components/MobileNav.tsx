@@ -83,8 +83,8 @@ export default function MobileNav() {
                 <StaggerItem key={item.href}>
                 <button onClick={() => go(item.href)}
                   className="w-full flex flex-col items-center gap-1.5 py-2 text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-[#EDECEA] transition-colors">
-                  <div className="w-11 h-11 rounded-xl bg-warm-200 dark:bg-[#252521] flex items-center justify-center">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <div className="w-11 h-11 rounded-xl bg-warm-200 dark:bg-[#252521] flex items-center justify-center shadow-[0_2px_8px_rgba(75,83,32,0.12)] border border-od-green/10">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-od-green/80">
                       <path d={item.icon} />
                     </svg>
                   </div>
