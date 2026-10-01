@@ -260,11 +260,20 @@ export default function Onboarding() {
     </div>
   )
 
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
   return (
     <div className="min-h-screen bg-warm-50 flex flex-col items-center py-10 px-4">
       <div className="text-center mb-8">
         <h1 className="font-serif text-3xl text-od-green mb-1">ChairOS</h1>
         <p className="text-charcoal-400 text-sm">Let's set up your shop</p>
+        <button onClick={handleSignOut} className="text-xs text-charcoal-400 underline mt-2">
+          Wrong account? Sign out
+        </button>
       </div>
 
       <div className="w-full max-w-lg mb-8">
