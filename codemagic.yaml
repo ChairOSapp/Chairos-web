@@ -82,9 +82,10 @@ workflows:
         script: xcode-project use-profiles
       - name: Bump build number
         script: |
-          xcode-project set-build-number \
-            --project "ios/App/App.xcodeproj" \
-            --build-number "$BUILD_NUMBER"
+          # App Store requires a unique build number per upload.
+          # Codemagic's BUILD_NUMBER is a monotonically increasing integer.
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" ios/App/App.xcodeproj/project.pbxproj
+          grep -m1 "CURRENT_PROJECT_VERSION" ios/App/App.xcodeproj/project.pbxproj
       - name: Build IPA
         script: |
           xcode-project build-ipa \
