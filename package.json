@@ -19,6 +19,7 @@
     "@fullcalendar/interaction": "^6.1.21",
     "@fullcalendar/react": "^6.1.21",
     "@fullcalendar/timegrid": "^6.1.21",
+    "@ilamy/calendar": "^3.1.0",
     "@react-email/components": "^1.0.12",
     "@sentry/nextjs": "^10.71.0",
     "@sentry/node": "^10.71.0",

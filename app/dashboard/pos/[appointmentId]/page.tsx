@@ -290,7 +290,7 @@ export default function POSCheckout() {
         <div className="space-y-2">
           <button
             onClick={() => router.push('/dashboard/calendar')}
-            className="w-full bg-[#7A8C3A] text-black font-semibold py-3 rounded-xl text-sm hover:bg-[#8FA043] transition-colors"
+            className="btn-chairos w-full !py-3 !text-sm"
           >
             Back to calendar
           </button>
@@ -321,7 +321,7 @@ export default function POSCheckout() {
           <div className="space-y-2">
             <button
               onClick={() => router.push('/dashboard/services')}
-              className="w-full bg-[#7A8C3A] text-black font-semibold py-3 rounded-xl text-sm hover:bg-[#8FA043] transition-colors"
+              className="btn-chairos w-full !py-3 !text-sm"
             >
               Go to Services
             </button>
