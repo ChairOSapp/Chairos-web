@@ -273,6 +273,22 @@ export default function Dashboard() {
     return () => { supabase.removeChannel(channel) }
   }, [shopId])
 
+  // Live notification toasts -- pops a toast when a new notification
+  // arrives for this user (new booking, etc). Requires the notifications
+  // table to be in the supabase_realtime publication.
+  useEffect(() => {
+    const uid = profile?.id
+    if (!uid) return
+    const channel = supabase
+      .channel(`notifications-${uid}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` }, (payload) => {
+        const n = payload.new as any
+        if (n?.title) showToast(`${n.title}${n.body ? `: ${n.body}` : ''}`)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.id])
+
   async function updateAppointmentStatus(id: string, status: string) {
     const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
     if (error) showToast(error.message, 'error')
