@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
+import { Capacitor } from '@capacitor/core'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
@@ -77,44 +78,73 @@ export default function BarberEarnings() {
     setLoading(false)
   }
 
-  async function handleGenerateReport() {
-    if (!shop || !barber?.barber_id) return
-    setGenerating(true)
-    setReportError(null)
-    try {
-      const res = await fetch('/api/reports/earnings-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          shopId: shop.id,
-          barberId: barber.barber_id,
-          startDate: `${year}-01-01`,
-          endDate: `${year}-12-31`,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error || 'Failed to generate report')
-      }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      // iOS Safari blocks programmatic download clicks — open in a new tab instead
+  // Opens a PDF blob in a way that works on both web and the native WebView.
+  // window.open and programmatic download clicks are blocked in the Capacitor
+  // WebView, so on native we navigate the WebView itself to the blob URL —
+  // iOS then renders the PDF inline with its own share/print controls.
+  function openPdfBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob)
+    const isNative = Capacitor.isNativePlatform()
+    if (isNative) {
+      window.location.href = url
+    } else {
       const opened = window.open(url, '_blank')
       if (!opened) {
-        // Fallback: trigger download for browsers that allow it
         const a = document.createElement('a')
         a.href = url
-        a.download = `unofficial-1099-${barber?.barber_name || barber?.alias || 'staff'}-${year}.pdf`
+        a.download = filename
         document.body.appendChild(a)
         a.click()
         a.remove()
       }
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  async function fetchReportPdf(): Promise<Blob> {
+    if (!shop || !barber?.barber_id) throw new Error('Missing shop or barber info')
+    const res = await fetch('/api/reports/earnings-summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shopId: shop.id,
+        barberId: barber.barber_id,
+        startDate: `${year}-01-01`,
+        endDate: `${year}-12-31`,
+      }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => null)
+      throw new Error(data?.error || 'Failed to generate report')
+    }
+    return res.blob()
+  }
+
+  function reportFilename() {
+    return `unofficial-1099-${barber?.barber_name || barber?.alias || 'staff'}-${year}.pdf`
+  }
+
+  async function handleGenerateReport() {
+    setGenerating(true)
+    setReportError(null)
+    try {
+      const blob = await fetchReportPdf()
+      openPdfBlob(blob, reportFilename())
     } catch (err: any) {
       setReportError(err?.message || 'Could not generate the report. Try again.')
     } finally {
       setGenerating(false)
     }
+  }
+
+  // window.print() does nothing inside the native WebView — generate the
+  // same PDF and let iOS handle print/share from its own viewer instead.
+  async function handlePrint() {
+    if (Capacitor.isNativePlatform()) {
+      await handleGenerateReport()
+      return
+    }
+    window.print()
   }
 
   if (loading) return (
@@ -160,7 +190,7 @@ export default function BarberEarnings() {
           <span className="font-serif text-od-green text-lg">ChairOS</span>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-3 -mx-1 px-1">
-          <button onClick={() => window.print()}
+          <button onClick={handlePrint}
             className="btn-chairos whitespace-nowrap shrink-0">
             Print / Save PDF
           </button>
