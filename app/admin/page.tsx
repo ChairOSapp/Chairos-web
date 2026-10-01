@@ -185,6 +185,12 @@ export default function AdminPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={async () => { await supabase.auth.signOut(); router.push('/login') }}
+            className="flex items-center gap-1.5 text-xs font-semibold text-charcoal-300 border border-charcoal-700 bg-charcoal-800 hover:bg-charcoal-700 px-4 min-h-[44px] rounded-lg transition-colors"
+          >
+            Sign out
+          </button>
+          <button
             onClick={refresh}
             disabled={refreshing || loading}
             className="flex items-center gap-1.5 text-xs font-semibold text-charcoal-300 border border-charcoal-700 bg-charcoal-800 hover:bg-charcoal-700 px-4 min-h-[44px] rounded-lg transition-colors disabled:opacity-50"
