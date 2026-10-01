@@ -43,9 +43,20 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
   const [genError, setGenError] = useState('')
   const [dismissed, setDismissed] = useState(false)
   const [showAllBarbers, setShowAllBarbers] = useState(false)
+  const [briefCollapsed, setBriefCollapsed] = useState(() => {
+    try { return localStorage.getItem('chairos:brief_collapsed') === '1' } catch { return false }
+  })
   const supabase = createClient()
   const router = useRouter()
   const { staffLabelPlural } = useVerticalLabels()
+
+  function toggleBriefCollapsed() {
+    setBriefCollapsed(prev => {
+      const next = !prev
+      try { localStorage.setItem('chairos:brief_collapsed', next ? '1' : '0') } catch {}
+      return next
+    })
+  }
 
   useEffect(() => {
     async function load() {
@@ -122,14 +133,15 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
 
   return (
     <div className="bg-warm-100 dark:bg-[#1E1E1B] border border-warm-200 dark:border-[#2A2A26] rounded-xl p-5 mb-5">
-      {/* Header */}
+      {/* Header — tap to collapse/expand */}
       <div className="flex items-start justify-between mb-3">
-        <div>
+        <button onClick={toggleBriefCollapsed} className="text-left flex-1 min-w-0">
           <div className="text-xs text-charcoal-500 mb-1">
             {greeting}{name}. Here's your ChairOS {isWeekly ? 'weekly' : 'daily'} brief.
+            <span className="ml-2 text-od-green font-semibold">{briefCollapsed ? 'Expand ↓' : 'Collapse ↑'}</span>
           </div>
           <div className="font-serif text-lg text-od-green leading-snug">{c.headline ?? brief.summary}</div>
-        </div>
+        </button>
         <button
           onClick={() => setDismissed(true)}
           className="text-charcoal-400 hover:text-charcoal-600 ml-4 mt-0.5 flex-shrink-0"
@@ -140,6 +152,9 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
           </svg>
         </button>
       </div>
+
+      {!briefCollapsed && (
+      <>
 
       {/* Barber Rankings — owner briefs, always visible. Top 3 by default, tap to expand. Rows link to staff detail. */}
       {c.barber_rankings?.length > 0 && (
@@ -296,6 +311,8 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
           <div className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: 'var(--color-primary)' }}>Your one thing today</div>
           <div className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{c.one_thing}</div>
         </div>
+      )}
+      </>
       )}
     </div>
   )
