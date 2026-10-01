@@ -271,7 +271,7 @@ export default function Onboarding() {
       <div className="text-center mb-8">
         <h1 className="font-serif text-3xl text-od-green mb-1">ChairOS</h1>
         <p className="text-charcoal-400 text-sm">Let's set up your shop</p>
-        <button onClick={handleSignOut} className="text-xs text-charcoal-400 underline mt-2">
+        <button onClick={handleSignOut} className="text-sm text-red-500 font-medium underline mt-3">
           Wrong account? Sign out
         </button>
       </div>
