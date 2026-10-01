@@ -149,23 +149,28 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
 
   return (
     <div className="bg-warm-100 dark:bg-[#1E1E1B] border border-warm-200 dark:border-[#2A2A26] rounded-xl p-5 mb-5">
-      {/* Header — tap to collapse/expand */}
-      <div className="flex items-start justify-between mb-3">
-        <button onClick={toggleBriefCollapsed} className="text-left flex-1 min-w-0">
-          <div className="text-xs text-charcoal-500 mb-1">
-            {greeting}{name}. Here's your ChairOS {isWeekly ? 'weekly' : 'daily'} brief.
-            <span className="ml-2 text-od-green font-semibold">{briefCollapsed ? 'Expand ↓' : 'Collapse ↑'}</span>
-          </div>
-          <div className="font-serif text-lg text-od-green leading-snug">{c.headline ?? brief.summary}</div>
-        </button>
+      {/* Header — X dismiss on left, collapse toggle on right */}
+      <div className="flex items-start gap-3 mb-3">
         <button
           onClick={dismissBrief}
-          className="text-charcoal-400 hover:text-charcoal-600 ml-4 mt-0.5 flex-shrink-0"
+          className="text-od-green hover:text-od-green-light mt-0.5 flex-shrink-0"
           aria-label="Dismiss brief"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs text-charcoal-500 mb-1">
+            {greeting}{name}. Here's your ChairOS {isWeekly ? 'weekly' : 'daily'} brief.
+          </div>
+          <div className="font-serif text-lg text-od-green leading-snug">{c.headline ?? brief.summary}</div>
+        </div>
+        <button
+          onClick={toggleBriefCollapsed}
+          className="text-xs font-semibold text-od-green hover:text-od-green-light flex-shrink-0 mt-1 transition-colors"
+        >
+          {briefCollapsed ? 'Expand' : 'Collapse'}
         </button>
       </div>
 
