@@ -15,6 +15,7 @@ export default function BarberEarnings() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [hasTaxInfo, setHasTaxInfo] = useState<boolean | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
   const router = useRouter()
   const params = useParams()
   const barberId = params.id as string
@@ -79,6 +80,7 @@ export default function BarberEarnings() {
   async function handleGenerateReport() {
     if (!shop || !barber?.barber_id) return
     setGenerating(true)
+    setReportError(null)
     try {
       const res = await fetch('/api/reports/earnings-summary', {
         method: 'POST',
@@ -90,14 +92,26 @@ export default function BarberEarnings() {
           endDate: `${year}-12-31`,
         }),
       })
-      if (!res.ok) throw new Error('Failed to generate report')
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || 'Failed to generate report')
+      }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `unofficial-1099-${barber?.barber_name || barber?.alias || 'staff'}-${year}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      // iOS Safari blocks programmatic download clicks — open in a new tab instead
+      const opened = window.open(url, '_blank')
+      if (!opened) {
+        // Fallback: trigger download for browsers that allow it
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `unofficial-1099-${barber?.barber_name || barber?.alias || 'staff'}-${year}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (err: any) {
+      setReportError(err?.message || 'Could not generate the report. Try again.')
     } finally {
       setGenerating(false)
     }
@@ -135,18 +149,25 @@ export default function BarberEarnings() {
 
   return (
     <div className="min-h-screen bg-warm-50">
-      <header className="bg-warm-100 border-b border-warm-200 px-6 min-h-14 pt-[env(safe-area-inset-top)] flex items-center justify-between sticky top-0 z-50 no-print">
-        <span className="font-serif text-od-green text-lg">ChairOS</span>
-        <div className="flex items-center gap-3">
+      <header className="bg-warm-100 border-b border-warm-200 px-4 pt-[env(safe-area-inset-top)] sticky top-0 z-50 no-print">
+        <div className="flex items-center gap-3 min-h-14">
+          <button onClick={() => router.push('/dashboard/staff')} aria-label="Back to staff"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-charcoal-700 hover:bg-warm-200 transition-colors shrink-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5m7-7l-7 7 7 7" />
+            </svg>
+          </button>
+          <span className="font-serif text-od-green text-lg">ChairOS</span>
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 -mx-1 px-1">
           <button onClick={() => window.print()}
-            className="btn-chairos">
+            className="btn-chairos whitespace-nowrap shrink-0">
             Print / Save PDF
           </button>
           <button onClick={handleGenerateReport} disabled={generating}
-            className="btn-chairos-outline">
+            className="btn-chairos-outline whitespace-nowrap shrink-0">
             {generating ? 'Generating...' : 'Generate 1099 Summary'}
           </button>
-          <button onClick={() => router.push('/dashboard/staff')} className="btn-chairos-outline">{staffLabelPlural}</button>
         </div>
       </header>
 
@@ -169,6 +190,12 @@ export default function BarberEarnings() {
         {hasTaxInfo === false && (
           <div className="no-print bg-amber-950/40 border border-amber-900 rounded-xl p-4 mb-6 text-xs text-amber-300">
             This person hasn't entered their tax info yet — ask them to fill it in under their profile settings for a complete report. You can still generate one; missing fields will show as placeholders.
+          </div>
+        )}
+
+        {reportError && (
+          <div className="no-print bg-red-950/40 border border-red-900 rounded-xl p-4 mb-6 text-xs text-red-300">
+            {reportError}
           </div>
         )}
 
