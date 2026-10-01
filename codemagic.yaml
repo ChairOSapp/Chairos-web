@@ -69,6 +69,9 @@ workflows:
         script: npm ci
       - name: Sync Capacitor iOS project
         script: npx cap sync ios
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios/App && pod install
       - name: Set up keychain for code signing
         script: keychain initialize
       - name: Fetch signing files
