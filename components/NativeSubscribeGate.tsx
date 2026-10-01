@@ -45,7 +45,7 @@ export default function NativeSubscribeGate({ children }: { children: React.Reac
             Your data is safe and secure. If you ever need to start fresh, just sign up again with the same email — your shop and client history will be right where you left them.
           </p>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => { window.location.href = '/login' }}
             className="w-full py-3 rounded-xl bg-[#8A9A3B] text-white font-bold text-sm hover:bg-[#7A8A33] transition-colors">
             Sign In
           </button>
