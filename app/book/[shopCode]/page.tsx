@@ -1823,6 +1823,12 @@ function BookingPageInner() {
                 </button>
               )}
             </div>
+            {shop?.cancellation_policy && (
+              <div className="mt-4 p-3 bg-warm-100 dark:bg-[#1E1E1B] border border-warm-200 dark:border-[#2A2A26] rounded-lg">
+                <div className="text-xs font-semibold text-charcoal-700 dark:text-[#A8A89E] mb-1">Cancellation Policy</div>
+                <div className="text-xs text-charcoal-600 dark:text-[#8A8A80] whitespace-pre-wrap">{shop.cancellation_policy}</div>
+              </div>
+            )}
             <p className="text-charcoal-600 text-xs text-center mt-6">Powered by ChairOS</p>
           </StepPanel>
         )}

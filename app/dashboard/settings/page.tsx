@@ -59,6 +59,7 @@ export default function ShopSettings() {
   const [minAdvanceMinutes, setMinAdvanceMinutes] = useState('120')
   const [maxAdvanceDays, setMaxAdvanceDays] = useState('90')
   const [cancellationWindowHours, setCancellationWindowHours] = useState('24')
+  const [cancellationPolicy, setCancellationPolicy] = useState('')
   const [slotIntervalMinutes, setSlotIntervalMinutes] = useState('30')
   const [dateExceptions, setDateExceptions] = useState<any[]>([])
   const [newExceptionDate, setNewExceptionDate] = useState('')
@@ -160,6 +161,7 @@ export default function ShopSettings() {
     setMinAdvanceMinutes(String(shop.min_advance_minutes ?? 120))
     setMaxAdvanceDays(String(shop.max_advance_days ?? 90))
     setCancellationWindowHours(String(shop.cancellation_window_hours ?? 24))
+    setCancellationPolicy(shop.cancellation_policy ?? '')
     setSlotIntervalMinutes(String(shop.slot_interval_minutes ?? 30))
     const { data: exc } = await supabase
       .from('shop_date_exceptions')
@@ -320,6 +322,7 @@ export default function ShopSettings() {
       min_advance_minutes: Math.max(0, parseInt(minAdvanceMinutes) || 0),
       max_advance_days: Math.max(1, parseInt(maxAdvanceDays) || 90),
       cancellation_window_hours: Math.max(0, parseInt(cancellationWindowHours) || 0),
+      cancellation_policy: cancellationPolicy.trim() || null,
       slot_interval_minutes: Math.max(5, parseInt(slotIntervalMinutes) || 30),
       twilio_voice_number: normalizeVoiceNumber(twilioVoiceNumber),
       missed_call_textback_enabled: missedCallTextbackEnabled,
@@ -1004,6 +1007,13 @@ export default function ShopSettings() {
               <input type="number" min="5" step="5" value={slotIntervalMinutes} onChange={e => setSlotIntervalMinutes(e.target.value)}
                 className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green" />
               <div className="text-xs text-charcoal-500 mt-2">Times offered on the booking page — every 15 or 30 minutes, your call.</div>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Cancellation policy</label>
+              <textarea value={cancellationPolicy} onChange={e => setCancellationPolicy(e.target.value)} rows={4}
+                placeholder="e.g. Cancellations within 24 hours of your appointment will be charged 50% of the service price. No-shows will be charged the full amount."
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green resize-y" />
+              <div className="text-xs text-charcoal-500 mt-2">Shown to clients on the booking page before they confirm. Keep it plain and direct.</div>
             </div>
           </div>
         </div>
