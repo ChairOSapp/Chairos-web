@@ -28,6 +28,7 @@ function verifySignature(body: string, signature: string, key: string, url: stri
 }
 
 async function notifyClientSlotExpired(appointment: { client_name: string; client_phone: string | null; client_id: string | null }, refundSucceeded: boolean) {
+  const supabase = getSupabase()
   if (!appointment.client_phone) return
   if (appointment.client_id) {
     const { data: client } = await supabase.from('clients').select('sms_consent').eq('id', appointment.client_id).maybeSingle()
@@ -62,6 +63,7 @@ async function notifyClientSlotExpired(appointment: { client_name: string; clien
  * webhooks, which correlate via reference_id = appointments.id directly.
  */
 async function handleDepositPayment(payment: any, depositId: string) {
+  const supabase = getSupabase()
   const { data: deposit } = await supabase
     .from('deposits')
     .select('*, appointments(id, shop_id, barber_id, client_name, client_phone, client_id, status)')
@@ -198,6 +200,7 @@ function addDays(dateStr: string, days: number): string {
  * guessed at.
  */
 async function handleUnreferencedPayment(payment: any) {
+  const supabase = getSupabase()
   if (payment.status !== 'COMPLETED') return
   if (!payment.location_id || !payment.amount_money?.amount) return
 
