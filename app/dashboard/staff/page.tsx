@@ -23,6 +23,8 @@ export default function ManageBarbers() {
   const { staffLabel, staffLabelPlural } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
+  const [rentDue, setRentDue] = useState<any[]>([])
+  const [chargingId, setChargingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -70,7 +72,38 @@ export default function ManageBarbers() {
       .from('shop_barbers').select('*')
       .eq('shop_id', shop.id).order('joined_at', { ascending: true })
     setBarbers(barbers || [])
+
+    // Unpaid booth rent due -- owner taps Charge to run the card.
+    const { data: due } = await supabase
+      .from('booth_rent_payments')
+      .select('id, amount_due, total_due, due_date, barber_id, shop_barber_id, shop_barbers!inner(barber_name, alias)')
+      .eq('shop_id', shop.id)
+      .eq('paid', false)
+      .order('due_date', { ascending: true })
+    setRentDue(due || [])
     setLoading(false)
+  }
+
+  async function handleCharge(paymentId: string) {
+    if (!confirm('Charge this booth rent payment?')) return
+    setChargingId(paymentId)
+    try {
+      const res = await fetch('/api/booth-rent/charge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Charge failed')
+      } else {
+        setSuccess(data.message)
+        loadData()
+      }
+    } catch {
+      setError('Charge failed. Try again.')
+    } finally {
+      setChargingId(null)
+    }
   }
 
   function resetForm() {
@@ -473,6 +506,34 @@ export default function ManageBarbers() {
                 className="btn-chairos flex-1">
                 {saving ? 'Saving...' : editingId ? 'Save Changes' : barberEmail ? 'Add & Generate Invite' : `Add ${staffLabel}`}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* BOOTH RENT DUE */}
+        {rentDue.length > 0 && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+            <div className="px-5 py-4 border-b border-warm-200">
+              <div className="font-serif text-charcoal-900 text-sm">Booth Rent Due</div>
+              <div className="text-xs text-charcoal-500">Tap Charge to run their card on file. Nothing charges automatically.</div>
+            </div>
+            <div className="divide-y divide-warm-200">
+              {rentDue.map(p => (
+                <div key={p.id} className="px-5 py-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-charcoal-900">
+                      {p.shop_barbers?.barber_name || p.shop_barbers?.alias || 'Staff'}
+                    </div>
+                    <div className="text-xs text-charcoal-500">
+                      ${Number(p.total_due).toFixed(2)} · due {new Date(p.due_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+                  <button onClick={() => handleCharge(p.id)} disabled={chargingId === p.id}
+                    className="btn-chairos text-sm disabled:opacity-50">
+                    {chargingId === p.id ? 'Charging…' : 'Charge'}
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
