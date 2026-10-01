@@ -79,26 +79,34 @@ export default function BarberEarnings() {
   }
 
   // Opens a PDF blob in a way that works on both web and the native WebView.
-  // window.open and programmatic download clicks are blocked in the Capacitor
-  // WebView, so on native we navigate the WebView itself to the blob URL —
-  // iOS then renders the PDF inline with its own share/print controls.
-  function openPdfBlob(blob: Blob, filename: string) {
+  // window.open, window.location to blob URLs, and programmatic downloads are
+  // all blocked in the Capacitor WebView — so we render the PDF inline in a
+  // full-screen viewer instead. iOS's built-in PDF viewer provides its own
+  // share/print/save controls.
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+
+  function openPdfBlob(blob: Blob) {
     const url = URL.createObjectURL(blob)
     const isNative = Capacitor.isNativePlatform()
     if (isNative) {
-      window.location.href = url
+      setPdfUrl(url)
     } else {
       const opened = window.open(url, '_blank')
       if (!opened) {
         const a = document.createElement('a')
         a.href = url
-        a.download = filename
+        a.download = reportFilename()
         document.body.appendChild(a)
         a.click()
         a.remove()
       }
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
     }
-    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  function closePdfViewer() {
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl)
+    setPdfUrl(null)
   }
 
   async function fetchReportPdf(): Promise<Blob> {
@@ -129,7 +137,7 @@ export default function BarberEarnings() {
     setReportError(null)
     try {
       const blob = await fetchReportPdf()
-      openPdfBlob(blob, reportFilename())
+      openPdfBlob(blob)
     } catch (err: any) {
       setReportError(err?.message || 'Could not generate the report. Try again.')
     } finally {
@@ -293,6 +301,20 @@ export default function BarberEarnings() {
         )}
       </div>
       <MobileNav />
+
+      {/* In-app PDF viewer for native — iOS renders the PDF with share/print/save */}
+      {pdfUrl && (
+        <div className="fixed inset-0 z-[70] bg-black flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 pt-[env(safe-area-inset-top)] bg-warm-100 border-b border-warm-200">
+            <span className="text-sm font-semibold text-charcoal-900 truncate">{reportFilename()}</span>
+            <button onClick={closePdfViewer}
+              className="btn-chairos-outline whitespace-nowrap shrink-0 ml-3">
+              Done
+            </button>
+          </div>
+          <iframe src={pdfUrl} className="flex-1 w-full bg-white" title="Earnings report PDF" />
+        </div>
+      )}
 
       <style>{`
         @media print {
