@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { presentPdf } from '@/lib/pdfShare'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import StaffNav from '@/components/StaffNav'
 
@@ -182,12 +183,7 @@ export default function BarberEarningsPage() {
       })
       if (!res.ok) throw new Error('Failed to generate report')
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `unofficial-1099-${year}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await presentPdf(blob, `unofficial-1099-${year}.pdf`)
     } finally {
       setGenerating(false)
     }

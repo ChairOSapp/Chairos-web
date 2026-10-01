@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import { Capacitor } from '@capacitor/core'
+import { presentPdf } from '@/lib/pdfShare'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
@@ -78,43 +79,11 @@ export default function BarberEarnings() {
     setLoading(false)
   }
 
-  // Opens a PDF blob in a way that works on both web and the native WebView.
-  // window.open, window.location to blob URLs, and programmatic downloads are
-  // all blocked in the Capacitor WebView — so we render the PDF inline in a
-  // full-screen viewer instead. iOS's built-in PDF viewer provides its own
-  // share/print/save controls.
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
-
-  function openPdfBlob(blob: Blob) {
-    const isNative = Capacitor.isNativePlatform()
-    if (isNative) {
-      // WKWebView cannot render blob: URLs in iframes — use a data URL instead
-      const reader = new FileReader()
-      reader.onload = () => {
-        setPdfUrl(reader.result as string)
-      }
-      reader.onerror = () => {
-        setReportError('Could not display the PDF. Try again.')
-      }
-      reader.readAsDataURL(blob)
-    } else {
-      const url = URL.createObjectURL(blob)
-      const opened = window.open(url, '_blank')
-      if (!opened) {
-        const a = document.createElement('a')
-        a.href = url
-        a.download = reportFilename()
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
-    }
-  }
-
-  function closePdfViewer() {
-    setPdfUrl(null)
-  }
+  // Opens a PDF blob via the shared pdfShare utility: native share sheet on
+  // the app (iOS share sheet includes Print, Save to Files, etc.), new
+  // tab/download on web. The WebView blocks window.open, window.print,
+  // downloads, and blob: URLs in iframes, so native must go through the
+  // Filesystem + Share plugins.
 
   async function fetchReportPdf(): Promise<Blob> {
     if (!shop || !barber?.barber_id) throw new Error('Missing shop or barber info')
@@ -144,7 +113,7 @@ export default function BarberEarnings() {
     setReportError(null)
     try {
       const blob = await fetchReportPdf()
-      openPdfBlob(blob)
+      await presentPdf(blob, reportFilename())
     } catch (err: any) {
       setReportError(err?.message || 'Could not generate the report. Try again.')
     } finally {
@@ -153,7 +122,7 @@ export default function BarberEarnings() {
   }
 
   // window.print() does nothing inside the native WebView — generate the
-  // same PDF and let iOS handle print/share from its own viewer instead.
+  // same PDF and share it via the native share sheet instead.
   async function handlePrint() {
     if (Capacitor.isNativePlatform()) {
       await handleGenerateReport()
@@ -308,20 +277,6 @@ export default function BarberEarnings() {
         )}
       </div>
       <MobileNav />
-
-      {/* In-app PDF viewer for native — iOS renders the PDF with share/print/save */}
-      {pdfUrl && (
-        <div className="fixed inset-0 z-[70] bg-black flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 pt-[env(safe-area-inset-top)] bg-warm-100 border-b border-warm-200">
-            <span className="text-sm font-semibold text-charcoal-900 truncate">{reportFilename()}</span>
-            <button onClick={closePdfViewer}
-              className="btn-chairos-outline whitespace-nowrap shrink-0 ml-3">
-              Done
-            </button>
-          </div>
-          <iframe src={pdfUrl} className="flex-1 w-full bg-white" title="Earnings report PDF" />
-        </div>
-      )}
 
       <style>{`
         @media print {
