@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from '@vercel/analytics'
 import { createClient } from '@/lib/supabase'
+import NativeSubscribeGate from '@/components/NativeSubscribeGate'
 
 const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
@@ -134,6 +135,7 @@ export default function Subscribe() {
   }
 
   return (
+    <NativeSubscribeGate>
     <div className="min-h-screen bg-warm-50 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-3xl">
         <div className="text-center mb-10">
@@ -221,5 +223,6 @@ export default function Subscribe() {
         </div>
       </div>
     </div>
+    </NativeSubscribeGate>
   )
 }

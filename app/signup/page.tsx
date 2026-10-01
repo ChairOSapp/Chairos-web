@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { track } from '@vercel/analytics'
 import Link from 'next/link'
 import Turnstile, { type TurnstileHandle } from '@/components/Turnstile'
+import NativeSubscribeGate from '@/components/NativeSubscribeGate'
 
 type Step = 'credentials' | 'role' | 'confirmed'
 
@@ -209,6 +210,7 @@ export default function Signup() {
   )
 
   return (
+    <NativeSubscribeGate>
     <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
@@ -260,5 +262,6 @@ export default function Signup() {
         </form>
       </div>
     </div>
+    </NativeSubscribeGate>
   )
 }
