@@ -92,29 +92,30 @@ export default function StaffMobileNav({ userId }: { userId?: string }) {
       )}
       </AnimatePresence>
 
-      <div aria-hidden className="md:hidden h-[calc(4rem+env(safe-area-inset-bottom))]" />
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] px-2 py-2 pb-safe flex justify-around z-50">
-        {ITEMS.map((item) => {
-          const active = pathname === item.href || (item.href !== '/dashboard/chair' && pathname.startsWith(item.href))
-          return (
-            <button
-              key={item.href}
-              onClick={() => router.push(item.href)}
-              className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${active ? 'text-od-green dark:text-[#7A8C3A]' : 'text-charcoal-500 dark:text-[#A8A89E]'}`}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d={item.icon} />
-              </svg>
-              <span className="text-xs">{item.label}</span>
-            </button>
-          )
-        })}
-        <button onClick={() => setMoreOpen(true)}
-          className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${moreActive ? 'text-od-green dark:text-[#7A8C3A]' : 'text-charcoal-500 dark:text-[#A8A89E]'}`}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
-          </svg>
-          <span className="text-xs">More</span>
-        </button>
+      <div aria-hidden className="md:hidden h-[calc(5rem+env(safe-area-inset-bottom))]" />
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
+        <div className="pointer-events-auto mx-4 mb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-[#1E1E1B] rounded-full px-2 py-2 flex items-center gap-1 shadow-lg border border-[#2A2A26]">
+          {ITEMS.map((item) => {
+            const active = pathname === item.href || (item.href !== '/dashboard/chair' && pathname.startsWith(item.href))
+            return (
+              <button
+                key={item.href}
+                onClick={() => router.push(item.href)}
+                aria-label={item.label}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${active ? 'bg-[#2E2E2A] text-white' : 'text-[#A8A89E] hover:text-white'}`}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={item.icon} />
+                </svg>
+              </button>
+            )
+          })}
+          <button onClick={() => setMoreOpen(true)} aria-label="More"
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${moreActive ? 'bg-[#2E2E2A] text-white' : 'text-[#A8A89E] hover:text-white'}`}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
+            </svg>
+          </button>
+        </div>
       </div>
     </>
   )
