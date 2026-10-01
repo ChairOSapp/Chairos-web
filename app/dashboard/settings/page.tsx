@@ -1018,6 +1018,53 @@ export default function ShopSettings() {
           </div>
         </div>
 
+        {/* DATA EXPORT */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200">
+            <div className="font-serif text-charcoal-900 text-sm">Export Your Data</div>
+            <div className="text-xs text-charcoal-500">Download your client list and appointment history as CSV files. Your data, your call.</div>
+          </div>
+          <div className="p-5 flex flex-col sm:flex-row gap-3">
+            <a href="/api/shop/export?type=clients" download
+              className="btn-chairos-outline text-center">
+              Download Clients CSV
+            </a>
+            <a href="/api/shop/export?type=appointments" download
+              className="btn-chairos-outline text-center">
+              Download Appointments CSV
+            </a>
+          </div>
+          <div className="px-5 pb-5">
+            <div className="border-t border-warm-200 pt-4 mt-1">
+              <div className="text-xs font-semibold text-charcoal-700 mb-1">Delete my account and all data</div>
+              <div className="text-xs text-charcoal-500 mb-3">
+                This requests permanent deletion of your shop, clients, appointments, and all associated data.
+                Requests are completed within 30 days. This cannot be undone.
+              </div>
+              <button
+                onClick={async () => {
+                  if (!shop?.id) return
+                  const reason = prompt('Why are you leaving? (optional)')
+                  if (!confirm('Are you sure? This will permanently delete your shop and all its data. This cannot be undone.')) return
+                  try {
+                    const res = await fetch('/api/shop/deletion-request', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ shopId: shop.id, reason }),
+                    })
+                    const data = await res.json()
+                    alert(data.ok ? data.message : (data.error || 'Could not submit request'))
+                  } catch {
+                    alert('Could not submit request. Try again.')
+                  }
+                }}
+                className="text-xs px-4 py-2 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 transition-colors">
+                Request Account Deletion
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* CLOSED DATES */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-warm-200">
