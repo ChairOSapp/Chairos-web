@@ -86,11 +86,19 @@ export default function BarberEarnings() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
 
   function openPdfBlob(blob: Blob) {
-    const url = URL.createObjectURL(blob)
     const isNative = Capacitor.isNativePlatform()
     if (isNative) {
-      setPdfUrl(url)
+      // WKWebView cannot render blob: URLs in iframes — use a data URL instead
+      const reader = new FileReader()
+      reader.onload = () => {
+        setPdfUrl(reader.result as string)
+      }
+      reader.onerror = () => {
+        setReportError('Could not display the PDF. Try again.')
+      }
+      reader.readAsDataURL(blob)
     } else {
+      const url = URL.createObjectURL(blob)
       const opened = window.open(url, '_blank')
       if (!opened) {
         const a = document.createElement('a')
@@ -105,7 +113,6 @@ export default function BarberEarnings() {
   }
 
   function closePdfViewer() {
-    if (pdfUrl) URL.revokeObjectURL(pdfUrl)
     setPdfUrl(null)
   }
 
