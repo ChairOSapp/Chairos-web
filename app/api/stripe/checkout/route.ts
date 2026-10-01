@@ -57,15 +57,37 @@ export async function POST(req: NextRequest) {
 
     const origin = new URL(req.url).origin
 
+    // Trial abuse check: if this email had a trial before (within 180 days),
+    // no free trial this time — they go straight to paid.
+    // Uses service role since trial_history has no public RLS policies.
+    const { createClient: createServiceClient } = await import('@supabase/supabase-js')
+    const serviceSupabase = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const email = user.email?.toLowerCase().trim()
+    let hasHadTrial = false
+    if (email) {
+      const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: priorTrial } = await serviceSupabase
+        .from('trial_history')
+        .select('id')
+        .eq('email', email)
+        .gte('created_at', cutoff)
+        .limit(1)
+        .maybeSingle()
+      hasHadTrial = !!priorTrial
+    }
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: 'subscription',
       payment_method_collection: 'always',
       line_items: [{ price: PRICES[plan], quantity: 1 }],
       subscription_data: {
-        trial_period_days: 30,
+        ...(hasHadTrial ? {} : { trial_period_days: 30 }),
         metadata: { user_id: user.id, plan },
       },
-      metadata: { user_id: user.id, plan },
+      metadata: { user_id: user.id, plan, returning_customer: hasHadTrial ? 'true' : 'false' },
       success_url: `${origin}/dashboard?subscribed=1`,
       cancel_url: `${origin}/subscribe`,
     }

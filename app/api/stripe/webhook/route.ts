@@ -143,6 +143,16 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe, supabase: any) {
         const email = session.customer_email || session.customer_details?.email || 'unknown'
         const planLabel = planType === 'shop' ? 'Shop Owner ($79/mo)' : 'Solo Chair ($25/mo)'
         await notifySlack(`🎉 New ChairOS subscriber!\nPlan: ${planLabel}\nEmail: ${email}`)
+
+        // Record trial start (only if this subscription actually has a trial —
+        // returning customers skip the trial via the checkout abuse check).
+        if (trialEnd && email !== 'unknown') {
+          await supabase.from('trial_history').insert({
+            email: email.toLowerCase().trim(),
+            user_id: userId,
+            trial_started_at: new Date().toISOString(),
+          })
+        }
         logger.info('stripe_checkout_completed', { userId, planType, subStatus })
       } catch (err: any) {
         logger.error('stripe_checkout_completed_error', { userId, message: err.message })
@@ -248,6 +258,22 @@ async function handleEvent(event: Stripe.Event, stripe: Stripe, supabase: any) {
         payload: subscription as any,
       })
       logger.info('stripe_subscription_deleted', { customerId })
+
+      // Record trial usage to prevent trial abuse (cancel → re-signup for another free month).
+      if (ownerProfile?.id) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', ownerProfile.id)
+          .maybeSingle()
+        if (prof?.email) {
+          await supabase.from('trial_history').insert({
+            email: prof.email.toLowerCase().trim(),
+            user_id: ownerProfile.id,
+            trial_ended_at: new Date().toISOString(),
+          })
+        }
+      }
 
       // The whole subscription is gone, so any add-on item went with it —
       // clear the flag and release the platform Twilio numbers.
