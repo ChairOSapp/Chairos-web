@@ -10,6 +10,7 @@ import VitalsGrid from '@/components/admin/VitalsGrid'
 import CustomerHealth from '@/components/admin/CustomerHealth'
 import ProductHealth from '@/components/admin/ProductHealth'
 import PlatformHealth from '@/components/admin/PlatformHealth'
+import FeedbackReview from '@/components/admin/FeedbackReview'
 import GrowthSection from '@/components/admin/GrowthSection'
 import AccountsTable from '@/components/admin/AccountsTable'
 import ShopsTable from '@/components/admin/ShopsTable'
@@ -167,6 +168,11 @@ export default function AdminPage() {
         kind: 'component', id: 'growth', eyebrow: 'Momentum', title: 'Growth',
         blurb: 'Are more people finding ChairOS and actually booking through it?',
         render: () => <GrowthSection metrics={metrics} pulse={pulse} />,
+      },
+      {
+        kind: 'component', id: 'feedback', eyebrow: 'From users', title: 'App feedback',
+        blurb: 'What users are saying about the app — feature requests and improvements.',
+        render: () => <FeedbackReview />,
       },
       { kind: 'tabs', id: 'directory' },
     ]
