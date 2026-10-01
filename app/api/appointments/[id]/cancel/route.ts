@@ -7,12 +7,15 @@ import { triggerWaitlistOutreach } from '@/lib/waitlistNotify'
 import { sendNotification, formatApptWhen } from '@/lib/notify'
 import { logger } from '@/lib/logger'
 
-const supabase = createClient(
+function getSupabase() {
+  return createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const supabase = getSupabase()
   const { id: appointmentId } = await params
 
   let reason: string | undefined

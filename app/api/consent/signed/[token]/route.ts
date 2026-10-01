@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
+function getSupabase() {
+  return createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 // Public route gated by the signature's own access_token (unguessable
 // UUID), not RLS — the client that signed has no Supabase Auth identity to
 // scope an RLS policy to, so this is their only path to "own signed copy".
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const supabase = getSupabase()
   const { token } = await params
 
   const { data: signature, error } = await supabase

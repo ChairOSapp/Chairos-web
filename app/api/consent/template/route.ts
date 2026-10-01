@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
+function getSupabase() {
+  return createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 // Public route: clients have no Supabase Auth session, so the appointment
 // itself (an unguessable UUID they were given at booking) is the access
@@ -12,6 +14,7 @@ const supabase = createClient(
 // (owner-only, per Task 1) — this route is the only way a client ever
 // sees an active template, and it uses the service role deliberately.
 export async function GET(req: NextRequest) {
+  const supabase = getSupabase()
   const appointmentId = req.nextUrl.searchParams.get('appointmentId')
   if (!appointmentId) {
     return NextResponse.json({ error: 'appointmentId is required' }, { status: 400 })

@@ -3,17 +3,22 @@ import { createClient } from '@supabase/supabase-js'
 import { computeAvailableSlots, timeStrToMinutes, dateIsBeyondHorizon, type BlockedInterval, type DayHours } from '@/lib/availability'
 import { resolveTimeZone, nowWallClock, todayInTimeZone } from '@/lib/wallclock'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+// Lazy Supabase client — created inside handlers, not at module level,
+// so `next build` static collection doesn't blow up when env vars are missing.
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 // Appointments in these statuses no longer occupy the slot.
 const NON_BLOCKING_STATUSES = ['cancelled']
 
 export async function GET(req: NextRequest) {
+  const supabase = getSupabase()
   const shopCode = req.nextUrl.searchParams.get('shopCode')?.toUpperCase()
   const date = req.nextUrl.searchParams.get('date')
   const serviceId = req.nextUrl.searchParams.get('serviceId')

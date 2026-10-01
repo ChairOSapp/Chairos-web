@@ -9,14 +9,17 @@ import { timeStrToMinutes } from '@/lib/availability'
 import { logger } from '@/lib/logger'
 import { fromDollars, toCents } from '@/lib/money'
 
-const supabase = createClient(
+function getSupabase() {
+  return createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 const HOLD_MINUTES = 15
 
 export async function POST(req: NextRequest) {
+  const supabase = getSupabase()
   const cookieStore = await cookies()
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

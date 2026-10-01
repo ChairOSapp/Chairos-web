@@ -4,12 +4,15 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-const supabase = createClient(
+function getSupabase() {
+  return createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 export async function GET(req: NextRequest) {
+  const supabase = getSupabase()
   const { searchParams, origin } = new URL(req.url)
   const code = searchParams.get('code')
   const state = searchParams.get('state')

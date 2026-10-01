@@ -9,12 +9,15 @@ import { generateReviewResponseDraft } from '@/lib/reviewResponseAI'
 // would let an owner fabricate verified-looking reviews.
 const VALID_SOURCES = ['manual'] as const
 
-const supabase = createClient(
+function getSupabase() {
+  return createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 export async function POST(req: NextRequest) {
+  const supabase = getSupabase()
   const cookieStore = await cookies()
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

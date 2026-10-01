@@ -8,10 +8,12 @@ import { notifySlack } from '@/lib/slack'
 import { logger } from '@/lib/logger'
 import { sendNotification } from '@/lib/notify'
 
-const supabase = createClient(
+function getSupabase() {
+  return createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 function verifySignature(body: string, signature: string, key: string, url: string): boolean {
   const expected = createHmac('sha256', key)
@@ -304,6 +306,7 @@ async function handleUnreferencedPayment(payment: any) {
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = getSupabase()
   const body = await req.text()
   const signature = req.headers.get('x-square-hmacsha256-signature') || ''
 
