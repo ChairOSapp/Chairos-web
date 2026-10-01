@@ -204,17 +204,17 @@ export default function ConsentFormsPage() {
         <div className="mb-8">
           <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Consent Forms</h1>
           <p className="text-charcoal-500 text-sm">
-            Upload your attorney-sourced consent form — ChairOS makes it interactive, not legal advice.
-            {shop?.vertical === 'tattoo' && ' Tattoo bookings cannot be confirmed without an active version.'}
+            Upload your consent form — ChairOS makes it signable, not legal advice.
+            {shop?.require_consent_form && ' Bookings cannot be confirmed without an active version.'}
           </p>
         </div>
 
         {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-6">{error}</p>}
         {success && <p className="text-green-400 text-sm bg-green-950 border border-green-900 rounded-lg p-3 mb-6">{success}</p>}
 
-        {shop?.vertical === 'tattoo' && !activeTemplate && (
+        {shop?.require_consent_form && !activeTemplate && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 text-sm text-amber-700">
-            No active consent form — tattoo appointments cannot be confirmed until you upload one.
+            No active consent form — appointments cannot be confirmed until you upload one.
           </div>
         )}
 
