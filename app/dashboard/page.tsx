@@ -379,25 +379,6 @@ export default function Dashboard() {
           </button>
         )}
 
-        <BriefCard recipientName={ownerName} />
-
-        {/* Client portal discoverability: the portal only works if clients
-            know it exists -- link + QR code the owner can share or display. */}
-        <ClientPortalCard />
-
-        {shopId && <RecommendationsPanel shopId={shopId} />}
-
-        {shopId && (
-          <WalkInQueue
-            shopId={shopId}
-            shopCode={shop?.shop_code}
-            actingBarberId={null}
-            barbers={barbers}
-            services={services}
-            onConverted={() => loadSchedule(shopId)}
-          />
-        )}
-
         {/* 2. HEADER */}
         <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-0.5">
@@ -408,17 +389,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 2b. TODAY'S OUTLOOK — predictive strip */}
-        {shopId && (
-          <TodayIntelStrip
-            shopId={shopId}
-            todayAppointments={todayAppointments}
-            barbers={barbers}
-            quietClientCount={totalAtRisk}
-          />
-        )}
+        {/* 3. AI DAILY BRIEF — the star of the dashboard */}
+        <BriefCard recipientName={ownerName} />
 
-        {/* 3. TODAY AT A GLANCE */}
+        {/* 4. TODAY AT A GLANCE */}
         <div className="bg-warm-100 border border-warm-200 rounded-2xl p-5 mb-5">
           <div className="flex items-center justify-between mb-4">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Today at a glance</div>
@@ -454,7 +428,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 4. TODAY'S APPOINTMENTS */}
+        {/* 5. TODAY'S APPOINTMENTS */}
         <div className="mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">
@@ -508,7 +482,125 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 5. THE FLOOR — compact pills */}
+        {/* 6. BARBER PERFORMANCE TABLE */}
+        {allBarbers.filter(b => b.barber_id).length > 0 && (
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{staffLabel} Performance</div>
+              <button onClick={() => router.push('/dashboard/insights')} className="btn-chairos-outline">Full Analytics</button>
+            </div>
+            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+              <div className="grid grid-cols-4 px-4 py-2 border-b border-warm-200 text-[10px] font-semibold tracking-widest uppercase text-charcoal-400">
+                <div>{staffLabel}</div>
+                <div className="text-center">Locked</div>
+                <div className="text-center">Appts / 30d</div>
+                <div className="text-center">Repeat Rate</div>
+              </div>
+              {allBarbers.filter(b => b.barber_id).map((b: any) => {
+                const stats = barberStats30[b.barber_id] ?? { appts: 0, clients: 0, repeatClients: 0 }
+                const lockedCount = clientLocks.filter(l => l.locked && l.barber_id === b.barber_id).length
+                const repeatRate = stats.clients > 0 ? Math.round((stats.repeatClients / stats.clients) * 100) : 0
+                const isRisk = !!barberRiskMap[b.barber_id]
+                return (
+                  <div key={b.id} className={`grid grid-cols-4 px-4 py-3 border-b border-warm-200 last:border-0 items-center ${isRisk ? 'bg-red-500/5' : ''}`}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: b.color || '#b8861f' }} />
+                      <span className="text-sm font-medium text-charcoal-900 truncate">{b.barber_name || b.alias}</span>
+                      {isRisk && <span className="text-[10px] text-red-400 font-semibold flex-shrink-0">↓risk</span>}
+                    </div>
+                    <div className="text-center">
+                      <span className={`text-sm font-semibold ${lockedCount > 0 ? 'text-od-green' : 'text-charcoal-500'}`}>{lockedCount}</span>
+                    </div>
+                    <div className="text-center text-sm text-charcoal-700">{stats.appts}</div>
+                    <div className="text-center">
+                      <span className={`text-sm font-semibold ${repeatRate >= 40 ? 'text-od-green' : repeatRate >= 20 ? 'text-amber-500' : 'text-charcoal-500'}`}>
+                        {repeatRate}%
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 7. TODAY'S OUTLOOK — predictive strip */}
+        {shopId && (
+          <TodayIntelStrip
+            shopId={shopId}
+            todayAppointments={todayAppointments}
+            barbers={barbers}
+            quietClientCount={totalAtRisk}
+          />
+        )}
+
+        {/* 8. WALK-IN QUEUE */}
+        {shopId && (
+          <WalkInQueue
+            shopId={shopId}
+            shopCode={shop?.shop_code}
+            actingBarberId={null}
+            barbers={barbers}
+            services={services}
+            onConverted={() => loadSchedule(shopId)}
+          />
+        )}
+
+        {/* 9. CLIENT LOCK — compact */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Client lock</div>
+            <button onClick={() => router.push('/dashboard/insights')} className="btn-chairos-outline">Analytics</button>
+          </div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+            <div className="grid grid-cols-3 divide-x divide-warm-200">
+              {[
+                { label: 'Locked', count: totalLocked, color: 'text-od-green', href: '/dashboard/clients' },
+                { label: 'At Risk', count: totalAtRisk, color: 'text-amber-600', href: '/dashboard/clients' },
+                { label: 'Floating', count: totalFloating, color: 'text-red-400', href: '/dashboard/clients' },
+              ].map((s) => (
+                <button key={s.label} onClick={() => router.push(s.href)}
+                  className="p-4 text-center hover:bg-warm-200/50 transition-colors">
+                  <div className={`font-serif text-3xl mb-1 ${s.color}`}>{s.count}</div>
+                  <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{s.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 10. RETENTION VALUE */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Retention Value</div>
+            {savedClientsCount > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-od-green font-semibold">
+                <div className="w-1.5 h-1.5 rounded-full bg-od-green" />
+                {savedClientsCount} saved this month
+              </div>
+            )}
+          </div>
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
+            <div className="p-5">
+              <div className="text-xs text-charcoal-500 mb-1">Revenue From Locked Clients This Month</div>
+              <div className="font-serif text-5xl text-od-green leading-none">
+                ${retentionRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              </div>
+              <div className="text-xs text-charcoal-500 mt-2">
+                {totalLocked} locked client{totalLocked !== 1 ? 's' : ''} · last 30 days · appointments + tips
+              </div>
+            </div>
+            {savedClientsCount > 0 && (
+              <div className="border-t border-warm-200 px-5 py-3 bg-od-green/5">
+                <div className="text-xs text-charcoal-700">
+                  <span className="font-semibold text-od-green">{savedClientsCount} client{savedClientsCount !== 1 ? 's' : ''}</span> re-engaged via lapse alerts this month — revenue that would have walked out
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 11. THE FLOOR — compact pills */}
         <div className="mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">The floor</div>
@@ -554,103 +646,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 6. CLIENT LOCK — compact */}
-        <div className="mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Client lock</div>
-            <button onClick={() => router.push('/dashboard/insights')} className="btn-chairos-outline">Analytics</button>
-          </div>
-          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
-            <div className="grid grid-cols-3 divide-x divide-warm-200">
-              {[
-                { label: 'Locked', count: totalLocked, color: 'text-od-green', href: '/dashboard/clients' },
-                { label: 'At Risk', count: totalAtRisk, color: 'text-amber-600', href: '/dashboard/clients' },
-                { label: 'Floating', count: totalFloating, color: 'text-red-400', href: '/dashboard/clients' },
-              ].map((s) => (
-                <button key={s.label} onClick={() => router.push(s.href)}
-                  className="p-4 text-center hover:bg-warm-200/50 transition-colors">
-                  <div className={`font-serif text-3xl mb-1 ${s.color}`}>{s.count}</div>
-                  <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{s.label}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* 7b. RETENTION VALUE — top priority sales surface */}
-        <div className="mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Retention Value</div>
-            {savedClientsCount > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-od-green font-semibold">
-                <div className="w-1.5 h-1.5 rounded-full bg-od-green" />
-                {savedClientsCount} saved this month
-              </div>
-            )}
-          </div>
-          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
-            <div className="p-5">
-              <div className="text-xs text-charcoal-500 mb-1">Revenue From Locked Clients This Month</div>
-              <div className="font-serif text-5xl text-od-green leading-none">
-                ${retentionRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-              </div>
-              <div className="text-xs text-charcoal-500 mt-2">
-                {totalLocked} locked client{totalLocked !== 1 ? 's' : ''} · last 30 days · appointments + tips
-              </div>
-            </div>
-            {savedClientsCount > 0 && (
-              <div className="border-t border-warm-200 px-5 py-3 bg-od-green/5">
-                <div className="text-xs text-charcoal-700">
-                  <span className="font-semibold text-od-green">{savedClientsCount} client{savedClientsCount !== 1 ? 's' : ''}</span> re-engaged via lapse alerts this month — revenue that would have walked out
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 7c. BARBER PERFORMANCE TABLE */}
-        {allBarbers.filter(b => b.barber_id).length > 0 && (
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">{staffLabel} Performance</div>
-              <button onClick={() => router.push('/dashboard/insights')} className="btn-chairos-outline">Full Analytics</button>
-            </div>
-            <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-4 px-4 py-2 border-b border-warm-200 text-[10px] font-semibold tracking-widest uppercase text-charcoal-400">
-                <div>{staffLabel}</div>
-                <div className="text-center">Locked</div>
-                <div className="text-center">Appts / 30d</div>
-                <div className="text-center">Repeat Rate</div>
-              </div>
-              {allBarbers.filter(b => b.barber_id).map((b: any) => {
-                const stats = barberStats30[b.barber_id] ?? { appts: 0, clients: 0, repeatClients: 0 }
-                const lockedCount = clientLocks.filter(l => l.locked && l.barber_id === b.barber_id).length
-                const repeatRate = stats.clients > 0 ? Math.round((stats.repeatClients / stats.clients) * 100) : 0
-                const isRisk = !!barberRiskMap[b.barber_id]
-                return (
-                  <div key={b.id} className={`grid grid-cols-4 px-4 py-3 border-b border-warm-200 last:border-0 items-center ${isRisk ? 'bg-red-500/5' : ''}`}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: b.color || '#b8861f' }} />
-                      <span className="text-sm font-medium text-charcoal-900 truncate">{b.barber_name || b.alias}</span>
-                      {isRisk && <span className="text-[10px] text-red-400 font-semibold flex-shrink-0">↓risk</span>}
-                    </div>
-                    <div className="text-center">
-                      <span className={`text-sm font-semibold ${lockedCount > 0 ? 'text-od-green' : 'text-charcoal-500'}`}>{lockedCount}</span>
-                    </div>
-                    <div className="text-center text-sm text-charcoal-700">{stats.appts}</div>
-                    <div className="text-center">
-                      <span className={`text-sm font-semibold ${repeatRate >= 40 ? 'text-od-green' : repeatRate >= 20 ? 'text-amber-500' : 'text-charcoal-500'}`}>
-                        {repeatRate}%
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 8. SHOP — compact */}
+        {/* 12. SHOP — compact */}
         <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Shop</div>
           <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden">
@@ -701,6 +697,12 @@ export default function Dashboard() {
             Open the kiosk link on a tablet or iPad at the front counter so walk-ins can check themselves in — they'll show up in the Walk-in Queue above.
           </p>
         </div>
+
+
+        {/* 13. CLIENT PORTAL + RECOMMENDATIONS — bottom of dashboard */}
+        <ClientPortalCard />
+
+        {shopId && <RecommendationsPanel shopId={shopId} />}
 
       </div>
       <MobileNav />
