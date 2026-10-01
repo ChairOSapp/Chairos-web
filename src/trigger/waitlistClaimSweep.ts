@@ -1,4 +1,3 @@
-import { schedules } from "@trigger.dev/sdk"
 import { logger } from "@/lib/logger"
 import { getAdminClient, notifyNextWaitlistCandidate } from "@/lib/waitlistNotify"
 
@@ -10,10 +9,7 @@ import { getAdminClient, notifyNextWaitlistCandidate } from "@/lib/waitlistNotif
 // the slot open for normal booking instead of texting someone with no
 // real chance of making it in. Same "periodic scan finds its own work"
 // shape as abandonedBookingSweep.
-export const waitlistClaimSweep = schedules.task({
-  id: "waitlist-claim-sweep",
-  cron: "*/5 * * * *",
-  run: async () => {
+export async function runWaitlistClaimSweep() {
     const supabase = getAdminClient()
     const now = new Date().toISOString()
 
@@ -60,5 +56,4 @@ export const waitlistClaimSweep = schedules.task({
 
     logger.info('waitlist_claim_sweep_run_complete', { expired: expiredCount, cascaded: cascadedCount })
     return { expired: expiredCount, cascaded: cascadedCount }
-  },
-})
+}

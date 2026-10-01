@@ -1,4 +1,3 @@
-import { schedules } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
 import twilio from "twilio"
 import { logger } from "@/lib/logger"
@@ -57,10 +56,7 @@ async function hasOptedOut(supabase: ReturnType<typeof getSupabase>, e164: strin
   return data?.type === 'sms_optout'
 }
 
-export const abandonedBookingSweep = schedules.task({
-  id: "abandoned-booking-sweep",
-  cron: "*/5 * * * *",
-  run: async () => {
+export async function runAbandonedBookingSweep() {
     const supabase = getSupabase()
     const cutoff = new Date(Date.now() - TIMEOUT_MINUTES * 60_000).toISOString()
 
@@ -95,8 +91,7 @@ export const abandonedBookingSweep = schedules.task({
 
     logger.info('abandoned_booking_sweep_run_complete', { scanned: staleSessions.length, abandoned: abandonedCount, sent: sentCount })
     return { abandoned: abandonedCount, sent: sentCount }
-  },
-})
+}
 
 async function sendRecoveryForSession(
   supabase: ReturnType<typeof getSupabase>,

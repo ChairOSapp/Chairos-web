@@ -1,4 +1,3 @@
-import { schedules } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
 import { logger } from "@/lib/logger"
 import { runReferralNotifications } from "./referralNotifications"
@@ -10,10 +9,7 @@ function getSupabase() {
   )
 }
 
-export const depositHoldExpiration = schedules.task({
-  id: "deposit-hold-expiration",
-  cron: "*/5 * * * *",
-  run: async () => {
+export async function runDepositHoldExpiration() {
     const supabase = getSupabase()
 
     const { data: expired, error } = await supabase
@@ -65,5 +61,4 @@ export const depositHoldExpiration = schedules.task({
     }
 
     return { expired: expired?.length ?? 0, cancelled }
-  },
-})
+}
