@@ -347,7 +347,7 @@ export async function refreshSquareAccessToken(
       headers: { 'Content-Type': 'application/json', 'Square-Version': '2024-01-18' },
       body: JSON.stringify({
         client_id: process.env.SQUARE_APPLICATION_ID,
-        client_secret: process.env.SQUARE_CLIENT_SECRET,
+        client_secret: process.env.SQUARE_APPLICATION_SECRET,
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
       }),
