@@ -36,7 +36,7 @@ export default function OwnerNav({ shopName, ownerName, initials, userId }: {
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
   const { staffLabelPlural, vertical } = useVerticalLabels()
-  const navItems = NAV_ITEMS.filter(item => !item.tattooOnly || vertical === 'tattoo')
+  const navItems = NAV_ITEMS
 
   async function handleSignOut() {
     await supabase.auth.signOut()

@@ -37,7 +37,7 @@ export default function MobileNav() {
   const [moreOpen, setMoreOpen] = useState(false)
   const [navVisible, setNavVisible] = useState(true)
   const lastScrollY = useRef(0)
-  const moreItems = MORE_ITEMS.filter(item => !item.tattooOnly || vertical === 'tattoo')
+  const moreItems = MORE_ITEMS
   const moreActive = moreItems.some(item => pathname === item.href || pathname.startsWith(item.href + '/'))
 
   // Auto-hide on scroll down, show on scroll up (like Facebook/Instagram)
