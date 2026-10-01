@@ -19,10 +19,13 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function clientIpFrom(req: Request): string {
-  const forwardedFor = req.headers.get("x-forwarded-for");
-  if (forwardedFor) return forwardedFor.split(",")[0].trim();
+  // Prefer Cloudflare's connecting IP (can't be spoofed by the client).
+  // x-forwarded-for is client-controlled and only used as a fallback.
   return req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || "unknown";
 }
+
+// Max 2MB for the signature PNG data URL (base64 inflates ~33%).
+const MAX_SIGNATURE_DATA_URL_LENGTH = 2 * 1024 * 1024 * 1.4;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -54,34 +57,48 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Missing required fields" }, 400);
     }
 
-    // Validate the single-use signing token. This is the authentication
-    // for this endpoint — bare appointment UUIDs are not trusted.
-    const { data: tokenRow, error: tokenErr } = await supabase
-      .from("consent_signing_tokens")
-      .select("id, appointment_id, template_id, expires_at, used_at")
-      .eq("token", signingToken)
-      .maybeSingle();
-    if (tokenErr || !tokenRow) {
-      return jsonResponse({ error: "Invalid signing token" }, 401);
+    // Reject oversized payloads before doing any work.
+    if (signatureImageDataUrl.length > MAX_SIGNATURE_DATA_URL_LENGTH) {
+      return jsonResponse({ error: "Signature image is too large" }, 413);
     }
-    if (tokenRow.used_at) {
-      return jsonResponse({ error: "This signing link has already been used" }, 401);
+    if (artistSignatureImageDataUrl && artistSignatureImageDataUrl.length > MAX_SIGNATURE_DATA_URL_LENGTH) {
+      return jsonResponse({ error: "Artist signature image is too large" }, 413);
     }
-    if (new Date(tokenRow.expires_at) < new Date()) {
-      return jsonResponse({ error: "This signing link has expired" }, 401);
-    }
-    if (tokenRow.appointment_id !== appointmentId || tokenRow.template_id !== templateId) {
-      return jsonResponse({ error: "Signing token does not match this request" }, 401);
+    if (typedName.length > 200 || (artistName && artistName.length > 200)) {
+      return jsonResponse({ error: "Name is too long" }, 400);
     }
 
-    // Mark the token as used (single-use).
-    const { error: useErr } = await supabase
+    // Validate the single-use signing token. This is the authentication
+    // for this endpoint — bare appointment UUIDs are not trusted.
+    // Atomic claim: only one concurrent request can win the UPDATE.
+    const claimedAt = new Date().toISOString();
+    const { data: tokenRow, error: tokenErr } = await supabase
       .from("consent_signing_tokens")
-      .update({ used_at: new Date().toISOString() })
-      .eq("id", tokenRow.id)
-      .is("used_at", null);
-    if (useErr) {
-      return jsonResponse({ error: "Could not validate signing token" }, 500);
+      .update({ used_at: claimedAt })
+      .eq("token", signingToken)
+      .is("used_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .select("id, appointment_id, template_id")
+      .maybeSingle();
+    if (tokenErr || !tokenRow) {
+      // Distinguish expired/used/invalid for a better client message.
+      const { data: existing } = await supabase
+        .from("consent_signing_tokens")
+        .select("used_at, expires_at")
+        .eq("token", signingToken)
+        .maybeSingle();
+      if (existing?.used_at) {
+        return jsonResponse({ error: "This signing link has already been used" }, 401);
+      }
+      if (existing && new Date(existing.expires_at) < new Date()) {
+        return jsonResponse({ error: "This signing link has expired" }, 401);
+      }
+      return jsonResponse({ error: "Invalid signing token" }, 401);
+    }
+    if (tokenRow.appointment_id !== appointmentId || tokenRow.template_id !== templateId) {
+      // Release the claim — token doesn't match this request.
+      await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenRow.id);
+      return jsonResponse({ error: "Signing token does not match this request" }, 401);
     }
 
     const { data: appointment, error: apptErr } = await supabase
@@ -90,9 +107,11 @@ Deno.serve(async (req: Request) => {
       .eq("id", appointmentId)
       .maybeSingle();
     if (apptErr || !appointment) {
+      await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenRow.id);
       return jsonResponse({ error: "Appointment not found" }, 404);
     }
     if (!appointment.client_id) {
+      await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenRow.id);
       return jsonResponse({ error: "Appointment has no linked client record" }, 400);
     }
 
@@ -102,12 +121,15 @@ Deno.serve(async (req: Request) => {
       .eq("id", templateId)
       .maybeSingle();
     if (templateErr || !template) {
+      await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenRow.id);
       return jsonResponse({ error: "Consent form template not found" }, 404);
     }
     if (template.shop_id !== appointment.shop_id) {
+      await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenRow.id);
       return jsonResponse({ error: "Template does not belong to this appointment's shop" }, 400);
     }
     if (!template.is_active) {
+      await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenRow.id);
       return jsonResponse({ error: "This consent form version is no longer active. Please refresh and try again." }, 409);
     }
 
@@ -118,6 +140,7 @@ Deno.serve(async (req: Request) => {
       .eq("client_id", appointment.client_id)
       .maybeSingle();
     if (existing) {
+      // Already signed — keep the token consumed, the work is done.
       return jsonResponse({ error: "This consent form has already been signed", signatureId: existing.id }, 409);
     }
 
@@ -125,6 +148,7 @@ Deno.serve(async (req: Request) => {
       .from("consent-templates")
       .download(template.file_path);
     if (downloadErr || !fileBlob) {
+      await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenRow.id);
       return jsonResponse({ error: "Could not load the consent form template" }, 500);
     }
 
@@ -262,6 +286,7 @@ Deno.serve(async (req: Request) => {
       .from("consent-signed")
       .upload(signedPdfPath, flattenedBytes, { contentType: "application/pdf" });
     if (uploadErr) {
+      await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenRow.id);
       return jsonResponse({ error: `Failed to store signed document: ${uploadErr.message}` }, 500);
     }
 
@@ -282,6 +307,9 @@ Deno.serve(async (req: Request) => {
       .select("id, access_token")
       .single();
     if (insertErr || !signature) {
+      // Clean up the orphaned upload, then release the token for retry.
+      await supabase.storage.from("consent-signed").remove([signedPdfPath]);
+      await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenRow.id);
       return jsonResponse({ error: `Failed to record signature: ${insertErr?.message}` }, 500);
     }
 
