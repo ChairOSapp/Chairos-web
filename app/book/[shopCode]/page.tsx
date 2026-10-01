@@ -686,32 +686,11 @@ function BookingPageInner() {
     }
   }
 
-  // Post-booking side effects: owner/barber notifications, client SMS,
-  // analytics. Runs only once the booking is fully settled (paid, or no
-  // payment required) -- never on the payment-failed path.
+  // Post-booking side effects: client SMS, analytics. Owner/barber
+  // notifications are sent server-side in /api/book/create. Runs only
+  // once the booking is fully settled (paid, or no payment required) --
+  // never on the payment-failed path.
   async function finalizeBooking(appointmentId: string) {
-    const barberLabel = selectedBarber?.barber_name || selectedBarber?.alias || `Any ${staffLabelLower}`
-    const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-    await supabase.from('notifications').insert({
-      user_id: shop.owner_id,
-      shop_id: shop.id,
-      type: 'booking',
-      title: 'New booking',
-      body: `${clientName} booked ${selectedService.name} with ${barberLabel} on ${dateLabel} at ${selectedTime}`,
-      read: false
-    })
-
-    if (selectedBarber?.barber_id) {
-      await supabase.from('notifications').insert({
-        user_id: selectedBarber.barber_id,
-        shop_id: shop.id,
-        type: 'booking',
-        title: 'New appointment',
-        body: `${clientName} booked ${selectedService.name} on ${dateLabel} at ${selectedTime}`,
-        read: false
-      })
-    }
-
     if (smsConsent) {
       // Anonymous confirmation: the server composes the message from the
       // appointment itself (shop/service/date/time) -- the client never

@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
   const { data: shop } = await admin
     .from('shops')
-    .select('id, shop_code, min_advance_minutes, max_advance_days, require_consent_form')
+    .select('id, shop_code, owner_id, min_advance_minutes, max_advance_days, require_consent_form')
     .eq('shop_code', String(shopCode).toUpperCase())
     .maybeSingle()
   if (!shop) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
@@ -379,11 +379,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Booking failed. Please try again.' }, { status: 500 })
   }
 
-  // Fire-and-forget: tell the barber about the new booking.
-  notifyBarberOfBooking({
+  // Fire-and-forget: tell the barber and shop owner about the new booking.
+  notifyOfBooking({
     appointmentId: inserted.id,
     barberId: resolvedBarberId,
     shopId: shop.id,
+    ownerId: shop.owner_id,
     clientName: clientName.trim(),
     serviceName: service.name ?? null,
     date,
@@ -400,25 +401,42 @@ export async function POST(req: NextRequest) {
 
 // Notify the barber about a new online booking (in-app + push when they
 // have the iOS app). Never fails the booking itself.
-async function notifyBarberOfBooking(opts: {
+async function notifyOfBooking(opts: {
   appointmentId: string
   barberId: string | null
   shopId: string
+  ownerId: string | null
   clientName: string
   serviceName: string | null
   date: string
   time: string
 }) {
-  if (!opts.barberId) return
+  const when = formatApptWhen(opts.date, opts.time)
+  const body = `${opts.clientName} booked${opts.serviceName ? ` a ${opts.serviceName}` : ''} — ${when}.`
+  const link = `/dashboard/calendar?appt=${opts.appointmentId}`
   try {
-    await sendNotification({
-      userId: opts.barberId,
-      shopId: opts.shopId,
-      type: 'booking',
-      title: 'New booking',
-      body: `${opts.clientName} booked${opts.serviceName ? ` a ${opts.serviceName}` : ''} — ${formatApptWhen(opts.date, opts.time)}.`,
-      link: `/dashboard/calendar?appt=${opts.appointmentId}`,
-    })
+    // Notify the assigned barber (if one was resolved).
+    if (opts.barberId) {
+      await sendNotification({
+        userId: opts.barberId,
+        shopId: opts.shopId,
+        type: 'booking',
+        title: 'New booking',
+        body,
+        link,
+      })
+    }
+    // Notify the shop owner (unless the owner IS the assigned barber).
+    if (opts.ownerId && opts.ownerId !== opts.barberId) {
+      await sendNotification({
+        userId: opts.ownerId,
+        shopId: opts.shopId,
+        type: 'booking',
+        title: 'New booking',
+        body,
+        link,
+      })
+    }
   } catch (err) {
     logger.warn('book_create_notify_failed', { error: String(err) })
   }
