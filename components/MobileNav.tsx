@@ -64,8 +64,20 @@ export default function MobileNav() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [moreOpen])
 
+  // Tapping the active tab scrolls back to the top (standard mobile pattern)
+  function isCurrentPage(href: string) {
+    if (href === '/dashboard/insights') {
+      return ['/dashboard/analytics', '/dashboard/insights', '/dashboard/revenue'].some(p => pathname === p || pathname.startsWith(p + '/'))
+    }
+    return pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'))
+  }
+
   function go(href: string) {
     setMoreOpen(false)
+    if (isCurrentPage(href)) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     router.push(href)
   }
 
@@ -110,7 +122,7 @@ export default function MobileNav() {
               ? ['/dashboard/analytics', '/dashboard/insights', '/dashboard/revenue'].some(p => pathname === p || pathname.startsWith(p + '/'))
               : (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)))
             return (
-              <button key={item.href} onClick={() => router.push(item.href)} aria-label={item.label}
+              <button key={item.href} onClick={() => go(item.href)} aria-label={item.label}
                 className={`w-16 h-12 rounded-full flex items-center justify-center transition-colors ${active ? 'bg-warm-200 dark:bg-[#2E2E2A] text-charcoal-900 dark:text-white' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-white'}`}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d={item.icon} />
