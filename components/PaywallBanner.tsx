@@ -77,7 +77,7 @@ export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate,
         </div>
         <button
           onClick={() => router.push('/subscribe')}
-          className="flex-shrink-0 bg-amber-600 hover:bg-amber-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
+          className="flex-shrink-0 bg-[#8A9A3B] hover:bg-[#7A8A33] text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
         >
           Go Solo — $25/mo
         </button>

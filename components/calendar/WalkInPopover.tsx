@@ -131,7 +131,7 @@ export default function WalkInPopover({
         {/* Header */}
         <div className="px-4 pt-4 flex items-start gap-3">
           <div
-            className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 border-2 border-dashed border-amber-500"
+            className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 border-2 border-dashed border-[#8A9A3B]"
             style={{ background: tint('#d97706', 0.12), color: '#b45309' }}
           >
             {initials}

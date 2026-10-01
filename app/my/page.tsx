@@ -462,7 +462,7 @@ export default function ClientPortalPage() {
     const weekday = d.toLocaleDateString('en-US', { weekday: 'short' })
     return (
       <div className="flex-shrink-0 w-14 text-center bg-white/[0.06] border border-white/10 rounded-xl py-2">
-        <div className="text-[10px] font-bold tracking-widest text-amber-400/90">{month}</div>
+        <div className="text-[10px] font-bold tracking-widest text-[#8A9A3B]">{month}</div>
         <div className="text-xl font-bold text-white leading-tight">{day}</div>
         <div className="text-[10px] text-white/50">{weekday}</div>
       </div>
@@ -476,7 +476,7 @@ export default function ClientPortalPage() {
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-lg font-bold text-black">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#8A9A3B] to-[#5A6630] flex items-center justify-center text-lg font-bold text-black">
                 {firstName[0]?.toUpperCase() || '?'}
               </div>
               <div>
@@ -497,8 +497,8 @@ export default function ClientPortalPage() {
           <div className="space-y-5">
             {/* Next appointment hero */}
             {nextAppt && (
-              <div className="bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/20 rounded-2xl p-5">
-                <div className="text-[11px] font-bold tracking-widest text-amber-400/90 mb-3">NEXT APPOINTMENT</div>
+              <div className="bg-gradient-to-br from-[#8A9A3B]/15 to-[#5A6630]/5 border border-[#8A9A3B]/20 rounded-2xl p-5">
+                <div className="text-[11px] font-bold tracking-widest text-[#8A9A3B] mb-3">NEXT APPOINTMENT</div>
                 <div className="flex gap-4">
                   <DateBadge date={nextAppt.date} />
                   <div className="flex-1 min-w-0">
@@ -532,7 +532,7 @@ export default function ClientPortalPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-semibold text-white truncate">{a.serviceName}</span>
-                          <span className="text-sm text-amber-400 font-semibold ml-2">${a.price}</span>
+                          <span className="text-sm text-[#8A9A3B] font-semibold ml-2">${a.price}</span>
                         </div>
                         <div className="text-xs text-white/50 mt-0.5">{a.shopName}{a.barberName ? ` · ${a.barberName}` : ''}</div>
                         <div className="text-xs text-white/40">{fmtTime(a.time)}</div>
@@ -567,12 +567,12 @@ export default function ClientPortalPage() {
                 <div className="grid grid-cols-1 gap-2">
                   {client.shops.map(s => (
                     <a key={s.shopId} href={s.shopCode ? `/book/${s.shopCode}` : '#'}
-                      className="flex items-center justify-between bg-white/[0.04] border border-white/10 rounded-2xl p-4 hover:border-amber-500/40 hover:bg-white/[0.06] transition-all group">
+                      className="flex items-center justify-between bg-white/[0.04] border border-white/10 rounded-2xl p-4 hover:border-[#8A9A3B]/40 hover:bg-white/[0.06] transition-all group">
                       <div>
                         <div className="text-sm font-semibold text-white">{s.shopName}</div>
                         <div className="text-xs text-white/40">Tap to book</div>
                       </div>
-                      <div className="w-9 h-9 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-black transition-all">
+                      <div className="w-9 h-9 rounded-full bg-[#8A9A3B]/15 border border-[#8A9A3B]/30 flex items-center justify-center text-[#8A9A3B] group-hover:bg-[#8A9A3B] group-hover:text-black transition-all">
                         →
                       </div>
                     </a>
@@ -605,7 +605,7 @@ export default function ClientPortalPage() {
                     <div className="flex items-center justify-between mt-2">
                       <div className="text-xs text-white/40">{fmtDate(a.date)} · <span className="capitalize">{a.status}</span></div>
                       <button onClick={() => handleRebook(a.id)} disabled={rebooking === a.id}
-                        className="text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-50">
+                        className="text-xs font-bold text-[#8A9A3B] hover:text-[#7A8A33] transition-colors disabled:opacity-50">
                         {rebooking === a.id ? 'Booking…' : 'Rebook →'}
                       </button>
                     </div>
@@ -653,7 +653,7 @@ export default function ClientPortalPage() {
                                     setTimeout(() => setCopiedReferralShopId(null), 2000)
                                   }
                                 }}
-                                className="flex-shrink-0 px-4 py-2 bg-amber-500 text-black text-xs font-bold rounded-xl hover:bg-amber-400 transition-colors">
+                                className="flex-shrink-0 px-4 py-2 bg-[#8A9A3B] text-white text-xs font-bold rounded-xl hover:bg-[#7A8A33] transition-colors">
                                 {copiedReferralShopId === s.shopId ? 'Copied!' : 'Copy'}
                               </button>
                             </div>
@@ -694,7 +694,7 @@ export default function ClientPortalPage() {
               <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6 text-center text-white/50 text-sm">Book somewhere first to save a card.</div>
             ) : walletLoading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-white/40 text-sm">
-                <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-amber-400 animate-spin flex-shrink-0" />
+                <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-[#8A9A3B] animate-spin flex-shrink-0" />
                 Loading your wallet…
               </div>
             ) : (
@@ -719,7 +719,7 @@ export default function ClientPortalPage() {
                           </div>
                         </div>
                         <button onClick={() => open ? closeWalletForm() : openWalletForm(shop)}
-                          className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-amber-500 text-black hover:bg-amber-400 transition-colors">
+                          className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-[#8A9A3B] text-white hover:bg-[#7A8A33] transition-colors">
                           {open ? 'Close' : status === 'none' ? 'Add card' : 'Update'}
                         </button>
                       </div>
@@ -729,7 +729,7 @@ export default function ClientPortalPage() {
                             <div className="mb-4">
                               <label className="block text-[11px] font-bold tracking-widest text-white/40 mb-2">FOR WHICH BARBER?</label>
                               <select value={selectedBarberId} onChange={e => { setSquareNotConnected(false); setSelectedBarberId(e.target.value) }}
-                                className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors">
+                                className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#8A9A3B] transition-colors">
                                 {selectedShop.barbers.map(b => <option key={b.barberId} value={b.barberId} className="bg-neutral-900">{b.name}</option>)}
                               </select>
                               <p className="text-xs text-white/40 mt-1.5">Cards are kept with your barber, so pick the one you book with.</p>
@@ -749,7 +749,7 @@ export default function ClientPortalPage() {
                               <div className="bg-black/40 border border-white/10 rounded-xl p-4 mb-3">
                                 {cardLoading && (
                                   <div className="flex items-center gap-2 py-3 text-white/40 text-sm">
-                                    <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-amber-400 animate-spin flex-shrink-0" />
+                                    <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-[#8A9A3B] animate-spin flex-shrink-0" />
                                     Loading card form...
                                   </div>
                                 )}
@@ -767,7 +767,7 @@ export default function ClientPortalPage() {
                                 )}
                               </div>
                               <button onClick={handleSaveCard} disabled={saving || !cardReady}
-                                className="w-full font-bold py-3 rounded-xl text-sm transition-colors text-black bg-amber-500 hover:bg-amber-400 disabled:opacity-50">
+                                className="w-full font-bold py-3 rounded-xl text-sm transition-colors text-white bg-[#8A9A3B] hover:bg-[#7A8A33] disabled:opacity-50">
                                 {saving ? 'Saving…' : 'Save Card'}
                               </button>
                               <label className="flex items-start gap-3 cursor-pointer mt-3">
@@ -775,7 +775,7 @@ export default function ClientPortalPage() {
                                   type="checkbox"
                                   checked={cardConsent}
                                   onChange={e => setCardConsent(e.target.checked)}
-                                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-amber-500"
+                                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#8A9A3B]"
                                 />
                                 <span className="text-xs text-white/50 leading-relaxed">{cardConsentText}</span>
                               </label>
@@ -803,7 +803,7 @@ export default function ClientPortalPage() {
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex flex-col items-center gap-1 py-3 transition-colors ${
-                tab === t.key ? 'text-amber-400' : 'text-white/40 hover:text-white/70'
+                tab === t.key ? 'text-[#8A9A3B]' : 'text-white/40 hover:text-white/70'
               }`}>
               <span className="text-xl leading-none">{t.icon}</span>
               <span className="text-[10px] font-semibold">{t.label}</span>

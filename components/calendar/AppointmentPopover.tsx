@@ -325,7 +325,7 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
               appointment.price == null ? (
                 <button
                   onClick={() => { onClose(); if (isOwner) router.push('/dashboard/services') }}
-                  className="w-full py-3 rounded-xl text-sm font-bold bg-amber-500/15 text-amber-700 border border-amber-500/40 hover:bg-amber-500/25 transition-colors"
+                  className="w-full py-3 rounded-xl text-sm font-bold bg-[#8A9A3B]/15 text-[#8A9A3B] border border-[#8A9A3B]/40 hover:bg-[#8A9A3B]/25 transition-colors"
                 >
                   {isOwner ? 'Set a price to check out' : 'Ask the owner to set a price first'}
                 </button>
