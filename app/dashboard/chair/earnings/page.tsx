@@ -47,6 +47,12 @@ export default function BarberEarningsPage() {
 
   useEffect(() => { loadData() }, [year])
 
+  // Auto-refresh every 30s so tips, commission, and booth rent stay current
+  useEffect(() => {
+    const id = setInterval(() => { loadData() }, 30000)
+    return () => clearInterval(id)
+  }, [year])
+
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
