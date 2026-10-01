@@ -1,0 +1,1 @@
+{"crons":[{"path":"/api/admin/retention-cleanup","schedule":"0 3 * * *"}]}
