@@ -39,9 +39,10 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { appointmentId, templateId, typedName, signatureImageDataUrl, signedDate, artistName, artistSignatureImageDataUrl } = body as {
+    const { appointmentId, templateId, signingToken, typedName, signatureImageDataUrl, signedDate, artistName, artistSignatureImageDataUrl } = body as {
       appointmentId?: string;
       templateId?: string;
+      signingToken?: string;
       typedName?: string;
       signatureImageDataUrl?: string;
       signedDate?: string;
@@ -49,8 +50,38 @@ Deno.serve(async (req: Request) => {
       artistSignatureImageDataUrl?: string;
     };
 
-    if (!appointmentId || !templateId || !typedName?.trim() || !signatureImageDataUrl || !signedDate) {
+    if (!appointmentId || !templateId || !signingToken || !typedName?.trim() || !signatureImageDataUrl || !signedDate) {
       return jsonResponse({ error: "Missing required fields" }, 400);
+    }
+
+    // Validate the single-use signing token. This is the authentication
+    // for this endpoint — bare appointment UUIDs are not trusted.
+    const { data: tokenRow, error: tokenErr } = await supabase
+      .from("consent_signing_tokens")
+      .select("id, appointment_id, template_id, expires_at, used_at")
+      .eq("token", signingToken)
+      .maybeSingle();
+    if (tokenErr || !tokenRow) {
+      return jsonResponse({ error: "Invalid signing token" }, 401);
+    }
+    if (tokenRow.used_at) {
+      return jsonResponse({ error: "This signing link has already been used" }, 401);
+    }
+    if (new Date(tokenRow.expires_at) < new Date()) {
+      return jsonResponse({ error: "This signing link has expired" }, 401);
+    }
+    if (tokenRow.appointment_id !== appointmentId || tokenRow.template_id !== templateId) {
+      return jsonResponse({ error: "Signing token does not match this request" }, 401);
+    }
+
+    // Mark the token as used (single-use).
+    const { error: useErr } = await supabase
+      .from("consent_signing_tokens")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", tokenRow.id)
+      .is("used_at", null);
+    if (useErr) {
+      return jsonResponse({ error: "Could not validate signing token" }, 500);
     }
 
     const { data: appointment, error: apptErr } = await supabase

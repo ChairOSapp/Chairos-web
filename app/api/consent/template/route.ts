@@ -76,6 +76,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Could not generate a link to the consent form' }, { status: 500 })
   }
 
+  // Issue a single-use signing token (24h expiry). The Edge Function will
+  // require this token — bare appointment UUIDs are no longer trusted.
+  const token = crypto.randomUUID() + '-' + crypto.randomUUID()
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+  const { error: tokenErr } = await supabase
+    .from('consent_signing_tokens')
+    .insert({
+      appointment_id: appointment.id,
+      template_id: template.id,
+      token,
+      expires_at: expiresAt,
+    })
+  if (tokenErr) {
+    return NextResponse.json({ error: 'Could not issue signing token' }, { status: 500 })
+  }
+
   return NextResponse.json({
     alreadySigned: false,
     templateId: template.id,
@@ -83,5 +99,6 @@ export async function GET(req: NextRequest) {
     signedUrl: signedUrlData.signedUrl,
     shopName: shop?.name || 'the shop',
     clientName: appointment.client_name,
+    signingToken: token,
   })
 }

@@ -12,6 +12,7 @@ interface TemplateInfo {
   signedUrl?: string
   shopName?: string
   clientName?: string
+  signingToken?: string
 }
 
 export default function ConsentSigningPage({ params }: { params: Promise<{ appointmentId: string }> }) {
@@ -61,6 +62,7 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
       body: {
         appointmentId,
         templateId: info?.templateId,
+        signingToken: info?.signingToken,
         typedName: typedName.trim(),
         signatureImageDataUrl,
         signedDate: today,
