@@ -15,6 +15,7 @@ export default function Login() {
   const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
   const turnstileRef = useRef<TurnstileHandle>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -22,7 +23,7 @@ export default function Login() {
   // If already signed in, route immediately
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return
+      if (!user) { setCheckingSession(false); return }
       // Deferred welcome email from signup: signup has no session when
       // email confirmation is required, so the flag fires here, once, with
       // the session present. The endpoint derives the recipient from the
@@ -110,6 +111,12 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center p-4">
+      {checkingSession ? (
+        <div className="text-center">
+          <div className="w-8 h-8 rounded-full border-2 border-charcoal-200 border-t-od-green animate-spin mx-auto mb-4" />
+          <p className="text-charcoal-400 text-sm">Checking your session...</p>
+        </div>
+      ) : (
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-serif text-od-green mb-1">ChairOS</h1>
@@ -142,6 +149,7 @@ export default function Login() {
           </p>
         </form>
       </div>
+      )}
     </div>
   )
 }
