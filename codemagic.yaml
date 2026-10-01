@@ -61,8 +61,7 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_ids:
-          - cc.chairos.app
+        bundle_identifier: cc.chairos.app
       node: 22
       xcode: latest
       cocoapods: default
