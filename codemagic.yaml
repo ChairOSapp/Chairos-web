@@ -63,9 +63,6 @@ workflows:
         distribution_type: app_store
         bundle_ids:
           - cc.chairos.app
-      vars:
-        # App Store Connect credentials come from the Codemagic UI's
-        # secure environment variable group, not hardcoded here.
       node: 22
       xcode: latest
       cocoapods: default
@@ -93,6 +90,8 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
+    integrations:
+      app_store_connect: Apple
     publishing:
       app_store_connect:
         auth: integration
