@@ -237,12 +237,13 @@ export default function ClientPortalPage() {
         setCardReady(true)
       } catch (e) {
         // Failed init (Square CDN hiccup, attach race, ...) is now loud:
-        // Sentry gets the real error, the client gets a message plus a
-        // retry, instead of the dead "unavailable" line.
+        // Sentry gets the real error. The client gets the specific failure
+        // step so the actual problem can be diagnosed instead of guessing.
         console.error('Square init error:', describeSquareInitError(step, e), e)
         if (isMounted) {
           Sentry.captureException(e, { tags: { area: 'portal_square_card_init' }, extra: { shopId: selectedShopId } })
-          setSquareError('The card form didn\u2019t load. Check your connection and try again. Nothing was saved or charged.')
+          const detail = describeSquareInitError(step, e)
+          setSquareError(`The card form didn't load (${step}): ${detail} Nothing was saved or charged.`)
         }
       } finally {
         if (isMounted) setCardLoading(false)
