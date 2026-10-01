@@ -64,10 +64,8 @@ workflows:
         bundle_ids:
           - cc.chairos.app
       vars:
-        APP_STORE_CONNECT_ISSUER_ID: Encrypted(...)
-        APP_STORE_CONNECT_KEY_IDENTIFIER: Encrypted(...)
-        APP_STORE_CONNECT_PRIVATE_KEY: Encrypted(...)
-        CERTIFICATE_PRIVATE_KEY: Encrypted(...)
+        # App Store Connect credentials come from the Codemagic UI's
+        # secure environment variable group, not hardcoded here.
       node: 22
       xcode: latest
       cocoapods: default
