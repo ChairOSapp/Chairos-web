@@ -137,6 +137,19 @@ export default function Dashboard() {
     setTips(tipsData || [])
   }, [])
 
+  async function handleConfirmAppointment(appointmentId: string) {
+    const { error } = await supabase
+      .from('appointments')
+      .update({ status: 'confirmed' })
+      .eq('id', appointmentId)
+    if (error) {
+      alert('Could not confirm this booking. Try again.')
+      return
+    }
+    // The realtime subscription on appointments re-loads the schedule.
+    if (shopId) loadSchedule(shopId)
+  }
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -451,6 +464,7 @@ export default function Dashboard() {
                     && a.payment_status !== 'paid'
                     && a.status !== 'cancelled'
                     && a.status !== 'noshow'
+                  const confirmable = a.status === 'pending' && a.source !== 'walk_in'
                   return (
                     <div key={a.id} className="px-4 py-3 flex items-center gap-3">
                       <span className="font-mono text-xs text-od-green w-10 flex-shrink-0">{a.time?.slice(0,5) || '—'}</span>
@@ -464,6 +478,14 @@ export default function Dashboard() {
                       <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full flex-shrink-0 ${badge.cls}`}>
                         {badge.label}
                       </span>
+                      {confirmable && (
+                        <button
+                          onClick={() => handleConfirmAppointment(a.id)}
+                          className="btn-chairos flex-shrink-0 whitespace-nowrap"
+                        >
+                          Confirm
+                        </button>
+                      )}
                       {checkable ? (
                         <button
                           onClick={() => router.push(`/dashboard/pos/${a.id}`)}
