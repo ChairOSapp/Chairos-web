@@ -75,14 +75,14 @@ export default function MobileNav() {
 
       <div aria-hidden className="md:hidden h-[calc(5rem+env(safe-area-inset-bottom))]" />
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
-        <div className="pointer-events-auto mx-4 mb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-[#1E1E1B] dark:bg-[#1E1E1B] rounded-full px-2 py-2 flex items-center gap-1 shadow-lg border border-[#2A2A26]">
+        <div className="pointer-events-auto mx-6 mb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-[#1E1E1B] dark:bg-white dark:bg-[#1E1E1B] rounded-full px-3 py-2 flex items-center gap-1 shadow-lg border border-warm-200 dark:border-[#2A2A26]">
           {ITEMS.map((item) => {
             const active = item.href === '/dashboard/insights'
               ? ['/dashboard/analytics', '/dashboard/insights', '/dashboard/revenue'].some(p => pathname === p || pathname.startsWith(p + '/'))
               : (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)))
             return (
               <button key={item.href} onClick={() => router.push(item.href)} aria-label={item.label}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${active ? 'bg-[#2E2E2A] text-white' : 'text-[#A8A89E] hover:text-white'}`}>
+                className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${active ? 'bg-warm-200 dark:bg-[#2E2E2A] text-charcoal-900 dark:text-white' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-white'}`}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d={item.icon} />
                 </svg>
@@ -90,7 +90,7 @@ export default function MobileNav() {
             )
           })}
           <button onClick={() => setMoreOpen(true)} aria-label="More"
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${moreActive ? 'bg-[#2E2E2A] text-white' : 'text-[#A8A89E] hover:text-white'}`}>
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${moreActive ? 'bg-warm-200 dark:bg-[#2E2E2A] text-charcoal-900 dark:text-white' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-white'}`}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
             </svg>
