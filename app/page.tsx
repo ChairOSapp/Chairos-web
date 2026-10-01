@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { track } from '@vercel/analytics'
 import { createClient } from '@/lib/supabase'
 import LandingNav from '@/components/LandingNav'
+import { isNativeApp } from '@/lib/platform'
 
 // ---------------------------------------------------------------------------
 // ChairOS landing — rebuilt 2026-09-27.
@@ -284,6 +285,8 @@ export default function LandingPage() {
 
   useEffect(() => {
     async function checkAuth() {
+      // Native app is login-only — skip the marketing page entirely.
+      if (isNativeApp()) { router.push('/login'); return }
       const { data: { user } } = await supabase.auth.getUser()
       if (user) { router.push('/dashboard'); return }
     }
