@@ -11,10 +11,12 @@ import {
 export { NOTIFICATION_EVENT_TYPES, resolveEventKey, defaultChannels }
 export type { NotificationEventKey }
 
-const supabase = createSupabaseClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabase() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 /**
  * Which channels a notification type may use for this user.
@@ -22,6 +24,7 @@ const supabase = createSupabaseClient(
  * defaults, so behavior is unchanged until the owner touches Settings.
  */
 export async function resolveChannels(userId: string, type: string): Promise<string[]> {
+  const supabase = getSupabase()
   const key = resolveEventKey(type)
   const fallback = defaultChannels(key)
   try {
@@ -61,6 +64,7 @@ export async function sendNotification({
   // should stay in-app only.
   push?: boolean
 }) {
+  const supabase = getSupabase()
   const channels = await resolveChannels(userId, type)
   const inApp = channels.includes('in_app')
   const pushOn = channels.includes('push')
