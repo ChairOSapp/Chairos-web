@@ -3,7 +3,7 @@ export default function TermsPage() {
     <div className="min-h-screen bg-warm-50 py-16 px-6">
       <div className="max-w-2xl mx-auto">
         <h1 className="font-serif text-3xl text-od-green mb-2">Terms of Service</h1>
-        <p className="text-charcoal-500 text-sm mb-10">Last updated: August 23, 2026</p>
+        <p className="text-charcoal-500 text-sm mb-10">Last updated: October 1, 2026</p>
 
         <div className="prose prose-sm text-charcoal-700 space-y-8">
 
@@ -39,22 +39,27 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-charcoal-900 mb-3">6. Limitation of Liability</h2>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-3">6. Electronic Consent Forms</h2>
+            <p>ChairOS allows shops to collect electronic signatures on consent forms (for example, tattoo consent). By signing a consent form through ChairOS, you agree that your electronic signature carries the same legal weight as a handwritten signature. Signed documents are stored securely and include the signer's IP address and timestamp as a record of the signing event.</p>
+          </section>
+
+          <section>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-3">7. Limitation of Liability</h2>
             <p>ChairOS is provided "as is" and "as available," without warranties of any kind, express or implied. To the fullest extent permitted by law, ChairOS and its owners and operators are not liable for any indirect, incidental, or consequential damages, including missed appointments, scheduling errors, or SMS delivery failures, arising from your use of the service.</p>
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-charcoal-900 mb-3">7. Governing Law</h2>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-3">8. Governing Law</h2>
             <p>These Terms are governed by the laws of the State of Florida, without regard to its conflict-of-law principles, and any disputes arising from these Terms or your use of ChairOS will be resolved in the state or federal courts located in Florida.</p>
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-charcoal-900 mb-3">8. Changes to Terms</h2>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-3">9. Changes to Terms</h2>
             <p>We may update these terms from time to time. Continued use of ChairOS after changes constitutes acceptance of the updated terms.</p>
           </section>
 
           <section>
-            <h2 className="font-serif text-xl text-charcoal-900 mb-3">9. Contact</h2>
+            <h2 className="font-serif text-xl text-charcoal-900 mb-3">10. Contact</h2>
             <p>Questions about these terms? Email us at <a href="mailto:support@chairos.cc" className="text-od-green underline">support@chairos.cc</a>.</p>
           </section>
 

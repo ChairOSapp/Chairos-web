@@ -3,7 +3,7 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-warm-50 py-16 px-6">
       <div className="max-w-2xl mx-auto">
         <h1 className="font-serif text-3xl text-od-green mb-2">Privacy Policy</h1>
-        <p className="text-charcoal-500 text-sm mb-10">Last updated: August 23, 2026</p>
+        <p className="text-charcoal-500 text-sm mb-10">Last updated: October 1, 2026</p>
 
         <div className="prose prose-sm text-charcoal-700 space-y-8">
 
@@ -20,6 +20,9 @@ export default function PrivacyPage() {
               <li>Phone number</li>
               <li>Email address</li>
               <li>Appointment history (services booked, dates, and shops visited)</li>
+              <li>Payment information (processed securely by Stripe or Square — we do not store full card numbers)</li>
+              <li>Consent form signatures (electronic signatures on shop consent forms, including IP address and timestamp)</li>
+              <li>Push notification tokens (if you enable notifications in the mobile app)</li>
             </ul>
           </section>
 
@@ -47,7 +50,14 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="font-serif text-xl text-charcoal-900 mb-3">5. Sharing Your Information</h2>
-            <p>We share your information with the barbershop, salon, or studio you book with. We do not sell your personal information to third parties. We use Twilio to deliver SMS messages and Supabase to store data — both are bound by their own privacy and security obligations.</p>
+            <p>We share your information with the barbershop, salon, or studio you book with. We do not sell your personal information to third parties.</p>
+            <p className="mt-2">We use the following service providers to operate ChairOS, each bound by their own privacy and security obligations:</p>
+            <ul className="list-disc pl-5 space-y-1 mt-2">
+              <li><strong>Supabase</strong> — database and data storage</li>
+              <li><strong>Twilio</strong> — SMS message delivery</li>
+              <li><strong>Stripe</strong> and <strong>Square</strong> — payment processing (they receive payment details directly; we never see full card numbers)</li>
+              <li><strong>Apple Push Notification Service</strong> — mobile push notifications</li>
+            </ul>
           </section>
 
           <section>
