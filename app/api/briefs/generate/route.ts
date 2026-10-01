@@ -234,7 +234,7 @@ export async function POST() {
         let flag: string | null = null
         if (yesterdayApptCount === 0) flag = 'no_activity'
         else if (noShowsYest >= 2) flag = 'needs_attention'
-        return { name: barberNameMap[id] ?? id.slice(0, 8), revenue: rev, tips, no_shows: noShowsYest, rebook_rate_pct: rebookRate, flag }
+        return { barber_id: id, name: barberNameMap[id] ?? id.slice(0, 8), revenue: rev, tips, no_shows: noShowsYest, rebook_rate_pct: rebookRate, flag }
       }).sort((a: any, b: any) => b.revenue - a.revenue)
 
       const weekRevChangePct = lastWeekRevenue > 0

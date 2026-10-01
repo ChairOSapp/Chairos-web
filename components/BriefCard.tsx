@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 
 type Brief = {
@@ -41,7 +42,9 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState('')
   const [dismissed, setDismissed] = useState(false)
+  const [showAllBarbers, setShowAllBarbers] = useState(false)
   const supabase = createClient()
+  const router = useRouter()
   const { staffLabelPlural } = useVerticalLabels()
 
   useEffect(() => {
@@ -138,11 +141,15 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
         </button>
       </div>
 
-      {/* Barber Rankings — owner briefs, always visible */}
+      {/* Barber Rankings — owner briefs, always visible. Top 3 by default, tap to expand. Rows link to staff detail. */}
       {c.barber_rankings?.length > 0 && (
         <div className="mb-1">
-          {c.barber_rankings.map((b: any, i: number) => (
-            <div key={i} className="flex items-center justify-between py-2 border-b border-warm-200 last:border-0">
+          {(showAllBarbers ? c.barber_rankings : c.barber_rankings.slice(0, 3)).map((b: any, i: number) => (
+            <button
+              key={b.barber_id ?? i}
+              onClick={() => b.barber_id && router.push(`/dashboard/staff/${b.barber_id}`)}
+              className="w-full flex items-center justify-between py-2 border-b border-warm-200 last:border-0 text-left hover:bg-warm-200/50 rounded px-1 -mx-1 transition-colors"
+            >
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-xs text-charcoal-400 w-4 flex-shrink-0">{i + 1}</span>
                 <span className="text-sm font-medium text-charcoal-900 truncate">{b.name}</span>
@@ -160,8 +167,16 @@ export default function BriefCard({ recipientName }: { recipientName?: string })
                 <div className="text-sm font-semibold text-charcoal-900">${b.revenue}</div>
                 {b.tips > 0 && <div className="text-xs text-charcoal-400">+${b.tips} tips</div>}
               </div>
-            </div>
+            </button>
           ))}
+          {c.barber_rankings.length > 3 && (
+            <button
+              onClick={() => setShowAllBarbers(s => !s)}
+              className="w-full text-center text-xs font-semibold text-od-green hover:text-od-green-light py-2 transition-colors"
+            >
+              {showAllBarbers ? 'Show less ↑' : `Show all ${c.barber_rankings.length} →`}
+            </button>
+          )}
         </div>
       )}
 
