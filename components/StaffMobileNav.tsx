@@ -102,7 +102,7 @@ export default function StaffMobileNav({ userId }: { userId?: string }) {
                 key={item.href}
                 onClick={() => router.push(item.href)}
                 aria-label={item.label}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${active ? 'bg-warm-200 dark:bg-[#2E2E2A] text-charcoal-900 dark:text-white' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-white'}`}>
+                className={`w-16 h-12 rounded-full flex items-center justify-center transition-colors ${active ? 'bg-warm-200 dark:bg-[#2E2E2A] text-charcoal-900 dark:text-white' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-white'}`}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d={item.icon} />
                 </svg>
@@ -110,7 +110,7 @@ export default function StaffMobileNav({ userId }: { userId?: string }) {
             )
           })}
           <button onClick={() => setMoreOpen(true)} aria-label="More"
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${moreActive ? 'bg-warm-200 dark:bg-[#2E2E2A] text-charcoal-900 dark:text-white' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-white'}`}>
+            className={`w-16 h-12 rounded-full flex items-center justify-center transition-colors ${moreActive ? 'bg-warm-200 dark:bg-[#2E2E2A] text-charcoal-900 dark:text-white' : 'text-charcoal-500 dark:text-[#A8A89E] hover:text-charcoal-900 dark:hover:text-white'}`}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
             </svg>
