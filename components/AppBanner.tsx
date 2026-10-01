@@ -37,8 +37,8 @@ export default function AppBanner() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 safe-area-pb">
-      <div className="max-w-md mx-auto bg-[#1A1815] border border-amber-500/30 rounded-2xl p-4 flex items-center gap-3 shadow-2xl">
-        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black font-bold text-lg flex-shrink-0">
+      <div className="max-w-md mx-auto bg-[#1A1815] border border-[#8A9A3B]/30 rounded-2xl p-4 flex items-center gap-3 shadow-2xl">
+        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#8A9A3B] to-[#5A6630] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
           C
         </div>
         <div className="flex-1 min-w-0">
@@ -46,7 +46,7 @@ export default function AppBanner() {
           <div className="text-xs text-white/50">Faster bookings, push notifications</div>
         </div>
         <a href={storeUrl}
-          className="flex-shrink-0 px-4 py-2 bg-amber-500 text-black text-xs font-bold rounded-xl hover:bg-amber-400 transition-colors">
+          className="flex-shrink-0 px-4 py-2 bg-[#8A9A3B] text-white text-xs font-bold rounded-xl hover:bg-[#7A8A33] transition-colors">
           Get
         </a>
         <button onClick={dismiss} className="flex-shrink-0 text-white/40 hover:text-white/70 text-lg leading-none px-1">
