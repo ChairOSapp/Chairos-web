@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useVerticalLabels } from '@/lib/VerticalContext'
@@ -32,6 +32,30 @@ export default function StaffMobileNav({ userId }: { userId?: string }) {
   const { staffLabelPlural } = useVerticalLabels()
   const supabase = useMemo(() => createClient(), [])
   const [moreOpen, setMoreOpen] = useState(false)
+  const [navVisible, setNavVisible] = useState(true)
+  const lastScrollY = useRef(0)
+
+  // Auto-hide on scroll down, show on scroll up
+  useEffect(() => {
+    let ticking = false
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        const y = window.scrollY
+        const dy = y - lastScrollY.current
+        if (y < 80 || dy < -8) {
+          setNavVisible(true)
+        } else if (dy > 8 && !moreOpen) {
+          setNavVisible(false)
+        }
+        lastScrollY.current = y
+        ticking = false
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [moreOpen])
   // Solo Chair owns their shop outright (same check as StaffNav) — they get
   // the shop-management pages an owner would otherwise reach through OwnerNav.
   const [isSoloOwner, setIsSoloOwner] = useState(false)
@@ -93,8 +117,8 @@ export default function StaffMobileNav({ userId }: { userId?: string }) {
       </AnimatePresence>
 
       <div aria-hidden className="md:hidden h-[calc(5rem+env(safe-area-inset-bottom))]" />
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
-        <div className="pointer-events-auto mx-6 mb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-white dark:bg-[#1E1E1B] rounded-full px-3 py-2 flex items-center gap-1 shadow-lg border border-warm-200 dark:border-[#2A2A26]">
+      <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-300 ease-out ${navVisible ? 'translate-y-0' : 'translate-y-24'}`}>
+        <div className={`pointer-events-auto mx-6 mb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-white dark:bg-[#1E1E1B] rounded-full px-3 py-2 flex items-center gap-1 shadow-lg border border-warm-200 dark:border-[#2A2A26] transition-opacity duration-300 ${navVisible ? 'opacity-100' : 'opacity-0'}`}>
           {ITEMS.map((item) => {
             const active = pathname === item.href || (item.href !== '/dashboard/chair' && pathname.startsWith(item.href))
             return (

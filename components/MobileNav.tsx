@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { AnimatePresence, FadeBackdrop, SlideUpSheet, StaggerList, StaggerItem } from './motion'
@@ -35,8 +35,33 @@ export default function MobileNav() {
   const pathname = usePathname()
   const { staffLabelPlural, vertical } = useVerticalLabels()
   const [moreOpen, setMoreOpen] = useState(false)
+  const [navVisible, setNavVisible] = useState(true)
+  const lastScrollY = useRef(0)
   const moreItems = MORE_ITEMS.filter(item => !item.tattooOnly || vertical === 'tattoo')
   const moreActive = moreItems.some(item => pathname === item.href || pathname.startsWith(item.href + '/'))
+
+  // Auto-hide on scroll down, show on scroll up (like Facebook/Instagram)
+  useEffect(() => {
+    let ticking = false
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        const y = window.scrollY
+        const dy = y - lastScrollY.current
+        // Hide on scroll down past 80px, show on scroll up or near top
+        if (y < 80 || dy < -8) {
+          setNavVisible(true)
+        } else if (dy > 8 && !moreOpen) {
+          setNavVisible(false)
+        }
+        lastScrollY.current = y
+        ticking = false
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [moreOpen])
 
   function go(href: string) {
     setMoreOpen(false)
@@ -74,8 +99,8 @@ export default function MobileNav() {
       </AnimatePresence>
 
       <div aria-hidden className="md:hidden h-[calc(5rem+env(safe-area-inset-bottom))]" />
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
-        <div className="pointer-events-auto mx-6 mb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-white dark:bg-[#1E1E1B] rounded-full px-3 py-2 flex items-center gap-1 shadow-lg border border-warm-200 dark:border-[#2A2A26]">
+      <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-300 ease-out ${navVisible ? 'translate-y-0' : 'translate-y-24'}`}>
+        <div className={`pointer-events-auto mx-6 mb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-white dark:bg-[#1E1E1B] rounded-full px-3 py-2 flex items-center gap-1 shadow-lg border border-warm-200 dark:border-[#2A2A26] transition-opacity duration-300 ${navVisible ? 'opacity-100' : 'opacity-0'}`}>
           {ITEMS.map((item) => {
             const active = item.href === '/dashboard/insights'
               ? ['/dashboard/analytics', '/dashboard/insights', '/dashboard/revenue'].some(p => pathname === p || pathname.startsWith(p + '/'))
