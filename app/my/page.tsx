@@ -441,85 +441,142 @@ export default function ClientPortalPage() {
     )
   }
 
-  // ---------- Portal shell ----------
-  const TABS: { key: Tab; label: string }[] = [
-    { key: 'home', label: 'Home' },
-    { key: 'history', label: 'History' },
-    { key: 'loyalty', label: 'Loyalty' },
-    { key: 'payment', label: 'Payment' },
+
+  // ---------- Portal shell (redesigned) ----------
+  const TABS: { key: Tab; label: string; icon: string }[] = [
+    { key: 'home', label: 'Home', icon: '⌂' },
+    { key: 'history', label: 'History', icon: '◷' },
+    { key: 'loyalty', label: 'Rewards', icon: '★' },
+    { key: 'payment', label: 'Wallet', icon: '▭' },
   ]
 
+  const firstName = client.fullName?.split(' ')[0] || 'there'
+  const nextAppt = upcoming[0]
+
+  // Date badge for appointment cards
+  function DateBadge({ date }: { date: string }) {
+    const d = new Date(date + 'T12:00:00')
+    const month = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
+    const day = d.getDate()
+    const weekday = d.toLocaleDateString('en-US', { weekday: 'short' })
+    return (
+      <div className="flex-shrink-0 w-14 text-center bg-white/[0.06] border border-white/10 rounded-xl py-2">
+        <div className="text-[10px] font-bold tracking-widest text-amber-400/90">{month}</div>
+        <div className="text-xl font-bold text-white leading-tight">{day}</div>
+        <div className="text-[10px] text-white/50">{weekday}</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-warm-50">
-      <div className="bg-warm-100 border-b border-warm-200 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="font-serif text-lg text-charcoal-900">Hi, {client.fullName?.split(' ')[0] || 'there'}</h1>
-            <p className="text-charcoal-500 text-xs">{client.shops.length} shop{client.shops.length !== 1 ? 's' : ''}</p>
-          </div>
-          <button onClick={signOut} className="text-xs text-charcoal-500 hover:text-charcoal-900 transition-colors">Sign out</button>
-        </div>
-        <div className="max-w-2xl mx-auto flex gap-1.5 mt-4 overflow-x-auto">
-          {TABS.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                tab === t.key ? 'bg-od-green text-white' : 'bg-warm-200 text-charcoal-500 hover:text-charcoal-900'
-              }`}>
-              {t.label}
+    <div className="min-h-screen bg-[#0F0E0C] text-white pb-24">
+      {/* Hero header */}
+      <div className="bg-gradient-to-b from-[#1A1815] to-[#0F0E0C] px-6 pt-8 pb-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-lg font-bold text-black">
+                {firstName[0]?.toUpperCase() || '?'}
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Hi, {firstName}</h1>
+                <p className="text-white/50 text-xs">{client.shops.length} shop{client.shops.length !== 1 ? 's' : ''} · {upcoming.length} upcoming</p>
+              </div>
+            </div>
+            <button onClick={signOut} className="text-xs text-white/40 hover:text-white/80 transition-colors px-3 py-2">
+              Sign out
             </button>
-          ))}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto p-6">
+      <div className="max-w-2xl mx-auto px-5 -mt-1">
 
         {tab === 'home' && (
-          <div>
-            {client.shops.length === 0 ? (
-              <div className="bg-warm-100 border border-warm-200 rounded-xl p-8 text-center">
-                <p className="text-charcoal-500 text-sm">No shops on file yet for this number. Once you book somewhere on ChairOS, it'll show up here.</p>
-              </div>
-            ) : (
-              <div className="space-y-2 mb-6">
-                <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Your Shops</div>
-                {client.shops.map(s => (
-                  <a key={s.shopId} href={s.shopCode ? `/book/${s.shopCode}` : '#'}
-                    className="block bg-warm-100 border border-warm-200 rounded-xl p-4 hover:border-od-green transition-colors">
-                    <div className="text-sm font-semibold text-charcoal-900">{s.shopName}</div>
-                    <div className="text-xs text-charcoal-500 mt-0.5">Book again →</div>
-                  </a>
-                ))}
+          <div className="space-y-5">
+            {/* Next appointment hero */}
+            {nextAppt && (
+              <div className="bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/20 rounded-2xl p-5">
+                <div className="text-[11px] font-bold tracking-widest text-amber-400/90 mb-3">NEXT APPOINTMENT</div>
+                <div className="flex gap-4">
+                  <DateBadge date={nextAppt.date} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-white">{nextAppt.serviceName}</div>
+                    <div className="text-sm text-white/60 mt-0.5">{nextAppt.shopName}{nextAppt.barberName ? ` · ${nextAppt.barberName}` : ''}</div>
+                    <div className="text-sm text-white/60">{fmtTime(nextAppt.time)} · ${nextAppt.price}</div>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={() => handleCancel(nextAppt.id)} disabled={cancelling === nextAppt.id}
+                    className="flex-1 text-sm font-semibold py-2.5 rounded-xl border border-white/15 text-white/70 hover:text-red-400 hover:border-red-400/40 transition-colors disabled:opacity-50">
+                    {cancelling === nextAppt.id ? 'Cancelling…' : 'Cancel'}
+                  </button>
+                </div>
+                {cancelResult?.id === nextAppt.id && (
+                  <div className={`text-xs mt-2 ${cancelResult.ok ? 'text-green-400' : 'text-red-400'}`}>
+                    {cancelResult.message}
+                  </div>
+                )}
               </div>
             )}
 
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Upcoming</div>
-            {apptsLoading ? (
-              <div className="text-charcoal-500 text-sm py-4">Loading…</div>
-            ) : upcoming.length === 0 ? (
-              <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm">No upcoming appointments.</div>
-            ) : (
-              <div className="space-y-2">
-                {upcoming.map(a => (
-                  <div key={a.id} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold text-charcoal-900">{a.serviceName}</span>
-                      <span className="font-mono text-sm text-od-green">${a.price}</span>
-                    </div>
-                    <div className="text-xs text-charcoal-500">{a.shopName}{a.barberName ? ` · ${a.barberName}` : ''}</div>
-                    <div className="text-xs text-charcoal-400 mt-1">{fmtDate(a.date)} at {fmtTime(a.time)}</div>
-                    <div className="flex gap-2 mt-3">
-                      <button onClick={() => handleCancel(a.id)} disabled={cancelling === a.id}
-                        className="text-xs px-3 py-1.5 rounded-lg border border-warm-300 text-charcoal-600 hover:text-red-500 hover:border-red-300 transition-colors disabled:opacity-50">
-                        {cancelling === a.id ? 'Cancelling…' : 'Cancel'}
-                      </button>
-                    </div>
-                    {cancelResult?.id === a.id && (
-                      <div className={`text-xs mt-2 ${cancelResult.ok ? 'text-green-600' : 'text-red-500'}`}>
-                        {cancelResult.message}
+            {/* Other upcoming */}
+            {upcoming.length > 1 && (
+              <div>
+                <div className="text-[11px] font-bold tracking-widest text-white/40 mb-2">ALSO UPCOMING</div>
+                <div className="space-y-2">
+                  {upcoming.slice(1).map(a => (
+                    <div key={a.id} className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 flex gap-3">
+                      <DateBadge date={a.date} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-white truncate">{a.serviceName}</span>
+                          <span className="text-sm text-amber-400 font-semibold ml-2">${a.price}</span>
+                        </div>
+                        <div className="text-xs text-white/50 mt-0.5">{a.shopName}{a.barberName ? ` · ${a.barberName}` : ''}</div>
+                        <div className="text-xs text-white/40">{fmtTime(a.time)}</div>
+                        <button onClick={() => handleCancel(a.id)} disabled={cancelling === a.id}
+                          className="text-xs text-white/50 hover:text-red-400 transition-colors mt-2 disabled:opacity-50">
+                          {cancelling === a.id ? 'Cancelling…' : 'Cancel'}
+                        </button>
+                        {cancelResult?.id === a.id && (
+                          <div className={`text-xs mt-1 ${cancelResult.ok ? 'text-green-400' : 'text-red-400'}`}>
+                            {cancelResult.message}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {upcoming.length === 0 && !apptsLoading && (
+              <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8 text-center">
+                <div className="text-3xl mb-2">📅</div>
+                <p className="text-white/60 text-sm">No upcoming appointments.</p>
+                <p className="text-white/40 text-xs mt-1">Book with one of your shops below.</p>
+              </div>
+            )}
+
+            {/* Your shops */}
+            {client.shops.length > 0 && (
+              <div>
+                <div className="text-[11px] font-bold tracking-widest text-white/40 mb-2">YOUR SHOPS</div>
+                <div className="grid grid-cols-1 gap-2">
+                  {client.shops.map(s => (
+                    <a key={s.shopId} href={s.shopCode ? `/book/${s.shopCode}` : '#'}
+                      className="flex items-center justify-between bg-white/[0.04] border border-white/10 rounded-2xl p-4 hover:border-amber-500/40 hover:bg-white/[0.06] transition-all group">
+                      <div>
+                        <div className="text-sm font-semibold text-white">{s.shopName}</div>
+                        <div className="text-xs text-white/40">Tap to book</div>
+                      </div>
+                      <div className="w-9 h-9 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-black transition-all">
+                        →
+                      </div>
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -527,29 +584,32 @@ export default function ClientPortalPage() {
 
         {tab === 'history' && (
           <div>
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Booking History</div>
+            <div className="text-[11px] font-bold tracking-widest text-white/40 mb-3">BOOKING HISTORY</div>
             {apptsLoading ? (
-              <div className="text-charcoal-500 text-sm py-4">Loading…</div>
+              <div className="text-white/40 text-sm py-8 text-center">Loading…</div>
             ) : past.length === 0 ? (
-              <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm">No past appointments yet.</div>
+              <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-8 text-center">
+                <div className="text-3xl mb-2">📋</div>
+                <p className="text-white/60 text-sm">No past appointments yet.</p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {past.map(a => (
-                  <div key={a.id} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
+                  <div key={a.id} className="bg-white/[0.04] border border-white/10 rounded-2xl p-4">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold text-charcoal-900">{a.serviceName}</span>
-                      <span className="font-mono text-sm text-charcoal-900">${a.price}</span>
+                      <span className="text-sm font-semibold text-white">{a.serviceName}</span>
+                      <span className="text-sm text-white/70">${a.price}</span>
                     </div>
-                    <div className="text-xs text-charcoal-500">{a.shopName}{a.barberName ? ` · ${a.barberName}` : ''}</div>
-                    <div className="flex items-center justify-between mt-1">
-                      <div className="text-xs text-charcoal-400">{fmtDate(a.date)} · <span className="capitalize">{a.status}</span></div>
+                    <div className="text-xs text-white/50">{a.shopName}{a.barberName ? ` · ${a.barberName}` : ''}</div>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="text-xs text-white/40">{fmtDate(a.date)} · <span className="capitalize">{a.status}</span></div>
                       <button onClick={() => handleRebook(a.id)} disabled={rebooking === a.id}
-                        className="text-xs font-semibold text-od-green hover:opacity-80 transition-opacity disabled:opacity-50">
+                        className="text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-50">
                         {rebooking === a.id ? 'Booking…' : 'Rebook →'}
                       </button>
                     </div>
                     {rebookResult?.id === a.id && (
-                      <p className={`text-xs mt-2 ${rebookResult.ok ? 'text-od-green' : 'text-red-400'}`}>{rebookResult.message}</p>
+                      <p className={`text-xs mt-2 ${rebookResult.ok ? 'text-green-400' : 'text-red-400'}`}>{rebookResult.message}</p>
                     )}
                   </div>
                 ))}
@@ -559,87 +619,91 @@ export default function ClientPortalPage() {
         )}
 
         {tab === 'loyalty' && (
-          <div>
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Refer a Friend</div>
-            {client.shops.length === 0 ? (
-              <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm mb-6">Book somewhere first to get your referral link.</div>
-            ) : client.shops.every(s => !s.referralProgramEnabled) ? (
-              <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm mb-6">None of your shops are running a referral program right now.</div>
-            ) : (
-              <div className="space-y-2 mb-6">
-                {client.shops.filter(s => s.referralProgramEnabled).map(s => {
-                  const link = s.shopCode ? `${window.location.origin}/book/${s.shopCode}?ref=${client.referralCode}` : null
-                  const earned = earnedRewards.find(r => r.shopId === s.shopId)
-                  return (
-                    <div key={s.shopId} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
-                      <div className="text-sm font-semibold text-charcoal-900 mb-1">{s.shopName}</div>
-                      {earned && (
-                        <div className="text-xs font-semibold text-od-green bg-od-green/10 border border-od-green/30 rounded-lg px-3 py-2 mb-2">
-                          You've earned {earned.rewardText} — applied automatically on your next booking here.
-                        </div>
-                      )}
-                      {link ? (
-                        <>
-                          <div className="text-xs text-charcoal-500 mb-2">Share this link — you'll get {referralRewardText(s)} when your friend books their first visit.</div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-warm-200 border border-warm-300 rounded-lg px-3 py-2 text-charcoal-700 text-xs break-all font-mono">{link}</div>
-                            <button
-                              onClick={() => { navigator.clipboard.writeText(link); setCopiedReferralShopId(s.shopId); setTimeout(() => setCopiedReferralShopId(null), 2000) }}
-                              className="flex-shrink-0 px-3 py-2 bg-od-green text-white text-xs font-semibold rounded-lg hover:opacity-90 transition-opacity">
-                              {copiedReferralShopId === s.shopId ? 'Copied!' : 'Copy'}
-                            </button>
+          <div className="space-y-5">
+            <div>
+              <div className="text-[11px] font-bold tracking-widest text-white/40 mb-3">REFER A FRIEND</div>
+              {client.shops.length === 0 ? (
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6 text-center text-white/50 text-sm">Book somewhere first to get your referral link.</div>
+              ) : client.shops.every(s => !s.referralProgramEnabled) ? (
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6 text-center text-white/50 text-sm">None of your shops are running a referral program right now.</div>
+              ) : (
+                <div className="space-y-2">
+                  {client.shops.filter(s => s.referralProgramEnabled).map(s => {
+                    const link = s.shopCode ? `${window.location.origin}/book/${s.shopCode}?ref=${client.referralCode}` : null
+                    const earned = earnedRewards.find(r => r.shopId === s.shopId)
+                    return (
+                      <div key={s.shopId} className="bg-white/[0.04] border border-white/10 rounded-2xl p-4">
+                        <div className="text-sm font-semibold text-white mb-1">{s.shopName}</div>
+                        {earned && (
+                          <div className="text-xs font-semibold text-green-400 bg-green-400/10 border border-green-400/20 rounded-xl px-3 py-2 mb-2">
+                            You've earned {earned.rewardText} — applied automatically on your next booking here.
                           </div>
-                        </>
-                      ) : (
-                        <div className="text-xs text-charcoal-500">Referral link unavailable for this shop.</div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                        )}
+                        {link ? (
+                          <>
+                            <div className="text-xs text-white/50 mb-2">Share this link — you'll get {referralRewardText(s)} when your friend books their first visit.</div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white/60 text-xs break-all font-mono">{link}</div>
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(link); setCopiedReferralShopId(s.shopId); setTimeout(() => setCopiedReferralShopId(null), 2000) }}
+                                className="flex-shrink-0 px-4 py-2 bg-amber-500 text-black text-xs font-bold rounded-xl hover:bg-amber-400 transition-colors">
+                                {copiedReferralShopId === s.shopId ? 'Copied!' : 'Copy'}
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-xs text-white/50">Referral link unavailable for this shop.</div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
 
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-3">Loyalty</div>
-            {client.shops.length === 0 ? (
-              <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm">Book somewhere first to start earning.</div>
-            ) : (
-              <div className="space-y-2">
-                {client.shops.map(s => (
-                  <div key={s.shopId} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
-                    <div className="text-sm font-semibold text-charcoal-900 mb-1">{s.shopName}</div>
-                    <div className="text-xs text-charcoal-500">Loyalty points and vouchers aren't live yet — check back soon.</div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div>
+              <div className="text-[11px] font-bold tracking-widest text-white/40 mb-3">LOYALTY</div>
+              {client.shops.length === 0 ? (
+                <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6 text-center text-white/50 text-sm">Book somewhere first to start earning.</div>
+              ) : (
+                <div className="space-y-2">
+                  {client.shops.map(s => (
+                    <div key={s.shopId} className="bg-white/[0.04] border border-white/10 rounded-2xl p-4">
+                      <div className="text-sm font-semibold text-white mb-1">{s.shopName}</div>
+                      <div className="text-xs text-white/50">Loyalty points and vouchers aren't live yet — check back soon.</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {tab === 'payment' && (
           <div>
-            <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Your wallet</div>
-            <p className="text-xs text-charcoal-500 mb-4">Cards are stored securely by Square — one per shop. Add a card for each shop you visit.</p>
+            <div className="text-[11px] font-bold tracking-widest text-white/40 mb-1">YOUR WALLET</div>
+            <p className="text-xs text-white/50 mb-4">Cards are stored securely by Square — one per shop. Add a card for each shop you visit.</p>
             {client.shops.length === 0 ? (
-              <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 text-center text-charcoal-500 text-sm">Book somewhere first to save a card.</div>
+              <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6 text-center text-white/50 text-sm">Book somewhere first to save a card.</div>
             ) : walletLoading ? (
-              <div className="flex items-center gap-2 py-6 text-charcoal-400 text-sm">
-                <div className="w-4 h-4 rounded-full border-2 border-warm-300 border-t-od-green animate-spin flex-shrink-0" />
+              <div className="flex items-center justify-center gap-2 py-8 text-white/40 text-sm">
+                <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-amber-400 animate-spin flex-shrink-0" />
                 Loading your wallet…
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {client.shops.map(shop => {
                   const card = walletCards?.find(c => c.shopId === shop.shopId)
                   const status = card?.status || 'none'
                   const open = editingShopId === shop.shopId
                   return (
-                    <div key={shop.shopId} className="bg-warm-100 border border-warm-200 rounded-xl p-4">
+                    <div key={shop.shopId} className="bg-white/[0.04] border border-white/10 rounded-2xl p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-charcoal-900 truncate">{shop.shopName}</div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${status === 'current' ? 'bg-green-500' : status === 'stale' ? 'bg-amber-500' : 'bg-charcoal-300'}`} />
-                            <span className="text-xs text-charcoal-500">
+                          <div className="text-sm font-semibold text-white truncate">{shop.shopName}</div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${status === 'current' ? 'bg-green-400' : status === 'stale' ? 'bg-amber-400' : 'bg-white/20'}`} />
+                            <span className="text-xs text-white/50">
                               {status === 'current' && card?.brand ? `${card.brand} ending in ${card.last4} on file`
                                 : status === 'current' ? 'Card on file'
                                 : status === 'stale' ? 'Card on file is out of date'
@@ -648,37 +712,37 @@ export default function ClientPortalPage() {
                           </div>
                         </div>
                         <button onClick={() => open ? closeWalletForm() : openWalletForm(shop)}
-                          className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-od-green text-white transition-colors">
+                          className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-amber-500 text-black hover:bg-amber-400 transition-colors">
                           {open ? 'Close' : status === 'none' ? 'Add card' : 'Update'}
                         </button>
                       </div>
                       {open && (
-                        <div className="mt-4 pt-4 border-t border-warm-200">
+                        <div className="mt-4 pt-4 border-t border-white/10">
                           {perBarberShop && selectedShop && selectedShop.barbers.length > 0 && (
                             <div className="mb-4">
-                              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">For which barber?</label>
+                              <label className="block text-[11px] font-bold tracking-widest text-white/40 mb-2">FOR WHICH BARBER?</label>
                               <select value={selectedBarberId} onChange={e => { setSquareNotConnected(false); setSelectedBarberId(e.target.value) }}
-                                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors">
-                                {selectedShop.barbers.map(b => <option key={b.barberId} value={b.barberId}>{b.name}</option>)}
+                                className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-amber-500 transition-colors">
+                                {selectedShop.barbers.map(b => <option key={b.barberId} value={b.barberId} className="bg-neutral-900">{b.name}</option>)}
                               </select>
-                              <p className="text-xs text-charcoal-500 mt-1.5">Cards are kept with your barber, so pick the one you book with.</p>
+                              <p className="text-xs text-white/40 mt-1.5">Cards are kept with your barber, so pick the one you book with.</p>
                             </div>
                           )}
                           {perBarberShop && selectedShop && selectedShop.barbers.length === 0 ? (
-                            <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
+                            <div className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-4 text-sm text-white/70">
                               We couldn&apos;t find an active barber for you at {selectedShopName} — book an appointment first, then save your card here.
                             </div>
                           ) : squareNotConnected ? (
-                            <div className="bg-warm-200 border border-warm-300 rounded-xl px-4 py-4 text-sm text-charcoal-900">
+                            <div className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-4 text-sm text-white/70">
                               {`${chargeParty} hasn't set up card payments yet — you can pay at the shop as usual.`}
-                              {squareNotConnectedMsg ? <span className="block text-xs text-charcoal-500 mt-1">{squareNotConnectedMsg}</span> : null}
+                              {squareNotConnectedMsg ? <span className="block text-xs text-white/40 mt-1">{squareNotConnectedMsg}</span> : null}
                             </div>
                           ) : (
                             <>
-                              <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 mb-3">
+                              <div className="bg-black/40 border border-white/10 rounded-xl p-4 mb-3">
                                 {cardLoading && (
-                                  <div className="flex items-center gap-2 py-3 text-neutral-500 text-sm">
-                                    <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-amber-500 animate-spin flex-shrink-0" />
+                                  <div className="flex items-center gap-2 py-3 text-white/40 text-sm">
+                                    <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-amber-400 animate-spin flex-shrink-0" />
                                     Loading card form...
                                   </div>
                                 )}
@@ -686,18 +750,17 @@ export default function ClientPortalPage() {
                                 {!cardLoading && !cardReady && squareError ? (
                                   <div className="py-2">
                                     <p className="text-amber-400 text-xs">{squareError}</p>
-                                    {/* In-app recovery: the iOS wrapper has no page refresh. */}
                                     <button type="button" onClick={retrySquareInit}
-                                      className="mt-2 text-xs font-semibold text-neutral-200 underline underline-offset-2 hover:text-white transition-colors">
+                                      className="mt-2 text-xs font-semibold text-white/70 underline underline-offset-2 hover:text-white transition-colors">
                                       Try again
                                     </button>
                                   </div>
                                 ) : !cardLoading && !cardReady && (
-                                  <p className="text-neutral-500 text-xs py-2">Card form unavailable right now.</p>
+                                  <p className="text-white/40 text-xs py-2">Card form unavailable right now.</p>
                                 )}
                               </div>
                               <button onClick={handleSaveCard} disabled={saving || !cardReady}
-                                className="w-full font-semibold py-3 rounded-lg text-sm transition-colors text-white bg-od-green disabled:opacity-50">
+                                className="w-full font-bold py-3 rounded-xl text-sm transition-colors text-black bg-amber-500 hover:bg-amber-400 disabled:opacity-50">
                                 {saving ? 'Saving…' : 'Save Card'}
                               </button>
                               <label className="flex items-start gap-3 cursor-pointer mt-3">
@@ -705,15 +768,15 @@ export default function ClientPortalPage() {
                                   type="checkbox"
                                   checked={cardConsent}
                                   onChange={e => setCardConsent(e.target.checked)}
-                                  className="mt-0.5 w-4 h-4 flex-shrink-0"
+                                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-amber-500"
                                 />
-                                <span className="text-xs text-neutral-400 leading-relaxed">{cardConsentText}</span>
+                                <span className="text-xs text-white/50 leading-relaxed">{cardConsentText}</span>
                               </label>
-                              <p className="text-neutral-600 text-xs mt-2">Your card is saved securely by Square. We do not store your full card number.</p>
+                              <p className="text-white/30 text-xs mt-2">Your card is saved securely by Square. We do not store your full card number.</p>
                             </>
                           )}
                           {saveResult && (
-                            <p className={`text-xs mt-2 ${saveResult.ok ? 'text-od-green' : 'text-amber-400'}`}>{saveResult.message}</p>
+                            <p className={`text-xs mt-2 ${saveResult.ok ? 'text-green-400' : 'text-amber-400'}`}>{saveResult.message}</p>
                           )}
                         </div>
                       )}
@@ -725,6 +788,21 @@ export default function ClientPortalPage() {
           </div>
         )}
 
+      </div>
+
+      {/* Bottom tab bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#141210]/95 backdrop-blur-lg border-t border-white/10 safe-area-pb">
+        <div className="max-w-2xl mx-auto grid grid-cols-4">
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex flex-col items-center gap-1 py-3 transition-colors ${
+                tab === t.key ? 'text-amber-400' : 'text-white/40 hover:text-white/70'
+              }`}>
+              <span className="text-xl leading-none">{t.icon}</span>
+              <span className="text-[10px] font-semibold">{t.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
