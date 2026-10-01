@@ -19,10 +19,12 @@ import {
 import { logger } from '@/lib/logger'
 import { fromDollars, subtract, add, toCents } from '@/lib/money'
 
-const admin = createAdmin(
+function getAdmin() {
+  return createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 function getSquareClient(token: string) {
   // maxRetries is the SDK's own transport-level retry -- it resends the
@@ -39,6 +41,7 @@ function getSquareClient(token: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const admin = getAdmin()
   const cookieStore = await cookies()
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -4,12 +4,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { saveCardForClient } from '@/lib/square'
 
-const admin = createAdmin(
+function getAdmin() {
+  return createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 export async function POST(req: NextRequest) {
+  const admin = getAdmin()
   const body = await req.json() as {
     sourceId: string
     clientId: string

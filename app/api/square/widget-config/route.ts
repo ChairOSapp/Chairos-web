@@ -13,10 +13,12 @@ import { resolveShopSquareAccount, squareNotConnectedMessage } from '@/lib/squar
 import { readPortalSession } from '@/lib/portalSession'
 import { resolvePortalClient } from '@/lib/portalData'
 
-const admin = createAdmin(
+function getAdmin() {
+  return createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  )
+}
 
 async function getUser() {
   const cookieStore = await cookies()
@@ -42,6 +44,7 @@ function notConnected(who: 'shop owner' | 'barber') {
 }
 
 export async function GET(req: NextRequest) {
+  const admin = getAdmin()
   const appId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID
   if (!appId) {
     return NextResponse.json({ error: 'Square is not configured on this server' }, { status: 500 })
