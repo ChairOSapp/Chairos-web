@@ -5,6 +5,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 import ThemeProvider from '@/components/ThemeProvider'
 import SplashShell from '@/components/SplashShell'
+import AppBanner from '@/components/AppBanner'
 
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' })
 const dmSerif = DM_Serif_Display({ subsets: ['latin'], weight: '400', variable: '--font-dm-serif' })
@@ -75,6 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-warm-50 antialiased" style={{ fontFamily: 'var(--font-dm-sans)' }}>
         <SplashShell />
         <ThemeProvider>{children}</ThemeProvider>
+        <AppBanner />
         <Analytics />
         <SpeedInsights />
       </body>

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import { squareCardInputStyle } from '@/lib/squareCard'
+import { shareContent } from '@/lib/share'
 import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
 import type { PortalShop } from '@/lib/portalData'
 
@@ -645,7 +646,13 @@ export default function ClientPortalPage() {
                             <div className="flex items-center gap-2">
                               <div className="flex-1 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white/60 text-xs break-all font-mono">{link}</div>
                               <button
-                                onClick={() => { navigator.clipboard.writeText(link); setCopiedReferralShopId(s.shopId); setTimeout(() => setCopiedReferralShopId(null), 2000) }}
+                                onClick={async () => {
+                                  const result = await shareContent({ title: `${s.shopName} on ChairOS`, text: `Book with me at ${s.shopName}:`, url: link })
+                                  if (result === 'copied' || result === 'shared') {
+                                    setCopiedReferralShopId(s.shopId)
+                                    setTimeout(() => setCopiedReferralShopId(null), 2000)
+                                  }
+                                }}
                                 className="flex-shrink-0 px-4 py-2 bg-amber-500 text-black text-xs font-bold rounded-xl hover:bg-amber-400 transition-colors">
                                 {copiedReferralShopId === s.shopId ? 'Copied!' : 'Copy'}
                               </button>
