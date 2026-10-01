@@ -123,7 +123,7 @@ export default function KioskCheckIn() {
   useEffect(() => {
     async function load() {
       const { data: shop } = await supabase
-        .from('shops').select('*').eq('shop_code', shopCode).maybeSingle()
+        .from('shops_public').select('*').eq('shop_code', shopCode).maybeSingle()
       if (!shop) { setNotFound(true); setLoading(false); return }
       setShop(shop)
 

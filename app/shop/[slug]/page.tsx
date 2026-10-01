@@ -25,7 +25,7 @@ export default function ShopProfile() {
   useEffect(() => {
     async function load() {
       const { data: shop } = await supabase
-        .from('shops')
+        .from('shops_public')
         .select('*')
         .eq('slug', slug)
         .maybeSingle()

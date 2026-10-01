@@ -43,7 +43,7 @@ export default function ShopReviews() {
   useEffect(() => {
     async function load() {
       const { data: shopData } = await supabase
-        .from('shops')
+        .from('shops_public')
         .select('*')
         .eq('slug', slug)
         .maybeSingle()
