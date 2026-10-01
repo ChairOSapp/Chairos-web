@@ -62,7 +62,14 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="font-serif text-xl text-charcoal-900 mb-3">6. Data Retention and Deletion</h2>
-            <p>We retain your name, contact information, and appointment history to support scheduling, reminders, and rebooking. You may request deletion of your data at any time by contacting us at the address below.</p>
+            <p>We keep your data only as long as needed:</p>
+            <ul className="list-disc pl-5 space-y-1 mt-2">
+              <li><strong>Active accounts:</strong> we retain your data while your subscription is active.</li>
+              <li><strong>Cancelled accounts:</strong> we keep your data for 90 days after cancellation in case you reactivate, then delete it automatically.</li>
+              <li><strong>Signed consent forms:</strong> we retain these for 7 years as legal records, even after account cancellation, unless you request earlier deletion and no legal hold applies.</li>
+              <li><strong>SMS and audit logs:</strong> retained for 1 year.</li>
+            </ul>
+            <p className="mt-3"><strong>Your rights:</strong> you may request a copy of your data (export) or deletion of your data at any time. Shop owners can export client lists and appointment history from Settings. For full account deletion, email us at the address below — we complete deletion requests within 30 days.</p>
           </section>
 
           <section>
