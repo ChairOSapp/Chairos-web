@@ -62,6 +62,8 @@ export default function ClientPortalPage() {
   const [apptsLoading, setApptsLoading] = useState(false)
   const [rebooking, setRebooking] = useState<string | null>(null)
   const [rebookResult, setRebookResult] = useState<{ id: string; message: string; ok: boolean } | null>(null)
+  const [cancelling, setCancelling] = useState<string | null>(null)
+  const [cancelResult, setCancelResult] = useState<{ id: string; message: string; ok: boolean } | null>(null)
 
   // Payment tab state
   const [selectedShopId, setSelectedShopId] = useState('')
@@ -304,8 +306,7 @@ export default function ClientPortalPage() {
     setTab('home')
   }
 
-  async function handleRebook(appointmentId: string) {
-    setRebooking(appointmentId)
+  async function handleRebook(appointmentId: string) {    setRebooking(appointmentId)
     setRebookResult(null)
     try {
       const res = await fetch('/api/portal/rebook', {
@@ -323,6 +324,32 @@ export default function ClientPortalPage() {
       }
     } finally {
       setRebooking(null)
+    }
+  }
+
+  async function handleCancel(appointmentId: string) {
+    if (!confirm('Cancel this appointment?')) return
+    setCancelling(appointmentId)
+    setCancelResult(null)
+    try {
+      const res = await fetch('/api/portal/cancel', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appointmentId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setCancelResult({ id: appointmentId, ok: false, message: data.error || 'Could not cancel' })
+      } else {
+        const msg = data.isLateCancel
+          ? `Cancelled. This was a late cancellation.${data.policy ? ` Policy: ${data.policy}` : ''}`
+          : 'Appointment cancelled.'
+        setCancelResult({ id: appointmentId, ok: true, message: msg })
+        const apptsRes = await fetch('/api/portal/appointments')
+        const apptsData = await apptsRes.json()
+        setUpcoming(apptsData.upcoming || [])
+        setPast(apptsData.past || [])
+      }
+    } finally {
+      setCancelling(null)
     }
   }
 
@@ -480,6 +507,17 @@ export default function ClientPortalPage() {
                     </div>
                     <div className="text-xs text-charcoal-500">{a.shopName}{a.barberName ? ` · ${a.barberName}` : ''}</div>
                     <div className="text-xs text-charcoal-400 mt-1">{fmtDate(a.date)} at {fmtTime(a.time)}</div>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => handleCancel(a.id)} disabled={cancelling === a.id}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-warm-300 text-charcoal-600 hover:text-red-500 hover:border-red-300 transition-colors disabled:opacity-50">
+                        {cancelling === a.id ? 'Cancelling…' : 'Cancel'}
+                      </button>
+                    </div>
+                    {cancelResult?.id === a.id && (
+                      <div className={`text-xs mt-2 ${cancelResult.ok ? 'text-green-600' : 'text-red-500'}`}>
+                        {cancelResult.message}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
