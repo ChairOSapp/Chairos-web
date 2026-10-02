@@ -1,0 +1,97 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
+
+function authedClient(cookieStore: Awaited<ReturnType<typeof cookies>>) {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+        },
+      },
+    }
+  )
+}
+
+function adminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+// Resolve the shop the signed-in user belongs to: their owned shop first,
+// otherwise the shop where they are active staff. Returns null for outsiders.
+async function resolveShop(admin: ReturnType<typeof adminClient>, userId: string) {
+  const { data: owned } = await admin.from('shops').select('id').eq('owner_id', userId).maybeSingle()
+  if (owned) return { shopId: owned.id as string, isOwner: true }
+  const { data: staffRow } = await admin
+    .from('shop_barbers').select('shop_id')
+    .eq('barber_id', userId).eq('active', true).maybeSingle()
+  if (staffRow) return { shopId: staffRow.shop_id as string, isOwner: false }
+  return null
+}
+
+// GET /api/announcements -- announcements for my shop, pinned first then newest.
+export async function GET() {
+  const cookieStore = await cookies()
+  const supabase = authedClient(cookieStore)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const admin = adminClient()
+  const resolved = await resolveShop(admin, user.id)
+  if (!resolved) return NextResponse.json({ error: 'No shop found' }, { status: 404 })
+
+  const { data, error } = await admin
+    .from('shop_announcements')
+    .select('id, title, body, pinned, author_name, created_at')
+    .eq('shop_id', resolved.shopId)
+    .order('pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) return NextResponse.json({ error: 'Could not load announcements' }, { status: 500 })
+  return NextResponse.json({ announcements: data ?? [], isOwner: resolved.isOwner })
+}
+
+// POST /api/announcements -- owner-only: post an update to the shop board.
+export async function POST(req: NextRequest) {
+  const cookieStore = await cookies()
+  const supabase = authedClient(cookieStore)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const admin = adminClient()
+  const { data: shop } = await admin.from('shops').select('id').eq('owner_id', user.id).maybeSingle()
+  if (!shop) return NextResponse.json({ error: 'Only the shop owner can post updates' }, { status: 403 })
+
+  const { title, body } = await req.json().catch(() => ({}))
+  const cleanTitle = String(title || '').trim()
+  const cleanBody = String(body || '').trim()
+  if (!cleanTitle || !cleanBody) {
+    return NextResponse.json({ error: 'Add a title and a message first' }, { status: 400 })
+  }
+  if (cleanTitle.length > 120 || cleanBody.length > 2000) {
+    return NextResponse.json({ error: 'Keep the title under 120 characters and the message under 2000' }, { status: 400 })
+  }
+
+  const { data: prof } = await admin.from('profiles').select('full_name').eq('id', user.id).maybeSingle()
+  const { data: created, error } = await admin
+    .from('shop_announcements')
+    .insert({
+      shop_id: shop.id,
+      author_id: user.id,
+      author_name: prof?.full_name || 'Owner',
+      title: cleanTitle,
+      body: cleanBody,
+    })
+    .select('id, title, body, pinned, author_name, created_at')
+    .single()
+  if (error) return NextResponse.json({ error: 'Could not post the update' }, { status: 500 })
+  return NextResponse.json({ announcement: created })
+}
