@@ -519,7 +519,7 @@ export default function POSCheckout() {
   }
 
   return (
-    <div className="min-h-screen bg-warm-50 dark:bg-charcoal-950 p-5 pb-40">
+    <div className="min-h-screen bg-warm-50 dark:bg-charcoal-950 p-5 pb-56">
       <div className="max-w-sm mx-auto">
 
         {/* Header */}

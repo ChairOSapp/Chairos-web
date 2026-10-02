@@ -476,7 +476,7 @@ export default function ClientPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-warm-50 text-charcoal-900 dark:bg-[#0F0E0C] dark:text-white pb-24">
+    <div className="min-h-screen bg-warm-50 text-charcoal-900 dark:bg-[#0F0E0C] dark:text-white pb-28">
       {/* Hero header */}
       <div className="bg-gradient-to-b from-warm-100 to-warm-50 dark:from-[#1A1815] dark:to-[#0F0E0C] px-6 pt-8 pb-6">
         <div className="max-w-2xl mx-auto">
