@@ -375,27 +375,33 @@ export default function ManagePricing() {
                   ? `${(r.days_of_week && r.days_of_week.length > 0) ? r.days_of_week.map(d => DAY_ABBR[DAY_NAMES.indexOf(d)]).join(', ') : 'Every day'}${r.start_time || r.end_time ? ` · ${r.start_time ? r.start_time.slice(0, 5) : 'open'}–${r.end_time ? r.end_time.slice(0, 5) : 'close'}` : ''}`
                   : `${r.start_date} → ${r.end_date}`
                 return (
-                  <div key={r.id} className={`px-5 py-4 flex items-center gap-4 ${!r.active ? 'opacity-50' : ''}`}>
-                    <div className="flex-1 min-w-0">
+                  <div key={r.id} className={`px-5 py-4 ${!r.active ? 'opacity-50' : ''}`}>
+                    {/* Top row: name + adjustment */}
+                    <div className="flex items-start justify-between gap-3 mb-1">
                       <div className="text-sm font-semibold text-charcoal-900">{ruleLabel(r)}</div>
-                      <div className="text-xs text-charcoal-500 mt-0.5">{serviceName(r.service_id)} · {windowLabel}</div>
+                      <div className="font-mono text-sm text-od-green font-semibold flex-shrink-0">{adjustLabel}</div>
                     </div>
-                    <div className="font-mono text-sm text-od-green font-semibold">{adjustLabel}</div>
-                    {status && (
-                      <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLE[status]}`}>
-                        {status[0].toUpperCase() + status.slice(1)}
+                    {/* Details: full width, no cramping */}
+                    <div className="text-xs text-charcoal-500 mb-3">{serviceName(r.service_id)} · {windowLabel}</div>
+                    {/* Badges */}
+                    <div className="flex items-center gap-2 mb-3">
+                      {status && (
+                        <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLE[status]}`}>
+                          {status[0].toUpperCase() + status.slice(1)}
+                        </div>
+                      )}
+                      <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.active ? 'bg-green-500/10 text-green-500' : 'bg-warm-200 text-charcoal-500'}`}>
+                        {r.active ? 'On' : 'Off'}
                       </div>
-                    )}
-                    <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.active ? 'bg-green-500/10 text-green-500' : 'bg-warm-200 text-charcoal-500'}`}>
-                      {r.active ? 'On' : 'Off'}
                     </div>
+                    {/* Actions: full-width row, evenly spaced */}
                     <div className="flex gap-2">
                       <button onClick={() => openEdit(r)}
-                        className="btn-chairos-outline">
+                        className="btn-chairos-outline flex-1">
                         Edit
                       </button>
                       <button onClick={() => toggleActive(r.id, r.active)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                           r.active
                             ? 'bg-warm-200 border-warm-300 text-charcoal-400 hover:border-od-green hover:text-od-green'
                             : 'bg-green-500/10 border-green-500/30 text-green-500'
@@ -404,12 +410,12 @@ export default function ManagePricing() {
                       </button>
                       {confirmDeleteId === r.id ? (
                         <button onClick={() => deleteRule(r.id)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 border border-red-500/40 text-red-500">
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 border border-red-500/40 text-red-500">
                           Sure?
                         </button>
                       ) : (
                         <button onClick={() => setConfirmDeleteId(r.id)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-warm-200 border border-warm-300 text-charcoal-400 hover:border-red-500 hover:text-red-400 transition-colors">
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-warm-200 border border-warm-300 text-charcoal-400 hover:border-red-500 hover:text-red-400 transition-colors">
                           Delete
                         </button>
                       )}
