@@ -26,6 +26,7 @@ export type RateLimitBucket =
   | 'waitlist'
   | 'bookingReply'
   | 'portalOtp'
+  | 'consentOtp'
   | 'waitlistClaim'
   | 'missedCallTextback'
   | 'email'
@@ -61,6 +62,9 @@ const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters
   // Sends a real SMS per request on a public, unauthenticated endpoint --
   // same reasoning and shape as kioskOtp.
   portalOtp: { limit: 6, window: '60 s', failClosed: true },
+  // Consent-signing phone verification: public, unauthenticated, sends a
+  // real SMS per request — same shape as portalOtp.
+  consentOtp: { limit: 6, window: '60 s', failClosed: true },
   // Inbound SMS replies that can create a real appointment (the
   // waitlist-claim flow) -- phone-scoped, checked inside the
   // /api/sms/optout webhook handler before creating an appointment, same
@@ -147,6 +151,7 @@ export function getRateLimitBucket(pathname: string): RateLimitBucket | null {
   if (pathname.startsWith('/api/kiosk/appointments')) return 'kioskStatus'
   if (pathname.startsWith('/api/kiosk/otp')) return 'kioskOtp'
   if (pathname.startsWith('/api/portal/otp')) return 'portalOtp'
+  if (pathname.startsWith('/api/consent/template/otp') || pathname.startsWith('/api/consent/template/verify')) return 'consentOtp'
   if (pathname.startsWith('/api/waitlist')) return 'waitlist'
   if (pathname === '/api/email/welcome') return 'email'
   if (

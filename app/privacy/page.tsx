@@ -22,6 +22,9 @@ export default function PrivacyPage() {
               <li>Appointment history (services booked, dates, and shops visited)</li>
               <li>Payment information (processed securely by Stripe or Square — we do not store full card numbers)</li>
               <li>Consent form signatures (electronic signatures on shop consent forms, including IP address and timestamp)</li>
+              <li>Date of birth (when a consent form requires it, such as tattoo services where state law sets a minimum age)</li>
+              <li>Health information you disclose on consent forms (for example, health screening answers some states require before tattoo services — used only for the consent record)</li>
+              <li>Tax information for shop staff (legal name, address, and tax ID, used for earnings summaries and 1099 reporting)</li>
               <li>Push notification tokens (if you enable notifications in the mobile app)</li>
             </ul>
           </section>

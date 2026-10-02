@@ -33,16 +33,16 @@ const inputCls = "w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3
 
 export default function ConsentSigningPage({ params }: { params: Promise<{ appointmentId: string }> }) {
   const { appointmentId } = usePromise(params)
+  const [gate, setGate] = useState<{ shopName: string; maskedPhone: string } | null>(null)
   const [info, setInfo] = useState<TemplateInfo | null>(null)
   const [loadError, setLoadError] = useState('')
-  const supabase = createClient()
 
   useEffect(() => {
     async function load() {
       const res = await fetch(`/api/consent/template?appointmentId=${appointmentId}`)
       const data = await res.json()
       if (!res.ok) { setLoadError(data.error || 'Could not load consent form'); return }
-      setInfo(data)
+      setGate({ shopName: data.shopName, maskedPhone: data.maskedPhone })
     }
     load()
   }, [appointmentId])
@@ -58,7 +58,7 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
     )
   }
 
-  if (!info) {
+  if (!gate) {
     return (
       <div className="min-h-screen bg-warm-50 flex items-center justify-center">
         <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
@@ -66,10 +66,93 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
     )
   }
 
+  if (!info) {
+    return <OtpGate gate={gate} appointmentId={appointmentId} onVerified={setInfo} />
+  }
+
   if (info.builderSpec) {
     return <BuilderSigningForm info={info} appointmentId={appointmentId} />
   }
   return <LegacySigningForm info={info} appointmentId={appointmentId} />
+}
+
+// ── Phone ownership gate: OTP before any PII or signing token ────────
+
+function OtpGate({ gate, appointmentId, onVerified }: {
+  gate: { shopName: string; maskedPhone: string }
+  appointmentId: string
+  onVerified: (info: TemplateInfo) => void
+}) {
+  const [code, setCode] = useState('')
+  const [sending, setSending] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [error, setError] = useState('')
+  const [sent, setSent] = useState(false)
+
+  async function sendCode() {
+    setSending(true)
+    setError('')
+    const res = await fetch('/api/consent/template/otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ appointmentId }),
+    })
+    const data = await res.json()
+    setSending(false)
+    if (!res.ok) { setError(data.error || 'Could not send a code'); return }
+    setSent(true)
+  }
+
+  useEffect(() => { sendCode() }, [])
+
+  async function verify() {
+    if (code.trim().length < 6) { setError('Enter the 6-digit code'); return }
+    setVerifying(true)
+    setError('')
+    const res = await fetch('/api/consent/template/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ appointmentId, code: code.trim() }),
+    })
+    const data = await res.json()
+    setVerifying(false)
+    if (!res.ok) { setError(data.error || 'Verification failed'); return }
+    onVerified(data)
+  }
+
+  return (
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-6">
+      <div className="max-w-sm w-full text-center">
+        <button onClick={() => window.history.back()} className="text-charcoal-500 text-sm mb-6">← Back</button>
+        <h1 className="font-serif text-2xl text-charcoal-900 mb-2">Verify it's you</h1>
+        <p className="text-charcoal-500 text-sm mb-6">
+          {gate.shopName} needs a signature on their consent form. We texted a code to {gate.maskedPhone}.
+        </p>
+        <input
+          value={code}
+          onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          placeholder="6-digit code"
+          inputMode="numeric"
+          className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-center text-lg tracking-[0.3em] outline-none focus:border-od-green mb-3"
+        />
+        {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3 mb-3">{error}</p>}
+        <button
+          onClick={verify}
+          disabled={verifying}
+          className="w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm disabled:opacity-50 transition-colors mb-3"
+        >
+          {verifying ? 'Verifying…' : 'Verify'}
+        </button>
+        <button
+          onClick={sendCode}
+          disabled={sending}
+          className="text-od-green underline text-sm disabled:opacity-50"
+        >
+          {sending ? 'Sending…' : sent ? 'Resend code' : 'Send code'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // ── Native form signing (builder-generated templates) ────────────────
