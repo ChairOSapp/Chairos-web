@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import ClientNotes from '@/components/ClientNotes'
-import { ModalPanel } from '@/components/motion'
+import { ModalPanel, SlideUpSheet, FadeBackdrop } from '@/components/motion'
 import { statusMeta, tint, fmtTime12, fmtDateLong, fmtPrice } from './calendarTheme'
 
 interface Appointment {
@@ -175,9 +175,8 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
     }
   }
 
-  return (
-    <div ref={ref} className="fixed z-[200]" style={{ left: pos.left, top: pos.top }}>
-      <ModalPanel className="w-80 max-w-[calc(100vw-16px)] max-h-[85dvh] overflow-y-auto bg-warm-100 border border-warm-200 rounded-2xl shadow-2xl">
+  const cardBody = (
+    <>
         {/* Header: who + status */}
         <div className="px-4 pt-4 flex items-start gap-3">
           <div
@@ -364,7 +363,31 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
             )}
           </div>
         )}
-      </ModalPanel>
+    </>
+  )
+
+  return (
+    <div ref={ref}>
+      {/* Mobile: bottom sheet — opens in the same place every time, never
+          jammed under the status bar or floating at a random tap position. */}
+      <div className="md:hidden fixed inset-0 z-[200]">
+        <FadeBackdrop className="absolute inset-0 bg-black/40" onClick={onClose}>
+          <SlideUpSheet
+            onClick={e => e.stopPropagation()}
+            className="absolute bottom-0 left-0 right-0 max-h-[85dvh] overflow-y-auto bg-warm-100 border-t border-warm-200 rounded-t-2xl shadow-2xl pb-8 pb-safe-sheet"
+          >
+            <div className="w-10 h-1 bg-warm-300 rounded-full mx-auto mt-2.5 mb-1" />
+            {cardBody}
+          </SlideUpSheet>
+        </FadeBackdrop>
+      </div>
+
+      {/* Desktop: anchored popover near the tap */}
+      <div className="hidden md:block fixed z-[200]" style={{ left: pos.left, top: pos.top }}>
+        <ModalPanel className="w-80 max-w-[calc(100vw-16px)] max-h-[85dvh] overflow-y-auto bg-warm-100 border border-warm-200 rounded-2xl shadow-2xl">
+          {cardBody}
+        </ModalPanel>
+      </div>
     </div>
   )
 }
