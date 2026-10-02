@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { usePlatform, isNativeApp } from '@/lib/platform'
 
 const DISMISSED_KEY = 'chairos-app-banner-dismissed'
@@ -24,7 +25,14 @@ export default function AppBanner() {
     return () => clearTimeout(t)
   }, [platform])
 
-  if (!visible) return null
+  // Auto-dismiss: slides away on its own after a few seconds instead of
+  // sitting there until X is pressed. This is a soft hide for this view —
+  // only an explicit X sets the 30-day "don't show again" flag.
+  useEffect(() => {
+    if (!visible) return
+    const t = setTimeout(() => setVisible(false), 8000)
+    return () => clearTimeout(t)
+  }, [visible])
 
   const dismiss = () => {
     try { localStorage.setItem(DISMISSED_KEY, String(Date.now())) } catch {}
@@ -36,7 +44,15 @@ export default function AppBanner() {
     : 'https://chairos.cc'
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 safe-area-pb">
+    <AnimatePresence>
+      {visible && (
+      <motion.div
+        className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 safe-area-pb"
+        initial={{ y: 120, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 120, opacity: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      >
       <div className="max-w-md mx-auto bg-[#1A1815] border border-[#8A9A3B]/30 rounded-2xl p-4 flex items-center gap-3 shadow-2xl">
         <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#8A9A3B] to-[#5A6630] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
           C
@@ -52,7 +68,9 @@ export default function AppBanner() {
         <button onClick={dismiss} className="flex-shrink-0 text-white/40 hover:text-white/70 text-lg leading-none px-1">
           ×
         </button>
-      </div>
-    </div>
+        </div>
+      </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
