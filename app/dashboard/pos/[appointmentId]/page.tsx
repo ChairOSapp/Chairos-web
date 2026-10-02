@@ -6,7 +6,8 @@ import { useRouter, useParams } from 'next/navigation'
 import ClientNotes from '@/components/ClientNotes'
 import { squareCardInputStyle } from '@/lib/squareCard'
 import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
-import { PAYMENT_METHODS, paymentMethodLabel, type PaymentMethod } from '@/lib/paymentMethods'
+import { PAYMENT_METHODS, paymentMethodLabel, payoutHandleColumn, walletPayLink, type PaymentMethod } from '@/lib/paymentMethods'
+import QRCode from 'react-qr-code'
 
 const TIP_PRESETS = [
   { label: '15%', pct: 0.15 },
@@ -16,6 +17,75 @@ const TIP_PRESETS = [
 ]
 
 type Mode = 'card-on-file' | 'manual' | 'no-card'
+
+// QR checkout for digital wallets. The client scans the code with their
+// phone and pays in the wallet app; the owner/chair taps "Mark paid" once
+// the money lands. Zelle has no universal payment link, so it shows the
+// handle big with a copy button instead of a QR code.
+function WalletQRCheckout({ method, total, handle, collectOwn }: {
+  method: 'venmo' | 'zelle' | 'cashapp'
+  total: number
+  handle: string
+  collectOwn: boolean
+}) {
+  const label = paymentMethodLabel(method)
+  const [copied, setCopied] = useState(false)
+
+  if (!handle) {
+    const where = collectOwn ? 'Chair Settings' : 'Shop Settings'
+    return (
+      <div className="bg-amber-500/10 border border-amber-500/40 rounded-xl p-4 mb-1">
+        <p className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
+          No {label} handle saved yet. Add yours in {where} → Get paid, then it&apos;ll show a QR code here at checkout.
+        </p>
+      </div>
+    )
+  }
+
+  const link = walletPayLink(method, handle, total)
+
+  function copyHandle() {
+    navigator.clipboard?.writeText(handle).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="bg-warm-100 dark:bg-charcoal-900 border border-charcoal-700 rounded-xl p-5 mb-1 text-center">
+      <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-1">
+        {label} checkout
+      </div>
+      <div className="font-serif text-3xl text-[#7A8C3A] mb-4">${total.toFixed(2)}</div>
+      {link ? (
+        <>
+          <p className="text-xs text-charcoal-400 mb-4">
+            Have the client scan this with their phone camera — it opens {label} with the amount filled in.
+          </p>
+          <div className="inline-block bg-white p-4 rounded-xl mb-4">
+            <QRCode value={link} size={220} />
+          </div>
+          <div className="text-sm text-charcoal-900 dark:text-white font-semibold">{handle}</div>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-charcoal-400 mb-4">
+            Zelle lives inside banking apps, so there&apos;s no QR code — have the client send ${total.toFixed(2)} to this {label} contact in their banking app.
+          </p>
+          <button
+            onClick={copyHandle}
+            className="inline-flex items-center gap-2 bg-warm-200 dark:bg-charcoal-800 border border-charcoal-600 rounded-xl px-5 py-3 mb-2 hover:border-[#7A8C3A] transition-colors"
+          >
+            <span className="text-lg font-semibold text-charcoal-900 dark:text-white">{handle}</span>
+            <span className="text-xs text-charcoal-400">{copied ? 'Copied!' : 'Copy'}</span>
+          </button>
+        </>
+      )}
+      <p className="text-xs text-charcoal-500 mt-3">
+        Tap &ldquo;Mark paid&rdquo; below once you see the money land. It still counts toward earnings and the 1099.
+      </p>
+    </div>
+  )
+}
 
 export default function POSCheckout() {
   const { appointmentId } = useParams() as { appointmentId: string }
@@ -39,6 +109,12 @@ export default function POSCheckout() {
   // Zelle / etc. collected outside Square. Defaults to the client's
   // preferred method when they have one set.
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('square')
+
+  // Payout handles for QR checkout. The shop's handles come from Shop
+  // Settings; when the shop lets barbers collect their own payments the
+  // appointment barber's own handles win.
+  const [shopPayouts, setShopPayouts] = useState<any>(null)
+  const [barberPayouts, setBarberPayouts] = useState<any>(null)
 
   // Card form (manual entry)
   const squareCardRef = useRef<any>(null)
@@ -98,6 +174,26 @@ export default function POSCheckout() {
         }
       } else {
         setMode('manual')
+      }
+
+      // Payout handles for QR checkout: shop's, plus the barber's own when
+      // they collect their own payments.
+      if (apptData.shop_id) {
+        const { data: shopData } = await supabase
+          .from('shops')
+          .select('barbers_collect_own_payments, venmo_handle, cashapp_handle, zelle_handle')
+          .eq('id', apptData.shop_id)
+          .maybeSingle()
+        setShopPayouts(shopData || null)
+        if (shopData?.barbers_collect_own_payments && apptData.barber_id) {
+          const { data: barberData } = await supabase
+            .from('shop_barbers')
+            .select('venmo_handle, cashapp_handle, zelle_handle')
+            .eq('shop_id', apptData.shop_id)
+            .eq('barber_id', apptData.barber_id)
+            .maybeSingle()
+          setBarberPayouts(barberData || null)
+        }
       }
 
       setLoading(false)
@@ -535,10 +631,18 @@ export default function POSCheckout() {
               </button>
             ))}
           </div>
-          {paymentMethod !== 'square' && (
+          {paymentMethod !== 'square' && paymentMethod !== 'venmo' && paymentMethod !== 'zelle' && paymentMethod !== 'cashapp' && (
             <p className="text-xs text-charcoal-400 mb-1">
               No card needed — mark it paid once the {paymentMethodLabel(paymentMethod).toLowerCase()} is in hand. It still counts toward earnings and the 1099.
             </p>
+          )}
+          {(paymentMethod === 'venmo' || paymentMethod === 'zelle' || paymentMethod === 'cashapp') && (
+            <WalletQRCheckout
+              method={paymentMethod}
+              total={total}
+              handle={(barberPayouts?.[payoutHandleColumn(paymentMethod)] || shopPayouts?.[payoutHandleColumn(paymentMethod)] || '').trim()}
+              collectOwn={!!shopPayouts?.barbers_collect_own_payments}
+            />
           )}
           {paymentMethod === 'square' && (
             <>

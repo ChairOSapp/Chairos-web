@@ -46,6 +46,11 @@ export default function ShopSettings() {
   const [squareAccount, setSquareAccount] = useState<any>(null)
   const [disconnectingSquare, setDisconnectingSquare] = useState(false)
   const [barbersCollectOwnPayments, setBarbersCollectOwnPayments] = useState(false)
+  // Payout handles for QR checkout (Venmo / Cash App / Zelle). Clients scan
+  // a QR code at POS and pay the owner directly in the wallet app.
+  const [venmoHandle, setVenmoHandle] = useState('')
+  const [cashappHandle, setCashappHandle] = useState('')
+  const [zelleHandle, setZelleHandle] = useState('')
   const [requireCardToBook, setRequireCardToBook] = useState(false)
   const [requireConsentForm, setRequireConsentForm] = useState(false)
   const [depositsEnabled, setDepositsEnabled] = useState(false)
@@ -151,6 +156,9 @@ export default function ShopSettings() {
     setHeroUrl(shop.hero_url || '')
     if (shop.hours) setHours(shop.hours)
     setBarbersCollectOwnPayments(!!shop.barbers_collect_own_payments)
+    setVenmoHandle(shop.venmo_handle || '')
+    setCashappHandle(shop.cashapp_handle || '')
+    setZelleHandle(shop.zelle_handle || '')
     setRequireCardToBook(!!shop.require_card_to_book)
     setRequireConsentForm(!!shop.require_consent_form)
     setDepositsEnabled(!!shop.deposits_enabled)
@@ -309,6 +317,9 @@ export default function ShopSettings() {
       hero_url: heroUrl,
       hours,
       barbers_collect_own_payments: barbersCollectOwnPayments,
+      venmo_handle: venmoHandle.trim() || null,
+      cashapp_handle: cashappHandle.trim() || null,
+      zelle_handle: zelleHandle.trim() || null,
       require_card_to_book: requireCardToBook,
       require_consent_form: requireConsentForm,
       google_place_id: googlePlaceId.trim() || null,
@@ -918,6 +929,57 @@ export default function ShopSettings() {
                 <p className="text-xs text-charcoal-400 mt-3">We&apos;ll send you to Square to connect. Your credentials stay private.</p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* GET PAID — digital wallets for QR checkout */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-warm-200 border border-warm-300 flex items-center justify-center flex-shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" className="text-charcoal-500">
+                <rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/>
+              </svg>
+            </div>
+            <div>
+              <div className="font-serif text-charcoal-900 text-sm">Get paid</div>
+              <div className="text-xs text-charcoal-500">Clients scan a QR code at checkout to pay you directly</div>
+            </div>
+          </div>
+          <div className="p-5">
+            <p className="text-xs text-charcoal-500 mb-4">
+              Add your wallet handles and checkout will show a QR code the client scans to pay you in that app. No card reader needed — you tap &ldquo;Mark paid&rdquo; once you see the money land.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Venmo username</label>
+                <input
+                  value={venmoHandle}
+                  onChange={e => setVenmoHandle(e.target.value)}
+                  placeholder="@your-username"
+                  className="w-full bg-white border border-warm-300 rounded-lg px-3 py-2.5 text-sm text-charcoal-900 outline-none focus:border-od-green transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Cash App tag</label>
+                <input
+                  value={cashappHandle}
+                  onChange={e => setCashappHandle(e.target.value)}
+                  placeholder="$yourtag"
+                  className="w-full bg-white border border-warm-300 rounded-lg px-3 py-2.5 text-sm text-charcoal-900 outline-none focus:border-od-green transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Zelle email or phone</label>
+                <input
+                  value={zelleHandle}
+                  onChange={e => setZelleHandle(e.target.value)}
+                  placeholder="you@email.com"
+                  className="w-full bg-white border border-warm-300 rounded-lg px-3 py-2.5 text-sm text-charcoal-900 outline-none focus:border-od-green transition-colors"
+                />
+                <p className="text-xs text-charcoal-400 mt-1.5">Whatever your bank has registered for Zelle — the client sends to this in their banking app.</p>
+              </div>
+            </div>
+            <p className="text-xs text-charcoal-400 mt-4">Leave any blank you don&apos;t use. Hit Save at the bottom when you&apos;re done.</p>
           </div>
         </div>
 

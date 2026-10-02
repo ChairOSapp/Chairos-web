@@ -31,3 +31,39 @@ export function paymentMethodBucket(v: string | null | undefined): 'square' | 'c
   if (v === 'venmo' || v === 'zelle' || v === 'cashapp' || v === 'other') return 'other'
   return 'square'
 }
+
+// Digital-wallet QR checkout. Owners/chairs link their Venmo, Cash App,
+// or Zelle handles in Settings; at POS checkout the client scans a QR
+// code that opens the right app with the amount pre-filled.
+//
+// Returns the URL to encode in the QR code, or null when the method has
+// no universal payment link (Zelle) or the handle is blank.
+export function walletPayLink(
+  method: 'venmo' | 'zelle' | 'cashapp',
+  handle: string | null | undefined,
+  amount: number,
+): string | null {
+  const h = (handle || '').trim()
+  if (!h) return null
+  const amt = amount.toFixed(2)
+  if (method === 'venmo') {
+    // venmo.com links work with or without the @
+    const user = h.replace(/^@/, '')
+    return `https://venmo.com/${encodeURIComponent(user)}?txn=pay&amount=${amt}&note=${encodeURIComponent('ChairOS appointment')}`
+  }
+  if (method === 'cashapp') {
+    // Cash App tags start with $ — strip it, the link adds it back
+    const tag = h.replace(/^\$/, '')
+    return `https://cash.app/$${encodeURIComponent(tag)}/${amt}`
+  }
+  // Zelle has no universal deep link. The UI shows the handle large with
+  // a copy button instead of a QR code.
+  return null
+}
+
+// Which column on the shops / shop_barbers row holds this method's handle.
+export function payoutHandleColumn(method: 'venmo' | 'zelle' | 'cashapp'): string {
+  if (method === 'venmo') return 'venmo_handle'
+  if (method === 'cashapp') return 'cashapp_handle'
+  return 'zelle_handle'
+}

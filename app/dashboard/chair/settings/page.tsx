@@ -27,6 +27,15 @@ function BarberSettingsInner() {
   const [bio, setBio] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
 
+  // Payout handles for QR checkout — the chair's own Venmo / Cash App /
+  // Zelle. Used at POS instead of the shop's when the shop lets barbers
+  // collect their own payments.
+  const [venmoHandle, setVenmoHandle] = useState('')
+  const [cashappHandle, setCashappHandle] = useState('')
+  const [zelleHandle, setZelleHandle] = useState('')
+  const [savingPayouts, setSavingPayouts] = useState(false)
+  const [payoutsSuccess, setPayoutsSuccess] = useState('')
+
   // Personal tax info -- own row, used only by the unofficial 1099-style
   // earnings summary. Optional until a report is generated.
   const [taxLegalName, setTaxLegalName] = useState('')
@@ -98,6 +107,9 @@ function BarberSettingsInner() {
     setAlias(shopBarber.alias || '')
     setBio(shopBarber.bio || '')
     setPhotoUrl(shopBarber.photo_url || '')
+    setVenmoHandle(shopBarber.venmo_handle || '')
+    setCashappHandle(shopBarber.cashapp_handle || '')
+    setZelleHandle(shopBarber.zelle_handle || '')
 
     const { data: taxInfo } = await supabase
       .from('staff_tax_info').select('*').eq('barber_id', user.id).maybeSingle()
@@ -196,6 +208,21 @@ function BarberSettingsInner() {
     if (err) { setError(err.message); return }
     setBusinessInfoSuccess('Saved.')
     setTimeout(() => setBusinessInfoSuccess(''), 3000)
+  }
+
+  async function handleSavePayouts() {
+    if (!shopBarber) return
+    setSavingPayouts(true)
+    setPayoutsSuccess('')
+    const { error: err } = await supabase.from('shop_barbers').update({
+      venmo_handle: venmoHandle.trim() || null,
+      cashapp_handle: cashappHandle.trim() || null,
+      zelle_handle: zelleHandle.trim() || null,
+    }).eq('id', shopBarber.id)
+    setSavingPayouts(false)
+    if (err) { setError(err.message); return }
+    setPayoutsSuccess('Saved.')
+    setTimeout(() => setPayoutsSuccess(''), 3000)
   }
 
   async function handleDisconnectSquare() {
@@ -397,6 +424,66 @@ function BarberSettingsInner() {
             </div>
           </div>
         )}
+        {/* GET PAID — own wallet handles, only when the chair collects their own */}
+        {shop?.barbers_collect_own_payments && (
+        <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-warm-200 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-warm-200 border border-warm-300 flex items-center justify-center flex-shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" className="text-charcoal-500">
+                <rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/>
+              </svg>
+            </div>
+            <div>
+              <div className="font-serif text-charcoal-900 text-sm">Get paid</div>
+              <div className="text-xs text-charcoal-500">Clients scan a QR code at checkout to pay you directly</div>
+            </div>
+          </div>
+          <div className="p-5">
+            <p className="text-xs text-charcoal-500 mb-4">
+              Your own wallet handles — used at checkout instead of the shop&apos;s, since you collect your own payments. The client scans a QR code and pays you in the app.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Venmo username</label>
+                <input
+                  value={venmoHandle}
+                  onChange={e => setVenmoHandle(e.target.value)}
+                  placeholder="@your-username"
+                  className="w-full bg-white border border-warm-300 rounded-lg px-3 py-2.5 text-sm text-charcoal-900 outline-none focus:border-od-green transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Cash App tag</label>
+                <input
+                  value={cashappHandle}
+                  onChange={e => setCashappHandle(e.target.value)}
+                  placeholder="$yourtag"
+                  className="w-full bg-white border border-warm-300 rounded-lg px-3 py-2.5 text-sm text-charcoal-900 outline-none focus:border-od-green transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Zelle email or phone</label>
+                <input
+                  value={zelleHandle}
+                  onChange={e => setZelleHandle(e.target.value)}
+                  placeholder="you@email.com"
+                  className="w-full bg-white border border-warm-300 rounded-lg px-3 py-2.5 text-sm text-charcoal-900 outline-none focus:border-od-green transition-colors"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={handleSavePayouts}
+                disabled={savingPayouts}
+                className="px-5 py-2.5 rounded-lg bg-charcoal-900 text-white text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50">
+                {savingPayouts ? 'Saving...' : 'Save'}
+              </button>
+              {payoutsSuccess && <span className="text-xs text-od-green font-semibold">{payoutsSuccess}</span>}
+            </div>
+          </div>
+        </div>
+        )}
+
 
         {/* REVIEWS */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
