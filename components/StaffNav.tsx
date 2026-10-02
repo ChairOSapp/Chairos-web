@@ -65,7 +65,7 @@ export default function StaffNav({ shopName, barberName, color, initial, photoUr
   ]
 
   return (
-    <header className="bg-warm-100 dark:bg-[#1E1E1B] border-b border-warm-200 dark:border-[#2A2A26] px-4 min-h-14 pt-[env(safe-area-inset-top)] flex items-center justify-between sticky top-0 z-50">
+    <header className="md:hidden bg-warm-100 dark:bg-[#1E1E1B] border-b border-warm-200 dark:border-[#2A2A26] px-4 min-h-14 pt-[env(safe-area-inset-top)] flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-1">
         <span className="font-serif text-od-green text-lg mr-4">ChairOS</span>
         {navItems.map(item => {
