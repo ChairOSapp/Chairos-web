@@ -21,14 +21,14 @@ const SEVERITY: Record<PulseSeverity, { bar: string; tag: string; tagText: strin
 }
 
 // "What specifically needs my action today?" Each row says what it is, why
-// it matters in plain language, and where to go fix it. onJump lets the
-// parent scroll/switch to the relevant tab (accounts or shops).
+// it matters in plain language, and where to go fix it. onJump hands the
+// whole action to the parent, which opens the matching dossier directly.
 export default function ActionQueue({
   actions,
   onJump,
 }: {
   actions: PulseAction[]
-  onJump: (target: { tab: 'accounts' | 'shops' }) => void
+  onJump: (action: PulseAction) => void
 }) {
   if (actions.length === 0) {
     return (
@@ -61,14 +61,12 @@ export default function ActionQueue({
                 <p className="text-[11px] text-charcoal-600 mt-1.5">{a.detail}</p>
               )}
             </div>
-            {a.target && (
-              <button
-                onClick={() => onJump(a.target!)}
-                className="self-center flex-shrink-0 text-xs font-semibold text-[#8A9A3B] hover:text-[#A8BC4A] border border-od-green/40 bg-od-green/15 hover:bg-od-green/25 rounded-lg px-3 py-2 transition-colors"
-              >
-                Open →
-              </button>
-            )}
+            <button
+              onClick={() => onJump(a)}
+              className="self-center flex-shrink-0 text-xs font-semibold text-[#8A9A3B] hover:text-[#A8BC4A] border border-od-green/40 bg-od-green/15 hover:bg-od-green/25 rounded-lg px-3 py-2 transition-colors"
+            >
+              Open →
+            </button>
           </div>
         )
       })}

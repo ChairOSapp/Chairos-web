@@ -49,6 +49,21 @@ export default function AdminPage() {
   const [loadError, setLoadError] = useState(false)
   const [drill, setDrill] = useState<{ kind: 'shop' | 'user'; id: string } | null>(null)
 
+  const sectionNav = [
+    { id: 'action-queue', label: 'Actions' },
+    { id: 'vitals', label: 'Vitals' },
+    { id: 'customers', label: 'Customers' },
+    { id: 'product', label: 'Product' },
+    { id: 'platform', label: 'Platform' },
+    { id: 'growth', label: 'Growth' },
+    { id: 'feedback', label: 'Feedback' },
+    { id: 'directory', label: 'Directory' },
+  ]
+
+  function scrollToSection(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) { router.push('/login'); return }
@@ -132,8 +147,20 @@ export default function AdminPage() {
     return list.sort((a, b) => rank[a.severity] - rank[b.severity])
   }, [pulse, users, metrics])
 
-  function jumpTo(target: { tab: 'accounts' | 'shops' }) {
-    setActiveTab(target.tab)
+  // Alert clicks go straight to the dossier they describe — a trial alert
+  // opens that account, a shop alert opens that shop. Only alerts with no
+  // specific subject fall back to scrolling the directory into view.
+  function jumpTo(action: PulseAction) {
+    if (action.refId) {
+      if (action.kind === 'no_hours' || action.kind === 'no_square') {
+        setDrill({ kind: 'shop', id: action.refId })
+      } else {
+        setDrill({ kind: 'user', id: action.refId })
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    setActiveTab('accounts')
     requestAnimationFrame(() => {
       tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
@@ -214,6 +241,22 @@ export default function AdminPage() {
         </div>
       </header>
 
+      {!drill && (
+        <div className="sticky top-14 z-40 bg-charcoal-950/95 backdrop-blur border-b border-charcoal-800">
+          <div className="max-w-6xl mx-auto px-4 md:px-6 py-2 flex gap-1.5 overflow-x-auto">
+            {sectionNav.map(s => (
+              <button
+                key={s.id}
+                onClick={() => scrollToSection(s.id)}
+                className="flex-shrink-0 text-[11px] font-bold tracking-widest uppercase text-charcoal-400 hover:text-charcoal-100 bg-charcoal-900 hover:bg-charcoal-800 border border-charcoal-800 px-3 py-1.5 rounded-full transition-colors"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-5 md:py-8 pb-16 space-y-6">
         {drill ? (
           drill.kind === 'shop' ? (
@@ -237,7 +280,7 @@ export default function AdminPage() {
 
             {sections.map(s =>
               s.kind === 'tabs' ? (
-                <div key={s.id} ref={tabsRef} className="scroll-mt-20">
+                <div key={s.id} ref={tabsRef} id="directory" className="scroll-mt-28">
                   <div className="flex items-end justify-between gap-3 mb-3">
                     <div>
                       <div className="text-[10px] font-bold tracking-[0.2em] uppercase text-charcoal-500 mb-1">

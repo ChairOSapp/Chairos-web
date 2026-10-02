@@ -22,7 +22,7 @@ export default function Section({
   action?: ReactNode
 }) {
   return (
-    <section id={id} aria-label={title} className="scroll-mt-20">
+    <section id={id} aria-label={title} className="scroll-mt-28">
       <div className="flex items-end justify-between gap-3 mb-3">
         <div>
           {eyebrow && (

@@ -43,6 +43,15 @@ export default function UserDetail({ userId, onBack, onOpenShop }: {
 }) {
   const [data, setData] = useState<UserDossier | null>(null)
   const [error, setError] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  function copyEmail(email: string) {
+    try {
+      navigator.clipboard.writeText(email)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard unavailable */ }
+  }
 
   useEffect(() => {
     setData(null); setError(false)
@@ -78,6 +87,18 @@ export default function UserDetail({ userId, onBack, onOpenShop }: {
           {profile.plan_type && <span className="text-[10px] font-bold tracking-widest uppercase text-charcoal-400 bg-charcoal-800 px-2 py-1 rounded-full">{profile.plan_type}</span>}
         </div>
         <p className="text-xs text-charcoal-500 mt-1">{profile.email} · Joined {new Date(profile.created_at).toLocaleDateString()}</p>
+      </div>
+
+      {/* Contact — act on what you see */}
+      <div className="flex flex-wrap gap-2">
+        <a href={`mailto:${profile.email}`}
+          className="inline-flex items-center gap-2 text-xs font-bold text-charcoal-100 bg-[#8A9A3B] hover:bg-[#7A8A33] px-4 py-2.5 min-h-[44px] rounded-xl transition-colors">
+          ✉ Email {profile.full_name?.split(' ')[0] || 'them'}
+        </a>
+        <button onClick={() => copyEmail(profile.email)}
+          className="inline-flex items-center gap-2 text-xs font-bold text-charcoal-300 border border-charcoal-700 bg-charcoal-800 hover:bg-charcoal-700 px-4 py-2.5 min-h-[44px] rounded-xl transition-colors">
+          {copied ? '✓ Copied' : '⧉ Copy email'}
+        </button>
       </div>
 
       {/* Billing */}
