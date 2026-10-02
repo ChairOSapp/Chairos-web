@@ -131,14 +131,6 @@ function BookingPageInner() {
   // 'save' = store card for later checkout, 'charge' = one-time charge now
   const [cardMode, setCardMode] = useState<'save' | 'charge'>('save')
 
-  // Mirrors the gate computed server-side in /api/square/create-deposit —
-  // deposits happen only when the shop owner enabled them in Settings →
-  // Payments AND the service has deposits switched on. No vertical gets
-  // silent always-on deposits.
-  const requiresDeposit = !!shop && !!selectedService &&
-    shop.deposits_enabled === true &&
-    selectedService.deposit_required === true
-
   // Card-on-file disclosure shown with the opt-in checkbox. Kept as a
   // constant so the exact agreed-to text is what gets stored server-side.
   const cardConsentText = `I agree to save my card with ${shop?.name || 'this shop'} for faster checkout. ${shop?.name || 'The shop'} may charge this card for deposits and appointment payments. My card is stored securely by Square. The shop never sees my full card number. I can remove my card anytime.`
@@ -173,8 +165,24 @@ function BookingPageInner() {
         : priceAfterRule)
     : null
 
+  // A free ($0) or pay-at-shop (null price) service is booked with no
+  // charge: no deposit and no card on file, even when the shop otherwise
+  // requires one. Mirrors the gate computed server-side in
+  // /api/square/create-deposit.
+  const priceIsZeroOrNull = finalPrice == null || finalPrice <= 0
+  const requiresDeposit = !!shop && !!selectedService &&
+    shop.deposits_enabled === true &&
+    selectedService.deposit_required === true &&
+    !priceIsZeroOrNull
+  // Card form + SDK are needed only when the shop requires a card or a
+  // deposit applies, and never for a free/pay-at-shop service.
+  const cardNeeded = (!!shop?.require_card_to_book || requiresDeposit) && !priceIsZeroOrNull
+
   const depositAmountEstimate = requiresDeposit && finalPrice != null
-    ? (shop.deposit_type === 'flat' ? Number(shop.deposit_amount) : Math.round(finalPrice * (Number(shop.deposit_amount) / 100) * 100) / 100)
+    ? Math.min(
+        shop.deposit_type === 'flat' ? Number(shop.deposit_amount) : Math.round(finalPrice * (Number(shop.deposit_amount) / 100) * 100) / 100,
+        finalPrice
+      )
     : null
 
   // Mirrors doBook()'s validation so the Confirm button enables exactly
@@ -198,7 +206,7 @@ function BookingPageInner() {
   // made a customer believe they'd paid when no charge happened.
   const willChargeDeposit = requiresDeposit && !!depositDisplay
   const willChargeNow = !willChargeDeposit && !!shop?.require_card_to_book && cardMode === 'charge' && (finalPrice ?? 0) > 0
-  const willSaveCard = !willChargeDeposit && !willChargeNow && !!shop?.require_card_to_book && cardMode === 'save'
+  const willSaveCard = !willChargeDeposit && !willChargeNow && !!shop?.require_card_to_book && cardMode === 'save' && !priceIsZeroOrNull
 
   // Hero info: average rating (reviews are already loaded) and today's
   // hours from the shop's weekly schedule, so the header earns its space.
@@ -357,7 +365,7 @@ function BookingPageInner() {
   // Initialize Square Web Payments SDK when user reaches step 4 and shop requires card
   useEffect(() => {
     if (step !== 4) return
-    if (!shop?.require_card_to_book && !requiresDeposit) return
+    if (!cardNeeded) return
     if (squareCardRef.current) return // already initialized
 
     // Per-shop widget config: tokenize against the same Square location the
@@ -845,7 +853,7 @@ function BookingPageInner() {
 
     // Tokenize card if the shop requires it, or a deposit must be collected
     let sourceId: string | null = null
-    if ((shop?.require_card_to_book || requiresDeposit) && squareCardRef.current) {
+    if (cardNeeded && squareCardRef.current) {
       const result = await squareCardRef.current.tokenize()
       if (result.status === 'OK') {
         sourceId = result.token
@@ -860,7 +868,7 @@ function BookingPageInner() {
     // If a card was required but the SDK never produced a token, fail.
     // The card section below offers an in-app "Try again" (no page refresh
     // exists inside the iOS wrapper).
-    if ((shop?.require_card_to_book || requiresDeposit) && !sourceId) {
+    if (cardNeeded && !sourceId) {
       setPaymentError('Card form isn’t ready yet — tap "Try again" below to reload it.')
       resetCaptcha()
       return
@@ -1647,7 +1655,7 @@ function BookingPageInner() {
             </div>
 
             {/* SQUARE CARD FORM — shown when the shop requires a card, or this booking requires a deposit */}
-            {(shop?.require_card_to_book || requiresDeposit) && (
+            {cardNeeded && (
               <div className="mb-6">
                 <label className="block text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">
                   {requiresDeposit ? 'Deposit — required to hold your slot' : 'Card'}

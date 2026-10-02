@@ -12,6 +12,9 @@ export interface GlanceAppt {
   status: string
   client_name: string
   barber_id?: string
+  /** appointment-level duration override, when set */
+  duration_minutes?: number | null
+  services?: { duration_minutes?: number | null } | null
 }
 
 interface Props {
@@ -57,7 +60,10 @@ export default function DayGlance({ appointments, view, viewRange, barberNameFor
       const inChair = isToday
         ? todays.filter(a => {
             const s = timeToMin(a.time)
-            return s <= nowMin && nowMin < s + 45 // assume ~45 min in the chair
+            // The service's actual duration: appointment override first,
+            // then the service's set length, 30 min when neither is set.
+            const dur = a.duration_minutes ?? a.services?.duration_minutes ?? 30
+            return s <= nowMin && nowMin < s + dur
           })
         : []
       const upcoming = isToday
