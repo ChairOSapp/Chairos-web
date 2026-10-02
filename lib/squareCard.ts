@@ -39,14 +39,9 @@ export function squareCardInputStyle(dark: boolean): SquareCardStyle {
     '.message-text': {
       color: dark ? '#FCA5A5' : '#B91C1C',
     },
-    // Browser autofill (Chrome/Safari) paints its own pale-yellow
-    // background that ignores our backgroundColor, leaving light text
-    // unreadable on yellow. Neutralize it so autofilled fields keep
-    // the theme's readable text and background.
-    'input:-webkit-autofill': {
-      '-webkit-text-fill-color': dark ? '#F5F5F4' : '#1C1917',
-      '-webkit-box-shadow': `0 0 0 1000px ${dark ? '#1C1917' : '#FFFFFF'} inset`,
-      'caret-color': dark ? '#F5F5F4' : '#1C1917',
-    },
+    // NOTE: do NOT add an 'input:-webkit-autofill' selector here.
+    // Square's Web Payments SDK rejects pseudo-class selectors with
+    // InvalidStylesError, which fails the entire card.attach() and the
+    // form never renders (verified 2026-10-01).
   }
 }
