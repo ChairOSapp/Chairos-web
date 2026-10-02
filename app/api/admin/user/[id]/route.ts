@@ -29,7 +29,9 @@ async function getRequestUser(req: NextRequest) {
 
 // Founder-only, read-only deep dossier for one account (owner or chair):
 // who they are, what they pay for, what their shop/chair actually does.
-// Aggregates only — no client PII (names, phones, emails) ever leaves here.
+// Includes the account holder's own contact info so the founder can reach
+// out directly (email/SMS). End-client PII (names, phones, emails of their
+// customers) never leaves here.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getRequestUser(req)
   if (!isAdminEmail(user?.email)) {
@@ -45,6 +47,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .maybeSingle()
   if (profErr) return NextResponse.json({ error: profErr.message }, { status: 500 })
   if (!profile) return NextResponse.json({ error: 'Account not found' }, { status: 404 })
+
+  // Phone + SMS consent live in a newer migration; fetch separately so the
+  // dossier still loads if that migration hasn't been run yet.
+  let contact: { phone: string | null; sms_consent: boolean; sms_consent_at: string | null } = {
+    phone: null, sms_consent: false, sms_consent_at: null,
+  }
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('phone, sms_consent, sms_consent_at')
+      .eq('id', userId)
+      .maybeSingle()
+    if (data) contact = {
+      phone: (data as any).phone ?? null,
+      sms_consent: !!(data as any).sms_consent,
+      sms_consent_at: (data as any).sms_consent_at ?? null,
+    }
+  } catch { /* column not migrated yet — leave contact empty */ }
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -111,6 +131,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       stripe_subscription_id: profile.stripe_subscription_id,
       trial_end: profile.trial_end,
       created_at: profile.created_at,
+      phone: contact.phone,
+      sms_consent: contact.sms_consent,
+      sms_consent_at: contact.sms_consent_at,
     },
     ownedShop: ownedShop ? {
       id: ownedShop.id,
