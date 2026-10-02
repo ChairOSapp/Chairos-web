@@ -16,6 +16,7 @@ import AccountsTable from '@/components/admin/AccountsTable'
 import ShopsTable from '@/components/admin/ShopsTable'
 import ShopDetail from '@/components/admin/ShopDetail'
 import UserDetail from '@/components/admin/UserDetail'
+import AdminNav, { type McTab } from '@/components/admin/AdminNav'
 import type {
   AdminShopRow,
   AdminUserRow,
@@ -24,14 +25,6 @@ import type {
   PulseData,
 } from '@/components/admin/types'
 
-type McTab = 'actions' | 'directory' | 'health' | 'feedback'
-
-const TABS: { id: McTab; label: string; icon: string }[] = [
-  { id: 'actions', label: 'Actions', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
-  { id: 'directory', label: 'Directory', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-  { id: 'health', label: 'Health', icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' },
-  { id: 'feedback', label: 'Feedback', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
-]
 
 export default function AdminPage() {
   const router = useRouter()
@@ -192,7 +185,9 @@ export default function AdminPage() {
       {!drill && !loading && !loadError && (
         <div className="hidden md:block border-b border-charcoal-800 bg-charcoal-950">
           <div className="max-w-6xl mx-auto px-6 flex gap-1">
-            {TABS.map(t => (
+            {(['actions', 'directory', 'health', 'feedback'] as McTab[]).map(id => {
+              const t = { id, label: id === 'actions' ? 'Actions' : id === 'directory' ? 'Directory' : id === 'health' ? 'Health' : 'Feedback' }
+              return (
               <button
                 key={t.id}
                 onClick={() => { setMcTab(t.id); window.scrollTo({ top: 0 }) }}
@@ -207,7 +202,8 @@ export default function AdminPage() {
                   <span className="ml-2 text-[10px] bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded-full">{actionCount}</span>
                 )}
               </button>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -308,34 +304,9 @@ export default function AdminPage() {
         )}
       </div>
 
-      {/* Mobile bottom nav — app-style */}
+      {/* Mobile bottom nav — same floating pill as the app */}
       {!drill && !loading && !loadError && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="bg-charcoal-900/95 backdrop-blur border border-charcoal-700 rounded-2xl px-2 py-2 grid grid-cols-4 shadow-2xl">
-            {TABS.map(t => {
-              const active = mcTab === t.id
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => { setMcTab(t.id); window.scrollTo({ top: 0 }) }}
-                  className={`relative flex flex-col items-center gap-1 py-2 rounded-xl transition-colors ${
-                    active ? 'text-[#8A9A3B]' : 'text-charcoal-500'
-                  }`}
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d={t.icon} />
-                  </svg>
-                  <span className="text-[10px] font-bold">{t.label}</span>
-                  {t.id === 'actions' && actionCount > 0 && (
-                    <span className="absolute top-1 right-1/2 translate-x-4 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {actionCount}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </nav>
+        <AdminNav tab={mcTab} actionCount={actionCount} onChange={(t) => { setMcTab(t); window.scrollTo({ top: 0 }) }} />
       )}
     </div>
   )
