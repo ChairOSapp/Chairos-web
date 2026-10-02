@@ -826,28 +826,15 @@ function BookingPageInner() {
     setError('')
     setPaymentError('')
 
-    // Turnstile tokens are single-use -- any failure between here and the
-    // appointment actually being created leaves the user retrying the same
-    // button, which would resubmit a token /api/book/verify-captcha (or
-    // Cloudflare) already consumed and reject as "timeout-or-duplicate".
-    // Force a fresh challenge on every such early-exit.
+    // Turnstile tokens are single-use: the token is verified exactly once,
+    // server-side, in POST /api/book/create. (A pre-check here would consume
+    // the token and make create reject it as "timeout-or-duplicate".)
+    // Any failure after this point forces a fresh challenge so a retry
+    // never resubmits an already-consumed token.
     function resetCaptcha() {
       if (CAPTCHA_ENABLED) {
         setCaptchaToken('')
         turnstileRef.current?.reset()
-      }
-    }
-
-    if (CAPTCHA_ENABLED) {
-      const captchaRes = await fetch('/api/book/verify-captcha', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: captchaToken }),
-      })
-      if (!captchaRes.ok) {
-        setError('That didn’t go through — try once more.')
-        resetCaptcha()
-        return
       }
     }
 
