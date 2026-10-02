@@ -34,7 +34,7 @@ type SortKey = 'full_name' | 'email' | 'subscription_status' | 'created_at' | 'h
 
 // Every account on the platform, searchable and filterable by health.
 // Rows expand for the full detail (IDs, Stripe sub, shop link, issues).
-export default function AccountsTable({ users, loading }: { users: AdminUserRow[]; loading: boolean }) {
+export default function AccountsTable({ users, loading, onOpenDetail }: { users: AdminUserRow[]; loading: boolean; onOpenDetail?: (id: string) => void }) {
   const [search, setSearch] = useState('')
   const [healthFilter, setHealthFilter] = useState<HealthStatus | 'all'>('all')
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
@@ -194,6 +194,12 @@ export default function AccountsTable({ users, loading }: { users: AdminUserRow[
                   <div className="text-charcoal-300 capitalize">{u.role || '—'}</div>
                 </div>
               </div>
+              {onOpenDetail && (
+                <button onClick={() => onOpenDetail(u.id)}
+                  className="mb-3 text-xs font-bold text-[#8A9A3B] hover:text-[#a5b84a] transition-colors">
+                  Open full dossier →
+                </button>
+              )}
               {u.health_reasons.length > 0 ? (
                 <div>
                   <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1.5">Why flagged</div>

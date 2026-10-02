@@ -14,6 +14,8 @@ import FeedbackReview from '@/components/admin/FeedbackReview'
 import GrowthSection from '@/components/admin/GrowthSection'
 import AccountsTable from '@/components/admin/AccountsTable'
 import ShopsTable from '@/components/admin/ShopsTable'
+import ShopDetail from '@/components/admin/ShopDetail'
+import UserDetail from '@/components/admin/UserDetail'
 import type {
   AdminShopRow,
   AdminUserRow,
@@ -45,6 +47,7 @@ export default function AdminPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState<'accounts' | 'shops'>('accounts')
   const [loadError, setLoadError] = useState(false)
+  const [drill, setDrill] = useState<{ kind: 'shop' | 'user'; id: string } | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -212,7 +215,13 @@ export default function AdminPage() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-5 md:py-8 pb-16 space-y-6">
-        {loading ? (
+        {drill ? (
+          drill.kind === 'shop' ? (
+            <ShopDetail shopId={drill.id} onBack={() => setDrill(null)} onOpenUser={(id) => setDrill({ kind: 'user', id })} />
+          ) : (
+            <UserDetail userId={drill.id} onBack={() => setDrill(null)} onOpenShop={(id) => setDrill({ kind: 'shop', id })} />
+          )
+        ) : loading ? (
           <div className="flex items-center justify-center gap-2 text-charcoal-500 text-sm py-24">
             <div className="w-5 h-5 border-2 border-[#7A8C3A] border-t-transparent rounded-full animate-spin" />
             Pulling the briefing together…
@@ -255,8 +264,8 @@ export default function AdminPage() {
                       ))}
                     </div>
                     {activeTab === 'accounts'
-                      ? <AccountsTable users={users} loading={false} />
-                      : <ShopsTable shops={shops} loading={false} />}
+                      ? <AccountsTable users={users} loading={false} onOpenDetail={(id) => setDrill({ kind: 'user', id })} />
+                      : <ShopsTable shops={shops} loading={false} onOpenDetail={(id) => setDrill({ kind: 'shop', id })} />}
                   </div>
                 </div>
               ) : (

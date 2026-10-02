@@ -13,7 +13,7 @@ const SUB_STATUS_COLOR: Record<string, string> = {
 
 // Every shop on the platform. Rows expand for key numbers (revenue, clients,
 // locks) — read-only by design.
-export default function ShopsTable({ shops, loading }: { shops: AdminShopRow[]; loading: boolean }) {
+export default function ShopsTable({ shops, loading, onOpenDetail }: { shops: AdminShopRow[]; loading: boolean; onOpenDetail?: (id: string) => void }) {
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -100,6 +100,12 @@ export default function ShopsTable({ shops, loading }: { shops: AdminShopRow[]; 
           </div>
           {filtered.map(s => expandedId !== s.id ? null : (
             <div key={`${s.id}-detail`} className="border-t border-charcoal-800 bg-charcoal-950/60 px-4 py-4">
+              {onOpenDetail && (
+                <button onClick={() => onOpenDetail(s.id)}
+                  className="mb-3 text-xs font-bold text-[#8A9A3B] hover:text-[#a5b84a] transition-colors">
+                  Open full dossier →
+                </button>
+              )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                 <div>
                   <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1">Owner</div>
