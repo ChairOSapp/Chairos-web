@@ -13,8 +13,9 @@ import { cookies } from 'next/headers'
 // the actual write uses the service role key, which isn't subject to the
 // browser session's freshness at all.
 
-const MAX_BYTES: Record<string, number> = { logo: 2 * 1024 * 1024, hero: 5 * 1024 * 1024 }
+const MAX_BYTES: Record<string, number> = { logo: 2 * 1024 * 1024, hero: 5 * 1024 * 1024, announcement: 5 * 1024 * 1024 }
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const BUCKET: Record<string, string> = { logo: 'shop-assets', hero: 'shop-assets', announcement: 'announcement-images' }
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData().catch(() => null)
   const file = formData?.get('file')
   const kind = formData?.get('kind')
-  if (!(file instanceof File) || (kind !== 'logo' && kind !== 'hero')) {
+  if (!(file instanceof File) || (kind !== 'logo' && kind !== 'hero' && kind !== 'announcement')) {
     return NextResponse.json({ error: 'Missing file or kind' }, { status: 400 })
   }
 
@@ -45,20 +46,29 @@ export async function POST(req: NextRequest) {
   const { data: shop } = await admin.from('shops').select('id').eq('owner_id', user.id).maybeSingle()
   if (!shop) return NextResponse.json({ error: 'No shop found for this account.' }, { status: 404 })
 
-  const path = `${shop.id}/${kind}`
+  const bucket = BUCKET[kind as string]
+  // Announcements get a unique path per upload (a post can be deleted and
+  // re-posted); logo/hero keep their stable single-file paths.
+  const path = kind === 'announcement'
+    ? `${shop.id}/announcements/${crypto.randomUUID()}`
+    : `${shop.id}/${kind}`
   const buffer = Buffer.from(await file.arrayBuffer())
-  const { error: uploadError } = await admin.storage.from('shop-assets').upload(path, buffer, {
+  const { error: uploadError } = await admin.storage.from(bucket).upload(path, buffer, {
     upsert: true,
     contentType: file.type,
   })
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
 
-  const { data: pub } = admin.storage.from('shop-assets').getPublicUrl(path)
+  const { data: pub } = admin.storage.from(bucket).getPublicUrl(path)
   const url = `${pub.publicUrl}?t=${Date.now()}`
 
-  const column = kind === 'logo' ? 'logo_url' : 'hero_url'
-  const { error: updateError } = await admin.from('shops').update({ [column]: url }).eq('id', shop.id)
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+  // Announcements just need the URL back (it's stored on the post);
+  // logo/hero also persist onto the shop row.
+  if (kind !== 'announcement') {
+    const column = kind === 'logo' ? 'logo_url' : 'hero_url'
+    const { error: updateError } = await admin.from('shops').update({ [column]: url }).eq('id', shop.id)
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+  }
 
   return NextResponse.json({ url })
 }

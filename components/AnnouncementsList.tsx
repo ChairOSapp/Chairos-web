@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 
 export interface Announcement {
   id: string
@@ -7,6 +8,7 @@ export interface Announcement {
   pinned: boolean
   author_name: string | null
   created_at: string
+  image_url: string | null
 }
 
 function fmtDate(iso: string) {
@@ -15,6 +17,7 @@ function fmtDate(iso: string) {
 }
 
 // Read-only list of shop announcements, pinned first then newest.
+// Photo (when present) opens full-size on tap, with a save link.
 // Owner controls (pin / delete) only render when isOwner is true.
 export default function AnnouncementsList({
   items,
@@ -27,6 +30,8 @@ export default function AnnouncementsList({
   onTogglePin?: (id: string, pinned: boolean) => void
   onDelete?: (id: string) => void
 }) {
+  const [lightbox, setLightbox] = useState<Announcement | null>(null)
+
   if (items.length === 0) {
     return <p className="text-sm text-charcoal-500">No updates yet.</p>
   }
@@ -60,8 +65,41 @@ export default function AnnouncementsList({
           </div>
           <div className="font-semibold text-charcoal-900 text-sm">{a.title}</div>
           <p className="text-sm text-charcoal-600 mt-1 whitespace-pre-wrap">{a.body}</p>
+          {a.image_url && (
+            <button
+              onClick={() => setLightbox(a)}
+              className="mt-3 block rounded-lg overflow-hidden border border-warm-200 max-w-sm"
+              aria-label="View photo full size">
+              <img src={a.image_url} alt="" className="w-full max-h-48 object-cover" loading="lazy" />
+            </button>
+          )}
         </div>
       ))}
+
+      {lightbox?.image_url && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}>
+          <div className="max-w-3xl w-full" onClick={e => e.stopPropagation()}>
+            <img src={lightbox.image_url} alt="" className="w-full max-h-[80vh] object-contain rounded-lg" />
+            <div className="flex items-center justify-between mt-3">
+              <a
+                href={lightbox.image_url}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-semibold text-white bg-od-green hover:bg-od-green-light px-4 py-2 rounded-lg transition-colors">
+                Save photo
+              </a>
+              <button
+                onClick={() => setLightbox(null)}
+                className="text-sm font-semibold text-white/80 hover:text-white px-4 py-2 transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

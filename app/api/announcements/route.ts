@@ -38,6 +38,8 @@ async function resolveShop(admin: ReturnType<typeof adminClient>, userId: string
 }
 
 // GET /api/announcements -- announcements for my shop, pinned first then newest.
+// Rolling 30-day window: pinned posts always show; unpinned posts older than
+// 30 days roll off the board (they stay in the DB).
 export async function GET() {
   const cookieStore = await cookies()
   const supabase = authedClient(cookieStore)
@@ -48,10 +50,12 @@ export async function GET() {
   const resolved = await resolveShop(admin, user.id)
   if (!resolved) return NextResponse.json({ error: 'No shop found' }, { status: 404 })
 
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const { data, error } = await admin
     .from('shop_announcements')
-    .select('id, title, body, pinned, author_name, created_at')
+    .select('id, title, body, pinned, author_name, created_at, image_url')
     .eq('shop_id', resolved.shopId)
+    .or(`pinned.eq.true,created_at.gte.${cutoff}`)
     .order('pinned', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(50)
@@ -70,7 +74,7 @@ export async function POST(req: NextRequest) {
   const { data: shop } = await admin.from('shops').select('id').eq('owner_id', user.id).maybeSingle()
   if (!shop) return NextResponse.json({ error: 'Only the shop owner can post updates' }, { status: 403 })
 
-  const { title, body } = await req.json().catch(() => ({}))
+  const { title, body, image_url } = await req.json().catch(() => ({}))
   const cleanTitle = String(title || '').trim()
   const cleanBody = String(body || '').trim()
   if (!cleanTitle || !cleanBody) {
@@ -78,6 +82,13 @@ export async function POST(req: NextRequest) {
   }
   if (cleanTitle.length > 120 || cleanBody.length > 2000) {
     return NextResponse.json({ error: 'Keep the title under 120 characters and the message under 2000' }, { status: 400 })
+  }
+  let cleanImage: string | null = null
+  if (image_url) {
+    cleanImage = String(image_url).trim()
+    if (cleanImage.length > 500 || !/^https?:\/\//.test(cleanImage)) {
+      return NextResponse.json({ error: 'That photo link looks invalid' }, { status: 400 })
+    }
   }
 
   const { data: prof } = await admin.from('profiles').select('full_name').eq('id', user.id).maybeSingle()
@@ -89,8 +100,9 @@ export async function POST(req: NextRequest) {
       author_name: prof?.full_name || 'Owner',
       title: cleanTitle,
       body: cleanBody,
+      image_url: cleanImage,
     })
-    .select('id, title, body, pinned, author_name, created_at')
+    .select('id, title, body, pinned, author_name, created_at, image_url')
     .single()
   if (error) return NextResponse.json({ error: 'Could not post the update' }, { status: 500 })
   return NextResponse.json({ announcement: created })

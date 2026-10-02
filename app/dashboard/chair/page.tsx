@@ -9,7 +9,6 @@ import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
 import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
-import AnnouncementsCard from '@/components/AnnouncementsCard'
 import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
 import { squareCardInputStyle } from '@/lib/squareCard'
 import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
@@ -545,9 +544,6 @@ export default function BarberDashboard() {
             </div>
           </div>
         </div>
-
-        {/* SHOP ANNOUNCEMENTS — owner-posted updates for the team (read-only here) */}
-        <AnnouncementsCard />
 
         {/* BOOTH RENT ALERT — informational only. Rent is collected via
             the auto-pay card on file or by the shop owner; staff cannot
