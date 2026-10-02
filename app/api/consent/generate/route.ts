@@ -111,14 +111,38 @@ export async function POST(req: NextRequest) {
   }
 
   const templateId = randomUUID()
-  const { error: insertErr } = await supabase.from('consent_form_templates').insert({
-    id: templateId,
-    shop_id: shop.id,
+  const builderSpec = {
+    stateCode,
     vertical: vertical as Vertical,
-    file_path: path,
-    version: nextVersion,
-    is_active: true,
-  })
+    options,
+  }
+  let insertErr: { code?: string; message?: string } | null = null
+  {
+    const { error } = await supabase.from('consent_form_templates').insert({
+      id: templateId,
+      shop_id: shop.id,
+      vertical: vertical as Vertical,
+      file_path: path,
+      version: nextVersion,
+      is_active: true,
+      // Remember how this form was built so the signing flow can render
+      // the native form and re-render the signed PDF from the answers.
+      builder_spec: builderSpec,
+    })
+    insertErr = error
+  }
+  if (insertErr && insertErr.code === '42703') {
+    // builder_spec column not migrated yet — store without it.
+    const { error } = await supabase.from('consent_form_templates').insert({
+      id: templateId,
+      shop_id: shop.id,
+      vertical: vertical as Vertical,
+      file_path: path,
+      version: nextVersion,
+      is_active: true,
+    })
+    insertErr = error
+  }
   if (insertErr) {
     console.error('consent generate: template insert failed', insertErr)
     return NextResponse.json({ error: 'Could not save the generated form' }, { status: 500 })

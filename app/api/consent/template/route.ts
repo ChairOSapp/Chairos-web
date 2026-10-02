@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+interface BuilderSpec {
+  stateCode: string
+  vertical: 'tattoo' | 'barber' | 'salon'
+  options: { photoRelease: boolean; chemicalServices: boolean; straightRazor: boolean }
+}
+
 function getSupabase() {
   return createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,14 +41,33 @@ export async function GET(req: NextRequest) {
     .eq('id', appointment.shop_id)
     .maybeSingle()
 
-  const { data: template } = await supabase
-    .from('consent_form_templates')
-    .select('id, version, vertical')
-    .eq('shop_id', appointment.shop_id)
-    .eq('is_active', true)
-    .order('version', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  let template: { id: string; version: number; vertical?: string; builder_spec?: BuilderSpec | null } | null = null
+  {
+    const { data, error } = await supabase
+      .from('consent_form_templates')
+      .select('id, version, vertical, builder_spec')
+      .eq('shop_id', appointment.shop_id)
+      .eq('is_active', true)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!error) {
+      template = data
+    } else if (error.code === '42703') {
+      // builder_spec column not migrated yet.
+      const retry = await supabase
+        .from('consent_form_templates')
+        .select('id, version, vertical')
+        .eq('shop_id', appointment.shop_id)
+        .eq('is_active', true)
+        .order('version', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      template = retry.data
+    } else {
+      return NextResponse.json({ error: 'Could not load consent form' }, { status: 500 })
+    }
+  }
 
   if (!template) {
     return NextResponse.json({ error: 'No active consent form for this shop' }, { status: 404 })
@@ -128,6 +153,7 @@ export async function GET(req: NextRequest) {
     templateId: template.id,
     version: template.version,
     vertical: (template as { vertical?: string }).vertical ?? null,
+    builderSpec: template.builder_spec ?? null,
     signedUrl: signedUrlData.signedUrl,
     shopName: shop?.name || 'the shop',
     clientName: appointment.client_name,

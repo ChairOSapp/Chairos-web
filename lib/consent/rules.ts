@@ -118,6 +118,8 @@ export interface ConsentSection {
   paragraphs: string[]
   checkboxes?: string[]
   fields?: string[]
+  /** When true, the signing form requires every checkbox in this section checked. */
+  attestation?: boolean
 }
 
 export interface BuilderOptions {
@@ -133,11 +135,9 @@ export const VERTICAL_LABELS: Record<Vertical, string> = {
 }
 
 /**
- * Canonical AcroForm field names for builder-generated PDFs.
- * The contract between the PDF generator (lib/consent/generatePdf.ts),
- * the signing page (app/consent/[appointmentId]/page.tsx), and the
- * sign-consent-form edge function. Uploaded PDFs don't have these —
- * the edge function falls back to the confirmation page for those.
+ * Canonical field names for builder-generated forms.
+ * The contract between the PDF generator, the native signing form,
+ * and the sign-consent-form edge function.
  */
 export const SIGNING_FIELDS = {
   clientName: 'ClientName',
@@ -151,6 +151,93 @@ export const SIGNING_FIELDS = {
   artistSignature: 'ArtistSignature',
   artistDate: 'ArtistDate',
 } as const
+
+/**
+ * Map a fill-in label to its canonical signing field name.
+ * Shared by the PDF renderer and the native signing form so both agree
+ * on which input fills which spot. Returns null for plain (unmapped) lines.
+ * `prevName` disambiguates bare "Date:" labels (client vs artist date).
+ */
+export function signingFieldFor(label: string, prevName: string | null): string | null {
+  const l = label.toLowerCase().replace(/:$/, '').trim()
+  if (l === 'full legal name' || l === 'printed name') return SIGNING_FIELDS.clientName
+  if (l === 'date of birth') return SIGNING_FIELDS.clientDOB
+  if (l === 'phone') return SIGNING_FIELDS.clientPhone
+  if (l === 'address') return SIGNING_FIELDS.clientAddress
+  if (l === 'email') return SIGNING_FIELDS.clientEmail
+  if (l === 'client signature') return SIGNING_FIELDS.clientSignature
+  if (l === 'artist name') return SIGNING_FIELDS.artistName
+  if (l === 'artist signature' || l === 'provider / witness' || l === 'barber / witness') return SIGNING_FIELDS.artistSignature
+  if (l === 'date') {
+    if (prevName === SIGNING_FIELDS.clientSignature) return SIGNING_FIELDS.clientDate
+    if (prevName === SIGNING_FIELDS.artistSignature) return SIGNING_FIELDS.artistDate
+    return null
+  }
+  return null
+}
+
+/**
+ * Stable input keys for a fill-in field string. Canonical signing-field
+ * name when the label maps to one, otherwise the raw label text.
+ * The native signing form and the PDF renderer both use this, so answers
+ * land in the right spots.
+ */
+export function fieldPartKeys(field: string): string[] {
+  const parts = field.split(/ {2,}/).map(p => p.trim()).filter(Boolean)
+  const canon: (string | null)[] = []
+  for (let i = 0; i < parts.length; i++) {
+    canon.push(signingFieldFor(parts[i], i > 0 ? canon[i - 1] : null))
+  }
+  return parts.map((p, i) => canon[i] ?? p)
+}
+
+export interface FormInput {
+  key: string
+  label: string
+  type: 'text' | 'date' | 'tel' | 'email'
+  signature: boolean
+}
+
+const CANONICAL_LABELS: Record<string, string> = {
+  [SIGNING_FIELDS.clientName]: 'Full legal name',
+  [SIGNING_FIELDS.clientDOB]: 'Date of birth',
+  [SIGNING_FIELDS.clientPhone]: 'Phone',
+  [SIGNING_FIELDS.clientEmail]: 'Email',
+  [SIGNING_FIELDS.clientAddress]: 'Address',
+  [SIGNING_FIELDS.clientSignature]: 'Signature',
+  [SIGNING_FIELDS.clientDate]: 'Date',
+  [SIGNING_FIELDS.artistName]: 'Artist name',
+  [SIGNING_FIELDS.artistSignature]: 'Artist signature',
+  [SIGNING_FIELDS.artistDate]: 'Date',
+}
+
+/** Describe the inputs for a fill-in field string (native signing form). */
+export function fieldInputs(field: string): FormInput[] {
+  const parts = field.split(/ {2,}/).map(p => p.trim()).filter(Boolean)
+  const keys = fieldPartKeys(field)
+  return parts.map((part, i) => {
+    const key = keys[i]
+    const signature =
+      key === SIGNING_FIELDS.clientSignature || key === SIGNING_FIELDS.artistSignature
+    let type: FormInput['type'] = 'text'
+    if (key === SIGNING_FIELDS.clientDOB) type = 'date'
+    else if (key === SIGNING_FIELDS.clientPhone) type = 'tel'
+    else if (key === SIGNING_FIELDS.clientEmail) type = 'email'
+    const label = CANONICAL_LABELS[key] ?? part.replace(/:$/, '')
+    return { key, label, type, signature }
+  })
+}
+
+/** Is this input key one of the signature pads? */
+export function isSignatureKey(key: string): boolean {
+  return key === SIGNING_FIELDS.clientSignature || key === SIGNING_FIELDS.artistSignature
+}
+
+/** Is this input key the client's signature? (vs the artist's) */
+export function isClientSignatureKey(key: string): boolean {
+  return key === SIGNING_FIELDS.clientSignature
+}
+
 
 const NOT_LEGAL_ADVICE =
   'This form was generated from a legal-information reference, not legal advice, and may not satisfy every requirement for your specific services. Have it reviewed by counsel before use.'

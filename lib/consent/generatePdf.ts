@@ -1,10 +1,21 @@
 // Server-side consent-form PDF renderer (pdf-lib). Pure layout engine —
 // content comes from lib/consent/rules.ts buildConsentSections().
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFForm, type PDFTextField } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFImage } from 'pdf-lib'
 import {
   type ConsentSection, type Vertical,
-  formTitle, legalFooter, STATES, SIGNING_FIELDS,
+  formTitle, legalFooter, STATES, SIGNING_FIELDS, fieldInputs,
 } from './rules'
+
+/** Values baked into the rendered form at signing/generation time. */
+export interface RenderValues {
+  /** field key -> typed answer */
+  values: Record<string, string>
+  /** checkbox labels the signer checked */
+  checked: Set<string>
+  /** raw PNG bytes for drawn signatures */
+  clientSignaturePng?: Uint8Array
+  artistSignaturePng?: Uint8Array
+}
 
 const PAGE_W = 612
 const PAGE_H = 792
@@ -35,8 +46,6 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
 
 interface Ctx {
   doc: PDFDocument
-  form: PDFForm
-  fieldCache: Map<string, PDFTextField>
   font: PDFFont
   bold: PDFFont
   page: PDFPage
@@ -45,6 +54,10 @@ interface Ctx {
   totalPagesHint: string
   footerText: string
   runningHead: string
+  values: Record<string, string>
+  checked: Set<string>
+  clientSig: PDFImage | null
+  artistSig: PDFImage | null
 }
 
 function newPage(ctx: Ctx, first: boolean) {
@@ -103,6 +116,11 @@ function drawCheckbox(ctx: Ctx, label: string) {
     x: MARGIN, y: boxY, width: 10, height: 10,
     borderColor: GREY, borderWidth: 1,
   })
+  if (ctx.checked.has(label)) {
+    // checkmark
+    ctx.page.drawLine({ start: { x: MARGIN + 2, y: boxY + 5 }, end: { x: MARGIN + 4.5, y: boxY + 2.5 }, thickness: 1.6, color: OLIVE })
+    ctx.page.drawLine({ start: { x: MARGIN + 4.5, y: boxY + 2.5 }, end: { x: MARGIN + 8.5, y: boxY + 8 }, thickness: 1.6, color: OLIVE })
+  }
   lines.forEach((line, i) => {
     ctx.page.drawText(line, { x: MARGIN + 18, y: ctx.y - i * 13.5, size: 9.5, font: ctx.font, color: CHARCOAL })
   })
@@ -115,85 +133,57 @@ function drawField(ctx: Ctx, field: string) {
     drawParagraph(ctx, field, 8, GREY)
     return
   }
-  const parts = field.split(/ {2,}/).map(p => p.trim()).filter(Boolean)
+  const inputs = fieldInputs(field)
   const totalW = PAGE_W - MARGIN * 2
-  const partW = totalW / parts.length
-  // Map each part to a canonical AcroForm field name (null = plain line).
-  const names: (string | null)[] = []
-  for (let i = 0; i < parts.length; i++) {
-    names.push(fieldNameFor(parts[i], i > 0 ? names[i - 1] : null))
-  }
-  const hasSig = names.some(n => n === SIGNING_FIELDS.clientSignature || n === SIGNING_FIELDS.artistSignature)
+  const partW = totalW / inputs.length
+  const hasSig = inputs.some(inp => inp.signature)
   const rowH = hasSig ? 62 : 22
   ensureSpace(ctx, rowH + 4)
-  parts.forEach((part, i) => {
+  inputs.forEach((inp, i) => {
     const x = MARGIN + i * partW
-    const label = part
+    const label = inp.label + ':'
     const tw = ctx.font.widthOfTextAtSize(label, 9.5)
     ctx.page.drawText(label, { x, y: ctx.y, size: 9.5, font: ctx.font, color: GREY })
     const lineStart = x + tw + 6
-    const lineEnd = x + partW - (i === parts.length - 1 ? 0 : 10)
+    const lineEnd = x + partW - (i === inputs.length - 1 ? 0 : 10)
     if (lineEnd <= lineStart + 8) return
-    const name = names[i]
-    const isSig = name === SIGNING_FIELDS.clientSignature || name === SIGNING_FIELDS.artistSignature
-    if (name && !isSig) {
-      // Text field over the underline.
-      ctx.page.drawLine({
-        start: { x: lineStart, y: ctx.y - 4 }, end: { x: lineEnd, y: ctx.y - 4 },
-        thickness: 0.75, color: LINE,
-      })
-      addFormField(ctx, name, lineStart, ctx.y - 16, lineEnd - lineStart, 15)
-    } else if (name && isSig) {
-      // Signature block: line at top, tall invisible field below for the
-      // drawn signature image (placed by the signing edge function).
+    const value = (ctx.values[inp.key] || '').trim()
+    if (inp.signature) {
+      // Signature block: line at top, drawn signature image below it.
       const boxW = Math.min(230, lineEnd - lineStart)
       ctx.page.drawLine({
         start: { x: lineStart, y: ctx.y - 4 }, end: { x: lineStart + boxW, y: ctx.y - 4 },
         thickness: 0.75, color: LINE,
       })
-      addFormField(ctx, name, lineStart, ctx.y - 52, boxW, 48)
+      const img = inp.key === SIGNING_FIELDS.clientSignature ? ctx.clientSig : ctx.artistSig
+      if (img) {
+        const bw = boxW, bh = 48
+        const scale = Math.min(1, bw / img.width, bh / img.height)
+        const dw = img.width * scale, dh = img.height * scale
+        ctx.page.drawImage(img, {
+          x: lineStart + (bw - dw) / 2,
+          y: ctx.y - 52 + (bh - dh) / 2,
+          width: dw, height: dh,
+        })
+      }
     } else {
       ctx.page.drawLine({
         start: { x: lineStart, y: ctx.y - 4 }, end: { x: lineEnd, y: ctx.y - 4 },
         thickness: 0.75, color: LINE,
       })
+      if (value) {
+        // Typed answer on the line, shrunk to fit.
+        let size = 10
+        const avail = lineEnd - lineStart - 4
+        while (size > 7 && ctx.font.widthOfTextAtSize(value, size) > avail) size -= 0.5
+        ctx.page.drawText(value, { x: lineStart + 2, y: ctx.y - 1, size, font: ctx.font, color: CHARCOAL })
+      }
     }
   })
   ctx.y -= rowH
 }
 
 /** Map a fill-in label to its canonical signing field, if any. */
-function fieldNameFor(label: string, prevName: string | null): string | null {
-  const l = label.toLowerCase().replace(/:$/, '').trim()
-  if (l === 'full legal name' || l === 'printed name') return SIGNING_FIELDS.clientName
-  if (l === 'date of birth') return SIGNING_FIELDS.clientDOB
-  if (l === 'phone') return SIGNING_FIELDS.clientPhone
-  if (l === 'address') return SIGNING_FIELDS.clientAddress
-  if (l === 'email') return SIGNING_FIELDS.clientEmail
-  if (l === 'client signature') return SIGNING_FIELDS.clientSignature
-  if (l === 'artist name') return SIGNING_FIELDS.artistName
-  if (l === 'artist signature' || l === 'provider / witness' || l === 'barber / witness') return SIGNING_FIELDS.artistSignature
-  if (l === 'date') {
-    if (prevName === SIGNING_FIELDS.clientSignature) return SIGNING_FIELDS.clientDate
-    if (prevName === SIGNING_FIELDS.artistSignature) return SIGNING_FIELDS.artistDate
-    return null
-  }
-  return null
-}
-
-/** Create (or reuse) a borderless AcroForm text field widget at the rect. */
-function addFormField(ctx: Ctx, name: string, x: number, y: number, w: number, h: number) {
-  let tf = ctx.fieldCache.get(name)
-  const isNew = !tf
-  if (!tf) {
-    tf = ctx.form.createTextField(name)
-    ctx.fieldCache.set(name, tf)
-  }
-  tf.addToPage(ctx.page, { x, y, width: w, height: h, font: ctx.font, borderWidth: 0 })
-  // setFontSize requires the /DA entry that addToPage creates.
-  if (isNew) tf.setFontSize(10)
-}
-
 function drawSection(ctx: Ctx, section: ConsentSection, index: number) {
   ensureSpace(ctx, 44)
   ctx.y -= 2
@@ -216,6 +206,13 @@ export async function generateConsentPdf(opts: {
   stateCode: string
   vertical: Vertical
   sections: ConsentSection[]
+  /** Answers to bake in (signing time). Keyed by fieldInputs() keys. */
+  values?: Record<string, string>
+  /** Checkbox labels the signer checked. */
+  checkedLabels?: string[]
+  /** Raw PNG bytes for drawn signatures. */
+  clientSignaturePng?: Uint8Array
+  artistSignaturePng?: Uint8Array
 }): Promise<Uint8Array> {
   const { shopName, stateCode, vertical, sections } = opts
   const stateName = STATES.find(s => s.code === stateCode)?.name ?? stateCode
@@ -223,16 +220,21 @@ export async function generateConsentPdf(opts: {
   const doc = await PDFDocument.create()
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const bold = await doc.embedFont(StandardFonts.HelveticaBold)
-  const form = doc.getForm()
+  const clientSig = opts.clientSignaturePng ? await doc.embedPng(opts.clientSignaturePng) : null
+  const artistSig = opts.artistSignaturePng ? await doc.embedPng(opts.artistSignaturePng) : null
 
   const ctx: Ctx = {
-    doc, form, fieldCache: new Map(), font, bold,
+    doc, font, bold,
     page: doc.addPage([PAGE_W, PAGE_H]),
     y: PAGE_H - MARGIN,
     pageNum: 0,
     totalPagesHint: '',
     footerText: legalFooter(vertical, stateCode),
     runningHead: `${shopName} — ${formTitle(vertical)}`,
+    values: opts.values ?? {},
+    checked: new Set(opts.checkedLabels ?? []),
+    clientSig,
+    artistSig,
   }
   ctx.pageNum = 1
 
