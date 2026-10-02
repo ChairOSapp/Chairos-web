@@ -37,11 +37,11 @@ export type TurnstileHandle = { reset: () => void }
 // forms keep working locally/in preview before the key is configured.
 //
 // Turnstile tokens are single-use and expire after ~5 minutes -- once
-// submitted to Supabase's captcha check (or /api/book/verify-captcha),
-// the token is consumed regardless of whether the surrounding request
-// (login/signup/booking) actually succeeded. Any caller that lets the
-// user retry after a failure MUST call reset() first, or the retry
-// resubmits a dead token and gets rejected with "timeout-or-duplicate".
+// submitted for server-side verification, the token is consumed regardless
+// of whether the surrounding request (login/signup/booking) actually
+// succeeded. Any caller that lets the user retry after a failure MUST call
+// reset() first, or the retry resubmits a dead token and gets rejected
+// with "timeout-or-duplicate". Verify each token exactly once.
 const Turnstile = forwardRef<TurnstileHandle, { onVerify: (token: string) => void; onExpire?: () => void; onError?: () => void }>(
   function Turnstile({ onVerify, onExpire, onError }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
