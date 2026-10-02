@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   const { data: template } = await supabase
     .from('consent_form_templates')
-    .select('id, version')
+    .select('id, version, vertical')
     .eq('shop_id', appointment.shop_id)
     .eq('is_active', true)
     .order('version', { ascending: false })
@@ -46,6 +46,19 @@ export async function GET(req: NextRequest) {
 
   if (!template) {
     return NextResponse.json({ error: 'No active consent form for this shop' }, { status: 404 })
+  }
+
+  // Client contact for pre-filling the digital signing form.
+  let clientPhone: string | null = null
+  let clientEmail: string | null = null
+  if (appointment.client_id) {
+    const { data: client } = await supabase
+      .from('clients')
+      .select('phone, email')
+      .eq('id', appointment.client_id)
+      .maybeSingle()
+    clientPhone = client?.phone ?? null
+    clientEmail = client?.email ?? null
   }
 
   if (appointment.client_id) {
@@ -114,9 +127,12 @@ export async function GET(req: NextRequest) {
     alreadySigned: false,
     templateId: template.id,
     version: template.version,
+    vertical: (template as { vertical?: string }).vertical ?? null,
     signedUrl: signedUrlData.signedUrl,
     shopName: shop?.name || 'the shop',
     clientName: appointment.client_name,
+    clientPhone,
+    clientEmail,
     signingToken: token,
   })
 }

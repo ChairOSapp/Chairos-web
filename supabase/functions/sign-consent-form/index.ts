@@ -42,11 +42,12 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { appointmentId, templateId, signingToken, typedName, signatureImageDataUrl, signedDate, artistName, artistSignatureImageDataUrl } = body as {
+    const { appointmentId, templateId, signingToken, typedName, clientInfo, signatureImageDataUrl, signedDate, artistName, artistSignatureImageDataUrl } = body as {
       appointmentId?: string;
       templateId?: string;
       signingToken?: string;
       typedName?: string;
+      clientInfo?: { dob?: string; phone?: string; email?: string };
       signatureImageDataUrl?: string;
       signedDate?: string;
       artistName?: string;
@@ -55,6 +56,17 @@ Deno.serve(async (req: Request) => {
 
     if (!appointmentId || !templateId || !signingToken || !typedName?.trim() || !signatureImageDataUrl || !signedDate) {
       return jsonResponse({ error: "Missing required fields" }, 400);
+    }
+
+    // Validate optional client info (baked into builder-generated forms).
+    const dob = typeof clientInfo?.dob === "string" ? clientInfo.dob.trim() : "";
+    const clientPhone = typeof clientInfo?.phone === "string" ? clientInfo.phone.trim() : "";
+    const clientEmail = typeof clientInfo?.email === "string" ? clientInfo.email.trim() : "";
+    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      return jsonResponse({ error: "Invalid date of birth" }, 400);
+    }
+    if (clientPhone.length > 30 || clientEmail.length > 200) {
+      return jsonResponse({ error: "Contact info is too long" }, 400);
     }
 
     // Reject oversized payloads before doing any work.
@@ -161,7 +173,8 @@ Deno.serve(async (req: Request) => {
     const signatureBytes = Uint8Array.from(atob(pngMatch[1]), (c) => c.charCodeAt(0));
     const signatureImage = await pdfDoc.embedPng(signatureBytes);
 
-    // Try to fill AcroForm fields if the PDF has them
+    // Try to fill AcroForm fields if the PDF has them (builder-generated
+    // forms always do; uploaded PDFs usually don't -> fallback below).
     let formFilled = false;
     try {
       const form = pdfDoc.getForm();
@@ -180,9 +193,16 @@ Deno.serve(async (req: Request) => {
       };
       fillText('ClientName', typedName.trim());
       fillText('ClientDate', signedDate);
-      if (artistName?.trim()) fillText('ArtistName', artistName.trim());
+      if (dob) fillText('ClientDOB', dob);
+      if (clientPhone) fillText('ClientPhone', clientPhone);
+      if (clientEmail) fillText('ClientEmail', clientEmail);
+      if (artistName?.trim()) {
+        fillText('ArtistName', artistName.trim());
+        fillText('ArtistDate', signedDate);
+      }
 
-      // For signature images: draw at the field's position
+      // For signature images: draw at the field's position on the field's
+      // own page (matched by object number — widget.P() is a ref).
       const drawSigAtField = async (fieldName: string, img: any) => {
         if (!fieldNames.includes(fieldName)) return false;
         try {
@@ -191,13 +211,17 @@ Deno.serve(async (req: Request) => {
           if (widgets.length === 0) return false;
           const widget = widgets[0];
           const rect = widget.getRectangle();
-          const page = pdfDoc.getPages().find(p => p.ref === widget.P()?.get('P')) || pdfDoc.getPages()[0];
-          // rect is {x, y, width, height} in PDF coords (y from bottom)
-          const maxW = rect.width;
-          const scale = Math.min(1, maxW / img.width);
+          const pages = pdfDoc.getPages();
+          let page = pages[pages.length - 1]; // sensible default: signatures live at the end
+          try {
+            const pref: any = widget.P();
+            const found = pages.find(p => (p.ref as any)?.objectNumber === pref?.objectNumber);
+            if (found) page = found;
+          } catch {}
+          // Fit inside the field rect (both dimensions).
+          const scale = Math.min(1, rect.width / img.width, rect.height / img.height);
           const dw = img.width * scale;
           const dh = img.height * scale;
-          // Center vertically in the field
           const dx = rect.x + (rect.width - dw) / 2;
           const dy = rect.y + (rect.height - dh) / 2;
           page.drawImage(img, { x: dx, y: dy, width: dw, height: dh });
@@ -217,15 +241,16 @@ Deno.serve(async (req: Request) => {
           const artistImg = await pdfDoc.embedPng(artistBytes);
           const artistSigDrawn = await drawSigAtField('ArtistSignature', artistImg);
           if (artistSigDrawn) formFilled = true;
-          if (artistName?.trim()) {
-            // Fill ArtistDate if exists
-            fillText('ArtistDate', signedDate);
-          }
         }
       }
 
-      // Flatten the form so fields are not editable
-      if (formFilled) form.flatten();
+      // Regenerate appearances with an embedded font so filled values
+      // render, then flatten so fields are not editable.
+      if (formFilled) {
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        form.updateFieldAppearances(font);
+        form.flatten();
+      }
     } catch (e) {
       // No form fields or error — fall back to append-at-bottom
       console.log('Form fill failed, using fallback:', e);
@@ -300,7 +325,7 @@ Deno.serve(async (req: Request) => {
         client_id: appointment.client_id,
         template_id: template.id,
         template_version: template.version,
-        signature_data: { typed_name: typedName.trim(), signed_date: signedDate, has_drawn_signature: true },
+        signature_data: { typed_name: typedName.trim(), signed_date: signedDate, dob: dob || null, phone: clientPhone || null, email: clientEmail || null, has_drawn_signature: true },
         signed_pdf_path: signedPdfPath,
         ip_address: ipAddress,
       })

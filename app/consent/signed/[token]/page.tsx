@@ -42,6 +42,9 @@ export default function SignedConsentPage({ params }: { params: Promise<{ token:
   return (
     <div className="min-h-screen bg-warm-50 py-8 px-4">
       <div className="max-w-3xl mx-auto">
+        <button onClick={() => window.history.back()} className="text-charcoal-500 text-sm mb-4">
+          ← Back
+        </button>
         <div className="text-center mb-6">
           <h1 className="font-serif text-2xl text-od-green mb-2">Your Signed Consent Form</h1>
           <p className="text-charcoal-500 text-sm mb-1">{info.shopName} · v{info.templateVersion}</p>

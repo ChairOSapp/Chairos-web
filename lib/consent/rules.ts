@@ -132,6 +132,26 @@ export const VERTICAL_LABELS: Record<Vertical, string> = {
   salon: 'Salon',
 }
 
+/**
+ * Canonical AcroForm field names for builder-generated PDFs.
+ * The contract between the PDF generator (lib/consent/generatePdf.ts),
+ * the signing page (app/consent/[appointmentId]/page.tsx), and the
+ * sign-consent-form edge function. Uploaded PDFs don't have these —
+ * the edge function falls back to the confirmation page for those.
+ */
+export const SIGNING_FIELDS = {
+  clientName: 'ClientName',
+  clientDOB: 'ClientDOB',
+  clientPhone: 'ClientPhone',
+  clientEmail: 'ClientEmail',
+  clientAddress: 'ClientAddress',
+  clientSignature: 'ClientSignature',
+  clientDate: 'ClientDate',
+  artistName: 'ArtistName',
+  artistSignature: 'ArtistSignature',
+  artistDate: 'ArtistDate',
+} as const
+
 const NOT_LEGAL_ADVICE =
   'This form was generated from a legal-information reference, not legal advice, and may not satisfy every requirement for your specific services. Have it reviewed by counsel before use.'
 

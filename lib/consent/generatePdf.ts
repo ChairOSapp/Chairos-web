@@ -1,9 +1,9 @@
 // Server-side consent-form PDF renderer (pdf-lib). Pure layout engine —
 // content comes from lib/consent/rules.ts buildConsentSections().
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFForm, type PDFTextField } from 'pdf-lib'
 import {
   type ConsentSection, type Vertical,
-  formTitle, legalFooter, STATES,
+  formTitle, legalFooter, STATES, SIGNING_FIELDS,
 } from './rules'
 
 const PAGE_W = 612
@@ -35,6 +35,8 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
 
 interface Ctx {
   doc: PDFDocument
+  form: PDFForm
+  fieldCache: Map<string, PDFTextField>
   font: PDFFont
   bold: PDFFont
   page: PDFPage
@@ -116,8 +118,14 @@ function drawField(ctx: Ctx, field: string) {
   const parts = field.split(/ {2,}/).map(p => p.trim()).filter(Boolean)
   const totalW = PAGE_W - MARGIN * 2
   const partW = totalW / parts.length
-  // measure height: one row
-  ensureSpace(ctx, 22)
+  // Map each part to a canonical AcroForm field name (null = plain line).
+  const names: (string | null)[] = []
+  for (let i = 0; i < parts.length; i++) {
+    names.push(fieldNameFor(parts[i], i > 0 ? names[i - 1] : null))
+  }
+  const hasSig = names.some(n => n === SIGNING_FIELDS.clientSignature || n === SIGNING_FIELDS.artistSignature)
+  const rowH = hasSig ? 62 : 22
+  ensureSpace(ctx, rowH + 4)
   parts.forEach((part, i) => {
     const x = MARGIN + i * partW
     const label = part
@@ -125,14 +133,65 @@ function drawField(ctx: Ctx, field: string) {
     ctx.page.drawText(label, { x, y: ctx.y, size: 9.5, font: ctx.font, color: GREY })
     const lineStart = x + tw + 6
     const lineEnd = x + partW - (i === parts.length - 1 ? 0 : 10)
-    if (lineEnd > lineStart + 8) {
+    if (lineEnd <= lineStart + 8) return
+    const name = names[i]
+    const isSig = name === SIGNING_FIELDS.clientSignature || name === SIGNING_FIELDS.artistSignature
+    if (name && !isSig) {
+      // Text field over the underline.
+      ctx.page.drawLine({
+        start: { x: lineStart, y: ctx.y - 4 }, end: { x: lineEnd, y: ctx.y - 4 },
+        thickness: 0.75, color: LINE,
+      })
+      addFormField(ctx, name, lineStart, ctx.y - 16, lineEnd - lineStart, 15)
+    } else if (name && isSig) {
+      // Signature block: line at top, tall invisible field below for the
+      // drawn signature image (placed by the signing edge function).
+      const boxW = Math.min(230, lineEnd - lineStart)
+      ctx.page.drawLine({
+        start: { x: lineStart, y: ctx.y - 4 }, end: { x: lineStart + boxW, y: ctx.y - 4 },
+        thickness: 0.75, color: LINE,
+      })
+      addFormField(ctx, name, lineStart, ctx.y - 52, boxW, 48)
+    } else {
       ctx.page.drawLine({
         start: { x: lineStart, y: ctx.y - 4 }, end: { x: lineEnd, y: ctx.y - 4 },
         thickness: 0.75, color: LINE,
       })
     }
   })
-  ctx.y -= 22
+  ctx.y -= rowH
+}
+
+/** Map a fill-in label to its canonical signing field, if any. */
+function fieldNameFor(label: string, prevName: string | null): string | null {
+  const l = label.toLowerCase().replace(/:$/, '').trim()
+  if (l === 'full legal name' || l === 'printed name') return SIGNING_FIELDS.clientName
+  if (l === 'date of birth') return SIGNING_FIELDS.clientDOB
+  if (l === 'phone') return SIGNING_FIELDS.clientPhone
+  if (l === 'address') return SIGNING_FIELDS.clientAddress
+  if (l === 'email') return SIGNING_FIELDS.clientEmail
+  if (l === 'client signature') return SIGNING_FIELDS.clientSignature
+  if (l === 'artist name') return SIGNING_FIELDS.artistName
+  if (l === 'artist signature' || l === 'provider / witness' || l === 'barber / witness') return SIGNING_FIELDS.artistSignature
+  if (l === 'date') {
+    if (prevName === SIGNING_FIELDS.clientSignature) return SIGNING_FIELDS.clientDate
+    if (prevName === SIGNING_FIELDS.artistSignature) return SIGNING_FIELDS.artistDate
+    return null
+  }
+  return null
+}
+
+/** Create (or reuse) a borderless AcroForm text field widget at the rect. */
+function addFormField(ctx: Ctx, name: string, x: number, y: number, w: number, h: number) {
+  let tf = ctx.fieldCache.get(name)
+  const isNew = !tf
+  if (!tf) {
+    tf = ctx.form.createTextField(name)
+    ctx.fieldCache.set(name, tf)
+  }
+  tf.addToPage(ctx.page, { x, y, width: w, height: h, font: ctx.font, borderWidth: 0 })
+  // setFontSize requires the /DA entry that addToPage creates.
+  if (isNew) tf.setFontSize(10)
 }
 
 function drawSection(ctx: Ctx, section: ConsentSection, index: number) {
@@ -164,9 +223,10 @@ export async function generateConsentPdf(opts: {
   const doc = await PDFDocument.create()
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const bold = await doc.embedFont(StandardFonts.HelveticaBold)
+  const form = doc.getForm()
 
   const ctx: Ctx = {
-    doc, font, bold,
+    doc, form, fieldCache: new Map(), font, bold,
     page: doc.addPage([PAGE_W, PAGE_H]),
     y: PAGE_H - MARGIN,
     pageNum: 0,

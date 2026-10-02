@@ -9,9 +9,12 @@ interface TemplateInfo {
   accessToken?: string
   templateId?: string
   version?: number
+  vertical?: string | null
   signedUrl?: string
   shopName?: string
   clientName?: string
+  clientPhone?: string | null
+  clientEmail?: string | null
   signingToken?: string
 }
 
@@ -22,6 +25,9 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
   const [numPages, setNumPages] = useState(0)
   const [reachedEnd, setReachedEnd] = useState(true)
   const [typedName, setTypedName] = useState('')
+  const [dob, setDob] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [artistName, setArtistName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -38,6 +44,8 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
       if (!res.ok) { setLoadError(data.error || 'Could not load consent form'); return }
       setInfo(data)
       if (data.clientName) setTypedName(data.clientName)
+      if (data.clientPhone) setPhone(data.clientPhone)
+      if (data.clientEmail) setEmail(data.clientEmail)
     }
     load()
   }, [appointmentId])
@@ -45,6 +53,8 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
   async function handleSubmit() {
     setSubmitError('')
     if (!typedName.trim()) { setSubmitError('Please type your full name'); return }
+    if (info?.vertical === 'tattoo' && !dob) { setSubmitError('Date of birth is required for tattoo consent'); return }
+    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) { setSubmitError('Please enter a valid date of birth'); return }
     if (!sigPadRef.current || sigPadRef.current.isEmpty()) { setSubmitError('Please draw your signature'); return }
     if (!reachedEnd) { setSubmitError('Please scroll through the full document before signing'); return }
 
@@ -64,6 +74,11 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
         templateId: info?.templateId,
         signingToken: info?.signingToken,
         typedName: typedName.trim(),
+        clientInfo: {
+          dob: dob || undefined,
+          phone: phone.trim() || undefined,
+          email: email.trim() || undefined,
+        },
         signatureImageDataUrl,
         signedDate: today,
         artistName: artistName.trim() || undefined,
@@ -110,10 +125,13 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
           <h1 className="font-serif text-2xl text-od-green mb-3">Signed</h1>
           <p className="text-charcoal-500 text-sm mb-6">This consent form has already been signed.</p>
           {accessToken && (
-            <Link href={`/consent/signed/${accessToken}`} className="text-od-green underline text-sm">
+            <Link href={`/consent/signed/${accessToken}`} className="text-od-green underline text-sm block mb-6">
               View your signed copy
             </Link>
           )}
+          <button onClick={() => window.history.back()} className="btn-chairos-outline">
+            ← Back
+          </button>
         </div>
       </div>
     )
@@ -122,6 +140,9 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
   return (
     <div className="min-h-screen bg-warm-50 py-10 px-4">
       <div className="max-w-2xl mx-auto">
+        <button onClick={() => window.history.back()} className="text-charcoal-500 text-sm mb-4">
+          ← Back
+        </button>
         <h1 className="font-serif text-2xl text-charcoal-900 mb-1">Consent Form — {info.shopName}</h1>
         <p className="text-charcoal-500 text-sm mb-6">Please read the full document, then sign below.</p>
 
@@ -152,6 +173,39 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
               value={typedName}
               onChange={e => setTypedName(e.target.value)}
               placeholder="Type your full name"
+              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
+                Date of Birth{info.vertical === 'tattoo' ? ' *' : ''}
+              </label>
+              <input
+                type="date"
+                value={dob}
+                onChange={e => setDob(e.target.value)}
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Phone</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="(555) 123-4567"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
               className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green"
             />
           </div>
