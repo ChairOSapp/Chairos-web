@@ -76,7 +76,7 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
     const future = new Date(now.getFullYear(), now.getMonth() + 4, 0)
     const { data } = await supabase
       .from('appointments')
-      .select('*, services(name, price)')
+      .select('*, services(name, price, duration_minutes)')
       .eq('barber_id', barberId)
       .gte('date', toDateStr(past))
       .lte('date', toDateStr(future))

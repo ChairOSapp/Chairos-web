@@ -435,8 +435,11 @@ export function squareNotConnectedMessage(who: 'shop owner' | 'barber'): string 
 /** Computes a deposit amount in dollars from the shop's deposit settings and the service price. */
 export function computeDepositAmount(depositType: 'flat' | 'percent', depositAmount: number, servicePrice: number): number {
   // Integer-cents: flat is exact, percent uses dinero multiplication.
-  if (depositType === 'flat') return toCents(fromDollars(depositAmount)) / 100
-  return toCents(percentOf(fromDollars(servicePrice), depositAmount)) / 100
+  const raw = depositType === 'flat'
+    ? toCents(fromDollars(depositAmount)) / 100
+    : toCents(percentOf(fromDollars(servicePrice), depositAmount)) / 100
+  // A deposit is never more than the service total (fail closed on money).
+  return Math.min(raw, Math.max(0, servicePrice))
 }
 
 /** Refunds a completed Square payment in full. Used for the Task 4 late-payment race and Task 6 cancellation refunds. */
