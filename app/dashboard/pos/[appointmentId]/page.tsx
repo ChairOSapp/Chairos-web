@@ -116,6 +116,22 @@ export default function POSCheckout() {
   const [shopPayouts, setShopPayouts] = useState<any>(null)
   const [barberPayouts, setBarberPayouts] = useState<any>(null)
 
+  // Effective handle for a wallet method: the barber's own wins when they
+  // collect their own payments, otherwise the shop's.
+  function effectiveHandle(method: PaymentMethod): string {
+    if (method !== 'venmo' && method !== 'zelle' && method !== 'cashapp') return ''
+    const col = payoutHandleColumn(method)
+    return ((barberPayouts?.[col] || shopPayouts?.[col] || '') as string).trim()
+  }
+  // Venmo/Zelle/Cash App need a handle saved to be usable. Cash, Other,
+  // and Square (card) are always available.
+  function methodAvailable(method: PaymentMethod): boolean {
+    if (method === 'venmo' || method === 'zelle' || method === 'cashapp') {
+      return effectiveHandle(method).length > 0
+    }
+    return true
+  }
+
   // Card form (manual entry)
   const squareCardRef = useRef<any>(null)
   const [cardReady, setCardReady] = useState(false)
@@ -158,6 +174,7 @@ export default function POSCheckout() {
       if (apptData.payment_status === 'paid') { setError('This appointment is already checked out'); setLoading(false); return }
       setAppt(apptData)
 
+      let clientPref: PaymentMethod | undefined
       if (apptData.client_id) {
         const { data: clientData } = await supabase
           .from('clients')
@@ -167,10 +184,11 @@ export default function POSCheckout() {
         setClient(clientData)
         if (clientData?.square_card_id) setMode('card-on-file')
         else setMode('manual')
-        // Pre-select how they usually pay so the owner/chair sees it coming.
-        const pref = (clientData as any)?.preferred_payment_method
-        if (pref && pref !== 'square' && PAYMENT_METHODS.some(m => m.value === pref)) {
-          setPaymentMethod(pref)
+        // Preferred method is applied after payout handles load, since
+        // wallet methods need a saved handle to be selectable.
+        const rawPref = (clientData as any)?.preferred_payment_method
+        if (rawPref && rawPref !== 'square' && PAYMENT_METHODS.some(m => m.value === rawPref)) {
+          clientPref = rawPref as PaymentMethod
         }
       } else {
         setMode('manual')
@@ -178,13 +196,16 @@ export default function POSCheckout() {
 
       // Payout handles for QR checkout: shop's, plus the barber's own when
       // they collect their own payments.
+      let shopH: any = null
+      let barberH: any = null
       if (apptData.shop_id) {
         const { data: shopData } = await supabase
           .from('shops')
           .select('barbers_collect_own_payments, venmo_handle, cashapp_handle, zelle_handle')
           .eq('id', apptData.shop_id)
           .maybeSingle()
-        setShopPayouts(shopData || null)
+        shopH = shopData || null
+        setShopPayouts(shopH)
         if (shopData?.barbers_collect_own_payments && apptData.barber_id) {
           const { data: barberData } = await supabase
             .from('shop_barbers')
@@ -192,7 +213,23 @@ export default function POSCheckout() {
             .eq('shop_id', apptData.shop_id)
             .eq('barber_id', apptData.barber_id)
             .maybeSingle()
-          setBarberPayouts(barberData || null)
+          barberH = barberData || null
+          setBarberPayouts(barberH)
+        }
+      }
+
+      // Now that handles are known, pre-select the client's preferred
+      // payment method — but only if it's actually usable (wallet methods
+      // need a saved handle, otherwise they stay greyed out).
+      const pref = clientPref
+      if (pref) {
+        const needsHandle = pref === 'venmo' || pref === 'zelle' || pref === 'cashapp'
+        if (!needsHandle) {
+          setPaymentMethod(pref)
+        } else {
+          const col = payoutHandleColumn(pref)
+          const handle = ((barberH?.[col] || shopH?.[col] || '') as string).trim()
+          if (handle) setPaymentMethod(pref)
         }
       }
 
@@ -617,19 +654,26 @@ export default function POSCheckout() {
         <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">How are they paying?</div>
           <div className="grid grid-cols-3 gap-2 mb-3">
-            {PAYMENT_METHODS.map(m => (
-              <button
-                key={m.value}
-                onClick={() => setPaymentMethod(m.value)}
-                className={`py-3 rounded-xl text-sm font-semibold transition-colors ${
-                  paymentMethod === m.value
-                    ? 'bg-[#7A8C3A] text-black'
-                    : 'bg-warm-200 dark:bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
+            {PAYMENT_METHODS.map(m => {
+              const available = methodAvailable(m.value)
+              return (
+                <button
+                  key={m.value}
+                  onClick={() => { if (available) setPaymentMethod(m.value) }}
+                  disabled={!available}
+                  title={available ? undefined : `Add your ${m.label} in Settings to use it here`}
+                  className={`py-3 rounded-xl text-sm font-semibold transition-colors ${
+                    paymentMethod === m.value
+                      ? 'bg-[#7A8C3A] text-black'
+                      : available
+                        ? 'bg-warm-200 dark:bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700'
+                        : 'bg-warm-200 dark:bg-charcoal-800 text-charcoal-500 opacity-40 cursor-not-allowed'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              )
+            })}
           </div>
           {paymentMethod !== 'square' && paymentMethod !== 'venmo' && paymentMethod !== 'zelle' && paymentMethod !== 'cashapp' && (
             <p className="text-xs text-charcoal-400 mb-1">
