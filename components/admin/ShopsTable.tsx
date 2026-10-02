@@ -15,7 +15,6 @@ const SUB_STATUS_COLOR: Record<string, string> = {
 // locks) — read-only by design.
 export default function ShopsTable({ shops, loading, onOpenDetail }: { shops: AdminShopRow[]; loading: boolean; onOpenDetail?: (id: string) => void }) {
   const [search, setSearch] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     let list = shops
@@ -70,8 +69,8 @@ export default function ShopsTable({ shops, loading, onOpenDetail }: { shops: Ad
                 {filtered.map(s => (
                   <tr
                     key={s.id}
-                    onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                    className={`border-b border-charcoal-800/60 last:border-0 hover:bg-charcoal-800/40 transition-colors cursor-pointer ${expandedId === s.id ? 'bg-charcoal-800/30' : ''}`}
+                    onClick={() => onOpenDetail?.(s.id)}
+                    className="border-b border-charcoal-800/60 last:border-0 hover:bg-charcoal-800/40 transition-colors cursor-pointer"
                   >
                     <td className="px-4 py-3">
                       <div className="font-medium text-charcoal-100">{s.name}</div>
@@ -89,44 +88,13 @@ export default function ShopsTable({ shops, loading, onOpenDetail }: { shops: Ad
                         : 'No activity yet'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-xs text-charcoal-600 font-semibold">
-                        {expandedId === s.id ? '↑ Hide' : 'View'}
-                      </span>
+                      <span className="text-charcoal-500 text-sm">→</span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {filtered.map(s => expandedId !== s.id ? null : (
-            <div key={`${s.id}-detail`} className="border-t border-charcoal-800 bg-charcoal-950/60 px-4 py-4">
-              {onOpenDetail && (
-                <button onClick={() => onOpenDetail(s.id)}
-                  className="mb-3 text-xs font-bold text-[#8A9A3B] hover:text-[#a5b84a] transition-colors">
-                  Open full dossier →
-                </button>
-              )}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                <div>
-                  <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1">Owner</div>
-                  <div className="text-charcoal-200 font-medium">{s.ownerName || '—'}</div>
-                  <div className="text-charcoal-500">{s.ownerEmail || ''}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1">Appointments</div>
-                  <div className="font-serif text-xl text-charcoal-100">{s.appointmentCount}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1">Revenue (completed)</div>
-                  <div className="font-serif text-xl text-charcoal-100">${s.revenueTotal.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1">Clients · Locked</div>
-                  <div className="font-serif text-xl text-charcoal-100">{s.clientCount} <span className="text-charcoal-600 text-sm">· {s.lockedCount}</span></div>
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </div>

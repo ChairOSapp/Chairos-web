@@ -25,6 +25,8 @@ function BarberSettingsInner() {
   const [fullName, setFullName] = useState('')
   const [alias, setAlias] = useState('')
   const [bio, setBio] = useState('')
+  const [phone, setPhone] = useState('')
+  const [smsConsent, setSmsConsent] = useState(false)
   const [photoUrl, setPhotoUrl] = useState('')
 
   // Payout handles for QR checkout — the chair's own Venmo / Cash App /
@@ -82,6 +84,8 @@ function BarberSettingsInner() {
       .maybeSingle()
     setProfile(profile)
     setFullName(profile?.full_name || '')
+    setPhone(profile?.phone || '')
+    setSmsConsent(!!profile?.sms_consent)
 
     const { data: shopBarber } = await supabase
       .from('shop_barbers')
@@ -162,9 +166,15 @@ function BarberSettingsInner() {
     setError('')
     setSuccess('')
 
+    const cleanPhone = phone.replace(/\D/g, '')
     const { error: profileErr } = await supabase
       .from('profiles')
-      .update({ full_name: fullName })
+      .update({
+        full_name: fullName,
+        phone: cleanPhone || null,
+        sms_consent: smsConsent,
+        sms_consent_at: smsConsent ? new Date().toISOString() : profile.sms_consent_at,
+      })
       .eq('id', profile.id)
 
     if (profileErr) { setError(profileErr.message); setSaving(false); return }
@@ -313,6 +323,22 @@ function BarberSettingsInner() {
               <input value={fullName} onChange={e => setFullName(e.target.value)}
                 placeholder="Your full name"
                 className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
+                Mobile Number <span className="normal-case font-normal">(optional)</span>
+              </label>
+              <input value={phone} onChange={e => setPhone(e.target.value)}
+                type="tel" autoComplete="tel"
+                placeholder="(904) 555-0123"
+                className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors" />
+              <label className="flex items-start gap-2.5 cursor-pointer mt-3">
+                <input type="checkbox" checked={smsConsent} onChange={e => setSmsConsent(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-od-green" />
+                <span className="text-xs text-charcoal-500 leading-relaxed">
+                  Text me booking alerts and reminders. Message & data rates may apply. Reply STOP to opt out.
+                </span>
+              </label>
             </div>
             <div>
               <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">

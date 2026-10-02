@@ -39,7 +39,6 @@ export default function AccountsTable({ users, loading, onOpenDetail }: { users:
   const [healthFilter, setHealthFilter] = useState<HealthStatus | 'all'>('all')
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
   const [sortAsc, setSortAsc] = useState(false)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const healthCounts = useMemo(() => ({
     healthy: users.filter(u => u.health === 'healthy').length,
@@ -130,8 +129,8 @@ export default function AccountsTable({ users, loading, onOpenDetail }: { users:
                 {filtered.map(u => (
                   <tr
                     key={u.id}
-                    onClick={() => setExpandedId(expandedId === u.id ? null : u.id)}
-                    className={`border-b border-charcoal-800/60 last:border-0 hover:bg-charcoal-800/40 transition-colors cursor-pointer ${expandedId === u.id ? 'bg-charcoal-800/30' : ''}`}
+                    onClick={() => onOpenDetail?.(u.id)}
+                    className="border-b border-charcoal-800/60 last:border-0 hover:bg-charcoal-800/40 transition-colors cursor-pointer"
                   >
                     <td className="px-4 py-3">
                       <div className="font-medium text-charcoal-100">{u.full_name || '—'}</div>
@@ -153,9 +152,7 @@ export default function AccountsTable({ users, loading, onOpenDetail }: { users:
                     </td>
                     <td className="px-4 py-3"><HealthBadge status={u.health} /></td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-xs text-charcoal-600 font-semibold">
-                        {expandedId === u.id ? '↑ Hide' : 'View'}
-                      </span>
+                      <span className="text-charcoal-500 text-sm">→</span>
                     </td>
                   </tr>
                 ))}
@@ -169,54 +166,6 @@ export default function AccountsTable({ users, loading, onOpenDetail }: { users:
               </tbody>
             </table>
           </div>
-          {/* Expanded detail panels render below the table (no nested-row key juggling) */}
-          {filtered.map(u => expandedId !== u.id ? null : (
-            <div key={`${u.id}-detail`} className="border-t border-charcoal-800 bg-charcoal-950/60 px-4 py-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs mb-3">
-                <div>
-                  <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1">User ID</div>
-                  <div className="font-mono text-charcoal-400 break-all">{u.id}</div>
-                </div>
-                {u.stripe_subscription_id && (
-                  <div>
-                    <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1">Stripe sub</div>
-                    <div className="font-mono text-charcoal-400 break-all">{u.stripe_subscription_id}</div>
-                  </div>
-                )}
-                {u.shop_id && (
-                  <div>
-                    <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1">Shop ID</div>
-                    <div className="font-mono text-charcoal-400 break-all">{u.shop_id}</div>
-                  </div>
-                )}
-                <div>
-                  <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1">Role</div>
-                  <div className="text-charcoal-300 capitalize">{u.role || '—'}</div>
-                </div>
-              </div>
-              {onOpenDetail && (
-                <button onClick={() => onOpenDetail(u.id)}
-                  className="mb-3 text-xs font-bold text-[#8A9A3B] hover:text-[#a5b84a] transition-colors">
-                  Open full dossier →
-                </button>
-              )}
-              {u.health_reasons.length > 0 ? (
-                <div>
-                  <div className="text-[10px] font-bold tracking-widest uppercase text-charcoal-600 mb-1.5">Why flagged</div>
-                  <ul className="space-y-1">
-                    {u.health_reasons.map((r, i) => (
-                      <li key={i} className="flex items-start gap-1.5 text-xs text-charcoal-400">
-                        <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${u.health === 'critical' ? 'bg-red-400' : 'bg-yellow-400'}`} />
-                        {r}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <div className="text-xs text-green-400">All checks passed.</div>
-              )}
-            </div>
-          ))}
         </div>
       )}
     </div>

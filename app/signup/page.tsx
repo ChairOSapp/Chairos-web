@@ -19,6 +19,7 @@ export default function Signup() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<'owner' | 'barber' | null>(null)
+  const [phone, setPhone] = useState('')
   const [smsConsent, setSmsConsent] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
@@ -77,13 +78,14 @@ export default function Signup() {
       try { localStorage.setItem('chairos:welcome_email_pending', '1') } catch {}
     }
 
-    // Save SMS consent if given (profile row may not exist yet if email confirmation required)
-    if (smsConsent && signUpData.user) {
+    // Save phone + SMS consent if given (profile row may not exist yet if email confirmation required)
+    const cleanPhone = phone.replace(/\D/g, '')
+    if ((smsConsent || cleanPhone) && signUpData.user) {
       const consentNow = new Date().toISOString()
       await supabase.from('profiles').upsert({
         id: signUpData.user.id,
-        sms_consent: true,
-        sms_consent_at: consentNow,
+        ...(cleanPhone ? { phone: cleanPhone } : {}),
+        ...(smsConsent ? { sms_consent: true, sms_consent_at: consentNow } : {}),
       }, { onConflict: 'id', ignoreDuplicates: false })
     }
 
@@ -170,6 +172,19 @@ export default function Signup() {
             </button>
           </div>
 
+          <div className="mb-4">
+            <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">
+              Mobile number <span className="normal-case font-normal">(optional)</span>
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="(904) 555-0123"
+              autoComplete="tel"
+              className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors"
+            />
+          </div>
           <label className="flex items-start gap-3 cursor-pointer mb-4">
             <input
               type="checkbox"

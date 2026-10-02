@@ -1,6 +1,6 @@
 'use client'
 
-import type { PulseData, PulseStatus } from './types'
+import type { PulseData, PulseStatus, PulseAction } from './types'
 
 const STATUS_META: Record<PulseStatus, { dot: string; ring: string; label: string }> = {
   healthy: { dot: 'bg-green-400', ring: 'border-green-900/60', label: 'Healthy' },
@@ -10,7 +10,7 @@ const STATUS_META: Record<PulseStatus, { dot: string; ring: string; label: strin
 
 // The 60-second briefing: one-line status + the top 3 things needing action.
 // Tapping an action scrolls straight to the action queue.
-export default function PulseHeader({ pulse }: { pulse: PulseData }) {
+export default function PulseHeader({ pulse, onSelect }: { pulse: PulseData; onSelect?: (a: PulseAction) => void }) {
   const meta = STATUS_META[pulse.status]
   const top = pulse.actions.slice(0, 3)
   const generated = new Date(pulse.generatedAt).toLocaleTimeString('en-US', {
@@ -38,15 +38,15 @@ export default function PulseHeader({ pulse }: { pulse: PulseData }) {
       {top.length > 0 && (
         <div className="mt-4 space-y-2">
           {top.map((a, i) => (
-            <a
+            <button
               key={a.id}
-              href="#action-queue"
-              className="flex items-center gap-3 rounded-xl border border-charcoal-800 bg-charcoal-950/60 px-4 py-3 hover:border-charcoal-700 transition-colors"
+              onClick={() => onSelect?.(a)}
+              className="w-full text-left flex items-center gap-3 rounded-xl border border-charcoal-800 bg-charcoal-950/60 px-4 py-3 hover:border-charcoal-700 transition-colors"
             >
               <span className="font-serif text-lg text-charcoal-600 w-6">{i + 1}</span>
               <span className="text-sm text-charcoal-200 flex-1">{a.title}</span>
               <span className="text-charcoal-500 text-sm">→</span>
-            </a>
+            </button>
           ))}
         </div>
       )}
