@@ -63,6 +63,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!shopId) return NextResponse.json({ error: 'Only the shop owner can delete updates' }, { status: 403 })
 
   const { id } = await params
+  const { data: existing } = await admin
+    .from('shop_announcements')
+    .select('image_url')
+    .eq('id', id)
+    .eq('shop_id', shopId)
+    .maybeSingle()
+
   const { data, error } = await admin
     .from('shop_announcements')
     .delete()
@@ -71,5 +78,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     .select('id')
     .maybeSingle()
   if (error || !data) return NextResponse.json({ error: 'Update not found' }, { status: 404 })
+
+  // Best-effort: remove the flyer from the private bucket so deleted posts
+  // don't orphan files. A storage failure must not fail the delete itself.
+  if (existing?.image_url) {
+    await admin.storage.from('announcement-images').remove([existing.image_url]).catch(() => {})
+  }
   return NextResponse.json({ ok: true })
 }

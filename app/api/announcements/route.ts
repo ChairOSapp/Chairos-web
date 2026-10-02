@@ -25,6 +25,18 @@ function adminClient() {
   )
 }
 
+// Flyers live in a private bucket. Mint a short-lived signed URL per view;
+// the GET route below already verified the caller is owner/active staff of
+// the shop, so this is the authorization boundary (storage RLS is
+// defense-in-depth). Returns null when the post has no photo or signing
+// fails, in which case the UI simply shows no photo.
+async function signImageUrl(admin: ReturnType<typeof adminClient>, imagePath: string | null): Promise<string | null> {
+  if (!imagePath) return null
+  const { data, error } = await admin.storage.from('announcement-images').createSignedUrl(imagePath, 60 * 60)
+  if (error || !data?.signedUrl) return null
+  return data.signedUrl
+}
+
 // Resolve the shop the signed-in user belongs to: their owned shop first,
 // otherwise the shop where they are active staff. Returns null for outsiders.
 async function resolveShop(admin: ReturnType<typeof adminClient>, userId: string) {
@@ -60,7 +72,11 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(50)
   if (error) return NextResponse.json({ error: 'Could not load announcements' }, { status: 500 })
-  return NextResponse.json({ announcements: data ?? [], isOwner: resolved.isOwner })
+  const announcements = await Promise.all((data ?? []).map(async (a) => ({
+    ...a,
+    image_url: await signImageUrl(admin, a.image_url),
+  })))
+  return NextResponse.json({ announcements, isOwner: resolved.isOwner })
 }
 
 // POST /api/announcements -- owner-only: post an update to the shop board.
@@ -86,8 +102,12 @@ export async function POST(req: NextRequest) {
   let cleanImage: string | null = null
   if (image_url) {
     cleanImage = String(image_url).trim()
-    if (cleanImage.length > 500 || !/^https?:\/\//.test(cleanImage)) {
-      return NextResponse.json({ error: 'That photo link looks invalid' }, { status: 400 })
+    // Must be a storage path in this shop's own announcements folder, not an
+    // arbitrary URL: "<shop_id>/announcements/<uuid>". The bucket is private
+    // and the board serves photos via signed URLs, so a raw URL is never valid.
+    const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/announcements\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.exec(cleanImage)
+    if (!m || m[1] !== shop.id || cleanImage.length > 200) {
+      return NextResponse.json({ error: 'That photo upload looks invalid — try adding it again' }, { status: 400 })
     }
   }
 
@@ -105,5 +125,7 @@ export async function POST(req: NextRequest) {
     .select('id, title, body, pinned, author_name, created_at, image_url')
     .single()
   if (error) return NextResponse.json({ error: 'Could not post the update' }, { status: 500 })
-  return NextResponse.json({ announcement: created })
+  return NextResponse.json({
+    announcement: { ...created, image_url: await signImageUrl(admin, created.image_url) },
+  })
 }

@@ -59,12 +59,21 @@ export async function POST(req: NextRequest) {
   })
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
 
+  // Announcements live in a private bucket: hand back the storage path (what
+  // gets stored on the post) plus a short-lived signed URL for the compose
+  // preview. The board's GET route mints fresh signed URLs per view, so no
+  // public URL for flyers ever exists.
+  if (kind === 'announcement') {
+    const { data: signed, error: signError } = await admin.storage.from(bucket).createSignedUrl(path, 60 * 60)
+    if (signError || !signed?.signedUrl) return NextResponse.json({ error: 'Could not prepare photo preview' }, { status: 500 })
+    return NextResponse.json({ url: signed.signedUrl, path })
+  }
+
   const { data: pub } = admin.storage.from(bucket).getPublicUrl(path)
   const url = `${pub.publicUrl}?t=${Date.now()}`
 
-  // Announcements just need the URL back (it's stored on the post);
-  // logo/hero also persist onto the shop row.
-  if (kind !== 'announcement') {
+  // Logo/hero persist onto the shop row (announcements return early above).
+  {
     const column = kind === 'logo' ? 'logo_url' : 'hero_url'
     const { error: updateError } = await admin.from('shops').update({ [column]: url }).eq('id', shop.id)
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })

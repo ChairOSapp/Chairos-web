@@ -12,6 +12,7 @@ export default function AnnouncementsBoard() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [photoPath, setPhotoPath] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState('')
@@ -48,7 +49,9 @@ export default function AnnouncementsBoard() {
       }
       const data = await res.json().catch(() => ({ error: 'Upload failed' }))
       if (!res.ok) { setError(data.error || 'Upload failed'); return }
+      // url = short-lived signed preview; path = storage path stored on the post.
       setPhotoUrl(data.url as string)
+      setPhotoPath((data.path as string) || null)
     } finally {
       setUploadingPhoto(false)
       if (photoRef.current) photoRef.current.value = ''
@@ -63,7 +66,7 @@ export default function AnnouncementsBoard() {
       const res = await fetch('/api/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), body: body.trim(), image_url: photoUrl }),
+        body: JSON.stringify({ title: title.trim(), body: body.trim(), image_url: photoPath }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Could not post the update'); return }
@@ -72,6 +75,7 @@ export default function AnnouncementsBoard() {
       setTitle('')
       setBody('')
       setPhotoUrl(null)
+      setPhotoPath(null)
     } finally {
       setPosting(false)
     }
@@ -119,7 +123,7 @@ export default function AnnouncementsBoard() {
             <div className="mb-3 flex items-center gap-3">
               <img src={photoUrl} alt="" className="w-20 h-20 object-cover rounded-lg border border-warm-200" />
               <button
-                onClick={() => setPhotoUrl(null)}
+                onClick={() => { setPhotoUrl(null); setPhotoPath(null) }}
                 className="text-xs font-semibold text-red-400 hover:text-red-500 transition-colors">
                 Remove photo
               </button>
