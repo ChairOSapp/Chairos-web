@@ -8,6 +8,7 @@ import MobileNav from '@/components/MobileNav'
 import ClientNotes from '@/components/ClientNotes'
 import ClientTags from '@/components/ClientTags'
 import ClientTimeline from '@/components/ClientTimeline'
+import { PAYMENT_METHODS, paymentMethodLabel } from '@/lib/paymentMethods'
 
 interface Client {
   id: string
@@ -18,6 +19,7 @@ interface Client {
   last_visit_date: string | null
   physical_consent_on_file: boolean
   physical_consent_note: string | null
+  preferred_payment_method: string | null
 }
 
 interface ClientLock {
@@ -100,7 +102,7 @@ export default function ClientProfilePage() {
         { data: appts },
         { data: barbers },
       ] = await Promise.all([
-        supabase.from('clients').select('id, full_name, phone, email, total_visits, last_visit_date, physical_consent_on_file, physical_consent_note').eq('id', id).maybeSingle(),
+        supabase.from('clients').select('id, full_name, phone, email, total_visits, last_visit_date, physical_consent_on_file, physical_consent_note, preferred_payment_method').eq('id', id).maybeSingle(),
         supabase.from('client_locks').select('locked, loyalty_protected, last_booking_date, booking_count, barber_id').eq('client_id', id).eq('shop_id', shop.id).maybeSingle(),
         supabase.from('appointments')
           .select('id, date, time, price, status, barber_id, services(name)')
@@ -154,6 +156,17 @@ export default function ClientProfilePage() {
       .eq('id', client.id)
     if (!error) {
       setClient({ ...client, physical_consent_on_file: newValue })
+    }
+  }
+
+  async function setPreferredPayment(v: string | null) {
+    if (!client) return
+    const { error } = await supabase
+      .from('clients')
+      .update({ preferred_payment_method: v })
+      .eq('id', client.id)
+    if (!error) {
+      setClient({ ...client, preferred_payment_method: v })
     }
   }
 
@@ -233,6 +246,24 @@ export default function ClientProfilePage() {
             <span className="text-xs text-charcoal-500">
               Locked to <span className="font-semibold text-charcoal-900">{preferredBarber.barber_name || preferredBarber.alias}</span>
             </span>
+          )}
+        </div>
+
+        {/* PREFERRED PAYMENT — so the owner/chair knows what to expect at checkout */}
+        <div className="flex items-center gap-3 mb-6">
+          <span className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Usually pays with</span>
+          <select
+            value={client.preferred_payment_method || ''}
+            onChange={e => setPreferredPayment(e.target.value || null)}
+            className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-900 outline-none focus:border-od-green"
+          >
+            <option value="">Not set</option>
+            {PAYMENT_METHODS.map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          {client.preferred_payment_method && (
+            <span className="text-xs text-charcoal-400">Pre-selected at checkout</span>
           )}
         </div>
 

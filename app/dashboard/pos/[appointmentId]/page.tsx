@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import ClientNotes from '@/components/ClientNotes'
 import { squareCardInputStyle } from '@/lib/squareCard'
 import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
+import { PAYMENT_METHODS, paymentMethodLabel, type PaymentMethod } from '@/lib/paymentMethods'
 
 const TIP_PRESETS = [
   { label: '15%', pct: 0.15 },
@@ -33,6 +34,11 @@ export default function POSCheckout() {
 
   // Payment mode
   const [mode, setMode] = useState<Mode>('no-card')
+
+  // How the client is paying: card through Square, or cash / Venmo /
+  // Zelle / etc. collected outside Square. Defaults to the client's
+  // preferred method when they have one set.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('square')
 
   // Card form (manual entry)
   const squareCardRef = useRef<any>(null)
@@ -79,12 +85,17 @@ export default function POSCheckout() {
       if (apptData.client_id) {
         const { data: clientData } = await supabase
           .from('clients')
-          .select('id, full_name, square_customer_id, square_card_id, square_card_brand, square_card_last4')
+          .select('id, full_name, square_customer_id, square_card_id, square_card_brand, square_card_last4, preferred_payment_method')
           .eq('id', apptData.client_id)
           .maybeSingle()
         setClient(clientData)
         if (clientData?.square_card_id) setMode('card-on-file')
         else setMode('manual')
+        // Pre-select how they usually pay so the owner/chair sees it coming.
+        const pref = (clientData as any)?.preferred_payment_method
+        if (pref && pref !== 'square' && PAYMENT_METHODS.some(m => m.value === pref)) {
+          setPaymentMethod(pref)
+        }
       } else {
         setMode('manual')
       }
@@ -94,9 +105,10 @@ export default function POSCheckout() {
     load()
   }, [appointmentId])
 
-  // Initialize Square card form when mode = manual
+  // Initialize Square card form when paying by card with manual entry.
+  // Cash and other off-Square methods skip the card form entirely.
   useEffect(() => {
-    if (mode !== 'manual') {
+    if (paymentMethod !== 'square' || mode !== 'manual') {
       if (squareCardRef.current) {
         squareCardRef.current.destroy?.().catch(() => {})
         squareCardRef.current = null
@@ -171,7 +183,7 @@ export default function POSCheckout() {
         setCardReady(false)
       }
     }
-  }, [mode, cardRetryKey])
+  }, [mode, cardRetryKey, paymentMethod])
 
   const servicePrice = parseFloat(String(appt?.price || 0)) || 0
   const discountAmount = Math.max(0, parseFloat(discount) || 0)
@@ -189,12 +201,45 @@ export default function POSCheckout() {
       return
     }
     // Saving the card requires the client's confirmed agreement — staff
-    // must check the consent box, not just the save toggle.
-    if (mode === 'manual' && saveCard && !saveCardConsent) {
+    // must check the consent box, not just the save toggle. Square only;
+    // cash and other off-Square payments never touch a card.
+    if (paymentMethod === 'square' && mode === 'manual' && saveCard && !saveCardConsent) {
       setError('Please confirm the client agreed to the card-on-file terms.')
       return
     }
     setProcessing(true)
+
+    // Cash and other off-Square payments: no card, no Square charge — just
+    // record how it was paid and mark the appointment done.
+    if (paymentMethod !== 'square') {
+      try {
+        const res = await fetch('/api/pos/mark-paid', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appointmentId,
+            tipAmount,
+            discount: Math.min(discountAmount, servicePrice),
+            paymentMethod,
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || 'Could not mark paid')
+        setReceiptData({
+          total: json.total,
+          tip: tipAmount,
+          service: servicePrice,
+          discount: Math.min(discountAmount, servicePrice),
+          paymentMethodLabel: paymentMethodLabel(paymentMethod),
+        })
+        setSuccess(true)
+      } catch (err: any) {
+        setError(err.message)
+      } finally {
+        setProcessing(false)
+      }
+      return
+    }
 
     let sourceId: string | undefined
 
@@ -282,6 +327,12 @@ export default function POSCheckout() {
             <span className="text-charcoal-900 dark:text-white font-semibold">Total</span>
             <span className="text-[#7A8C3A] font-serif text-xl">${receiptData.total.toFixed(2)}</span>
           </div>
+          {receiptData.paymentMethodLabel && (
+            <div className="flex justify-between text-sm pt-1">
+              <span className="text-charcoal-400">Paid with</span>
+              <span className="text-charcoal-900 dark:text-white font-semibold">{receiptData.paymentMethodLabel}</span>
+            </div>
+          )}
           {receiptData.cardSaved && (
             <div className="text-xs text-[#7A8C3A]/70 pt-1 text-center">Card saved for future visits</div>
           )}
@@ -466,10 +517,33 @@ export default function POSCheckout() {
           </div>
         </div>
 
-        {/* Payment method */}
+        {/* How they're paying */}
         <div className="mb-5">
-          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Payment method</div>
-          <div className="space-y-2">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">How are they paying?</div>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {PAYMENT_METHODS.map(m => (
+              <button
+                key={m.value}
+                onClick={() => setPaymentMethod(m.value)}
+                className={`py-3 rounded-xl text-sm font-semibold transition-colors ${
+                  paymentMethod === m.value
+                    ? 'bg-[#7A8C3A] text-black'
+                    : 'bg-warm-200 dark:bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          {paymentMethod !== 'square' && (
+            <p className="text-xs text-charcoal-400 mb-1">
+              No card needed — mark it paid once the {paymentMethodLabel(paymentMethod).toLowerCase()} is in hand. It still counts toward earnings and the 1099.
+            </p>
+          )}
+          {paymentMethod === 'square' && (
+            <>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Card</div>
+              <div className="space-y-2">
             {client?.square_card_id && (
               <button
                 onClick={() => setMode('card-on-file')}
@@ -504,11 +578,13 @@ export default function POSCheckout() {
                 <div className="text-xs opacity-70">Type or swipe card details now</div>
               </div>
             </button>
-          </div>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Card form (manual mode) */}
-        {mode === 'manual' && (
+        {/* Card form (manual card entry — Square only) */}
+        {paymentMethod === 'square' && mode === 'manual' && (
           <div className="mb-5">
             <div className="bg-warm-100 dark:bg-charcoal-900 border border-charcoal-700 rounded-xl p-4">
               {cardLoading && (
@@ -590,7 +666,7 @@ export default function POSCheckout() {
           </div>
           <button
             onClick={handleCheckout}
-            disabled={processing || discountInvalid || (mode === 'manual' && !cardReady)}
+            disabled={processing || discountInvalid || (paymentMethod === 'square' && mode === 'manual' && !cardReady)}
             className="w-full bg-[#7A8C3A] text-black font-bold py-4 rounded-2xl text-base hover:bg-[#8FA043] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {processing ? (
@@ -598,11 +674,13 @@ export default function POSCheckout() {
                 <span className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
                 Processing…
               </span>
-            ) : (
+            ) : paymentMethod === 'square' ? (
               `Charge $${total.toFixed(2)}`
+            ) : (
+              `Mark $${total.toFixed(2)} paid \u00b7 ${paymentMethodLabel(paymentMethod)}`
             )}
           </button>
-          <p className="text-center text-[11px] text-charcoal-600 mt-2">Secured by Square · This action marks the appointment as complete</p>
+          <p className="text-center text-[11px] text-charcoal-600 mt-2">{paymentMethod === 'square' ? 'Secured by Square · This action marks the appointment as complete' : 'This marks the appointment as complete and records the payment method'}</p>
         </div>
       </div>
     </div>

@@ -262,10 +262,13 @@ export async function POST(req: NextRequest) {
 
     const paid = payment?.status === 'COMPLETED'
 
-    // Update appointment: mark done + paid, record tip
+    // Update appointment: mark done + paid, record tip. Card payments
+    // run through Square, so the payment method is 'square' — cash and
+    // other off-Square payments go through /api/pos/mark-paid instead.
     await admin.from('appointments').update({
       status: 'done',
       payment_status: paid ? 'paid' : 'failed',
+      payment_method: paid ? 'square' : null,
       square_payment_id: payment?.id ?? null,
       amount_paid: paid ? chargeBase + tipDollars : null,
       tip_amount: paid ? tipDollars : 0,

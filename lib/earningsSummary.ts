@@ -1,5 +1,12 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { fromDollars, add, multiply, toCents, toDinero } from './money'
+import { paymentMethodBucket } from './paymentMethods'
+
+export interface PaymentMethodRevenue {
+  square: number
+  cash: number
+  other: number
+}
 
 export interface EarningsSummary {
   totalRevenue: number
@@ -9,6 +16,9 @@ export interface EarningsSummary {
   compensationType: string | null
   commissionRate: number | null
   boothRentPaid: number
+  // Service revenue split by how clients paid. Cash and off-Square
+  // payments still count toward the 1099 — they're just shown separately.
+  serviceRevenueByMethod: PaymentMethodRevenue
 }
 
 // Same formula already used in app/dashboard/staff/[id]/earnings/page.tsx --
@@ -33,7 +43,7 @@ export async function computeEarningsSummary(
 
   const { data: appointments } = await supabase
     .from('appointments')
-    .select('price')
+    .select('price, payment_method')
     .eq('shop_id', shopId)
     .eq('barber_id', barberId)
     .eq('status', 'done')
@@ -63,6 +73,17 @@ export async function computeEarningsSummary(
     (sum, a) => add(sum, fromDollars(parseFloat(a.price) || 0)),
     toDinero(0)
   )
+  // Same revenue, bucketed by payment method. Null (legacy rows) counts
+  // as Square — that was the only way to get paid before tracking.
+  const revenueByMethodDinero: Record<'square' | 'cash' | 'other', ReturnType<typeof toDinero>> = {
+    square: toDinero(0),
+    cash: toDinero(0),
+    other: toDinero(0),
+  }
+  for (const a of appointments ?? []) {
+    const bucket = paymentMethodBucket((a as any).payment_method)
+    revenueByMethodDinero[bucket] = add(revenueByMethodDinero[bucket], fromDollars(parseFloat(a.price) || 0))
+  }
   const compensationBaseDinero =
     shopBarber?.compensation_type === 'commission'
       ? multiply(totalRevenueDinero, shopBarber?.commission_rate || 0.7)
@@ -89,5 +110,10 @@ export async function computeEarningsSummary(
     compensationType: shopBarber?.compensation_type ?? null,
     commissionRate: shopBarber?.commission_rate ?? null,
     boothRentPaid,
+    serviceRevenueByMethod: {
+      square: toCents(revenueByMethodDinero.square) / 100,
+      cash: toCents(revenueByMethodDinero.cash) / 100,
+      other: toCents(revenueByMethodDinero.other) / 100,
+    },
   }
 }

@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation'
 import { presentPdf } from '@/lib/pdfShare'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import StaffNav from '@/components/StaffNav'
+import { paymentMethodBucket } from '@/lib/paymentMethods'
 
 type Appointment = {
   id: string
   date: string
   time: string
   price: number
+  payment_method: string | null
   client_name: string
   client_phone: string
   services: { name: string } | null
@@ -67,7 +69,7 @@ export default function BarberEarningsPage() {
 
     const { data: appts } = await supabase
       .from('appointments')
-      .select('id, date, time, price, client_name, client_phone, services(name)')
+      .select('id, date, time, price, payment_method, client_name, client_phone, services(name)')
       .eq('barber_id', user.id)
       .eq('status', 'done')
       .gte('date', `${year}-01-01`)
@@ -125,6 +127,13 @@ export default function BarberEarningsPage() {
   }, [tips, timeFilter, year])
 
   const totalRevenue = filteredAppointments.reduce((s, a) => s + (parseFloat(String(a.price)) || 0), 0)
+  // Service revenue split by how clients paid — cash and off-Square
+  // payments still count toward the 1099, just shown separately.
+  const revByMethod = (b: 'square' | 'cash' | 'other') =>
+    filteredAppointments.filter(a => paymentMethodBucket(a.payment_method) === b).reduce((s, a) => s + (parseFloat(String(a.price)) || 0), 0)
+  const cardRevenue = revByMethod('square')
+  const cashRevenue = revByMethod('cash')
+  const otherRevenue = revByMethod('other')
   const totalCut = totalRevenue * commissionRate
   const totalTips = filteredTips.reduce((s, t) => s + (parseFloat(String(t.amount)) || 0), 0)
   const totalEarnings = totalCut + totalTips
@@ -251,6 +260,13 @@ export default function BarberEarningsPage() {
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-2">Total Earnings</div>
               <div className="font-serif text-5xl mb-1" style={{ color }}>${totalEarnings.toFixed(2)}</div>
               <div className="text-xs text-charcoal-500">{filteredAppointments.length} appointments</div>
+              <div className="text-xs text-charcoal-400 mt-2">
+                Card: ${cardRevenue.toFixed(2)} · Cash: ${cashRevenue.toFixed(2)} · Other: ${otherRevenue.toFixed(2)}
+              </div>
+            </div>
+
+            <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-4 text-xs text-charcoal-500">
+              Track every dollar — cash and app payments all count toward your 1099. Mark the payment method at checkout so your books stay clean.
             </div>
 
             {/* EARNINGS BAR CHART */}

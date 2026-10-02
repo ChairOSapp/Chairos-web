@@ -186,7 +186,12 @@ export async function POST(req: NextRequest) {
     y -= 15
   }
   page.drawText(`${summary.appointmentCount} completed appointments`, { x: margin, y, size: 10, font, color: GREY })
-  y -= 28
+  y -= 15
+  // How clients paid: cash and off-Square income still counts toward the
+  // 1099 — shown separately so the records are complete.
+  const pm = summary.serviceRevenueByMethod
+  page.drawText(`Paid by card: $${fmt(pm.square)}  ·  Cash: $${fmt(pm.cash)}  ·  Other: $${fmt(pm.other)}`, { x: margin, y, size: 9, font, color: GREY })
+  y -= 13
 
   // --- Box 4: withholding (ChairOS never withholds; shown for 1099 parity) ---
   page.drawText('Box 4 — Federal income tax withheld', { x: margin, y, size: 10, font: boldFont, color: CHARCOAL })

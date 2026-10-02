@@ -6,6 +6,7 @@ import { Capacitor } from '@capacitor/core'
 import { presentPdf } from '@/lib/pdfShare'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { paymentMethodBucket } from '@/lib/paymentMethods'
 
 export default function BarberEarnings() {
   const { staffLabelPlural } = useVerticalLabels()
@@ -138,6 +139,13 @@ export default function BarberEarnings() {
   )
 
   const totalRevenue = appointments.reduce((sum, a) => sum + (parseFloat(a.price) || 0), 0)
+  // Service revenue split by how clients paid — cash and off-Square
+  // payments still count toward the 1099, just shown separately.
+  const revByMethod = (b: 'square' | 'cash' | 'other') =>
+    appointments.filter(a => paymentMethodBucket(a.payment_method) === b).reduce((sum, a) => sum + (parseFloat(a.price) || 0), 0)
+  const cardRevenue = revByMethod('square')
+  const cashRevenue = revByMethod('cash')
+  const otherRevenue = revByMethod('other')
   const barberCut = barber?.compensation_type === 'commission'
     ? totalRevenue * (barber?.commission_rate || 0.7)
     : totalRevenue
@@ -236,6 +244,14 @@ export default function BarberEarnings() {
               Commission rate: {Math.round((barber.commission_rate || 0.7) * 100)}% · Total shop revenue: ${totalRevenue.toFixed(2)}
             </div>
           )}
+          <div className="mt-4 pt-4 border-t border-warm-200 text-xs text-charcoal-500 text-center">
+            How clients paid — Card: ${cardRevenue.toFixed(2)} · Cash: ${cashRevenue.toFixed(2)} · Other: ${otherRevenue.toFixed(2)}
+          </div>
+        </div>
+
+        {/* Teachable: every dollar counts */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-4 mb-6 text-xs text-charcoal-500">
+          Track every dollar — cash and app payments all count toward the 1099. Mark the payment method at checkout so the books stay clean.
         </div>
 
         {/* MONTHLY BREAKDOWN */}

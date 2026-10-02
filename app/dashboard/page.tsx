@@ -13,6 +13,7 @@ import WalkInQueue from '@/components/WalkInQueue'
 import TodayIntelStrip from '@/components/TodayIntelStrip'
 import { getBillingStatus, isBillingBlocked } from '@/lib/billing'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { paymentMethodBucket } from '@/lib/paymentMethods'
 
 const TipInput = React.memo(({ appointmentId, barberId, shopId, onTipAdded }: {
   appointmentId: string
@@ -326,6 +327,15 @@ export default function Dashboard() {
   const firstName = profile?.full_name?.split(' ')[0] || shop?.name?.split(' ')[0] || 'Boss'
 
   const todayRevenue = todayAppointments.filter(a => a.status === 'done').reduce((s, a) => s + (parseFloat(a.price) || 0), 0)
+  // Today's revenue split by how clients paid. Legacy rows (no
+  // payment_method) count as card — Square was the only way to get paid
+  // before tracking existed.
+  const doneToday = todayAppointments.filter(a => a.status === 'done')
+  const revByMethod = (b: 'square' | 'cash' | 'other') =>
+    doneToday.filter(a => paymentMethodBucket(a.payment_method) === b).reduce((s, a) => s + (parseFloat(a.price) || 0), 0)
+  const cardToday = revByMethod('square')
+  const cashToday = revByMethod('cash')
+  const otherToday = revByMethod('other')
   const totalTips = tips.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
   const doneCount = todayAppointments.filter(a => a.status === 'done').length
   const noShowCount = todayAppointments.filter(a => a.status === 'noshow').length
@@ -414,8 +424,11 @@ export default function Dashboard() {
               <button onClick={() => router.push('/dashboard/insights')} className="btn-chairos-outline">CRM</button>
             </div>
           </div>
-          <div className="font-serif text-5xl text-charcoal-900 leading-none mb-4">
+          <div className="font-serif text-5xl text-charcoal-900 leading-none mb-2">
             ${todayRevenue.toFixed(2)}
+          </div>
+          <div className="text-xs text-charcoal-500 mb-4">
+            Card: ${cardToday.toFixed(0)} · Cash: ${cashToday.toFixed(0)} · Other: ${otherToday.toFixed(0)}
           </div>
           <div className="grid grid-cols-2 gap-3 pt-4 border-t border-warm-200">
             <div className="bg-warm-50 rounded-xl p-3">
