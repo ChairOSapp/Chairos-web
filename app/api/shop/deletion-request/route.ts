@@ -83,6 +83,15 @@ export async function GET(req: NextRequest) {
   if (!shopId) return NextResponse.json({ error: 'shopId is required' }, { status: 400 })
 
   const admin = getAdmin()
+  // Verify ownership (mirrors the POST check — L-A1).
+  const { data: shop } = await admin
+    .from('shops')
+    .select('id')
+    .eq('id', shopId)
+    .eq('owner_id', userId)
+    .maybeSingle()
+  if (!shop) return NextResponse.json({ error: 'Shop not found or not yours' }, { status: 404 })
+
   const { data } = await admin
     .from('deletion_requests')
     .select('id, status, requested_at, completed_at')

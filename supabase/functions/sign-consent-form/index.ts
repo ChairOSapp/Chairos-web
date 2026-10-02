@@ -10,7 +10,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
-import { buildConsentSections } from "./rules.ts";
+import { buildConsentSections, STATES } from "./rules.ts";
 import { generateConsentPdf } from "./generatePdf.ts";
 
 const CORS_HEADERS = {
@@ -47,6 +47,13 @@ function decodePngDataUrl(dataUrl: unknown): Uint8Array | null {
   }
 }
 
+function isValidDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
 async function releaseToken(supabase: any, tokenId: string) {
   await supabase.from("consent_signing_tokens").update({ used_at: null }).eq("id", tokenId);
 }
@@ -65,10 +72,15 @@ Deno.serve(async (req: Request) => {
   );
 
   try {
+    // Reject oversized bodies before parsing (L-E2).
+    const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+    if (contentLength > 2 * 1024 * 1024) {
+      return jsonResponse({ error: "Request too large" }, 413);
+    }
     const body = await req.json();
     const {
       appointmentId, templateId, signingToken, signedDate, mode,
-      builderSpec, answers, checkedLabels,
+      answers, checkedLabels,
       clientSignatureImageDataUrl, artistSignatureImageDataUrl,
       // legacy fields
       typedName, clientInfo, signatureImageDataUrl, artistName,
@@ -78,7 +90,6 @@ Deno.serve(async (req: Request) => {
       signingToken?: string;
       signedDate?: string;
       mode?: string;
-      builderSpec?: { stateCode?: string; vertical?: string; options?: { photoRelease?: boolean; chemicalServices?: boolean; straightRazor?: boolean } };
       answers?: Record<string, unknown>;
       checkedLabels?: unknown;
       clientSignatureImageDataUrl?: string;
@@ -92,7 +103,7 @@ Deno.serve(async (req: Request) => {
     if (!appointmentId || !templateId || !signingToken || !signedDate) {
       return jsonResponse({ error: "Missing required fields" }, 400);
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(signedDate)) {
+    if (!isValidDate(signedDate)) {
       return jsonResponse({ error: "Invalid signed date" }, 400);
     }
 
@@ -109,18 +120,8 @@ Deno.serve(async (req: Request) => {
       .select("id, appointment_id, template_id")
       .maybeSingle();
     if (tokenErr || !tokenRow) {
-      const { data: existing } = await supabase
-        .from("consent_signing_tokens")
-        .select("used_at, expires_at")
-        .eq("token", signingToken)
-        .maybeSingle();
-      if (existing?.used_at) {
-        return jsonResponse({ error: "This signing link has already been used" }, 401);
-      }
-      if (existing && new Date(existing.expires_at) < new Date()) {
-        return jsonResponse({ error: "This signing link has expired" }, 401);
-      }
-      return jsonResponse({ error: "Invalid signing token" }, 401);
+      // Uniform message — no token-state oracle (L-E4).
+      return jsonResponse({ error: "Invalid or expired signing link" }, 401);
     }
     if (tokenRow.appointment_id !== appointmentId || tokenRow.template_id !== templateId) {
       await releaseToken(supabase, tokenRow.id);
@@ -169,12 +170,15 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "This consent form has already been signed", signatureId: existing.id }, 409);
     }
 
-    // Builder mode needs the spec (from the request or the template row).
-    const spec = builderSpec ?? (template as any).builder_spec ?? null;
+    // Builder mode renders ONLY from the shop's stored spec. The signer's
+    // request body is never trusted for state/vertical/options (H2) —
+    // otherwise a client could strip mandated disclosures from the waiver.
+    const storedSpec = (template as any).builder_spec ?? null;
     const useBuilder =
       mode === "builder" &&
-      spec && typeof spec.stateCode === "string" &&
-      (spec.vertical === "tattoo" || spec.vertical === "barber" || spec.vertical === "salon");
+      storedSpec && typeof storedSpec.stateCode === "string" &&
+      (storedSpec.vertical === "tattoo" || storedSpec.vertical === "barber" || storedSpec.vertical === "salon");
+    const spec = useBuilder ? storedSpec : null;
 
     let flattenedBytes: Uint8Array;
     let recordData: Record<string, unknown>;
@@ -184,6 +188,15 @@ Deno.serve(async (req: Request) => {
       if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
         await releaseToken(supabase, tokenRow.id);
         return jsonResponse({ error: "Missing form answers" }, 400);
+      }
+      if (Object.keys(answers).length > 100) {
+        await releaseToken(supabase, tokenRow.id);
+        return jsonResponse({ error: "Too many form answers" }, 413);
+      }
+      // stateCode allowlist — a bogus code must not burn the token (M13).
+      if (!STATES.some(s => s.code === spec.stateCode)) {
+        await releaseToken(supabase, tokenRow.id);
+        return jsonResponse({ error: "Unknown state for this form" }, 400);
       }
       const get = (k: string) => {
         const v = (answers as Record<string, unknown>)[k];
@@ -199,7 +212,7 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Name is too long" }, 400);
       }
       const dob = get("ClientDOB");
-      if (spec.vertical === "tattoo" && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      if (spec.vertical === "tattoo" && !isValidDate(dob)) {
         await releaseToken(supabase, tokenRow.id);
         return jsonResponse({ error: "A valid date of birth is required for tattoo consent" }, 400);
       }
@@ -231,11 +244,6 @@ Deno.serve(async (req: Request) => {
       values["ClientDate"] = signedDate;
       if (artistSigBytes) values["ArtistDate"] = signedDate;
 
-      const sections = buildConsentSections(spec.stateCode, spec.vertical, {
-        photoRelease: spec.options?.photoRelease === true,
-        chemicalServices: spec.options?.chemicalServices === true,
-        straightRazor: spec.options?.straightRazor === true,
-      });
       const { data: shop } = await supabase
         .from("shops")
         .select("name")
@@ -243,6 +251,13 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       try {
+        // Section-building lives inside the guarded block so a bad spec
+        // can't burn the signer's single-use token (M13).
+        const sections = buildConsentSections(spec.stateCode, spec.vertical, {
+          photoRelease: spec.options?.photoRelease === true,
+          chemicalServices: spec.options?.chemicalServices === true,
+          straightRazor: spec.options?.straightRazor === true,
+        });
         flattenedBytes = await generateConsentPdf({
           shopName: (shop as any)?.name || "Consent Form",
           stateCode: spec.stateCode,
@@ -260,11 +275,11 @@ Deno.serve(async (req: Request) => {
       }
 
       recordData = {
-        typed_name: clientName,
+        typed_name: clientName.slice(0, 200),
         signed_date: signedDate,
-        dob: dob || null,
-        phone: get("ClientPhone") || null,
-        email: get("ClientEmail") || null,
+        dob: dob.slice(0, 10) || null,
+        phone: get("ClientPhone").slice(0, 30) || null,
+        email: get("ClientEmail").slice(0, 200) || null,
         has_drawn_signature: true,
         mode: "builder",
       };
@@ -277,7 +292,7 @@ Deno.serve(async (req: Request) => {
         await releaseToken(supabase, tokenRow.id);
         return jsonResponse({ error: "Missing required fields" }, 400);
       }
-      if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      if (dob && !isValidDate(dob)) {
         await releaseToken(supabase, tokenRow.id);
         return jsonResponse({ error: "Invalid date of birth" }, 400);
       }
@@ -430,7 +445,8 @@ Deno.serve(async (req: Request) => {
       .upload(signedPdfPath, flattenedBytes, { contentType: "application/pdf" });
     if (uploadErr) {
       await releaseToken(supabase, tokenRow.id);
-      return jsonResponse({ error: `Failed to store signed document: ${uploadErr.message}` }, 500);
+      console.log("Signed PDF upload failed:", uploadErr.message);
+      return jsonResponse({ error: "Could not store the signed document" }, 500);
     }
 
     const ipAddress = clientIpFrom(req);
@@ -452,7 +468,8 @@ Deno.serve(async (req: Request) => {
     if (insertErr || !signature) {
       await supabase.storage.from("consent-signed").remove([signedPdfPath]);
       await releaseToken(supabase, tokenRow.id);
-      return jsonResponse({ error: `Failed to record signature: ${insertErr?.message}` }, 500);
+      console.log("Signature record insert failed:", insertErr?.message);
+      return jsonResponse({ error: "Could not record the signature" }, 500);
     }
 
     return jsonResponse({ success: true, signatureId: signature.id, accessToken: signature.access_token });

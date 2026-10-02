@@ -973,6 +973,7 @@ function BookingPageInner() {
           rewardCode: activeReward?.id || null,
           idempotencyKey: bookingKey,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          captchaToken: captchaToken || null,
         }),
       })
       const createData = await createRes.json()
@@ -1051,7 +1052,7 @@ function BookingPageInner() {
       const saveRes = await fetch('/api/square/save-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId, clientId, shopId: shop.id, consent: true, consentText: cardConsentText }),
+        body: JSON.stringify({ sourceId, clientId, shopId: shop.id, appointmentId: newApptId, consent: true, consentText: cardConsentText }),
       }).catch(() => null)
       if (!saveRes?.ok) {
         setError('We couldn’t save your card for later — please bring it to your appointment.')

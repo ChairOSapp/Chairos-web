@@ -379,6 +379,9 @@ export async function POST(req: NextRequest) {
     logger.error('square_webhook_unhandled_error', { type: event.type, message: err.message })
     Sentry.captureException(err, { tags: { event_type: event.type } })
     await notifySlack(`🚨 Square webhook error processing ${event.type}:\n${err.message}`, 'square/webhook')
+    // Return 500 so Square redelivers — handlers are idempotent (M1).
+    // A 200 here would silently drop an owed refund with only a Slack message as backup.
+    return NextResponse.json({ error: 'Handler failed, will retry' }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })

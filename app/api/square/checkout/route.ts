@@ -313,15 +313,21 @@ export async function POST(req: NextRequest) {
     if (isSquareReconnectRequired(err)) {
       return NextResponse.json({ code: 'square_reconnect_required', error: err.message }, { status: 400 })
     }
-    // Definitive rejection (decline etc.): rotate the idempotency key so
-    // the next attempt isn't a replay of Square's cached decline.
+    // Definitive rejection (decline etc.): no charge happened — mark failed
+    // and rotate the idempotency key so the next attempt isn't a replay of
+    // Square's cached decline.
     if (isDefinitiveSquareRejection(err)) {
       await admin.from('appointments').update({ payment_attempt: paymentAttempt + 1 }).eq('id', appointmentId)
+      await admin.from('appointments').update({ payment_status: 'failed' }).eq('id', appointmentId)
+      logger.error('Square POS checkout declined', { appointmentId, error: err?.message || String(err) })
+      return NextResponse.json({ error: safeSquareErrorMessage(err) }, { status: 402 })
     }
-    await admin.from('appointments').update({ payment_status: 'failed' }).eq('id', appointmentId)
-    // Log the raw gateway error server-side; the client only ever sees the
-    // gentle, customer-safe message — never a raw Square error dump.
-    logger.error('Square POS checkout failed', { appointmentId, error: err?.message || String(err) })
-    return NextResponse.json({ error: safeSquareErrorMessage(err) }, { status: 500 })
+    // Ambiguous failure (timeout/5xx where Square may have charged): do NOT
+    // mark failed — that invites a retry that double-bills (H4). Leave
+    // payment_status alone and let the Square webhook reconcile via
+    // reference_id. The stable per-attempt idempotency key dedupes a retry
+    // at Square instead of double-charging.
+    logger.error('Square POS checkout ambiguous failure', { appointmentId, error: err?.message || String(err) })
+    return NextResponse.json({ error: 'Payment status is uncertain — check the appointment before trying again.' }, { status: 500 })
   }
 }

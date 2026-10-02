@@ -11,6 +11,7 @@ import { timeStrToMinutes } from '@/lib/availability'
 import { resolveTimeZone, nowWallClock } from '@/lib/wallclock'
 import { logger } from '@/lib/logger'
 import { sendNotification, formatApptWhen } from '@/lib/notify'
+import { verifyTurnstileToken } from '@/lib/turnstile'
 
 function getAdmin() {
   return createClient(
@@ -37,6 +38,8 @@ interface CreateBody {
   idempotencyKey: string
   /** IANA time zone from the customer's browser, for the past-slot check */
   timeZone?: string | null
+  /** Cloudflare Turnstile token, verified server-side (M7) */
+  captchaToken?: string | null
 }
 
 // POST /api/book/create -- the only way a public (unauthenticated) booking
@@ -68,6 +71,7 @@ export async function POST(req: NextRequest) {
     notes,
     rewardCode,
     idempotencyKey,
+    captchaToken,
   } = body
 
   if (!shopCode || !serviceId || !date || !time || !clientName?.trim() || !clientPhone?.trim() || !idempotencyKey) {
@@ -75,6 +79,11 @@ export async function POST(req: NextRequest) {
       { error: 'shopCode, serviceId, date, time, clientName, clientPhone, and idempotencyKey are required' },
       { status: 400 }
     )
+  }
+  // Server-side Turnstile check so bots can't POST here directly (M7).
+  // Fail-open only while the secret is unconfigured; enforced once set.
+  if (!(await verifyTurnstileToken(captchaToken))) {
+    return NextResponse.json({ error: 'Captcha verification failed. Please try again.' }, { status: 400 })
   }
   // Specific, customer-readable validation past the presence check above:
   // a whitespace-only name or a too-short phone number must not create a

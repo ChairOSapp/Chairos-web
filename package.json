@@ -28,7 +28,7 @@
     "@stripe/stripe-js": "^9.8.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
-    "@trigger.dev/sdk": "4.4.6",
+    "@trigger.dev/sdk": "4.5.6",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
     "@vercel/analytics": "^2.0.1",
@@ -37,7 +37,7 @@
     "dinero.js": "2.0.2",
     "jsonwebtoken": "^9.0.3",
     "motion": "^13.4.4",
-    "next": "16.2.4",
+    "next": "16.3.6",
     "next-themes": "^0.4.6",
     "pdf-lib": "^1.17.1",
     "react": "19.2.4",
@@ -63,5 +63,8 @@
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "axios": "1.20.0"
   }
 }

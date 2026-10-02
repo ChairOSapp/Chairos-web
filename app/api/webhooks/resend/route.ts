@@ -33,9 +33,8 @@ export async function POST(req: NextRequest) {
   const rawBody = await req.text()
   const secret = process.env.RESEND_WEBHOOK_SECRET
 
-  // Fail closed once a secret is configured; until then, log and skip
-  // rather than pretend verified events arrived (same dormant-until-
-  // configured pattern used for other optional integrations in this app).
+  // Fail closed once a secret is configured; when unset, acknowledge
+  // without processing rather than acting on unverified events (L-A4).
   if (secret) {
     const svixId = req.headers.get('svix-id') || ''
     const svixTimestamp = req.headers.get('svix-timestamp') || ''
@@ -44,7 +43,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
   } else {
-    console.warn('[webhooks/resend] RESEND_WEBHOOK_SECRET not configured — accepting unverified event')
+    console.warn('[webhooks/resend] RESEND_WEBHOOK_SECRET not configured — skipping unverified event')
+    return NextResponse.json({ received: true, verified: false })
   }
 
   let payload: any

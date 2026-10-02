@@ -16,5 +16,8 @@ export async function GET(req: NextRequest) {
 
   const admin = getAdmin()
   const portalClient = await resolvePortalClient(admin, session.phone)
-  return NextResponse.json({ client: portalClient })
+  // Never expose the raw Square card ID here — sibling portal/cards only
+  // exposes brand/last4 (L-A3).
+  const { squareCardId: _omitted, ...safeClient } = portalClient as unknown as Record<string, unknown>
+  return NextResponse.json({ client: safeClient })
 }

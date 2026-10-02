@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createHash } from 'crypto'
+import { createHash, randomInt } from 'crypto'
 import twilio from 'twilio'
 import { logger } from '@/lib/logger'
 import { withRetry } from '@/lib/retry'
@@ -57,10 +57,11 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
   if (!existingClient) {
     logger.warn('portal_otp_unknown_number', { phoneLast4: bare.slice(-4) })
-    return NextResponse.json({ error: 'No account found for that number.' }, { status: 404 })
+    // Generic response — no phone-number enumeration oracle (L-S3).
+    return NextResponse.json({ ok: true, message: 'If an account exists for that number, a code was sent.' })
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000))
+  const code = String(randomInt(100000, 1000000))
   const codeHash = createHash('sha256').update(code).digest('hex')
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 

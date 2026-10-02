@@ -51,7 +51,26 @@ export async function POST(req: NextRequest) {
 
   const codeHash = createHash('sha256').update(String(code)).digest('hex')
   if (codeHash !== otpRow.code_hash) {
-    await admin.from('client_portal_otp_codes').update({ attempts: otpRow.attempts + 1 }).eq('phone', bare)
+    // Atomically increment the attempt counter with optimistic locking so
+    // parallel guesses can't multiply the attempt budget (M9).
+    let attempts = otpRow.attempts
+    for (let i = 0; i < 3; i++) {
+      const { data: inc } = await admin.from('client_portal_otp_codes')
+        .update({ attempts: attempts + 1 })
+        .eq('phone', bare)
+        .eq('attempts', attempts)
+        .select('attempts')
+        .maybeSingle()
+      if (inc) { attempts = inc.attempts; break }
+      const { data: fresh } = await admin.from('client_portal_otp_codes')
+        .select('attempts').eq('phone', bare).maybeSingle()
+      if (!fresh) break
+      attempts = fresh.attempts
+    }
+    if (attempts >= MAX_ATTEMPTS) {
+      await admin.from('client_portal_otp_codes').delete().eq('phone', bare)
+      return NextResponse.json({ error: 'Too many incorrect attempts. Request a new code.' }, { status: 429 })
+    }
     return NextResponse.json({ error: 'Incorrect code.' }, { status: 400 })
   }
 

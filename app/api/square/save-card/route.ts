@@ -17,10 +17,11 @@ export async function POST(req: NextRequest) {
     sourceId: string
     clientId: string
     shopId: string
+    appointmentId?: string
     consent?: boolean
     consentText?: string
   }
-  const { sourceId, clientId, shopId, consent, consentText } = body
+  const { sourceId, clientId, shopId, appointmentId, consent, consentText } = body
   if (!sourceId || !clientId || !shopId) {
     return NextResponse.json({ error: 'sourceId, clientId, shopId required' }, { status: 400 })
   }
@@ -32,24 +33,24 @@ export async function POST(req: NextRequest) {
 
   // This route is intentionally callable without a ChairOS auth session
   // (the caller is an anonymous booking client, not a logged-in barber or
-  // owner), so authorization has to come from proving a real relationship
-  // between clientId and shopId rather than a session check. The booking
-  // flow always creates the appointment before calling this route, so
-  // requiring an existing appointment for this client at this shop blocks
-  // an arbitrary caller from attaching a card to a client they have no
-  // relationship to, without breaking the legitimate save-during-booking flow.
-  const { data: relation } = await admin
+  // owner), so authorization has to come from the appointment the caller
+  // just created. The body-supplied clientId is never trusted on its own
+  // (M2) — it must match the appointment's client_id.
+  if (!appointmentId) {
+    return NextResponse.json({ error: 'appointmentId required' }, { status: 400 })
+  }
+  const { data: appt } = await admin
     .from('appointments')
-    .select('id, barber_id')
-    .eq('client_id', clientId)
+    .select('id, client_id, barber_id, shop_id')
+    .eq('id', appointmentId)
     .eq('shop_id', shopId)
-    .order('created_at', { ascending: false })
-    .limit(1)
     .maybeSingle()
 
-  if (!relation) {
-    return NextResponse.json({ error: 'Client is not associated with this shop' }, { status: 403 })
+  if (!appt || appt.client_id !== clientId) {
+    return NextResponse.json({ error: 'Appointment does not match this client' }, { status: 403 })
   }
+
+  const relation = { id: appt.id, barber_id: appt.barber_id }
 
   // Route the saved card to the same merchant that will charge it (the
   // barber's Square account when barbers collect their own payments) — a
