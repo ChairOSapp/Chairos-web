@@ -218,8 +218,21 @@ export default function ConsentFormsPage() {
           </div>
         )}
 
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-4">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Build one for your state</div>
+          <p className="text-sm text-charcoal-500 mb-4">
+            Pick your state and what you do — ChairOS generates a consent form with that state's legal minimum baked in. Tattoo rules are state-specific and verified.
+          </p>
+          <button
+            onClick={() => router.push('/dashboard/consent/build')}
+            className="btn-chairos w-full"
+          >
+            🛠️ Build a consent form
+          </button>
+        </div>
+
         <div className="bg-warm-100 border border-warm-200 rounded-xl p-5 mb-6">
-          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Upload New Version</div>
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Or upload your own</div>
           <div className="flex flex-col gap-3">
             <input
               ref={fileRef}
