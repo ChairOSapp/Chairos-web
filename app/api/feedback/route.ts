@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { notifySlack } from '@/lib/slack'
 
 export async function POST(req: Request) {
   try {
@@ -30,6 +31,16 @@ export async function POST(req: Request) {
     })
 
     if (error) throw error
+
+    // Notify Bear immediately — feedback is important and shouldn't sit
+    // unseen in Mission Control. Fire-and-forget; a Slack failure must
+    // never break the feedback submission itself.
+    const categoryLabel = category || 'general'
+    notifySlack(
+      `📝 New app feedback (${categoryLabel}) from ${user.email || user.id}:\n${message.trim().slice(0, 500)}`,
+      'feedback'
+    ).catch(() => {})
+
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to submit feedback' }, { status: 500 })
