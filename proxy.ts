@@ -75,6 +75,13 @@ export async function proxy(request: NextRequest) {
 
   // Not logged in — redirect to login
   if (!user) {
+    // API calls must get a JSON 401, never an HTML redirect: fetch follows
+    // the redirect to /login, and res.json() on that HTML throws WebKit's
+    // cryptic "The string did not match the expected pattern." instead of a
+    // usable "session expired" message.
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Session expired. Please sign in again.' }, { status: 401 })
+    }
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('redirect', pathname)

@@ -109,6 +109,35 @@ function CampaignsInner() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  // POST to a /api route and parse the JSON body safely. If the session
+  // expired mid-flow the middleware answers API calls with a JSON 401 (never
+  // an HTML redirect page), and any other non-JSON response becomes a plain
+  // "try again" message instead of WebKit's cryptic
+  // "The string did not match the expected pattern."
+  async function apiPost(path: string, body: unknown) {
+    let res: Response
+    try {
+      res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    } catch {
+      throw new Error('Could not reach the server. Check your connection and try again.')
+    }
+    const contentType = res.headers.get('content-type') ?? ''
+    if (!contentType.includes('application/json')) {
+      if (res.status === 401) throw new Error('Your session expired. Please sign out and sign in again.')
+      throw new Error('The server had a problem. Try again in a moment.')
+    }
+    const data = await res.json()
+    if (data.error) {
+      if (res.status === 401) throw new Error('Your session expired. Please sign out and sign in again.')
+      throw new Error(data.error)
+    }
+    return data
+  }
+
   useEffect(() => {
     async function load() {
       try {
@@ -242,13 +271,7 @@ function CampaignsInner() {
     setGenerating(true)
     setError('')
     try {
-      const res = await fetch('/api/campaigns/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ intent, channel, audienceType, audienceFilters: buildAudienceFilters(), shopName: shop?.name }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
+      const data = await apiPost('/api/campaigns/generate', { intent, channel, audienceType, audienceFilters: buildAudienceFilters(), shopName: shop?.name })
       setSmsMessage(data.sms_message ?? '')
       setEmailSubject(data.email_subject ?? '')
       setEmailBodyDoc(textToTipTapDoc(data.email_body ?? ''))
@@ -279,12 +302,7 @@ function CampaignsInner() {
     setPreviewing(true)
     setError('')
     try {
-      const res = await fetch('/api/campaigns/audience', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audienceType, audienceFilters: buildAudienceFilters(), channel }),
-      })
-      const data = await res.json()
+      const data = await apiPost('/api/campaigns/audience', { audienceType, audienceFilters: buildAudienceFilters(), channel })
       setAudiencePreview({ count: data.count })
     } catch (e: any) {
       setError(e.message)
@@ -384,13 +402,7 @@ function CampaignsInner() {
         return
       }
 
-      const res = await fetch('/api/campaigns/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
+      const data = await apiPost('/api/campaigns/send', { campaignId })
       setSuccess(`Sending to ${data.recipientCount} recipients.`)
       const { data: c } = await supabase.from('campaigns').select('*').eq('shop_id', shop.id).order('created_at', { ascending: false })
       setCampaigns(c ?? [])
