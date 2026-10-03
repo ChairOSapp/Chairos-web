@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { render } from '@react-email/render'
 import { getResend } from '@/lib/resend'
+import WaitlistSignup from '@/emails/WaitlistSignup'
 import { notifySlack } from '@/lib/slack'
 import { logger } from '@/lib/logger'
 
@@ -29,13 +31,19 @@ export async function POST(req: NextRequest) {
   const isNew = !error
 
   if (isNew) {
-    if (process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL) {
-      getResend().emails.send({
-        from: process.env.RESEND_FROM_EMAIL,
-        to: 'support@chairos.cc',
-        subject: 'New waitlist signup',
-        html: `<p>New waitlist signup: <strong>${email}</strong></p>`,
-      }).catch(err => logger.error('waitlist_email_failed', { message: err?.message }))
+    const fromEmail = process.env.RESEND_FROM_EMAIL
+    if (process.env.RESEND_API_KEY && fromEmail) {
+      // Fire-and-forget internal notification; render first, then send.
+      render(WaitlistSignup({ email }))
+        .then(html =>
+          getResend().emails.send({
+            from: fromEmail,
+            to: 'support@chairos.cc',
+            subject: 'New waitlist signup',
+            html,
+          })
+        )
+        .catch(err => logger.error('waitlist_email_failed', { message: err?.message }))
     }
     notifySlack(`📋 New waitlist signup: ${email}`, 'waitlist').catch(() => {})
     logger.info('waitlist_signup', { email })
