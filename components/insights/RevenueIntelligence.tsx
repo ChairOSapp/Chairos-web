@@ -1,5 +1,6 @@
 'use client'
 import { useMemo } from 'react'
+import { ResponsiveContainer, AreaChart, Area } from 'recharts'
 
 interface Appointment {
   id: string
@@ -50,28 +51,29 @@ function fmt(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-// Simple SVG polyline chart
+// Weekly avg-ticket trend line (Recharts)
 function MiniLineChart({ weeks, data }: { weeks: string[]; data: Record<string, number> }) {
   const values = weeks.map(w => data[w] || 0)
   if (values.every(v => v === 0)) {
     return <div className="text-xs text-charcoal-400 text-center py-3">Not enough data for trend</div>
   }
 
-  const W = 500; const H = 80
-  const LEFT = 4; const RIGHT = 4; const TOP = 6; const BOT = 6
-  const cW = W - LEFT - RIGHT; const cH = H - TOP - BOT
-  const maxV = Math.max(...values, 1)
-  const toX = (i: number) => LEFT + (i / Math.max(values.length - 1, 1)) * cW
-  const toY = (v: number) => TOP + cH - (v / maxV) * cH
-
-  const points = values.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ')
-  const areaPoints = `${LEFT},${TOP + cH} ${points} ${LEFT + cW},${TOP + cH}`
+  const chartData = weeks.map((w, i) => ({ week: w, value: values[i] }))
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
-      <polygon points={areaPoints} fill="#4B5320" opacity="0.08" />
-      <polyline points={points} fill="none" stroke="#4B5320" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <ResponsiveContainer width="100%" height={80}>
+      <AreaChart data={chartData} margin={{ top: 6, right: 4, bottom: 6, left: 4 }}>
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke="var(--color-primary)"
+          strokeWidth={1.5}
+          fill="var(--color-primary)"
+          fillOpacity={0.08}
+          dot={false}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   )
 }
 

@@ -17,6 +17,14 @@ import CrmInsightsPanel from '@/components/insights/CrmInsightsPanel'
 import TodaySection, { TodayAppt } from '@/components/insights/TodaySection'
 import { buildCampaignHref } from '@/lib/campaignHref'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import {
+  ResponsiveContainer,
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts'
 
 // ---- Shared types ----
 
@@ -108,7 +116,7 @@ function money(n: number, decimals?: number) {
   return `$${n.toFixed(d)}`
 }
 
-// ---- Revenue bar chart ----
+// ---- Revenue bar chart (Recharts) ----
 
 function BarChart({ days, revenueByDay }: {
   days: string[]
@@ -116,13 +124,6 @@ function BarChart({ days, revenueByDay }: {
 }) {
   const values = days.map(d => revenueByDay[d] || 0)
   const maxVal = Math.max(...values, 1)
-
-  const LEFT = 44; const RIGHT = 4; const TOP = 6; const BOT = 20
-  const W = 600; const H = 130
-  const cW = W - LEFT - RIGHT; const cH = H - TOP - BOT
-  const count = days.length
-  const slotW = count > 0 ? cW / count : cW
-  const barW = Math.max(2, slotW - 2)
 
   if (values.every(v => v === 0)) {
     return (
@@ -132,41 +133,48 @@ function BarChart({ days, revenueByDay }: {
     )
   }
 
-  const yTicks = [0, Math.round(maxVal / 2), maxVal]
+  // Same label thinning as the old hand-rolled chart: at most 7 evenly
+  // spaced day labels, empty strings elsewhere.
+  const count = days.length
   const maxXLabels = Math.min(7, count)
-  const xLabelIndices = Array.from({ length: maxXLabels }, (_, i) =>
-    Math.floor(i * (count - 1) / Math.max(maxXLabels - 1, 1))
-  ).filter((v, i, a) => a.indexOf(v) === i)
+  const labelIndices = new Set(
+    Array.from({ length: maxXLabels }, (_, i) =>
+      Math.floor(i * (count - 1) / Math.max(maxXLabels - 1, 1))
+    )
+  )
+  const data = days.map((d, i) => ({
+    label: labelIndices.has(i)
+      ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : '',
+    revenue: values[i],
+  }))
+  const yTicks = [...new Set([0, Math.round(maxVal / 2), maxVal])]
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: `${H}px` }} preserveAspectRatio="none">
-      {yTicks.map(t => {
-        const y = TOP + cH - (t / maxVal) * cH
-        return (
-          <g key={t}>
-            <line x1={LEFT} y1={y} x2={LEFT + cW} y2={y} stroke="#e8e0d5" strokeWidth="0.8" />
-            <text x={LEFT - 4} y={y + 3} textAnchor="end" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
-              ${t >= 1000 ? `${(t / 1000).toFixed(0)}k` : t.toFixed(0)}
-            </text>
-          </g>
-        )
-      })}
-      {values.map((v, i) => {
-        const barH = Math.max(v > 0 ? 2 : 0, (v / maxVal) * cH)
-        const x = LEFT + i * slotW + (slotW - barW) / 2
-        const y = TOP + cH - barH
-        return <rect key={days[i]} x={x} y={y} width={barW} height={barH} fill="#4B5320" rx="1" />
-      })}
-      {xLabelIndices.map(i => {
-        const label = new Date(days[i] + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        const x = LEFT + i * slotW + slotW / 2
-        return (
-          <text key={i} x={x} y={H - 3} textAnchor="middle" fontSize="9" fill="#9e9589" fontFamily="sans-serif">
-            {label}
-          </text>
-        )
-      })}
-    </svg>
+    <ResponsiveContainer width="100%" height={130}>
+      <RechartsBarChart data={data} margin={{ top: 6, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%">
+        <CartesianGrid vertical={false} stroke="var(--color-border)" strokeWidth={0.8} />
+        <XAxis
+          dataKey="label"
+          tickLine={false}
+          axisLine={false}
+          interval={0}
+          height={20}
+          dy={6}
+          tick={{ fontSize: 9, fill: 'var(--color-text-secondary)' }}
+        />
+        <YAxis
+          width={40}
+          tickLine={false}
+          axisLine={false}
+          domain={[0, maxVal]}
+          ticks={yTicks}
+          tick={{ fontSize: 9, fill: 'var(--color-text-secondary)' }}
+          tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`)}
+        />
+        <Bar dataKey="revenue" fill="var(--color-primary)" radius={[2, 2, 0, 0]} minPointSize={2} />
+      </RechartsBarChart>
+    </ResponsiveContainer>
   )
 }
 
