@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import PhotoLightbox from './PhotoLightbox'
 
 export interface Announcement {
   id: string
@@ -77,28 +78,12 @@ export default function AnnouncementsList({
       ))}
 
       {lightbox?.image_url && (
-        <div
-          className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setLightbox(null)}>
-          <div className="max-w-3xl w-full" onClick={e => e.stopPropagation()}>
-            <img src={lightbox.image_url} alt="" className="w-full max-h-[80vh] object-contain rounded-lg" />
-            <div className="flex items-center justify-between mt-3">
-              <a
-                href={lightbox.image_url}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-semibold text-white bg-od-green hover:bg-od-green-light px-4 py-2 rounded-lg transition-colors">
-                Save photo
-              </a>
-              <button
-                onClick={() => setLightbox(null)}
-                className="text-sm font-semibold text-white/80 hover:text-white px-4 py-2 transition-colors">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <PhotoLightbox
+          photos={[lightbox.image_url]}
+          index={0}
+          onClose={() => setLightbox(null)}
+          saveHref={lightbox.image_url}
+        />
       )}
     </div>
   )

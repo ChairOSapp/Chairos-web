@@ -2,9 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useVerticalLabels } from '@/lib/VerticalContext'
-import Lightbox from 'yet-another-react-lightbox'
-import Zoom from 'yet-another-react-lightbox/plugins/zoom'
-import 'yet-another-react-lightbox/styles.css'
+import PhotoLightbox from './PhotoLightbox'
 
 type Note = {
   id: string
@@ -234,12 +232,11 @@ export default function ClientNotes({
         )
       )}
       {lightbox && (
-        <Lightbox
-          open
-          close={() => setLightbox(null)}
+        <PhotoLightbox
+          photos={lightbox.urls}
           index={lightbox.index}
-          slides={lightbox.urls.map((src) => ({ src }))}
-          plugins={[Zoom]}
+          onClose={() => setLightbox(null)}
+          onIndexChange={i => setLightbox(prev => (prev ? { ...prev, index: i } : prev))}
         />
       )}
     </div>
