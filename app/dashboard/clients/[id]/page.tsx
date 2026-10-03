@@ -9,6 +9,15 @@ import ClientNotes from '@/components/ClientNotes'
 import ClientTags from '@/components/ClientTags'
 import ClientTimeline from '@/components/ClientTimeline'
 import { PAYMENT_METHODS, paymentMethodLabel } from '@/lib/paymentMethods'
+import { useVerticalLabels } from '@/lib/VerticalContext'
+
+function logAudit(shopId: string, action: string, entityId: string, metadata: Record<string, unknown>) {
+  fetch('/api/audit/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ shopId, action, entityType: 'client_lock', entityId, metadata }),
+  }).catch(() => {})
+}
 
 interface Client {
   id: string
@@ -23,11 +32,13 @@ interface Client {
 }
 
 interface ClientLock {
+  id: string
   locked: boolean
   loyalty_protected: boolean
   last_booking_date: string | null
   booking_count: number
   barber_id: string
+  updated_at: string | null
 }
 
 interface Appointment {
@@ -45,22 +56,28 @@ interface ShopBarber {
   barber_name: string | null
   alias: string | null
   color: string | null
+  active: boolean | null
 }
 
 export default function ClientProfilePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
+  const { staffLabel } = useVerticalLabels()
 
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
   const [client, setClient] = useState<Client | null>(null)
-  const [lock, setLock] = useState<ClientLock | null>(null)
+  // One row per (client, barber, shop) can exist, so load them all and let the
+  // badge follow the currently locked row instead of assuming a single row.
+  const [lockRows, setLockRows] = useState<ClientLock[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
   const [loading, setLoading] = useState(true)
   const [smsSending, setSmsSending] = useState(false)
   const [smsResult, setSmsResult] = useState<'sent' | 'error' | null>(null)
+  const [assigning, setAssigning] = useState(false)
+  const [showReassign, setShowReassign] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -98,22 +115,22 @@ export default function ClientProfilePage() {
 
       const [
         { data: clientData },
-        { data: lockData },
+        { data: lockRowsData },
         { data: appts },
         { data: barbers },
       ] = await Promise.all([
         supabase.from('clients').select('id, full_name, phone, email, total_visits, last_visit_date, physical_consent_on_file, physical_consent_note, preferred_payment_method').eq('id', id).maybeSingle(),
-        supabase.from('client_locks').select('locked, loyalty_protected, last_booking_date, booking_count, barber_id').eq('client_id', id).eq('shop_id', shop.id).maybeSingle(),
+        supabase.from('client_locks').select('id, locked, loyalty_protected, last_booking_date, booking_count, barber_id, updated_at').eq('client_id', id).eq('shop_id', shop.id),
         supabase.from('appointments')
           .select('id, date, time, price, status, barber_id, services(name)')
           .eq('shop_id', shop.id)
           .eq('client_id', id)
           .order('date', { ascending: false }),
-        supabase.from('shop_barbers').select('barber_id, barber_name, alias, color').eq('shop_id', shop.id),
+        supabase.from('shop_barbers').select('barber_id, barber_name, alias, color, active').eq('shop_id', shop.id),
       ])
 
       setClient(clientData)
-      setLock(lockData)
+      setLockRows(lockRowsData || [])
       setAppointments((appts || []) as unknown as Appointment[])
       setShopBarbers(barbers || [])
       setLoading(false)
@@ -170,6 +187,61 @@ export default function ClientProfilePage() {
     }
   }
 
+  async function reloadLocks() {
+    if (!shop || !client) return
+    const { data } = await supabase
+      .from('client_locks')
+      .select('id, locked, loyalty_protected, last_booking_date, booking_count, barber_id, updated_at')
+      .eq('client_id', client.id)
+      .eq('shop_id', shop.id)
+    setLockRows(data || [])
+  }
+
+  async function assignLock(newBarberId: string) {
+    if (!shop || !client || !isOwner || !newBarberId) return
+    setAssigning(true)
+    const barber = shopBarbers.find(b => b.barber_id === newBarberId)
+    // Upsert on the (client, barber, shop) key: creates the row for a client
+    // that has none, or flips an existing row to locked without ever
+    // violating the unique constraint.
+    const { error } = await supabase.from('client_locks').upsert({
+      client_id: client.id,
+      barber_id: newBarberId,
+      shop_id: shop.id,
+      locked: true,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'client_id,barber_id,shop_id' })
+    if (error) {
+      alert(`Could not assign client: ${error.message}`)
+    } else {
+      logAudit(shop.id, 'client_lock.assigned', client.id, {
+        client_name: client.full_name || null,
+        to_barber: barber?.barber_name || barber?.alias || null,
+        from: 'client_card',
+      })
+      setShowReassign(false)
+      await reloadLocks()
+    }
+    setAssigning(false)
+  }
+
+  async function releaseLock() {
+    if (!shop || !client || !isOwner || !lock) return
+    if (!confirm(`Release this client lock? They will become floating and available to any ${staffLabel.toLowerCase()}.`)) return
+    const { error } = await supabase.from('client_locks')
+      .update({ locked: false, updated_at: new Date().toISOString() })
+      .eq('id', lock.id)
+    if (error) {
+      alert(`Could not release lock: ${error.message}`)
+      return
+    }
+    logAudit(shop.id, 'client_lock.released', lock.id, {
+      client_name: client.full_name || null,
+      from: 'client_card',
+    })
+    await reloadLocks()
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
       <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
@@ -186,6 +258,17 @@ export default function ClientProfilePage() {
   const initials = ownerName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
   const myBarberRow = shopBarbers.find(b => b.barber_id === profile?.id)
   const soloBarberName = myBarberRow?.barber_name || myBarberRow?.alias || profile?.full_name || 'You'
+
+  // The badge follows the currently locked row (most recently updated wins
+  // when more than one row is locked). Null means floating.
+  const lock = lockRows
+    .filter(r => r.locked)
+    .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0] || null
+  // Lock writes are owner-only in RLS, so the assign controls stay hidden
+  // for staff viewing the card. A solo chair owns their shop, so they qualify.
+  const isOwner = !!(shop && profile && shop.owner_id === profile.id)
+  const assignableBarbers = shopBarbers.filter(b => b.barber_id && b.active !== false)
+  const barberDisplayName = (b: ShopBarber) => b.barber_name || b.alias || 'Staff'
 
   const daysSince = lock?.last_booking_date
     ? Math.floor((Date.now() - new Date(lock.last_booking_date).getTime()) / (1000 * 60 * 60 * 24))
@@ -237,7 +320,7 @@ export default function ClientProfilePage() {
           <button onClick={() => router.back()} className="btn-chairos-outline">Back</button>
         </div>
 
-        {/* STATUS BADGE + PREFERRED BARBER */}
+        {/* STATUS BADGE + ASSIGNMENT */}
         <div className="flex items-center gap-3 mb-6 flex-wrap">
           <span className={`text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full ${statusColor}`}>
             {statusLabel}
@@ -246,6 +329,51 @@ export default function ClientProfilePage() {
             <span className="text-xs text-charcoal-500">
               Locked to <span className="font-semibold text-charcoal-900">{preferredBarber.barber_name || preferredBarber.alias}</span>
             </span>
+          )}
+          {isOwner && !lock && assignableBarbers.length > 0 && (
+            <select
+              disabled={assigning}
+              onChange={e => { if (e.target.value) assignLock(e.target.value); e.target.value = '' }}
+              defaultValue=""
+              aria-label={`Assign to ${staffLabel.toLowerCase()}`}
+              className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-500 outline-none focus:border-od-green"
+            >
+              <option value="" disabled>Assign to {staffLabel.toLowerCase()}...</option>
+              {assignableBarbers.map(b => (
+                <option key={b.barber_id} value={b.barber_id}>{barberDisplayName(b)}</option>
+              ))}
+            </select>
+          )}
+          {isOwner && lock && (
+            <>
+              {!showReassign ? (
+                <button
+                  onClick={() => setShowReassign(true)}
+                  className="text-xs font-semibold text-charcoal-500 hover:text-od-green transition-colors"
+                >
+                  Change
+                </button>
+              ) : (
+                <select
+                  disabled={assigning}
+                  onChange={e => { if (e.target.value) assignLock(e.target.value); e.target.value = '' }}
+                  defaultValue=""
+                  aria-label="Reassign client"
+                  className="bg-warm-100 border border-warm-200 rounded-lg px-3 py-2 text-sm text-charcoal-500 outline-none focus:border-od-green"
+                >
+                  <option value="" disabled>Reassign to...</option>
+                  {assignableBarbers.filter(b => b.barber_id !== lock.barber_id).map(b => (
+                    <option key={b.barber_id} value={b.barber_id}>{barberDisplayName(b)}</option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={releaseLock}
+                className="text-xs font-semibold text-charcoal-500 hover:text-red-500 transition-colors"
+              >
+                Release
+              </button>
+            </>
           )}
         </div>
 
