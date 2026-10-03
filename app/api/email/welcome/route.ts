@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { render } from '@react-email/render'
 import { getResend } from '@/lib/resend'
+import Welcome from '@/emails/Welcome'
 import { logger } from '@/lib/logger'
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -82,7 +75,9 @@ export async function POST(req: NextRequest) {
     if (!role) role = profile?.role ?? ''
   }
 
-  const firstName = escapeHtml(displayName.split(' ')[0] || 'there')
+  // Display name is rendered through the react-email component, which
+  // escapes interpolated values at render time.
+  const firstName = displayName.split(' ')[0] || 'there'
   const nextStep = role === 'owner'
     ? "Next, sign in and we'll walk you through setting up your shop."
     : "Next, sign in and you'll be taken straight to choose your plan."
@@ -92,13 +87,7 @@ export async function POST(req: NextRequest) {
       from: process.env.RESEND_FROM_EMAIL,
       to: sessionEmail,
       subject: 'Welcome to ChairOS',
-      html: `
-        <p>Hi ${firstName},</p>
-        <p>Welcome to ChairOS! Your account is set up and your 30-day free trial has started.</p>
-        <p>${nextStep}</p>
-        <p>Questions? Just reply to this email.</p>
-        <p>— The ChairOS team</p>
-      `,
+      html: await render(Welcome({ firstName, nextStep })),
     })
     logger.info('welcome_email_sent', { role })
   } catch (err: any) {

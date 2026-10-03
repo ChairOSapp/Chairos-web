@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { render } from '@react-email/render'
 import { isAdminEmail } from '@/lib/admin'
 import { getResend } from '@/lib/resend'
+import AdminOutreach from '@/emails/AdminOutreach'
 import { sendSMS } from '@/lib/sms'
 
 function getAdminSupabase() {
@@ -27,15 +29,6 @@ async function getRequestUser(req: NextRequest) {
   )
   const { data: { user } } = await supabase.auth.getUser()
   return user
-}
-
-function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }
 
 // Founder-only outreach from a Mission Control account dossier:
@@ -107,11 +100,13 @@ export async function POST(req: NextRequest) {
     if (channel === 'email') {
       const resend = getResend()
       const name = profile.full_name || 'there'
+      // The component escapes interpolated values at render time, so the
+      // hand-rolled escapeHtml helper is no longer needed.
       const { data, error } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'ChairOS <support@chairos.cc>',
         to: destination,
         subject: subject.trim(),
-        html: `<p>Hi ${escapeHtml(name)},</p><p>${escapeHtml(text).replace(/\n/g, '<br>')}</p><p>— Thomas, ChairOS</p>`,
+        html: await render(AdminOutreach({ name, message: text })),
       })
       if (error) throw new Error(error.message)
       success = true
