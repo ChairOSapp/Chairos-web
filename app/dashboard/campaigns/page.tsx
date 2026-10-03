@@ -1,7 +1,10 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
+import DOMPurify from 'dompurify'
+import CampaignEmailEditor from '@/components/CampaignEmailEditor'
+import { parseEmailBody, textToTipTapDoc, isDocEmpty, tiptapDocToSafeHtml, type TipTapDoc } from '@/lib/campaignContent'
 import OwnerNav from '@/components/OwnerNav'
 import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
@@ -72,7 +75,9 @@ function CampaignsInner() {
   const [intent, setIntent] = useState('')
   const [smsMessage, setSmsMessage] = useState('')
   const [emailSubject, setEmailSubject] = useState('')
-  const [emailBody, setEmailBody] = useState('')
+  // Canonical TipTap JSON document for the email body (null = empty).
+  // HTML is generated from it at send/preview time and DOMPurify-sanitized.
+  const [emailBodyDoc, setEmailBodyDoc] = useState<TipTapDoc | null>(null)
   const [aiGenerated, setAiGenerated] = useState(false)
   const [aiCurate, setAiCurate] = useState(false)
   const [audienceType, setAudienceType] = useState('all_clients')
@@ -182,7 +187,7 @@ function CampaignsInner() {
     setIntent('')
     setSmsMessage('')
     setEmailSubject('')
-    setEmailBody('')
+    setEmailBodyDoc(null)
     setAiGenerated(false)
     setAiCurate(false)
     setAudienceType('all_clients')
@@ -214,7 +219,7 @@ function CampaignsInner() {
     setIntent(c.intent)
     setSmsMessage(c.sms_message ?? '')
     setEmailSubject(c.email_subject ?? '')
-    setEmailBody(c.email_body ?? '')
+    setEmailBodyDoc(parseEmailBody(c.email_body))
     setAiGenerated(c.ai_generated)
     setChannel(c.channel as any)
     setAudienceType(c.audience_type)
@@ -246,7 +251,7 @@ function CampaignsInner() {
       if (data.error) throw new Error(data.error)
       setSmsMessage(data.sms_message ?? '')
       setEmailSubject(data.email_subject ?? '')
-      setEmailBody(data.email_body ?? '')
+      setEmailBodyDoc(textToTipTapDoc(data.email_body ?? ''))
       setAiGenerated(true)
       setBuilderStep(2)
     } catch (e: any) {
@@ -300,7 +305,7 @@ function CampaignsInner() {
       audience_filters: { ...buildAudienceFilters(), ...(aiCurate ? { custom_curate: true } : {}) },
       sms_message: smsMessage || null,
       email_subject: emailSubject || null,
-      email_body: emailBody || null,
+      email_body: emailBodyDoc && !isDocEmpty(emailBodyDoc) ? JSON.stringify(emailBodyDoc) : null,
       ai_generated: aiGenerated,
       status: 'draft',
       schedule_type: scheduleType,
@@ -345,7 +350,7 @@ function CampaignsInner() {
           audience_filters: { ...buildAudienceFilters(), ...(aiCurate ? { custom_curate: true } : {}) },
           sms_message: smsMessage || null,
           email_subject: emailSubject || null,
-          email_body: emailBody || null,
+          email_body: emailBodyDoc && !isDocEmpty(emailBodyDoc) ? JSON.stringify(emailBodyDoc) : null,
           ai_generated: aiGenerated,
           status: 'draft',
           schedule_type: scheduleType,
@@ -397,6 +402,14 @@ function CampaignsInner() {
 
   const smsCharCount = smsMessage.length
   const smsOver = smsCharCount > 160
+
+  // Sanitized HTML preview of the email body. The doc renders through the
+  // strict allowlist renderer, then DOMPurify: this is the only place
+  // campaign HTML is injected into the page, and it is always sanitized.
+  const emailPreviewHtml = useMemo(
+    () => DOMPurify.sanitize(tiptapDocToSafeHtml(emailBodyDoc)),
+    [emailBodyDoc]
+  )
 
   if (loading) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
@@ -558,12 +571,7 @@ function CampaignsInner() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Email Body</label>
-                    <textarea
-                      value={emailBody}
-                      onChange={e => setEmailBody(e.target.value)}
-                      rows={5}
-                      className="w-full bg-warm-200 border border-warm-300 rounded-lg px-4 py-3 text-charcoal-900 text-sm outline-none focus:border-od-green transition-colors resize-none"
-                    />
+                    <CampaignEmailEditor value={emailBodyDoc} onChange={setEmailBodyDoc} />
                   </div>
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" checked={aiCurate} onChange={e => setAiCurate(e.target.checked)} className="w-4 h-4 accent-od-green" />
@@ -873,11 +881,16 @@ function CampaignsInner() {
                     <p className="text-xs text-charcoal-500 mt-1 italic">+ "Reply STOP to unsubscribe."</p>
                   </div>
                 )}
-                {(channel === 'email' || channel === 'both') && emailSubject && (
+                {(channel === 'email' || channel === 'both') && (emailSubject || emailPreviewHtml) && (
                   <div className="bg-warm-200 border border-warm-300 rounded-xl p-4 mb-4">
                     <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Email Preview</div>
-                    <p className="text-sm font-semibold text-charcoal-900 mb-1">{emailSubject}</p>
-                    <p className="text-sm text-charcoal-700 leading-relaxed">{emailBody}</p>
+                    {emailSubject && <p className="text-sm font-semibold text-charcoal-900 mb-1">{emailSubject}</p>}
+                    {emailPreviewHtml && (
+                      <div
+                        className="text-sm text-charcoal-700 leading-relaxed [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_a]:text-od-green [&_a]:underline"
+                        dangerouslySetInnerHTML={{ __html: emailPreviewHtml }}
+                      />
+                    )}
                   </div>
                 )}
                 <div className="flex gap-3 justify-between mt-6">
