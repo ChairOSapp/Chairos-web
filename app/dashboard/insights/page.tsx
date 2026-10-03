@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
+import { Tabs, TabsList, SlidingTabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { StepPanel } from '@/components/motion'
 import AIInsightStrip from '@/components/insights/AIInsightStrip'
 import PeakHoursHeatmap from '@/components/insights/PeakHoursHeatmap'
 import ClientHealthDashboard from '@/components/insights/ClientHealthDashboard'
@@ -629,7 +631,7 @@ export default function InsightsPage() {
   const myBarberRow = shopBarbers.find(b => b.barber_id === userId)
   const soloBarberName = myBarberRow?.barber_name || myBarberRow?.alias || ownerName
 
-  const chips: { id: string; label: string }[] = [
+  const tabs: { id: string; label: string }[] = [
     { id: 'today', label: 'Today' },
     { id: 'money', label: 'Money' },
     { id: 'clients', label: 'Clients' },
@@ -638,7 +640,26 @@ export default function InsightsPage() {
     { id: 'reviews', label: 'Reviews' },
     { id: 'referrals', label: 'Referrals' },
   ]
-  if (isShopOwner) chips.push({ id: 'shop', label: 'Shop' })
+  if (isShopOwner) tabs.push({ id: 'shop', label: 'Shop' })
+
+  // Real tabs, deep-linkable via ?tab=. Unknown ids (or the owner-only Shop
+  // tab for non-owners) fall back to Today.
+  const [activeTab, setActiveTab] = useState('today')
+  const pathname = usePathname()
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (
+      t &&
+      ['today', 'money', 'clients', 'actions', 'services', 'reviews', 'referrals', 'shop'].includes(t)
+    ) {
+      setActiveTab(t)
+    }
+  }, [])
+  const safeTab = tabs.some(t => t.id === activeTab) ? activeTab : 'today'
+  const selectTab = (id: string) => {
+    setActiveTab(id)
+    router.replace(`${pathname}?tab=${id}`, { scroll: false })
+  }
 
   if (authLoading) return (
     <div className="min-h-screen bg-warm-50 flex items-center justify-center">
@@ -676,15 +697,20 @@ export default function InsightsPage() {
           <button onClick={() => router.push(role === 'barber' ? '/dashboard/chair' : '/dashboard')} className="btn-chairos-outline">Dashboard</button>
         </div>
 
-        {/* SECTION CHIPS */}
-        <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-30 -mx-6 px-6 py-2 bg-warm-50/95 backdrop-blur overflow-x-auto flex gap-2 mb-6">
-          {chips.map(c => (
-            <a key={c.id} href={`#${c.id}`}
-              className="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold bg-warm-100 border border-warm-200 text-charcoal-500 hover:text-charcoal-900 hover:border-od-green transition-colors">
-              {c.label}
-            </a>
-          ))}
-        </div>
+        {/* SECTION TABS — sticky bar; panels swap in place below, no anchor jumping */}
+        <Tabs value={safeTab} onValueChange={selectTab}>
+          <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-30 -mx-6 px-6 py-2 bg-warm-50/95 backdrop-blur mb-6">
+            <TabsList aria-label="Insights sections">
+              {tabs.map(t => (
+                <SlidingTabsTrigger key={t.id} value={t.id} pillLayoutId="insights-tab-pill">
+                  {t.label}
+                </SlidingTabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+
+          <TabsContent value="today">
+            <StepPanel>
 
         {/* THIS MORNING — the daily brief, once */}
         {userId && <AIInsightStrip userId={userId} />}
@@ -703,7 +729,11 @@ export default function InsightsPage() {
             staffLabel={staffLabel}
           />
         )}
+            </StepPanel>
+          </TabsContent>
 
+          <TabsContent value="money">
+            <StepPanel>
         {/* MONEY — am I making what I should? */}
         <SectionHead id="money" title="Money" sub="What you earned, and whether it's on track." />
         {rev_loading ? (
@@ -808,7 +838,11 @@ export default function InsightsPage() {
             )}
           </>
         )}
+            </StepPanel>
+          </TabsContent>
 
+          <TabsContent value="clients">
+            <StepPanel>
         {/* CLIENTS — who needs me? */}
         <SectionHead id="clients" title="Clients" sub="Who's coming back, who's fading, who needs a nudge." />
         {ana_loading ? (
@@ -863,7 +897,11 @@ export default function InsightsPage() {
             )}
           </>
         )}
+            </StepPanel>
+          </TabsContent>
 
+          <TabsContent value="actions">
+            <StepPanel>
         {/* ACTIONS — what should I do next? */}
         <SectionHead id="actions" title="Actions" sub="What your numbers say to do next — not just what happened." />
         {role === 'owner' && (
@@ -879,7 +917,11 @@ export default function InsightsPage() {
           barbers={shopBarbers}
           isBarber={role === 'barber'}
         />
+            </StepPanel>
+          </TabsContent>
 
+          <TabsContent value="services">
+            <StepPanel>
         {/* SERVICES — what's making money? */}
         <SectionHead id="services" title="Services" sub="What's driving revenue — and what isn't pulling its weight." />
         {ana_loading ? (
@@ -955,7 +997,11 @@ export default function InsightsPage() {
             No service data for this period yet.
           </div>
         )}
+            </StepPanel>
+          </TabsContent>
 
+          <TabsContent value="reviews">
+            <StepPanel>
         {/* REVIEWS — what are clients saying? */}
         <SectionHead id="reviews" title="Reviews" sub="Your reputation, at a glance." />
         <div className="mb-4">
@@ -1004,7 +1050,11 @@ export default function InsightsPage() {
             </div>
           )}
         </div>
+            </StepPanel>
+          </TabsContent>
 
+          <TabsContent value="referrals">
+            <StepPanel>
         {/* REFERRALS — who's bringing in business? */}
         <SectionHead id="referrals" title="Referrals" sub="Clients bringing you new clients." />
         <div className="mb-4">
@@ -1055,6 +1105,11 @@ export default function InsightsPage() {
           )}
         </div>
 
+            </StepPanel>
+          </TabsContent>
+
+          <TabsContent value="shop">
+            <StepPanel>
         {/* SHOP — owner-only: how's the whole shop doing? */}
         {isShopOwner && (
           <>
@@ -1063,6 +1118,9 @@ export default function InsightsPage() {
             <CrmInsightsPanel shopId={shop?.id || ''} />
           </>
         )}
+            </StepPanel>
+          </TabsContent>
+        </Tabs>
 
       </div>
       <MobileNav />
