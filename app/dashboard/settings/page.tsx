@@ -8,6 +8,7 @@ import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { daysUntil } from '@/lib/billing'
 import ServicesEditor from '@/components/ServicesEditor'
+import ConsentManager from '@/components/ConsentManager'
 import SquareHistorySync from '@/components/SquareHistorySync'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { NOTIFICATION_EVENT_TYPES, defaultChannels } from '@/lib/notificationEvents'
@@ -42,7 +43,15 @@ export default function ShopSettings() {
   const [uploadingHero, setUploadingHero] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
-  const [tab, setTab] = useState<'profile' | 'payments' | 'booking' | 'services' | 'advanced'>('profile')
+  const [tab, setTab] = useState<'profile' | 'payments' | 'booking' | 'services' | 'advanced' | 'consent'>('profile')
+
+  // Deep-link support: /dashboard/settings?tab=consent selects the Consent tab.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t === 'profile' || t === 'payments' || t === 'booking' || t === 'services' || t === 'advanced' || t === 'consent') {
+      setTab(t)
+    }
+  }, [])
   const [squareAccount, setSquareAccount] = useState<any>(null)
   const [disconnectingSquare, setDisconnectingSquare] = useState(false)
   const [barbersCollectOwnPayments, setBarbersCollectOwnPayments] = useState(false)
@@ -521,6 +530,7 @@ export default function ShopSettings() {
               { key: 'booking', label: 'Booking Rules' },
               { key: 'services', label: 'Services' },
               { key: 'advanced', label: 'Advanced' },
+              ...(profile?.role === 'barber' ? [] : [{ key: 'consent', label: 'Consent' }]),
             ] as { key: typeof tab; label: string }[]).map(t => (
               <button key={t.key} onClick={() => setTab(t.key)}
                 className={`px-4 py-2 rounded-md text-xs font-semibold transition-all ${tab === t.key ? 'bg-warm-300 text-charcoal-900' : 'text-charcoal-500'}`}>
@@ -1551,6 +1561,10 @@ export default function ShopSettings() {
         </div>
 
         </>)}
+
+        {tab === 'consent' && profile?.role !== 'barber' && (
+          <ConsentManager />
+        )}
       </div>
 
       <MobileNav />
