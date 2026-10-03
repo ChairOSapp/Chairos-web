@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useVerticalLabels } from '@/lib/VerticalContext'
-import { AnimatePresence, FadeBackdrop, SlideUpSheet, StaggerList, StaggerItem } from './motion'
+import { StaggerList, StaggerItem } from './motion'
+import MoreMenuSheet from './MoreMenuSheet'
 import FeedbackButton from './FeedbackButton'
 
 const ITEMS = [
@@ -83,15 +84,8 @@ export default function MobileNav() {
 
   return (
     <>
-      <AnimatePresence>
-      {moreOpen && (
-        <FadeBackdrop className="md:hidden fixed inset-0 bg-black/40 z-[60]" onClick={() => setMoreOpen(false)}>
-          <SlideUpSheet
-            onClick={e => e.stopPropagation()}
-            className="fixed bottom-0 left-0 right-0 bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] rounded-t-2xl p-4 pb-8 pb-safe-sheet max-h-[70vh] overflow-y-auto"
-          >
-            <div className="w-10 h-1 bg-warm-300 dark:bg-[#3A3A34] rounded-full mx-auto mb-4" />
-            <StaggerList className="grid grid-cols-4 gap-3">
+      <MoreMenuSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
+        <StaggerList className="grid grid-cols-4 gap-3">
               {moreItems.map(item => (
                 <StaggerItem key={item.href}>
                 <button onClick={() => go(item.href)}
@@ -109,10 +103,7 @@ export default function MobileNav() {
                 <FeedbackButton />
               </StaggerItem>
             </StaggerList>
-          </SlideUpSheet>
-        </FadeBackdrop>
-      )}
-      </AnimatePresence>
+      </MoreMenuSheet>
 
       <div aria-hidden className="md:hidden h-[calc(5rem+env(safe-area-inset-bottom))]" />
       <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none transition-transform duration-300 ease-out ${navVisible ? 'translate-y-0' : 'translate-y-24'}`}>
