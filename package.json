@@ -28,7 +28,7 @@
     "@sentry/node": "^10.71.0",
     "@square/web-sdk": "^2.2.0",
     "@stripe/stripe-js": "^9.8.0",
-    "@supabase/ssr": "^0.10.2",
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.103.3",
     "@tanstack/react-table": "^9.2.4",
     "@tiptap/extension-link": "^3.31.4",
