@@ -21,6 +21,7 @@ export default function Signup() {
   const [role, setRole] = useState<'owner' | 'barber' | null>(null)
   const [phone, setPhone] = useState('')
   const [smsConsent, setSmsConsent] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -78,12 +79,14 @@ export default function Signup() {
       try { localStorage.setItem('chairos:welcome_email_pending', '1') } catch {}
     }
 
-    // Save phone + SMS consent if given (profile row may not exist yet if email confirmation required)
-    const cleanPhone = phone.replace(/\D/g, '')
-    if ((smsConsent || cleanPhone) && signUpData.user) {
-      const consentNow = new Date().toISOString()
+    // Save terms acceptance + phone/SMS consent (profile row may not exist yet if email confirmation required)
+    const consentNow = new Date().toISOString()
+    if (signUpData.user) {
+      const cleanPhone = phone.replace(/\D/g, '')
       await supabase.from('profiles').upsert({
         id: signUpData.user.id,
+        terms_accepted: true,
+        terms_accepted_at: consentNow,
         ...(cleanPhone ? { phone: cleanPhone } : {}),
         ...(smsConsent ? { sms_consent: true, sms_consent_at: consentNow } : {}),
       }, { onConflict: 'id', ignoreDuplicates: false })
@@ -198,6 +201,21 @@ export default function Signup() {
             </span>
           </label>
 
+          <label className="flex items-start gap-3 cursor-pointer mb-4">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={e => setTermsAccepted(e.target.checked)}
+              className="mt-0.5 w-4 h-4 flex-shrink-0 accent-od-green"
+            />
+            <span className="text-xs text-charcoal-500 leading-relaxed">
+              I agree to the{' '}
+              <Link href="/terms" className="underline hover:text-charcoal-300">Terms of Service</Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="underline hover:text-charcoal-300">Privacy Policy</Link>.
+            </span>
+          </label>
+
           {CAPTCHA_ENABLED && (
             <div className="mb-4">
               <Turnstile ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
@@ -206,7 +224,7 @@ export default function Signup() {
 
           <button
             onClick={handleRoleSubmit}
-            disabled={!role || loading || (CAPTCHA_ENABLED && !captchaToken)}
+            disabled={!role || !termsAccepted || loading || (CAPTCHA_ENABLED && !captchaToken)}
             className="w-full bg-od-green hover:bg-od-green-light disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors text-sm"
           >
             {loading ? 'Creating account…' : 'Create Account'}
