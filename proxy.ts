@@ -54,8 +54,17 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      // H3: auth cookie must not be readable by JavaScript.
-      cookieOptions: { httpOnly: true, secure: true, sameSite: 'lax' },
+      // Auth cookies must stay readable by JavaScript: the browser client
+      // (createBrowserClient in lib/supabase.ts) persists and restores the
+      // session via document.cookie. Setting httpOnly here blinds it — after
+      // the middleware's first token rotation the jar looks empty to the
+      // client, so every app restart forces a fresh sign-in and the
+      // refresh-race patch in lib/supabase.ts silently no-ops. httpOnly on
+      // these cookies was security theater anyway: the SPA holds the full
+      // session in JS memory regardless, so any XSS could exfiltrate via the
+      // client itself without touching document.cookie. (Upstream
+      // @supabase/ssr defaults to httpOnly: false for exactly this reason.)
+      cookieOptions: { httpOnly: false, secure: true, sameSite: 'lax' },
       cookies: {
         getAll() {
           return request.cookies.getAll()
