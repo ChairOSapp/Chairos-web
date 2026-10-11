@@ -30,6 +30,22 @@ function normalizeVoiceNumber(raw: string): string | null {
   return digits ? `+${digits}` : null
 }
 
+// Small on/off switch used for notification preferences. The knob position
+// makes the state unambiguous — right/green is on, left/grey is off.
+function PrefSwitch({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onToggle}
+      className={`w-11 h-6 rounded-full relative transition-colors flex-shrink-0 ${on ? 'bg-od-green' : 'bg-warm-300'}`}>
+      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
+    </button>
+  )
+}
+
 export default function ShopSettings() {
   const { staffLabel, staffLabelPlural, vertical } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
@@ -82,7 +98,10 @@ export default function ShopSettings() {
   // in-app. Stored as a jsonb map; a missing key means the type's defaults.
   const [notifChannels, setNotifChannels] = useState<Record<string, string[]>>({})
   const [digestEmail, setDigestEmail] = useState(false)
-  const [savingNotifs, setSavingNotifs] = useState(false)
+  // Notification prefs save themselves on every toggle — there is no save
+  // button for this section, so it can never be skipped by hitting the
+  // main Save Settings button instead.
+  const [notifSaveState, setNotifSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [missedCallTextbackEnabled, setMissedCallTextbackEnabled] = useState(false)
   const [twilioVoiceNumber, setTwilioVoiceNumber] = useState('')
   // Platform-owned missed-call text-back add-on ($10/mo): ChairOS provisions
@@ -385,26 +404,31 @@ export default function ShopSettings() {
   }
 
   function toggleNotifChannel(key: string, ch: 'push' | 'in_app') {
-    setNotifChannels(prev => {
-      const cur = effNotifChannels(key)
-      const next = cur.includes(ch) ? cur.filter(c => c !== ch) : [...cur, ch]
-      return { ...prev, [key]: next }
-    })
+    const cur = effNotifChannels(key)
+    const next = cur.includes(ch) ? cur.filter(c => c !== ch) : [...cur, ch]
+    const updated = { ...notifChannels, [key]: next }
+    setNotifChannels(updated)
+    persistNotifPrefs(updated, digestEmail)
   }
 
-  async function saveNotifPrefs() {
+  function toggleDigestEmail() {
+    const next = !digestEmail
+    setDigestEmail(next)
+    persistNotifPrefs(notifChannels, next)
+  }
+
+  async function persistNotifPrefs(channels: Record<string, string[]>, digest: boolean) {
     if (!userId) return
-    setSavingNotifs(true)
+    setNotifSaveState('saving')
     const { error } = await supabase.from('notification_preferences').upsert({
       user_id: userId,
-      channels: notifChannels,
-      digest_email: digestEmail,
+      channels,
+      digest_email: digest,
       updated_at: new Date().toISOString(),
     })
-    setSavingNotifs(false)
-    if (error) { setError(error.message); return }
-    setSuccess('Notification preferences saved.')
-    setTimeout(() => setSuccess(''), 3000)
+    if (error) { setNotifSaveState('error'); setError(error.message); return }
+    setNotifSaveState('saved')
+    setTimeout(() => setNotifSaveState(s => (s === 'saved' ? 'idle' : s)), 2500)
   }
 
   async function handleSaveTaxInfo() {
@@ -780,11 +804,16 @@ export default function ShopSettings() {
           </div>
         </div>
 
-        {/* NOTIFICATIONS */}
+        {/* NOTIFICATIONS — toggles save themselves; no save button here on purpose */}
         <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mb-6">
-          <div className="px-6 py-4 border-b border-warm-200">
-            <div className="font-serif text-charcoal-900 text-sm">Notifications</div>
-            <div className="text-xs text-charcoal-500">Choose which alerts reach you, and where. Turning both off for a type mutes it.</div>
+          <div className="px-6 py-4 border-b border-warm-200 flex items-start justify-between gap-4">
+            <div>
+              <div className="font-serif text-charcoal-900 text-sm">Notifications</div>
+              <div className="text-xs text-charcoal-500">Choose which alerts reach you, and where. Turning both off for a type mutes it.</div>
+            </div>
+            <div className="text-xs text-charcoal-500 pt-0.5 flex-shrink-0 w-20 text-right">
+              {notifSaveState === 'saving' ? 'Saving…' : notifSaveState === 'saved' ? 'Saved' : notifSaveState === 'error' ? 'Not saved' : ''}
+            </div>
           </div>
           <div className="p-6">
             <div className="flex items-center justify-between gap-4 pb-4 mb-2 border-b border-warm-200">
@@ -792,12 +821,7 @@ export default function ShopSettings() {
                 <div className="text-sm font-medium text-charcoal-900">Daily digest email</div>
                 <div className="text-xs text-charcoal-500 mt-0.5">One evening email summarizing the day&apos;s unread alerts.</div>
               </div>
-              <button
-                onClick={() => setDigestEmail(v => !v)}
-                aria-label="Daily digest email"
-                className={`w-11 h-6 rounded-full relative transition-colors flex-shrink-0 ${digestEmail ? 'bg-od-green' : 'bg-warm-300'}`}>
-                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${digestEmail ? 'left-[22px]' : 'left-0.5'}`} />
-              </button>
+              <PrefSwitch on={digestEmail} onToggle={toggleDigestEmail} label="Daily digest email" />
             </div>
             <div className="divide-y divide-warm-200">
               {NOTIFICATION_EVENT_TYPES.map(e => {
@@ -805,30 +829,20 @@ export default function ShopSettings() {
                 return (
                   <div key={e.key} className="flex items-center justify-between gap-4 py-3">
                     <div className="text-sm text-charcoal-900">{e.label}</div>
-                    <div className="flex gap-2">
-                      {(['push', 'in_app'] as const).map(ch => (
-                        <button
-                          key={ch}
-                          onClick={() => toggleNotifChannel(e.key, ch)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                            cur.includes(ch)
-                              ? 'bg-od-green border-od-green text-white'
-                              : 'bg-warm-200 border-warm-300 text-charcoal-500'
-                          }`}>
-                          {ch === 'push' ? 'Push' : 'In-app'}
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-5">
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-charcoal-500">Push</span>
+                        <PrefSwitch on={cur.includes('push')} onToggle={() => toggleNotifChannel(e.key, 'push')} label={`Push for ${e.label}`} />
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-charcoal-500">In-app</span>
+                        <PrefSwitch on={cur.includes('in_app')} onToggle={() => toggleNotifChannel(e.key, 'in_app')} label={`In-app for ${e.label}`} />
+                      </span>
                     </div>
                   </div>
                 )
               })}
             </div>
-            <button
-              onClick={saveNotifPrefs}
-              disabled={savingNotifs}
-              className="btn-chairos mt-4">
-              {savingNotifs ? 'Saving...' : 'Save notification preferences'}
-            </button>
           </div>
         </div>
 
