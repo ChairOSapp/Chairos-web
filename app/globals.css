@@ -354,7 +354,11 @@ body {
 .dark .fc .fc-timegrid-slot-label-cushion { color: #8A8A82; }
 .dark .fc .fc-daygrid-day-number { color: #EDECEA; }
 .dark .fc .fc-day-today .fc-daygrid-day-number { color: #8FA043; }
-.dark :root { --fc-page-bg-color: #141412; --fc-border-color: rgba(255,255,255,0.08); --fc-neutral-bg-color: #1E1E1B; --fc-neutral-text-color: #A8A89E; --fc-today-bg-color: rgba(122,140,58,0.07); --fc-list-event-hover-bg-color: #252521; }
+/* Was `.dark :root` — a descendant selector that can never match (the .dark
+   class sits ON <html> via next-themes), so these dark FC variables never
+   applied and var-driven surfaces like the day "more" popover kept the light
+   palette while event text switched to the dark theme's near-white. */
+:root.dark { --fc-page-bg-color: #141412; --fc-border-color: rgba(255,255,255,0.08); --fc-neutral-bg-color: #1E1E1B; --fc-neutral-text-color: #A8A89E; --fc-today-bg-color: rgba(122,140,58,0.07); --fc-list-event-hover-bg-color: #252521; }
 
 /* --- Calendar header buttons (custom, not FC) --- */
 .dark .bg-warm-200.rounded-lg { background-color: #252521; }
