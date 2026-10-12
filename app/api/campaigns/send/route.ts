@@ -5,19 +5,18 @@ import { cookies } from 'next/headers'
 import { requireActiveBilling } from '@/lib/billing'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { buildCampaignRecipients, MAX_CAMPAIGN_RECIPIENTS } from '@/lib/campaignAudience'
-// NOTE: the Trigger.dev send task (src/trigger/campaignSend) is loaded
-// with a dynamic import inside the handler, not a static import here.
-// This route returned a bare platform 500 on every build while sibling
-// routes worked, and its static module graph was the one thing unique
-// to it; loading the task graph lazily keeps any failure inside the
-// handler's error handling (named JSON) instead of at module init
-// (opaque HTML 500).
-
-// Load probe: a GET on this route proves the function module loads and
-// runs. POST is the real handler below.
-export async function GET() {
-  return NextResponse.json({ ok: true, probe: 'campaign-send-route' })
-}
+import { tasks } from '@trigger.dev/sdk'
+// Do NOT import the send task module (src/trigger/campaignSend) here,
+// statically or dynamically. Its module graph pulls in the email
+// templates, which import isomorphic-dompurify -> jsdom, and jsdom's
+// html-encoding-sniffer require()s an ESM-only package (@exodus/bytes),
+// which dies with ERR_REQUIRE_ESM when Vercel loads it as an external
+// CommonJS module. That load failure killed this route at module init
+// on every build — a bare platform 500 the handler's error handling
+// could never see, while every sibling route worked. Trigger the task
+// by its string id through the SDK instead (the scheduler does the
+// same); the task's own code runs in Trigger.dev's runtime, which
+// bundles the graph fine.
 
 export async function POST(req: NextRequest) {
   try {
@@ -119,11 +118,6 @@ async function handleSend(req: NextRequest) {
       .update({ status: priorStatus, updated_at: new Date().toISOString() })
       .eq('id', campaignId)
 
-  // Lazy-load the Trigger.dev task graph (see the note at the top of
-  // this file). A load failure lands in POST's catch and returns the
-  // real error as JSON instead of a bare platform 500.
-  const { campaignSend } = await import('@/src/trigger/campaignSend')
-
   try {
 
   // Build the audience and insert recipient rows via the shared builder
@@ -154,7 +148,7 @@ async function handleSend(req: NextRequest) {
   // timeout. The task processes recipients with bounded concurrency and
   // updates per-recipient statuses as it goes; the campaign row stays
   // 'sending' until the task marks it 'sent'.
-  await campaignSend.trigger({ campaignId })
+  await tasks.trigger('campaign-send', { campaignId })
 
   console.log(`[campaigns/send] triggered background send for campaign ${campaignId}: ${audienceSize} recipients`)
   return NextResponse.json({ recipientCount: audienceSize, triggered: true })
