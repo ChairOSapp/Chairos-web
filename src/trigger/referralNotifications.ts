@@ -33,7 +33,7 @@ export async function runReferralNotifications() {
 
   const { data: events, error: eventsErr } = await supabase
     .from('referral_events')
-    .select('id, client_id, shop_id, event_type, reward_id')
+    .select('id, client_id, shop_id, event_type, reward_id, created_at')
     .is('processed_at', null)
     .order('created_at', { ascending: true })
     .limit(200)
@@ -67,10 +67,16 @@ export async function runReferralNotifications() {
   for (const event of events) {
     const client = clientMap.get(event.client_id)
     const shop = shopMap.get(event.shop_id)
-    processedIds.push(event.id)
+    // Permanent outcomes (sent, or a skip that can never succeed) are
+    // stamped processed at the end. A transient Twilio failure is NOT:
+    // the event used to be stamped processed regardless, so one failed
+    // send permanently lost the referral text with no retry. Failures
+    // stay unprocessed and retry on the next tick — bounded to 24h so a
+    // permanently bad number cannot retry forever.
 
     if (!client?.phone || !client.sms_consent || !shop) {
       logs.push({ type: 'referral_sms', payload: event, result: 'skipped:no_consent_or_missing_data' })
+      processedIds.push(event.id)
       continue
     }
 
@@ -82,6 +88,7 @@ export async function runReferralNotifications() {
       const reward = event.reward_id ? rewardMap.get(event.reward_id) : null
       if (!reward) {
         logs.push({ type: 'referral_sms', payload: event, result: 'skipped:reward_not_found' })
+        processedIds.push(event.id)
         continue
       }
       body = `Great news -- your friend just completed their first visit at ${shop.name}! You've earned ${rewardText(reward.reward_type, reward.reward_value)}, applied automatically on your next booking there.`
@@ -95,8 +102,15 @@ export async function runReferralNotifications() {
       })
       sent++
       logs.push({ type: 'referral_sms', payload: event, result: `sent:${msg.sid}` })
+      processedIds.push(event.id)
     } catch (err: any) {
-      logs.push({ type: 'referral_sms', payload: event, result: `twilio_error:${err.message}` })
+      const ageMs = Date.now() - new Date(event.created_at).getTime()
+      if (ageMs > 24 * 60 * 60 * 1000) {
+        logs.push({ type: 'referral_sms', payload: event, result: `gave_up_after_retries:${err.message}` })
+        processedIds.push(event.id)
+      } else {
+        logs.push({ type: 'referral_sms', payload: event, result: `twilio_error_will_retry:${err.message}` })
+      }
     }
   }
 

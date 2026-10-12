@@ -36,14 +36,36 @@ export const clientLapseDetection = schedules.task({
     if (shopsErr) throw new Error(`shops query failed: ${shopsErr.message}`)
     const shopMap = new Map((shops ?? []).map(s => [s.id, s]))
 
-    // 2. Load completed appointments from the last 180 days only
-    const { data: appointments, error: apptErr } = await supabase
-      .from('appointments')
-      .select('shop_id, barber_id, client_id, client_name, client_phone, date, services(name)')
-      .eq('status', 'done')
-      .gte('date', new Date(Date.now() - 180 * 86400 * 1000).toISOString().slice(0, 10))
-
-    if (apptErr) throw new Error(`appointments query failed: ${apptErr.message}`)
+    // 2. Load completed appointments from the last 180 days only.
+    // Paginated: PostgREST caps a response at 1,000 rows, and this is a
+    // cross-shop scan of 180 days of history — unpaginated, lapse math
+    // silently ran on an arbitrary 1,000-row subset and missed alerts.
+    type LapseAppt = {
+      shop_id: string
+      barber_id: string | null
+      client_id: string | null
+      client_name: string
+      client_phone: string | null
+      date: string
+      services: { name: string } | null
+    }
+    const appointments: LapseAppt[] = []
+    {
+      const PAGE = 1000
+      for (let from = 0; ; from += PAGE) {
+        const { data: page, error: pageErr } = await supabase
+          .from('appointments')
+          .select('shop_id, barber_id, client_id, client_name, client_phone, date, services(name)')
+          .eq('status', 'done')
+          .gte('date', new Date(Date.now() - 180 * 86400 * 1000).toISOString().slice(0, 10))
+          .order('id', { ascending: true })
+          .range(from, from + PAGE - 1)
+        if (pageErr) throw new Error(`appointments query failed: ${pageErr.message}`)
+        const rows = (page ?? []) as unknown as LapseAppt[]
+        appointments.push(...rows)
+        if (rows.length < PAGE) break
+      }
+    }
 
     // 3. Load barber names (barber_id → name, keyed by shop_id:barber_id)
     const { data: shopBarbers } = await supabase
