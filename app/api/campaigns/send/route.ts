@@ -5,9 +5,37 @@ import { cookies } from 'next/headers'
 import { requireActiveBilling } from '@/lib/billing'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { buildCampaignRecipients, MAX_CAMPAIGN_RECIPIENTS } from '@/lib/campaignAudience'
-import { campaignSend } from '@/src/trigger/campaignSend'
+import { tasks } from '@trigger.dev/sdk'
+// Do NOT import the send task module (src/trigger/campaignSend) here,
+// statically or dynamically. Its module graph pulls in the email
+// templates, which import isomorphic-dompurify -> jsdom, and jsdom's
+// html-encoding-sniffer require()s an ESM-only package (@exodus/bytes),
+// which dies with ERR_REQUIRE_ESM when Vercel loads it as an external
+// CommonJS module. That load failure killed this route at module init
+// on every build — a bare platform 500 the handler's error handling
+// could never see, while every sibling route worked. Trigger the task
+// by its string id through the SDK instead (the scheduler does the
+// same); the task's own code runs in Trigger.dev's runtime, which
+// bundles the graph fine.
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handleSend(req)
+  } catch (err) {
+    // The pre-flight steps below (auth, billing gate, rate limit, claim)
+    // run outside the send try/catch, so a throw there used to surface as
+    // a bare HTML 500 and the UI could only show a generic "server had a
+    // problem" message. Return the real error as JSON so failures are
+    // diagnosable from the UI and the logs alike.
+    console.error('[campaigns/send] unhandled error', err)
+    return NextResponse.json(
+      { error: `Campaign send hit a server error: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 500 }
+    )
+  }
+}
+
+async function handleSend(req: NextRequest) {
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,7 +94,13 @@ export async function POST(req: NextRequest) {
   // A 'sending' claim older than 30 minutes means the sender died mid-blast
   // (no heartbeat writer exists); allow this request to reclaim it rather
   // than wedging the campaign in 'sending' forever.
-  const priorStatus = campaign.status as string
+  // Release target if this send does not complete. When this request is
+  // RECLAIMING a wedged 'sending' claim, the row's status is 'sending'
+  // and the pre-wedge status is unrecoverable from the row — releasing
+  // back to 'sending' would leave a finished 0-recipient send displayed
+  // as in-flight. 'draft' is the honest state (never sent; the owner
+  // can send or schedule it again from there).
+  const priorStatus = campaign.status === 'sending' ? 'draft' : (campaign.status as string)
   const staleCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString()
   const { data: claimed } = await admin
     .from('campaigns')
@@ -120,7 +154,7 @@ export async function POST(req: NextRequest) {
   // timeout. The task processes recipients with bounded concurrency and
   // updates per-recipient statuses as it goes; the campaign row stays
   // 'sending' until the task marks it 'sent'.
-  await campaignSend.trigger({ campaignId })
+  await tasks.trigger('campaign-send', { campaignId })
 
   console.log(`[campaigns/send] triggered background send for campaign ${campaignId}: ${audienceSize} recipients`)
   return NextResponse.json({ recipientCount: audienceSize, triggered: true })

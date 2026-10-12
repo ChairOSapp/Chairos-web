@@ -464,6 +464,15 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
           tweenConfig={{ ease: EASE_OUT, duration: 0.25 }}
           prefersReducedMotion={!!reduceMotion}
           style={{ zIndex: 200 }}
+          // This card is tall (most of the screen), unlike the short
+          // More menu: with the library defaults (close after dragging
+          // 60% of the sheet's height, or a 500px/s flick) a natural
+          // swipe down the card body fell short and snapped back, so
+          // swipe-to-dismiss felt unimplemented (Bear, 2026-10-12).
+          // A short drag or a gentle flick anywhere on the card now
+          // dismisses it, matching the More menu's feel.
+          dragCloseThreshold={0.25}
+          dragVelocityThreshold={200}
         >
           <Sheet.Container
             unstyled

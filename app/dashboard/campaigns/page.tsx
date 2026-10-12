@@ -356,31 +356,47 @@ function CampaignsInner() {
     setError('')
     setSuccess('')
     try {
-      // Save first if new, then proceed with sending
+      // Save first, always: the send route and the scheduler read the
+      // saved campaign row, so builder edits must be persisted for an
+      // existing campaign too. Previously only brand-new campaigns were
+      // saved here — edits to a draft's message or audience were
+      // silently ignored and the OLD saved version went out.
       let campaignId = selected?.id
+      const payload = {
+        shop_id: shop.id,
+        name,
+        intent,
+        channel,
+        audience_type: audienceType,
+        audience_filters: { ...buildAudienceFilters(), ...(aiCurate ? { custom_curate: true } : {}) },
+        sms_message: smsMessage || null,
+        email_subject: emailSubject || null,
+        email_body: emailBodyDoc && !isDocEmpty(emailBodyDoc) ? JSON.stringify(emailBodyDoc) : null,
+        ai_generated: aiGenerated,
+        // Only a draft/scheduled campaign may (re)enter draft here; a
+        // sent or cancelled campaign keeps its status so the send
+        // route's claim gate still refuses to blast it twice.
+        status: !selected || selected.status === 'draft' || selected.status === 'scheduled' ? 'draft' : selected.status,
+        schedule_type: scheduleType,
+        scheduled_at: scheduleType !== 'now' && scheduledAt ? scheduledAt : null,
+        recurrence_rule: scheduleType === 'recurring' ? recurrenceRule : null,
+        recurrence_end_at: scheduleType === 'recurring' && recurrenceEndType === 'date' ? recurrenceEndDate : null,
+        recurrence_count: scheduleType === 'recurring' && recurrenceEndType === 'count' ? parseInt(recurrenceCount) : null,
+      }
       if (!campaignId) {
-        const payload = {
-          shop_id: shop.id,
-          name,
-          intent,
-          channel,
-          audience_type: audienceType,
-          audience_filters: { ...buildAudienceFilters(), ...(aiCurate ? { custom_curate: true } : {}) },
-          sms_message: smsMessage || null,
-          email_subject: emailSubject || null,
-          email_body: emailBodyDoc && !isDocEmpty(emailBodyDoc) ? JSON.stringify(emailBodyDoc) : null,
-          ai_generated: aiGenerated,
-          status: 'draft',
-          schedule_type: scheduleType,
-          scheduled_at: scheduleType !== 'now' && scheduledAt ? scheduledAt : null,
-          recurrence_rule: scheduleType === 'recurring' ? recurrenceRule : null,
-          recurrence_end_at: scheduleType === 'recurring' && recurrenceEndType === 'date' ? recurrenceEndDate : null,
-          recurrence_count: scheduleType === 'recurring' && recurrenceEndType === 'count' ? parseInt(recurrenceCount) : null,
-        }
         const { data: newC, error: saveErr } = await supabase.from('campaigns').insert(payload).select().maybeSingle()
         if (saveErr) throw saveErr
         campaignId = newC!.id
         setSelected(newC)
+      } else {
+        // Deliberately NOT bumping updated_at here: the send route's
+        // stale-claim reclaim keys off updated_at (a campaign stuck in
+        // 'sending' becomes reclaimable 30 minutes after it last
+        // changed). Stamping it on every send attempt would restart
+        // that clock forever and a wedged campaign could never be
+        // reclaimed. Save Draft is the path that bumps updated_at.
+        const { error: updErr } = await supabase.from('campaigns').update(payload).eq('id', campaignId)
+        if (updErr) throw updErr
       }
 
       // Update status to scheduled if not sending now
