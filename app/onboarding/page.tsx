@@ -278,7 +278,12 @@ export default function Onboarding() {
 
       router.push(isSolo ? '/subscribe?plan=barber' : '/subscribe?plan=owner')
     } catch (err: any) {
-      setError(err.message)
+      // The shop-creation RPC raises a raw database message when a
+      // vertical has no preset services and the owner added none —
+      // never show that internal wording to the owner.
+      setError(err?.message?.includes('No service presets configured')
+        ? 'Add at least one service to launch your shop.'
+        : err.message)
       setLoading(false)
     }
   }

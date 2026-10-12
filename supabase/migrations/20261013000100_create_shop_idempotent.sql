@@ -10,6 +10,15 @@
 --
 -- Body is the current definition (20260827000003, with service buffers)
 -- plus the owner check at the top.
+--
+-- Amendment (2026-10-12, live-QA find): the preset guard now only raises
+-- when the shop would end up with NO services at all. The original guard
+-- raised whenever a vertical had no rows in service_presets — even when
+-- the owner supplied custom services in onboarding — which bricked shop
+-- creation entirely on any database missing its preset seed data (the
+-- dev project had none, so every Launch click failed with this raw
+-- exception as the user-facing error). Presets-plus-nothing is still a
+-- hard stop; presets-missing-but-custom-services is a valid shop.
 create or replace function public.create_shop_with_services(
   p_name text,
   p_address text,
@@ -48,7 +57,8 @@ begin
   order by sp.sort_order;
 
   get diagnostics v_preset_count = row_count;
-  if v_preset_count = 0 then
+  if v_preset_count = 0
+     and (p_custom_services is null or jsonb_array_length(p_custom_services) = 0) then
     raise exception 'No service presets configured for vertical %', p_vertical;
   end if;
 
