@@ -50,10 +50,29 @@ export default function Signup() {
     setLoading(true)
     setError('')
 
+    // Consent facts are computed BEFORE signUp and carried on the auth
+    // user's metadata: when email confirmation is required there is no
+    // session yet, so the profiles upsert below is rejected by RLS and
+    // the clickwrap record would be lost. Metadata is written by the
+    // signUp call itself, session or not, and the login page flushes it
+    // into profiles on the first sign-in.
+    const consentNow = new Date().toISOString()
+    const cleanPhone = phone.replace(/\D/g, '')
+
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name, role }, captchaToken: captchaToken || undefined },
+      options: {
+        data: {
+          full_name: name,
+          role,
+          terms_accepted_at: consentNow,
+          signup_phone: cleanPhone || null,
+          sms_consent: smsConsent ? true : null,
+          sms_consent_at: smsConsent ? consentNow : null,
+        },
+        captchaToken: captchaToken || undefined,
+      },
     })
 
     if (signUpError) {
@@ -79,10 +98,11 @@ export default function Signup() {
       try { localStorage.setItem('chairos:welcome_email_pending', '1') } catch {}
     }
 
-    // Save terms acceptance + phone/SMS consent (profile row may not exist yet if email confirmation required)
-    const consentNow = new Date().toISOString()
+    // Save terms acceptance + phone/SMS consent. When a session exists
+    // this lands immediately; when email confirmation is required it is
+    // rejected by RLS (no session) and the metadata copy above is the
+    // record — the login page flushes it into profiles at first sign-in.
     if (signUpData.user) {
-      const cleanPhone = phone.replace(/\D/g, '')
       await supabase.from('profiles').upsert({
         id: signUpData.user.id,
         terms_accepted: true,

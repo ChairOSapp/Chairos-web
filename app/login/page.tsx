@@ -38,7 +38,34 @@ export default function Login() {
     })
   }, [])
 
+  // Signup clickwrap backstop: when email confirmation is required,
+  // signup has no session, so its profiles upsert is rejected by RLS and
+  // the terms/phone/SMS-consent record never lands. The facts ride on
+  // the auth user's metadata instead (written by the signUp call itself),
+  // and the first signed-in session passes through here — write them
+  // into profiles now, where RLS allows it. No-op once recorded.
+  async function flushSignupConsent(userId: string) {
+    try {
+      const { data: prof } = await supabase.from('profiles').select('terms_accepted').eq('id', userId).maybeSingle()
+      if (prof?.terms_accepted) return
+      const { data: { user } } = await supabase.auth.getUser()
+      const meta = (user?.user_metadata ?? {}) as Record<string, unknown>
+      if (typeof meta.terms_accepted_at !== 'string') return
+      await supabase.from('profiles').upsert({
+        id: userId,
+        terms_accepted: true,
+        terms_accepted_at: meta.terms_accepted_at,
+        ...(typeof meta.signup_phone === 'string' && meta.signup_phone ? { phone: meta.signup_phone } : {}),
+        ...(meta.sms_consent === true ? {
+          sms_consent: true,
+          sms_consent_at: typeof meta.sms_consent_at === 'string' ? meta.sms_consent_at : meta.terms_accepted_at,
+        } : {}),
+      }, { onConflict: 'id', ignoreDuplicates: false })
+    } catch {}
+  }
+
   async function routeUser(userId: string) {
+    await flushSignupConsent(userId)
     const params = new URLSearchParams(window.location.search)
     const redirect = params.get('redirect')
     // Only allow same-origin relative paths — a redirect param like
