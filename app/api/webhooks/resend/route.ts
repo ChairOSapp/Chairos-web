@@ -42,6 +42,13 @@ export async function POST(req: NextRequest) {
     if (!svixId || !svixTimestamp || !svixSignature || !isValidSignature(rawBody, svixId, svixTimestamp, svixSignature, secret)) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
+    // Replay protection: a captured, validly-signed webhook must not be
+    // re-playable forever. Svix timestamps are seconds since epoch;
+    // allow the standard 5-minute tolerance window.
+    const tsSeconds = Number(svixTimestamp)
+    if (!Number.isFinite(tsSeconds) || Math.abs(Date.now() / 1000 - tsSeconds) > 300) {
+      return NextResponse.json({ error: 'Stale webhook' }, { status: 401 })
+    }
   } else {
     console.warn('[webhooks/resend] RESEND_WEBHOOK_SECRET not configured — skipping unverified event')
     return NextResponse.json({ received: true, verified: false })
@@ -75,6 +82,41 @@ export async function POST(req: NextRequest) {
         click_count: (recipient.click_count ?? 0) + 1,
       }).eq('id', recipient.id)
     }
+  } else if (payload.type === 'email.bounced' || payload.type === 'email.complained') {
+    // Deliverability suppression. These events used to be dropped, so a
+    // hard-bounced address kept receiving every future campaign.
+    // A spam complaint always suppresses; a bounce suppresses only when
+    // permanent (a transient bounce can recover). Suppression = turning
+    // off the client's email consent, which every audience build already
+    // honors. The event is logged either way.
+    const bounceType: string | undefined = payload?.data?.bounce?.type
+    const isComplaint = payload.type === 'email.complained'
+    const suppress = isComplaint || bounceType !== 'Transient'
+    const { data: recipient } = await admin
+      .from('campaign_recipients')
+      .select('id, client_id, email')
+      .eq('resend_email_id', emailId)
+      .maybeSingle()
+    let suppressed = false
+    if (suppress && recipient?.client_id) {
+      const { error } = await admin
+        .from('clients')
+        .update({ email_consent: false, email_consent_at: null })
+        .eq('id', recipient.client_id)
+      suppressed = !error
+    }
+    await admin.from('automation_logs').insert({
+      type: 'email_suppression',
+      payload: {
+        event: payload.type,
+        emailId,
+        recipientId: recipient?.id ?? null,
+        clientId: recipient?.client_id ?? null,
+        email: recipient?.email ?? payload?.data?.to ?? null,
+        bounceType: bounceType ?? null,
+      },
+      result: suppressed ? 'suppressed' : suppress ? 'suppression_failed_or_no_client' : 'transient_bounce_logged',
+    })
   }
 
   return NextResponse.json({ received: true })

@@ -68,12 +68,11 @@ export async function runAbandonedBookingSweep() {
       .lt('updated_at', cutoff)
 
     if (error) throw error
-    if (!staleSessions || staleSessions.length === 0) return { abandoned: 0, sent: 0 }
 
     let abandonedCount = 0
     let sentCount = 0
 
-    for (const session of staleSessions) {
+    for (const session of staleSessions ?? []) {
       // Optimistic claim -- guards against a race with the visitor
       // completing the booking between the select above and this update.
       const { data: claimed } = await supabase
@@ -90,8 +89,50 @@ export async function runAbandonedBookingSweep() {
       if (result.sent) sentCount++
     }
 
-    logger.info('abandoned_booking_sweep_run_complete', { scanned: staleSessions.length, abandoned: abandonedCount, sent: sentCount })
-    return { abandoned: abandonedCount, sent: sentCount }
+    // Retry pass: a session whose recovery text hit a Twilio error was
+    // claimed 'abandoned' before the send, so it never matched the
+    // 'in_progress' scan again and the text was silently lost. Retry
+    // those — and only those: the gate is the session's latest recovery
+    // log being a Twilio error, so permanent skips (bad phone, opted
+    // out, missing shop) are never re-attempted. Bounded to claims
+    // 10 minutes to 2 hours old; a failed retry bumps updated_at,
+    // spacing attempts ~10 minutes apart until the window closes.
+    const retryFloor = new Date(Date.now() - 10 * 60_000).toISOString()
+    const retryCeiling = new Date(Date.now() - 2 * 60 * 60_000).toISOString()
+    const { data: retryCandidates } = await supabase
+      .from('booking_sessions')
+      .select('id, session_id, shop_id, barber_id, service_id, date, time, client_name, client_phone, client_email')
+      .eq('status', 'abandoned')
+      .is('recovery_sms_sent_at', null)
+      .lt('updated_at', retryFloor)
+      .gt('updated_at', retryCeiling)
+
+    let retriedCount = 0
+    for (const session of retryCandidates ?? []) {
+      const { data: lastOutcome } = await supabase
+        .from('automation_logs')
+        .select('result')
+        .eq('type', 'abandoned_booking_recovery')
+        .eq('payload->>sessionId', session.session_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (!lastOutcome?.result?.startsWith('twilio_error')) continue
+
+      retriedCount++
+      const result = await sendRecoveryForSession(supabase, session)
+      if (result.sent) {
+        sentCount++
+      } else {
+        await supabase
+          .from('booking_sessions')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', session.id)
+      }
+    }
+
+    logger.info('abandoned_booking_sweep_run_complete', { scanned: staleSessions?.length ?? 0, abandoned: abandonedCount, sent: sentCount, retried: retriedCount })
+    return { abandoned: abandonedCount, sent: sentCount, retried: retriedCount }
 }
 
 async function sendRecoveryForSession(
