@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 import { checkRateLimit, getClientIp, getRateLimitBucket } from '@/lib/rate-limit'
 import { isAdminEmail } from '@/lib/admin'
@@ -27,6 +28,29 @@ function isPublic(pathname: string) {
   if (pathname.startsWith('/_next/')) return true
   if (pathname.startsWith('/favicon')) return true
   if (pathname.startsWith('/landing/')) return true
+  return false
+}
+
+type BillingProfileLike = {
+  subscription_status: string | null
+  trial_end: string | null
+  subscription_end_date: string | null
+  grace_period_ends_at: string | null
+}
+
+// Mirrors the standing rules of the owner gate below: active, trialing
+// (trial not expired), past due, grace period, or cancelled but still
+// inside the grace window all count as covered; anything else (cancelled
+// past grace, unpaid, incomplete, ...) does not.
+function ownerInGoodStanding(o: BillingProfileLike): boolean {
+  const s = o.subscription_status
+  if (!s) return true // no subscription row yet — same allowance the owner gate gives
+  if (s === 'active' || s === 'past_due' || s === 'grace_period') return true
+  if (s === 'trialing') return !(o.trial_end && new Date(o.trial_end) < new Date())
+  if (s === 'cancelled') {
+    const graceEnd = o.grace_period_ends_at || o.subscription_end_date
+    return !!graceEnd && new Date(graceEnd) > new Date()
+  }
   return false
 }
 
@@ -135,8 +159,48 @@ export async function proxy(request: NextRequest) {
   const status = profile?.subscription_status
   const planType = profile?.plan_type
 
-  // Shop barbers are covered by their owner — always allow
-  if (planType === 'shop') return supabaseResponse
+  // Staff accounts (plan_type 'shop') ride on their shop owner's
+  // subscription — but covered by the owner cannot mean covered forever.
+  // When the owner cancels and the grace window closes, the staff seats
+  // end with it (Bear's rule, 2026-10-12). Staff keep access while ANY
+  // shop they actively work at has an owner in good standing. Once none
+  // qualifies, pages land on /shop-access-ended — which offers them
+  // their own Solo Chair subscription so they can stay on the platform —
+  // and API calls get a 403. Lookups use the service-role client so the
+  // answer never depends on what the staff member's own RLS lets them
+  // see of other people's rows.
+  if (planType === 'shop') {
+    if (pathname === '/shop-access-ended') return supabaseResponse
+
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { data: links } = await admin
+      .from('shop_barbers')
+      .select('shop_id')
+      .eq('barber_id', user.id)
+      .eq('active', true)
+    const shopIds = [...new Set((links ?? []).map(l => l.shop_id).filter(Boolean))]
+    let covered = false
+    if (shopIds.length > 0) {
+      const { data: shops } = await admin.from('shops').select('owner_id').in('id', shopIds)
+      const ownerIds = [...new Set((shops ?? []).map(s => s.owner_id).filter(Boolean))]
+      if (ownerIds.length > 0) {
+        const { data: owners } = await admin
+          .from('profiles')
+          .select('subscription_status, trial_end, subscription_end_date, grace_period_ends_at')
+          .in('id', ownerIds)
+        covered = (owners ?? []).some(o => ownerInGoodStanding(o as BillingProfileLike))
+      }
+    }
+    if (covered) return supabaseResponse
+
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: "This shop's subscription has ended." }, { status: 403 })
+    }
+    return NextResponse.redirect(new URL('/shop-access-ended', request.url))
+  }
 
   // No subscription info yet (just signed up) — allow through
   if (!status) return supabaseResponse
