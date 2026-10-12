@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { applyRewardDiscount, redeemReward, validateReward } from '@/lib/server-pricing'
 import { logger } from '@/lib/logger'
 
@@ -17,13 +19,46 @@ function getAdmin() {
 // booking flow redeems through POST /api/book/create instead of calling
 // this directly; this endpoint remains for explicit reward-redemption
 // calls (e.g. staff applying a client's reward manually).
+//
+// Staff-only: this used to have NO authentication at all -- anyone who
+// learned a client/shop/reward ID could permanently burn a client's
+// earned reward with one unauthenticated POST. The caller must now be
+// signed in as the shop's owner or an active barber of the shop, same
+// gate as POS checkout.
 export async function POST(req: NextRequest) {
   const { clientId, shopId, rewardId, baseAmount } = await req.json()
   if (!clientId || !shopId || !rewardId) {
     return NextResponse.json({ error: 'clientId, shopId, and rewardId are required' }, { status: 400 })
   }
 
+  const cookieStore = await cookies()
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll() } }
+  )
+  const { data: { user } } = await supabaseAuth.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const admin = getAdmin()
+
+  const { data: shop } = await admin
+    .from('shops')
+    .select('owner_id')
+    .eq('id', shopId)
+    .maybeSingle()
+  let allowed = !!shop && shop.owner_id === user.id
+  if (!allowed) {
+    const { data: membership } = await admin
+      .from('shop_barbers')
+      .select('barber_id')
+      .eq('shop_id', shopId)
+      .eq('barber_id', user.id)
+      .eq('active', true)
+      .maybeSingle()
+    allowed = !!membership
+  }
+  if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   let reward
   try {

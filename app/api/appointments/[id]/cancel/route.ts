@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { resolveRefundCredentials, refundSquarePayment } from '@/lib/square'
+import { resolveTimeZone, nowWallClock } from '@/lib/wallclock'
 import { triggerWaitlistOutreach } from '@/lib/waitlistNotify'
 import { sendNotification, formatApptWhen } from '@/lib/notify'
 import { logger } from '@/lib/logger'
@@ -19,9 +20,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id: appointmentId } = await params
 
   let reason: string | undefined
+  let tzRaw: unknown
   try {
     const body = await req.json()
     reason = typeof body?.reason === 'string' ? body.reason.slice(0, 500) : undefined
+    tzRaw = body?.tz
   } catch {
     // No body / not JSON — reason is optional, proceed without one.
   }
@@ -67,8 +70,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // flags the appointment so the owner can see (and report on) short-notice
   // cancellations. The deposit refund window is a separate, money-specific
   // knob and keeps its own logic below.
-  const apptDateTime = new Date(`${appointment.date}T${appointment.time}`)
-  const hoursUntilAppointment = (apptDateTime.getTime() - Date.now()) / (60 * 60 * 1000)
+  //
+  // The appointment's date/time are shop wall-clock, but this server runs
+  // on UTC — parsing them with `new Date()` understated the time until
+  // the appointment by the shop's whole UTC offset (4–8 hours for US
+  // shops), denying refunds the shop's own policy promises and flagging
+  // late cancels early. When the caller sends its timezone (the dashboard
+  // does), compare wall clocks in that zone: both sides are naive
+  // timestamps parsed the same way, so the difference is the true gap.
+  // Without a tz, fall back to the legacy server-time math.
+  let hoursUntilAppointment = (new Date(`${appointment.date}T${appointment.time}`).getTime() - Date.now()) / (60 * 60 * 1000)
+  if (typeof tzRaw === 'string' && tzRaw) {
+    const apptWallMs = Date.parse(`${appointment.date}T${appointment.time}`)
+    const nowWallMs = Date.parse(nowWallClock(resolveTimeZone(tzRaw)))
+    if (!Number.isNaN(apptWallMs) && !Number.isNaN(nowWallMs)) {
+      hoursUntilAppointment = (apptWallMs - nowWallMs) / (60 * 60 * 1000)
+    }
+  }
   const lateCancel = hoursUntilAppointment < (shop.cancellation_window_hours ?? 24)
 
   const isOwner = shop.owner_id === user.id
@@ -115,11 +133,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  await supabase.from('appointments').update({
+  const { error: cancelUpdateErr } = await supabase.from('appointments').update({
     status: 'cancelled',
     late_cancel: lateCancel,
     ...(reason ? { cancellation_reason: reason } : {}),
   }).eq('id', appointmentId)
+
+  // The refund (if any) has already gone out above, so a failed update
+  // must not be reported as a successful cancel: the appointment would
+  // stay active with its slot blocked AND the client would have their
+  // deposit back. Fail loudly instead — a retry is safe (the deposit row
+  // is already 'refunded', so it cannot refund twice) — and never fire
+  // waitlist outreach for a slot that is not actually free.
+  if (cancelUpdateErr) {
+    logger.error('cancel_status_update_failed', { appointmentId, refunded, message: cancelUpdateErr.message })
+    return NextResponse.json({
+      error: refunded
+        ? 'The deposit was refunded, but the cancellation did not save. Try cancelling again — the deposit will not be refunded twice.'
+        : 'The cancellation did not save. Please try again.',
+      refunded,
+    }, { status: 500 })
+  }
 
   await triggerWaitlistOutreach(supabase, appointment, shop.waitlist_min_notice_hours ?? 4)
 

@@ -185,7 +185,7 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
       const res = await fetch(`/api/appointments/${appointment.id}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: cancellationReason || undefined }),
+        body: JSON.stringify({ reason: cancellationReason || undefined, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       })
       const result = await res.json()
       if (!res.ok) { alert(result.error || "Couldn't cancel that — please try again."); return }
