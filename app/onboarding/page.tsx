@@ -174,19 +174,52 @@ export default function Onboarding() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not logged in')
 
-      const { data: shop, error: shopErr } = await supabase
-        .rpc('create_shop_with_services', {
-          p_name: shopName,
-          p_address: shopAddress,
-          p_city: shopCity,
-          p_phone: shopPhone,
-          p_vertical: vertical,
-          p_custom_services: services.map(s => ({ name: s.name, price: s.price, duration_minutes: s.duration_minutes, description: s.description })),
-        })
-        .single()
-      if (shopErr) throw shopErr
-      if (!shop) throw new Error('Failed to create shop — please try again.')
-      const createdShop = shop as any
+      // Retry safety: the create RPC unconditionally inserts a new
+      // shop. If a first attempt created the shop but failed on a later
+      // step (hours, staff), the error banner invites a retry — which
+      // used to mint a SECOND shop with its own preset services, and
+      // the two then shadowed each other unpredictably ("first shop by
+      // created_at" wins in Settings). Reuse the existing shop on a
+      // retry and pick up where the failed attempt left off.
+      const { data: existingShops } = await supabase
+        .from('shops')
+        .select('id')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+
+      let createdShop: any
+      let reusedShop = false
+      if (existingShops?.length) {
+        createdShop = existingShops[0]
+        reusedShop = true
+      } else {
+        const { data: shop, error: shopErr } = await supabase
+          .rpc('create_shop_with_services', {
+            p_name: shopName,
+            p_address: shopAddress,
+            p_city: shopCity,
+            p_phone: shopPhone,
+            p_vertical: vertical,
+            p_custom_services: services.map(s => ({ name: s.name, price: s.price, duration_minutes: s.duration_minutes, description: s.description })),
+          })
+          .single()
+        if (shopErr) throw shopErr
+        if (!shop) throw new Error('Failed to create shop — please try again.')
+        createdShop = shop as any
+      }
+
+      // On a reused shop, staff rows from the failed attempt may
+      // already exist — only insert when the roster is still empty.
+      let staffAlreadyThere = false
+      if (reusedShop) {
+        const { data: existingStaff } = await supabase
+          .from('shop_barbers')
+          .select('id')
+          .eq('shop_id', createdShop.id)
+          .limit(1)
+        staffAlreadyThere = !!existingStaff?.length
+      }
 
       // Hours are collected in onboarding now (pre-filled defaults the
       // owner confirms), so no shop can finish setup with zero bookable
@@ -208,19 +241,21 @@ export default function Onboarding() {
         // of the app work for them, not a "staff roster" in the owner
         // sense. 100% commission since there's no separate owner/shop
         // cut to split.
-        const { error: selfErr } = await supabase.from('shop_barbers').insert({
-          shop_id: createdShop.id,
-          barber_id: user.id,
-          barber_name: profileName || 'Me',
-          alias: profileName || 'Me',
-          color: BARBER_COLORS[0],
-          compensation_type: 'commission',
-          commission_rate: 1.0,
-          tip_split_rate: 1.0,
-          active: true,
-        })
-        if (selfErr) throw selfErr
-      } else if (barbers.length > 0) {
+        if (!staffAlreadyThere) {
+          const { error: selfErr } = await supabase.from('shop_barbers').insert({
+            shop_id: createdShop.id,
+            barber_id: user.id,
+            barber_name: profileName || 'Me',
+            alias: profileName || 'Me',
+            color: BARBER_COLORS[0],
+            compensation_type: 'commission',
+            commission_rate: 1.0,
+            tip_split_rate: 1.0,
+            active: true,
+          })
+          if (selfErr) throw selfErr
+        }
+      } else if (barbers.length > 0 && !staffAlreadyThere) {
         const { error: bErr } = await supabase.from('shop_barbers').insert(
           barbers.map(b => ({
             shop_id: createdShop.id,

@@ -177,11 +177,26 @@ export async function deleteShopData(
   }
 
   // Storage: delete per-shop prefixes (consent-signed excluded — legal hold).
+  // list() is NOT recursive: uploads nest (announcements live at
+  // {shopId}/announcements/{uuid}), and removing a folder's name deletes
+  // nothing inside it — the old list-once pass reported success while
+  // nested files survived. Walk the tree and remove every file path;
+  // entries with an id are files, entries without one are folders.
+  const collectFilePaths = async (bucket: string, prefix: string): Promise<string[]> => {
+    const { data: entries, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000 })
+    if (error) throw new Error(error.message)
+    const paths: string[] = []
+    for (const entry of (entries || []) as { name: string; id: string | null }[]) {
+      const path = `${prefix}/${entry.name}`
+      if (entry.id) paths.push(path)
+      else paths.push(...await collectFilePaths(bucket, path))
+    }
+    return paths
+  }
+
   for (const bucket of STORAGE_PREFIX_BUCKETS) {
     try {
-      const { data: objects, error: listErr } = await admin.storage.from(bucket).list(shopId, { limit: 1000 })
-      if (listErr) throw new Error(listErr.message)
-      const paths = (objects || []).map((o: any) => `${shopId}/${o.name}`)
+      const paths = await collectFilePaths(bucket, shopId)
       if (paths.length === 0) {
         report.storageDeleted[bucket] = 0
         continue
@@ -190,8 +205,10 @@ export async function deleteShopData(
         report.storageDeleted[bucket] = paths.length
         continue
       }
-      const { error: delErr } = await admin.storage.from(bucket).remove(paths)
-      if (delErr) throw new Error(delErr.message)
+      for (let i = 0; i < paths.length; i += 100) {
+        const { error: delErr } = await admin.storage.from(bucket).remove(paths.slice(i, i + 100))
+        if (delErr) throw new Error(delErr.message)
+      }
       report.storageDeleted[bucket] = paths.length
     } catch (err) {
       report.errors.push(`storage:${bucket}: ${(err as Error).message}`)
