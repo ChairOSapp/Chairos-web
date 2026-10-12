@@ -389,7 +389,13 @@ function CampaignsInner() {
         campaignId = newC!.id
         setSelected(newC)
       } else {
-        const { error: updErr } = await supabase.from('campaigns').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', campaignId)
+        // Deliberately NOT bumping updated_at here: the send route's
+        // stale-claim reclaim keys off updated_at (a campaign stuck in
+        // 'sending' becomes reclaimable 30 minutes after it last
+        // changed). Stamping it on every send attempt would restart
+        // that clock forever and a wedged campaign could never be
+        // reclaimed. Save Draft is the path that bumps updated_at.
+        const { error: updErr } = await supabase.from('campaigns').update(payload).eq('id', campaignId)
         if (updErr) throw updErr
       }
 
