@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import twilio from "twilio"
 import { logger } from "@/lib/logger"
+import { triggerWaitlistOutreach } from "@/lib/waitlistNotify"
 
 // Deliberately not importing lib/square here -- it pulls in the full
 // `square` SDK for one trivial arithmetic helper, and that import was the
@@ -184,4 +185,96 @@ async function logOutcome(
     result,
   })
   logger.info('abandoned_booking_recovery_sent', { sessionId: session.session_id, result, recoveryType })
+}
+
+// ---------------------------------------------------------------------------
+// Orphaned pending bookings.
+//
+// An online booking creates its appointment row in 'pending' and flips it
+// to 'confirmed' only when the deposit or pay-now charge completes. If
+// the customer abandons mid-payment (tab closed, tokenize failed, charge
+// declined and never retried), nothing ever cleaned the row up: the
+// deposit path is covered by deposit-hold expiration, but a pay-now
+// booking creates no deposit row, and neither does a deposit booking
+// abandoned before the deposit call. The orphan stayed 'pending'
+// forever, and since only 'cancelled' frees a slot, it blocked that
+// slot permanently (and the owner had already been sent a "new booking"
+// notification for it).
+//
+// This sweep cancels pending appointments older than 60 minutes — far
+// beyond the ~15-minute hold and the in-page retry window — that have
+// no paid deposit and are not marked paid. The status update is claimed
+// optimistically (eq status='pending'), so a payment completing in the
+// same moment wins the race and the row is left alone. Freed slots are
+// offered to the waitlist exactly like a manual cancel does; the
+// outreach helper's own minimum-notice guard decides whether an offer
+// makes sense. Runs from frequentSweep on the same 5-minute cadence.
+// ---------------------------------------------------------------------------
+
+const ORPHANED_PENDING_AFTER_MINUTES = 60
+
+export async function runOrphanedPendingSweep() {
+  const supabase = getSupabase()
+  const cutoff = new Date(Date.now() - ORPHANED_PENDING_AFTER_MINUTES * 60 * 1000).toISOString()
+
+  const { data: stale, error } = await supabase
+    .from('appointments')
+    .select('id, shop_id, barber_id, service_id, date, time, payment_status')
+    .eq('status', 'pending')
+    .lt('created_at', cutoff)
+    .limit(200)
+
+  if (error) throw error
+  if (!stale || stale.length === 0) return { cancelled: 0 }
+
+  // One query for every paid deposit attached to the candidates — a paid
+  // deposit means money changed hands, and that path (deposit-hold
+  // expiration, which re-checks status) owns the appointment's fate.
+  const { data: paidDeposits } = await supabase
+    .from('deposits')
+    .select('appointment_id')
+    .in('appointment_id', stale.map(a => a.id))
+    .eq('status', 'paid')
+  const withPaidDeposit = new Set((paidDeposits ?? []).map(d => d.appointment_id))
+
+  // Shop waitlist settings for the outreach step, one query for all.
+  const shopIds = [...new Set(stale.map(a => a.shop_id))]
+  const { data: shops } = await supabase
+    .from('shops')
+    .select('id, waitlist_min_notice_hours')
+    .in('id', shopIds)
+  const minNoticeByShop = new Map((shops ?? []).map(s => [s.id, s.waitlist_min_notice_hours ?? 4]))
+
+  let cancelled = 0
+  for (const appt of stale) {
+    if (appt.payment_status === 'paid' || withPaidDeposit.has(appt.id)) continue
+
+    const { data: claimed } = await supabase
+      .from('appointments')
+      .update({
+        status: 'cancelled',
+        cancellation_reason: 'Payment never completed — automatically released',
+      })
+      .eq('id', appt.id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
+    if (!claimed) continue
+    cancelled++
+
+    await supabase.from('automation_logs').insert({
+      type: 'appointment_orphaned_pending_cancelled',
+      payload: { appointmentId: appt.id, shopId: appt.shop_id },
+      result: 'cancelled',
+    })
+
+    try {
+      await triggerWaitlistOutreach(supabase, appt, minNoticeByShop.get(appt.shop_id) ?? 4)
+    } catch (err) {
+      logger.error('orphaned_pending_waitlist_outreach_failed', { appointmentId: appt.id, message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  if (cancelled > 0) logger.info('orphaned_pending_sweep_complete', { cancelled })
+  return { cancelled }
 }

@@ -1,6 +1,6 @@
 import { schedules } from "@trigger.dev/sdk"
 import { logger } from "@/lib/logger"
-import { runAbandonedBookingSweep } from "./abandonedBookingSweep"
+import { runAbandonedBookingSweep, runOrphanedPendingSweep } from "./abandonedBookingSweep"
 import { runDepositHoldExpiration } from "./depositHoldExpiration"
 import { runWaitlistClaimSweep } from "./waitlistClaimSweep"
 
@@ -34,6 +34,14 @@ export const frequentSweep = schedules.task({
     } catch (err: any) {
       logger.error('frequent_sweep_waitlist_failed', { message: err.message })
       results.waitlistClaim = { error: err.message }
+    }
+
+    try {
+      results.orphanedPending = await runOrphanedPendingSweep()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      logger.error('frequent_sweep_orphaned_pending_failed', { message })
+      results.orphanedPending = { error: message }
     }
 
     return results
