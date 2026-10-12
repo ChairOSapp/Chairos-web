@@ -64,6 +64,7 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
   const [newDate, setNewDate] = useState(appointment.date)
   const [newTime, setNewTime] = useState(appointment.time.slice(0, 5))
   const [reasonPromptFor, setReasonPromptFor] = useState<'noshow' | 'cancel' | null>(null)
+  const [payPrompt, setPayPrompt] = useState(false)
   const [reasonText, setReasonText] = useState('')
   const [opError, setOpError] = useState('')
   const [consentSignature, setConsentSignature] = useState<{ signed_pdf_path: string; signed_at: string } | null | undefined>(undefined)
@@ -154,6 +155,31 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
     if (error) { setOpError(error.message); return }
     setReasonPromptFor(null)
     setReasonText('')
+    onUpdated()
+    onClose()
+  }
+
+  // Mark done asks how the client paid when the appointment is not
+  // already paid, so money collected outside the register (cash in
+  // hand, Venmo, and so on) is logged on the appointment instead of
+  // vanishing. Picking a method records the payment as collected in
+  // full at the appointment price; "Not paid" just completes the
+  // appointment and leaves the payment state alone.
+  async function markDone(paymentMethod: string | null) {
+    setSaving(true)
+    setOpError('')
+    const update: Record<string, unknown> = { status: 'done' }
+    if (paymentMethod) {
+      update.payment_method = paymentMethod
+      if (appointment.price != null) {
+        update.payment_status = 'paid'
+        update.amount_paid = Number(appointment.price) || 0
+      }
+    }
+    const { error } = await supabase.from('appointments').update(update).eq('id', appointment.id)
+    setSaving(false)
+    if (error) { setOpError(error.message); return }
+    setPayPrompt(false)
     onUpdated()
     onClose()
   }
@@ -340,8 +366,43 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
           </div>
         )}
 
+        {/* Payment method prompt when marking done on an unpaid appointment */}
+        {payPrompt && (
+          <div className="px-4 py-3 border-t border-warm-200 space-y-2.5">
+            <div className="text-[11px] font-bold tracking-widest uppercase text-charcoal-400">
+              How did they pay?
+            </div>
+            {opError && <p className="text-xs text-red-500">{opError}</p>}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'Cash', value: 'cash' },
+                { label: 'Venmo', value: 'venmo' },
+                { label: 'Cash App', value: 'cashapp' },
+                { label: 'Zelle', value: 'zelle' },
+                { label: 'Card', value: 'square' },
+                { label: 'Other', value: 'other' },
+              ].map(m => (
+                <button key={m.value} onClick={() => markDone(m.value)} disabled={saving}
+                  className="py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-od-green/10 text-od-green border border-od-green/30 hover:bg-od-green/20 disabled:opacity-50 transition-colors">
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-between">
+              <button onClick={() => markDone(null)} disabled={saving}
+                className="py-1.5 text-xs font-medium text-charcoal-400 hover:text-charcoal-600 disabled:opacity-50 transition-colors">
+                Not paid yet
+              </button>
+              <button onClick={() => { setPayPrompt(false); setOpError('') }}
+                className="py-1.5 text-xs font-medium text-charcoal-400 hover:text-charcoal-600 transition-colors">
+                Back
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
-        {!rescheduling && !reasonPromptFor && (
+        {!rescheduling && !reasonPromptFor && !payPrompt && (
           <div className="px-4 py-3 border-t border-warm-200 space-y-2">
             {opError && <p className="text-xs text-red-500">{opError}</p>}
             {notDone && unpaid && (
@@ -363,7 +424,7 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
             )}
             <div className="grid grid-cols-3 gap-2">
               {appointment.status !== 'done' && (
-                <button onClick={() => updateStatus('done')} disabled={saving}
+                <button onClick={() => unpaid ? setPayPrompt(true) : updateStatus('done')} disabled={saving}
                   className="py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-od-green/10 text-od-green border border-od-green/30 hover:bg-od-green/20 disabled:opacity-50 transition-colors">
                   Mark done
                 </button>
