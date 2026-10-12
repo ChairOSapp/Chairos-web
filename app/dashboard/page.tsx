@@ -1,6 +1,7 @@
 'use client'
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
@@ -104,6 +105,7 @@ export default function Dashboard() {
   const [barberRiskMap, setBarberRiskMap] = useState<Record<string, boolean>>({})
   const [barberStats30, setBarberStats30] = useState<Record<string, { appts: number; clients: number; repeatClients: number }>>({})
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [shopId, setShopId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string>(() => toDateStr(new Date()))
   const [toast, setToast] = useState<{msg: string; type: 'success'|'error'} | null>(null)

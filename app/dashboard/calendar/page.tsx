@@ -2,6 +2,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useState, useMemo, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 import { useRouter, useSearchParams } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
@@ -31,6 +32,7 @@ function CalendarPageInner() {
   const [shop, setShop] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const router = useRouter()
   const params = useSearchParams()
   const openBook = params.get('book') === '1'

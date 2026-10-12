@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 import { useRouter } from 'next/navigation'
 import StaffNav from '@/components/StaffNav'
 import StaffMobileNav from '@/components/StaffMobileNav'
@@ -40,6 +41,7 @@ export default function BarberDashboard() {
   const [showEarnings, setShowEarnings] = useState(false)
   const [onFloor, setOnFloor] = useState(true)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [barberId, setBarberId] = useState<string | null>(null)
   const [shopId, setShopId] = useState<string | null>(null)
   const [showBooking, setShowBooking] = useState(false)

@@ -14,15 +14,26 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
+  // Set when the dashboard load watchdog bounces a stuck page here.
+  const [notice] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('stuck') === '1'
+      ? 'Your saved sign-in went stale, so we brought you back here. Sign in again and you are all set.'
+      : ''
+  )
   const [loading, setLoading] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
   const turnstileRef = useRef<TurnstileHandle>(null)
   const router = useRouter()
   const supabase = createClient()
 
-  // If already signed in, route immediately
+  // If already signed in, route immediately. The check is bounded: if
+  // getUser() stalls (the stale-session resume hang the dashboard load
+  // watchdog guards against), reveal the sign-in form instead of
+  // spinning on "Checking your session..." forever.
   useEffect(() => {
+    const bound = setTimeout(() => setCheckingSession(false), 6000)
     supabase.auth.getUser().then(async ({ data: { user } }) => {
+      clearTimeout(bound)
       if (!user) { setCheckingSession(false); return }
       // Deferred welcome email from signup: signup has no session when
       // email confirmation is required, so the flag fires here, once, with
@@ -150,6 +161,7 @@ export default function Login() {
           <p className="text-charcoal-400 text-sm">Sign in to your account</p>
         </div>
         <form onSubmit={handleLogin} className="bg-warm-100 border border-warm-200 rounded-xl p-8 space-y-4">
+          {notice && <p className="text-sm bg-warm-200 border border-warm-300 rounded-lg p-3 text-charcoal-600">{notice}</p>}
           {error && <p className="text-red-400 text-sm bg-red-950 border border-red-900 rounded-lg p-3">{error}</p>}
           <div>
             <label className="block text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-2">Email</label>
