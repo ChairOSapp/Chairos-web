@@ -1,6 +1,7 @@
 'use client'
 
 import { motion, useReducedMotion, AnimatePresence } from 'motion/react'
+import { usePathname } from 'next/navigation'
 import type { ReactNode, MouseEvent, CSSProperties } from 'react'
 
 // iOS-like ease: quick with a soft landing. Subtle, never bouncy, never slow.
@@ -31,6 +32,30 @@ export function PageFade({ children, className }: DivProps) {
   if (reduce) return <Plain className={className}>{children}</Plain>
   return (
     <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={STANDARD}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+/**
+ * PageFade for layouts. A layout mounts once and persists across
+ * navigations, so a plain PageFade inside it animates only on first load.
+ * Keying by pathname replays the fade on every route change (tab switches
+ * included). Pages themselves remount per navigation anyway, so the key
+ * costs nothing extra.
+ */
+export function RouteFade({ children, className }: DivProps) {
+  const pathname = usePathname()
+  const reduce = useReducedMotion()
+  if (reduce) return <Plain className={className}>{children}</Plain>
+  return (
+    <motion.div
+      key={pathname}
       className={className}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
