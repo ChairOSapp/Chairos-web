@@ -2,22 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { Resend } from 'resend'
-import twilio from 'twilio'
-import { buildEmailTemplate } from '@/lib/emailTemplates'
-import { generateUnsubscribeToken, generateManualUnsubscribeToken } from '@/lib/unsubscribeToken'
 import { requireActiveBilling } from '@/lib/billing'
-import { withRetry } from '@/lib/retry'
 import { checkRateLimit } from '@/lib/rate-limit'
-
-function appendStop(message: string): string {
-  const suffix = ' Reply STOP to unsubscribe.'
-  if (message.toLowerCase().includes('reply stop')) return message
-  if ((message + suffix).length <= 160) return message + suffix
-  // Long messages would silently drop the opt-out notice (TCPA risk), so
-  // truncate the body to keep the STOP suffix instead.
-  return message.slice(0, 160 - suffix.length).trimEnd() + suffix
-}
+import { campaignSend } from '@/src/trigger/campaignSend'
 
 // Last-10-digits normalization so a typed "+1 (202) 555-0100" matches a
 // stored "2025550100". Used to resolve manual-list entries to client rows.
@@ -249,116 +236,14 @@ export async function POST(req: NextRequest) {
 
   // Status was already claimed as 'sending' atomically above.
 
-  // Send inline
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://chairos.cc'
-  const resend = new Resend(process.env.RESEND_API_KEY)
-  const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-    ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-    : null
+  // Hand off to the Trigger.dev background task. The send loop used to run
+  // inline here, but a large audience blows past the API route's execution
+  // timeout. The task processes recipients with bounded concurrency and
+  // updates per-recipient statuses as it goes; the campaign row stays
+  // 'sending' until the task marks it 'sent'.
+  await campaignSend.trigger({ campaignId })
 
-  let totalSent = 0
-  let totalFailed = 0
-
-  // Fetch recipient rows (including any left by a reclaimed partial send)
-  // so we have their generated IDs and per-channel statuses.
-  const { data: insertedRows } = await admin
-    .from('campaign_recipients')
-    .select('id, client_id, email, phone, sms_status, email_status')
-    .eq('campaign_id', campaignId)
-
-  // CAN-SPAM: honor opt-outs recorded by earlier campaigns for this shop.
-  // Unsubscribes are stored as campaign_recipients rows with
-  // email_status='unsubscribed' (see /api/email/unsubscribe); skip those
-  // addresses on every future send.
-  const suppressedEmails = new Set<string>()
-  if (needsEmail) {
-    const emails = [...new Set(clients.map(c => c.email).filter(Boolean))]
-    if (emails.length > 0) {
-      const { data: unsubs } = await admin
-        .from('campaign_recipients')
-        .select('email, campaigns!inner(shop_id)')
-        .eq('campaigns.shop_id', campaign.shop_id)
-        .eq('email_status', 'unsubscribed')
-        .in('email', emails)
-      for (const r of (unsubs ?? []) as unknown as { email: string | null }[]) {
-        if (r.email) suppressedEmails.add(r.email)
-      }
-    }
-  }
-
-  for (const client of clients) {
-    // Match by client_id (existing clients) or email/phone (manual entries)
-    const row = insertedRows?.find(r =>
-      (client.id && r.client_id === client.id) ||
-      (!client.id && client.email && r.email === client.email) ||
-      (!client.id && !client.email && client.phone && r.phone === client.phone)
-    )
-    const rowId = row?.id
-    // Retry-safety: a reclaimed send after a partial blast must not resend
-    // channels that already went out.
-    const smsAlreadySent = row?.sms_status === 'sent'
-    const emailAlreadySent = row?.email_status === 'sent'
-
-    if (!smsAlreadySent && needsSms && client.phone && client.sms_consent && twilioClient) {
-      try {
-        await withRetry('campaign_sms', () => twilioClient.messages.create({
-          body: appendStop(campaign.sms_message ?? ''),
-          from: process.env.TWILIO_PHONE_NUMBER!,
-          to: client.phone,
-        }))
-        if (rowId) await admin.from('campaign_recipients').update({ sms_status: 'sent', sent_at: new Date().toISOString() }).eq('id', rowId)
-        totalSent++
-      } catch (err: any) {
-        if (rowId) await admin.from('campaign_recipients').update({ sms_status: 'failed', error: err.message }).eq('id', rowId)
-        totalFailed++
-      }
-    }
-
-    if (!emailAlreadySent && needsEmail && client.email && client.email_consent && !suppressedEmails.has(client.email)) {
-      try {
-        // Manual-list entries have no client row: key their unsubscribe
-        // token to the campaign_recipients row id so the opt-out link
-        // actually resolves (see /api/email/unsubscribe).
-        const unsubToken = client.id
-          ? generateUnsubscribeToken(client.id)
-          : rowId
-            ? generateManualUnsubscribeToken(rowId)
-            : generateUnsubscribeToken(client.email)
-        const html = buildEmailTemplate(campaign.email_body ?? '', `${siteUrl}/api/email/unsubscribe?token=${unsubToken}`)
-        const { data: sendData, error } = await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL!,
-          to: client.email,
-          subject: campaign.email_subject ?? '(no subject)',
-          html,
-        })
-        if (error) throw new Error(error.message)
-        // Store the Resend message id so the /api/webhooks/resend handler can
-        // match open/click events back to this recipient row.
-        if (rowId) await admin.from('campaign_recipients').update({ email_status: 'sent', sent_at: new Date().toISOString(), resend_email_id: sendData?.id ?? null }).eq('id', rowId)
-        totalSent++
-      } catch (err: any) {
-        if (rowId) await admin.from('campaign_recipients').update({ email_status: 'failed', error: err.message }).eq('id', rowId)
-        totalFailed++
-      }
-    }
-  }
-
-  await admin.from('campaigns').update({
-    sent_count: totalSent,
-    failed_count: totalFailed,
-    status: 'sent',
-    updated_at: new Date().toISOString(),
-  }).eq('id', campaignId)
-
-  await admin.from('campaign_runs').insert({
-    campaign_id: campaignId,
-    recipients_count: clients.length,
-    sent_count: totalSent,
-    failed_count: totalFailed,
-    trigger_type: 'manual',
-  })
-
-  console.log(`[campaigns/send] done: sent=${totalSent}, failed=${totalFailed}`)
+  console.log(`[campaigns/send] triggered background send for campaign ${campaignId}: ${clients.length} recipients`)
   return NextResponse.json({ recipientCount: clients.length, triggered: true })
   } catch (err: any) {
     // Anything thrown after the claim (audience queries, recipient

@@ -1,4 +1,4 @@
-import { task, wait } from "@trigger.dev/sdk"
+import { task } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
 import twilio from "twilio"
 import { getResend } from "@/lib/resend"
@@ -21,11 +21,19 @@ function appendStop(message: string): string {
   return message.slice(0, 160 - suffix.length).trimEnd() + suffix
 }
 
+type CampaignRecipient = {
+  id: string
+  client_id: string | null
+  phone: string | null
+  email: string | null
+  sms_status: string | null
+  email_status: string | null
+}
+
 export const campaignSend = task({
   id: "campaign-send",
 
-  run: async ({ campaignId }: { campaignId: string }) => {
-    const supabase = getSupabase()
+  run: async ({ campaignId, triggerType }: { campaignId: string; triggerType?: string }) => {    const supabase = getSupabase()
 
     const { data: campaign } = await supabase
       .from('campaigns')
@@ -46,20 +54,44 @@ export const campaignSend = task({
       return { sent: 0, failed: 0 }
     }
 
+    // CAN-SPAM: honor opt-outs recorded by earlier campaigns for this shop.
+    // Unsubscribes are stored as campaign_recipients rows with
+    // email_status='unsubscribed'; skip those addresses on every future send.
+    // (The old inline API sender did this; the task must too.)
+    const suppressedEmails = new Set<string>()
+    if (campaign.channel === 'email' || campaign.channel === 'both') {
+      const emails = [...new Set(recipients.map((r: CampaignRecipient) => r.email).filter(Boolean))]
+      if (emails.length > 0) {
+        const { data: unsubs } = await supabase
+          .from('campaign_recipients')
+          .select('email, campaigns!inner(shop_id)')
+          .eq('campaigns.shop_id', campaign.shop_id)
+          .eq('email_status', 'unsubscribed')
+          .in('email', emails)
+        for (const r of (unsubs ?? []) as unknown as { email: string | null }[]) {
+          if (r.email) suppressedEmails.add(r.email)
+        }
+      }
+    }
+
+
     const twilioClient = twilio(
       process.env.TWILIO_ACCOUNT_SID!,
       process.env.TWILIO_AUTH_TOKEN!
     )
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://chairos.cc'
-    const BATCH = 50
     let totalSent = 0
     let totalFailed = 0
 
-    for (let i = 0; i < recipients.length; i += BATCH) {
-      const batch = recipients.slice(i, i + BATCH)
+    // Bounded concurrency: a small worker pool instead of one recipient at
+    // a time. Each worker pulls the next recipient until the queue is empty.
+    // (The old code did 50-recipient batches with a 1s pause; 8 concurrent
+    // senders move faster without hammering Twilio/Resend.)
+    const CONCURRENCY = 8
 
-      for (const recipient of batch) {
+    async function sendToRecipient(recipient: CampaignRecipient): Promise<void> {
+
         // SMS send
         if (campaign.channel === 'sms' || campaign.channel === 'both') {
           if (recipient.sms_status === 'pending' && recipient.phone) {
@@ -76,7 +108,7 @@ export const campaignSend = task({
 
               if (!client?.sms_consent) {
                 await supabase.from('campaign_recipients').update({ sms_status: 'skipped' }).eq('id', recipient.id)
-                continue
+                return
               }
             }
 
@@ -108,6 +140,13 @@ export const campaignSend = task({
         // Email send
         if (campaign.channel === 'email' || campaign.channel === 'both') {
           if (recipient.email_status === 'pending' && recipient.email) {
+            // CAN-SPAM: never send to an address that unsubscribed from an
+            // earlier campaign for this shop. Mark skipped so a retry of
+            // this task does not reconsider it.
+            if (suppressedEmails.has(recipient.email)) {
+              await supabase.from('campaign_recipients').update({ email_status: 'skipped' }).eq('id', recipient.id)
+              return
+            }
             // Same manual-list carve-out as the SMS branch above.
             if (recipient.client_id) {
               const { data: client } = await supabase
@@ -118,7 +157,7 @@ export const campaignSend = task({
 
               if (!client?.email_consent) {
                 await supabase.from('campaign_recipients').update({ email_status: 'skipped' }).eq('id', recipient.id)
-                continue
+                return
               }
             }
 
@@ -159,13 +198,24 @@ export const campaignSend = task({
             }).eq('id', recipient.id)
           }
         }
-      }
-
-      // 100ms delay between batches
-      if (i + BATCH < recipients.length) {
-        await wait.for({ seconds: 1 })
-      }
     }
+
+    const queue: CampaignRecipient[] = [...recipients]
+    const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
+      while (true) {
+        const recipient = queue.shift()
+        if (!recipient) break
+        try {
+          await sendToRecipient(recipient)
+        } catch (err: unknown) {
+          // sendToRecipient handles per-channel errors itself; this is a
+          // safety net so one bad recipient cannot kill the pool.
+          console.error(`[campaign-send] recipient ${recipient.id} error:`, err instanceof Error ? err.message : String(err))
+          totalFailed++
+        }
+      }
+    })
+    await Promise.all(workers)
 
     // Update campaign totals
     await supabase.from('campaigns').update({
@@ -175,13 +225,14 @@ export const campaignSend = task({
       updated_at: new Date().toISOString(),
     }).eq('id', campaignId)
 
-    // Insert campaign_runs row
+    // Insert campaign_runs row (the scheduler no longer inserts its own;
+    // one row per run, with the real counts, labeled by trigger source).
     await supabase.from('campaign_runs').insert({
       campaign_id: campaignId,
       recipients_count: recipients.length,
       sent_count: totalSent,
       failed_count: totalFailed,
-      trigger_type: 'manual',
+      trigger_type: triggerType ?? 'manual',
     })
 
     console.log(`[campaign-send] campaign ${campaignId}: sent=${totalSent}, failed=${totalFailed}`)

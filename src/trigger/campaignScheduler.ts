@@ -38,7 +38,7 @@ export const campaignScheduler = schedules.task({
 
     for (const campaign of onceDue ?? []) {
       await supabase.from('campaigns').update({ status: 'sending', updated_at: now.toISOString() }).eq('id', campaign.id)
-      await tasks.trigger('campaign-send', { campaignId: campaign.id })
+      await tasks.trigger('campaign-send', { campaignId: campaign.id, triggerType: 'recurring' })
       triggered++
     }
 
@@ -97,15 +97,9 @@ export const campaignScheduler = schedules.task({
       await supabase.from('campaign_recipients').delete().eq('campaign_id', campaign.id).eq('sms_status', 'pending')
       await supabase.from('campaign_recipients').delete().eq('campaign_id', campaign.id).eq('email_status', 'pending')
 
-      await tasks.trigger('campaign-send', { campaignId: campaign.id })
-      await supabase.from('campaign_runs').insert({
-        campaign_id: campaign.id,
-        run_at: now.toISOString(),
-        recipients_count: 0,
-        sent_count: 0,
-        failed_count: 0,
-        trigger_type: 'recurring',
-      })
+      // The campaign-send task writes the single campaign_runs row for this
+      // run (with real counts, labeled 'recurring'); nothing is inserted here.
+      await tasks.trigger('campaign-send', { campaignId: campaign.id, triggerType: 'recurring' })
       await supabase.from('campaigns').update({ status: 'sending', updated_at: now.toISOString() }).eq('id', campaign.id)
       triggered++
     }
