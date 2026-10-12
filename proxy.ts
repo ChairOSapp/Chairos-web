@@ -48,6 +48,21 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
+  // Vercel Cron calls the retention endpoint carrying only a Bearer
+  // CRON_SECRET — no session cookie — so the session gate below would
+  // 401 it before the route's own secret check ever runs. (That is
+  // exactly what happened: the daily retention job silently never ran.)
+  // Requests carrying the matching secret pass through to the route,
+  // which re-verifies it. Anything else on this path falls into the
+  // normal session and admin gates below.
+  if (
+    pathname === '/api/admin/retention-cleanup' &&
+    process.env.CRON_SECRET &&
+    request.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -152,7 +167,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/subscribe', request.url))
   }
 
-  return supabaseResponse
+  // Any other status is not a paying state — raw Stripe statuses like
+  // 'unpaid', 'paused', 'incomplete', and 'incomplete_expired' used to
+  // fall through to full access here. Fail closed to the subscribe page
+  // (JSON for API calls, per the session gate above).
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.json({ error: 'Subscription inactive.' }, { status: 403 })
+  }
+  return NextResponse.redirect(new URL('/subscribe', request.url))
 }
 
 export const config = {
