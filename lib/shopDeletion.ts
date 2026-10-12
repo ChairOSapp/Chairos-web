@@ -97,13 +97,20 @@ export async function deleteShopData(
   report.shopName = shop.name || shopId
 
   // Capture candidate client IDs BEFORE deletes (memberships/appointments
-  // for this shop are removed in the table loop below).
+  // for this shop are removed in the table loop below). Locks and notes
+  // count too: a client whose only trace at this shop is a lock or a
+  // note was never a candidate, so their personal row survived every
+  // deletion while the shop's own rows were wiped.
   const candidateClientIds = new Set<string>()
   try {
     const { data: appts } = await admin.from('appointments').select('client_id').eq('shop_id', shopId)
     for (const a of appts || []) if (a.client_id) candidateClientIds.add(a.client_id)
     const { data: memberships } = await admin.from('client_shop_memberships').select('client_id').eq('shop_id', shopId)
     for (const m of memberships || []) if (m.client_id) candidateClientIds.add(m.client_id)
+    const { data: locks } = await admin.from('client_locks').select('client_id').eq('shop_id', shopId)
+    for (const l of locks || []) if (l.client_id) candidateClientIds.add(l.client_id)
+    const { data: notes } = await admin.from('client_notes').select('client_id').eq('shop_id', shopId)
+    for (const n of notes || []) if (n.client_id) candidateClientIds.add(n.client_id)
   } catch (err) {
     report.errors.push(`client candidate lookup: ${(err as Error).message}`)
   }

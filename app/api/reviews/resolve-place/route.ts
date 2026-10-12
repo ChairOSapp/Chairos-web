@@ -8,7 +8,16 @@ export async function POST(req: NextRequest) {
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
+    { cookies: {
+        getAll: () => cookieStore.getAll(),
+        // Without setAll, a token rotation during this request is
+        // dropped on the floor — the pattern every other route uses.
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            try { cookieStore.set(name, value, options) } catch { /* read-only context */ }
+          })
+        },
+      } }
   )
   const { data: { user } } = await supabaseAuth.auth.getUser()
   if (!user) {
