@@ -8,6 +8,23 @@ import { buildCampaignRecipients, MAX_CAMPAIGN_RECIPIENTS } from '@/lib/campaign
 import { campaignSend } from '@/src/trigger/campaignSend'
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handleSend(req)
+  } catch (err) {
+    // The pre-flight steps below (auth, billing gate, rate limit, claim)
+    // run outside the send try/catch, so a throw there used to surface as
+    // a bare HTML 500 and the UI could only show a generic "server had a
+    // problem" message. Return the real error as JSON so failures are
+    // diagnosable from the UI and the logs alike.
+    console.error('[campaigns/send] unhandled error', err)
+    return NextResponse.json(
+      { error: `Campaign send hit a server error: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 500 }
+    )
+  }
+}
+
+async function handleSend(req: NextRequest) {
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
