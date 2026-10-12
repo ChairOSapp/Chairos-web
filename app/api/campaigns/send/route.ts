@@ -94,7 +94,13 @@ async function handleSend(req: NextRequest) {
   // A 'sending' claim older than 30 minutes means the sender died mid-blast
   // (no heartbeat writer exists); allow this request to reclaim it rather
   // than wedging the campaign in 'sending' forever.
-  const priorStatus = campaign.status as string
+  // Release target if this send does not complete. When this request is
+  // RECLAIMING a wedged 'sending' claim, the row's status is 'sending'
+  // and the pre-wedge status is unrecoverable from the row — releasing
+  // back to 'sending' would leave a finished 0-recipient send displayed
+  // as in-flight. 'draft' is the honest state (never sent; the owner
+  // can send or schedule it again from there).
+  const priorStatus = campaign.status === 'sending' ? 'draft' : (campaign.status as string)
   const staleCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString()
   const { data: claimed } = await admin
     .from('campaigns')
