@@ -180,7 +180,11 @@ export async function notifyNextWaitlistCandidate(
     const { dateLabel, timeDisplay } = formatDateTime(slot.date, slot.time)
     const barberLabel = (barber as any)?.barber_name || (barber as any)?.alias || null
     const firstName = (candidate.client_name || '').split(' ')[0] || 'there'
-    const smsText = `Hi ${firstName}, a spot opened up at ${shop?.name || 'the shop'}: ${service?.name || 'your service'} on ${dateLabel} at ${timeDisplay}${barberLabel ? ` with ${barberLabel}` : ''}. Reply YES within ${WAITLIST_CLAIM_WINDOW_MINUTES} min to claim it. Reply STOP to opt out.`
+    // Copy note: "has an opening" is deliberately neutral between the two
+    // flows that share this notify path -- a cancellation that freed a
+    // booked slot (the Refill) and a never-booked slot offered proactively
+    // (Fill Ahead, lib/fillAhead.ts). Both are true statements for both.
+    const smsText = `Hi ${firstName}, ${shop?.name || 'the shop'} has an opening: ${service?.name || 'your service'} on ${dateLabel} at ${timeDisplay}${barberLabel ? ` with ${barberLabel}` : ''}. Reply YES within ${WAITLIST_CLAIM_WINDOW_MINUTES} min to claim it. Reply STOP to opt out.`
 
     // The candidate is already optimistically claimed ('notified') above --
     // anything that goes wrong past this point, including a bad Twilio

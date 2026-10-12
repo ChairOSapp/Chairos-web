@@ -31,6 +31,7 @@ export type RateLimitBucket =
   | 'missedCallTextback'
   | 'email'
   | 'campaignSend'
+  | 'fillAheadSend'
   | 'aiGenerate'
 
 // failClosed controls what happens when Redis is unreachable or not
@@ -87,6 +88,9 @@ const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters
   // account can't hammer the blast endpoint. Fail closed: a Redis blip
   // blocking a marketing send is far cheaper than an unbounded send.
   campaignSend: { limit: 5, window: '10 m', failClosed: true },
+  // Fill Ahead sends (/api/fill-ahead/send) -- same spend class as
+  // campaign sends (real per-message Twilio cost), same posture.
+  fillAheadSend: { limit: 5, window: '10 m', failClosed: true },
   // Authenticated AI copy generation (/api/campaigns/generate) -- burns
   // Anthropic tokens per call. Fail closed for the same spend reason.
   aiGenerate: { limit: 20, window: '1 h', failClosed: true },
