@@ -29,6 +29,20 @@ import {
 
 type FilterTab = 'all' | 'locked' | 'unlocked' | 'fading' | 'cold'
 
+// PostgREST caps a response at 1,000 rows: a single unpaginated query
+// silently truncates a busy shop's history, and with it the client
+// list derived below. Page through until a short page comes back.
+async function fetchAllRows<T>(query: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
+  const PAGE = 1000
+  const all: T[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await query(from, from + PAGE - 1)
+    const rows = data ?? []
+    all.push(...rows)
+    if (rows.length < PAGE) return all
+  }
+}
+
 interface ClientRow {
   clientId: string
   name: string
@@ -158,23 +172,29 @@ export default function ClientsPage() {
       }
       setShop(shopData)
 
-      const [{ data: appts }, { data: locks }, { data: barbers }, { data: tags }] = await Promise.all([
-        supabase.from('appointments')
+      const [appts, locks, { data: barbers }, tags] = await Promise.all([
+        fetchAllRows((from, to) => supabase.from('appointments')
           .select('id, date, price, barber_id, client_id, client_name, client_phone')
           .eq('shop_id', shopData.id)
           .eq('status', 'done')
           .not('client_id', 'is', null)
-          .order('date', { ascending: false }),
-        supabase.from('client_locks')
+          .order('date', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)),
+        fetchAllRows((from, to) => supabase.from('client_locks')
           .select('client_id, locked, barber_id')
-          .eq('shop_id', shopData.id),
+          .eq('shop_id', shopData.id)
+          .order('client_id', { ascending: true })
+          .range(from, to)),
         supabase.from('shop_barbers')
           .select('barber_id, barber_name, alias, color, photo_url')
           .eq('shop_id', shopData.id)
           .eq('active', true),
-        supabase.from('client_tags')
+        fetchAllRows((from, to) => supabase.from('client_tags')
           .select('client_id, tag')
-          .eq('shop_id', shopData.id),
+          .eq('shop_id', shopData.id)
+          .order('client_id', { ascending: true })
+          .range(from, to)),
       ])
 
       setAllAppts(appts || [])

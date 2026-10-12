@@ -32,7 +32,14 @@ async function canManageShop(admin: ReturnType<typeof getAdmin>, userId: string,
   return !!(shop || staff)
 }
 
-const normPhone = (p: string) => (p || '').replace(/\D/g, '')
+// Normalize to the canonical 10-digit form the rest of the app stores
+// (see lib/waitlistNotify): a CSV "+1 904 555 0123" must dedupe against
+// the stored "9045550123", not sail past as an 11-digit stranger and
+// create a duplicate client.
+const normPhone = (p: string) => {
+  const digits = (p || '').replace(/\D/g, '')
+  return digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+}
 
 interface ImportRow {
   name?: string
@@ -108,18 +115,29 @@ export async function POST(req: NextRequest) {
       if (existingId) {
         duplicates++
         if (!dryRun) {
-          // Link to this shop; fill in blanks only, never overwrite.
-          await admin.from('client_shop_memberships').upsert(
+          // Link to this shop; fill in blanks only, never overwrite. A
+          // failed link used to be swallowed, leaving the row counted as
+          // a duplicate while the client stayed invisible to this shop.
+          const { error: linkErr } = await admin.from('client_shop_memberships').upsert(
             { client_id: existingId, shop_id: shopId },
             { onConflict: 'client_id,shop_id', ignoreDuplicates: true }
           )
+          if (linkErr) throw linkErr
+          const { data: cur } = await admin.from('clients').select('full_name, phone, email').eq('id', existingId).maybeSingle()
           const patch: Record<string, string | null> = {}
-          if (row.name) {
-            const { data: cur } = await admin.from('clients').select('full_name, phone, email').eq('id', existingId).maybeSingle()
-            if (cur && !cur.full_name) patch.full_name = row.name
-            if (cur && !cur.phone && row.phone) patch.phone = row.phone
-            if (cur && !cur.email && row.email) patch.email = row.email
-            if (Object.keys(patch).length) await admin.from('clients').update(patch).eq('id', existingId)
+          if (cur && !cur.full_name && row.name) patch.full_name = row.name
+          if (cur && !cur.phone && row.phone) patch.phone = row.phone
+          if (cur && !cur.email && row.email) patch.email = row.email
+          if (Object.keys(patch).length) await admin.from('clients').update(patch).eq('id', existingId)
+          // Preserve the row's notes as a client note, like the
+          // new-client path — they used to vanish without a trace.
+          if (row.notes) {
+            await admin.from('client_notes').insert({
+              client_id: existingId,
+              shop_id: shopId,
+              author_id: userId,
+              body: row.notes,
+            }).then(() => {}, () => {})
           }
         }
         continue
@@ -136,10 +154,18 @@ export async function POST(req: NextRequest) {
         source: 'csv_import',
       })
       if (insErr) throw insErr
-      await admin.from('client_shop_memberships').upsert(
+      const { error: linkErr } = await admin.from('client_shop_memberships').upsert(
         { client_id: newId, shop_id: shopId },
         { onConflict: 'client_id,shop_id', ignoreDuplicates: true }
       )
+      if (linkErr) {
+        // Without the membership link the client is invisible in the
+        // shop's list — don't leave an orphan behind while counting the
+        // row as imported. Remove the just-created client and surface
+        // the row as an error instead.
+        await admin.from('clients').delete().eq('id', newId)
+        throw linkErr
+      }
       if (row.notes) {
         await admin.from('client_notes').insert({
           client_id: newId,
