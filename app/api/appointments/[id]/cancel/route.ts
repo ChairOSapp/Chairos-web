@@ -155,7 +155,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }, { status: 500 })
   }
 
-  await triggerWaitlistOutreach(supabase, appointment, shop.waitlist_min_notice_hours ?? 4)
+  await triggerWaitlistOutreach(
+    supabase,
+    appointment,
+    shop.waitlist_min_notice_hours ?? 4,
+    typeof tzRaw === 'string' && tzRaw ? resolveTimeZone(tzRaw) : undefined
+  )
 
   // Tell the barber when someone else cancelled their appointment
   // (owner, or a client via the portal). If the barber cancelled it

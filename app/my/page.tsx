@@ -340,7 +340,7 @@ export default function ClientPortalPage() {
     setCancelResult(null)
     try {
       const res = await fetch('/api/portal/cancel', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appointmentId }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appointmentId, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       })
       const data = await res.json()
       if (!res.ok) {

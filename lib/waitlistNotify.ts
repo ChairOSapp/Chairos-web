@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import { logger } from '@/lib/logger'
+import { resolveTimeZone, nowWallClock } from '@/lib/wallclock'
 
 // How long a notified waitlist candidate has to reply YES before the slot
 // moves to the next person. Deliberately much shorter than the shop's
@@ -64,6 +65,26 @@ export interface NotifySlot {
   time: string
   /** the barber whose slot actually opened up -- null if it was an "any barber" appointment */
   barberId: string | null
+  /** IANA timezone of the shop (from the cancelling client's request).
+   *  Slot date/time are timezone-naive wall clocks; without the zone the
+   *  runway math runs in the server's timezone and is off by the shop's
+   *  UTC offset. Optional: server-side callers (sweeps) have no zone and
+   *  fall back to the legacy math. */
+  timeZone?: string
+}
+
+// Minutes from now until a timezone-naive slot start. When the shop's
+// zone is known, both sides are read as wall clocks in that zone (the
+// same frame trick the cancel route uses), so the gap is the true one.
+function minutesUntilSlotStart(date: string, time: string, timeZone?: string): number {
+  const apptWallMs = Date.parse(`${date}T${time.slice(0, 5)}:00`)
+  if (timeZone) {
+    const nowWallMs = Date.parse(nowWallClock(resolveTimeZone(timeZone)))
+    if (!Number.isNaN(apptWallMs) && !Number.isNaN(nowWallMs)) {
+      return (apptWallMs - nowWallMs) / 60_000
+    }
+  }
+  return (new Date(`${date}T${time.slice(0, 5)}:00`).getTime() - Date.now()) / 60_000
 }
 
 export type NotifyOutcome =
@@ -80,8 +101,7 @@ export async function notifyNextWaitlistCandidate(
   supabase: SupabaseClient,
   slot: NotifySlot
 ): Promise<NotifyOutcome> {
-  const apptStart = new Date(`${slot.date}T${slot.time.slice(0, 5)}:00`)
-  const minutesUntilStart = (apptStart.getTime() - Date.now()) / 60_000
+  const minutesUntilStart = minutesUntilSlotStart(slot.date, slot.time, slot.timeZone)
 
   if (minutesUntilStart < WAITLIST_CLAIM_WINDOW_MINUTES) {
     await logOutcome(supabase, { shopId: slot.shopId, serviceId: slot.serviceId, date: slot.date, time: slot.time }, 'skipped_claim_window_exceeds_start')
@@ -134,12 +154,17 @@ export async function notifyNextWaitlistCandidate(
 
     const phone = normalizeWaitlistPhone(candidate.client_phone)
     if (!phone) {
-      await supabase.from('appointment_waitlist').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('id', candidate.id)
+      // Not reachable for THIS slot, but expiring the entry destroyed
+      // the client's waitlist place permanently as a side effect of one
+      // cancellation cycle. Release the claim (back to 'waiting', like
+      // the Twilio-failure path below) and move to the next candidate;
+      // a future cycle for another slot re-evaluates them.
+      await supabase.from('appointment_waitlist').update({ status: 'waiting', notified_at: null, notify_expires_at: null, notify_barber_id: null, updated_at: new Date().toISOString() }).eq('id', candidate.id)
       await logOutcome(supabase, { waitlistId: candidate.id, phone: candidate.client_phone, shopId: slot.shopId, serviceId: slot.serviceId, date: slot.date, time: slot.time }, 'skipped_invalid_phone')
       continue
     }
     if (await hasOptedOut(supabase, phone.e164)) {
-      await supabase.from('appointment_waitlist').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('id', candidate.id)
+      await supabase.from('appointment_waitlist').update({ status: 'waiting', notified_at: null, notify_expires_at: null, notify_barber_id: null, updated_at: new Date().toISOString() }).eq('id', candidate.id)
       await logOutcome(supabase, { waitlistId: candidate.id, phone: phone.e164, shopId: slot.shopId, serviceId: slot.serviceId, date: slot.date, time: slot.time }, 'skipped_opted_out')
       continue
     }
@@ -206,12 +231,12 @@ export interface CancelledAppointment {
 export async function triggerWaitlistOutreach(
   supabase: SupabaseClient,
   appointment: CancelledAppointment,
-  minNoticeHours: number
+  minNoticeHours: number,
+  timeZone?: string
 ): Promise<void> {
   if (!appointment.service_id) return // walk-ins / manual entries with no service on record have no waitlist to match against
 
-  const apptStart = new Date(`${appointment.date}T${appointment.time}`)
-  const hoursUntilStart = (apptStart.getTime() - Date.now()) / (60 * 60 * 1000)
+  const hoursUntilStart = minutesUntilSlotStart(appointment.date, appointment.time, timeZone) / 60
 
   if (hoursUntilStart <= minNoticeHours) {
     const payload = { appointmentId: appointment.id, shopId: appointment.shop_id, hoursUntilStart: Math.round(hoursUntilStart * 100) / 100, minNoticeHours }
@@ -226,5 +251,6 @@ export async function triggerWaitlistOutreach(
     date: appointment.date,
     time: appointment.time,
     barberId: appointment.barber_id,
+    timeZone,
   })
 }

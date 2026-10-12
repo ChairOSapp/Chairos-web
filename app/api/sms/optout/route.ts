@@ -109,9 +109,16 @@ export async function POST(req: NextRequest) {
 
   const { e164, bare } = normalizePhone(rawPhone)
 
-  const { data: client } = bare
-    ? await supabase.from('clients').select('id').in('phone', [e164, bare]).maybeSingle()
+  // Clients are per-shop rows: the same person (same phone) can exist at
+  // several shops. The old single-row lookup returned null data whenever
+  // more than one row matched, so STOP silently cleared NOTHING and the
+  // client kept receiving campaign texts — a TCPA problem, not a nit.
+  // Resolve ALL matching rows; consent writes below apply to every one.
+  const { data: matchingClients } = bare
+    ? await supabase.from('clients').select('id').in('phone', [e164, bare])
     : { data: null }
+  const matchingIds = (matchingClients ?? []).map(c => c.id)
+  const client = matchingClients?.[0] ?? null
 
   if (isJson && !client) {
     return NextResponse.json({ error: 'Phone number not found' }, { status: 404 })
@@ -121,8 +128,8 @@ export async function POST(req: NextRequest) {
   const displayName = shortShopName(shopName)
 
   if (STOP_KEYWORDS.includes(keyword)) {
-    if (client) {
-      await supabase.from('clients').update({ sms_consent: false, sms_consent_at: null }).eq('id', client.id)
+    if (matchingIds.length > 0) {
+      await supabase.from('clients').update({ sms_consent: false, sms_consent_at: null }).in('id', matchingIds)
     }
     await supabase.from('automation_logs').insert({
       type: 'sms_optout',
@@ -157,8 +164,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (START_KEYWORDS.includes(keyword)) {
-    if (client) {
-      await supabase.from('clients').update({ sms_consent: true, sms_consent_at: new Date().toISOString() }).eq('id', client.id)
+    if (matchingIds.length > 0) {
+      await supabase.from('clients').update({ sms_consent: true, sms_consent_at: new Date().toISOString() }).in('id', matchingIds)
     }
     await supabase.from('automation_logs').insert({
       type: 'sms_optin',
