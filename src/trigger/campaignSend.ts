@@ -43,6 +43,32 @@ export const campaignSend = task({
 
     if (!campaign) throw new Error(`Campaign ${campaignId} not found`)
 
+    // An owner can cancel while a send is queued or running: a cancelled
+    // campaign must never send. The worker pool also re-checks this flag
+    // as it goes, and the final write below never overwrites 'cancelled'.
+    if (campaign.status === 'cancelled') {
+      console.log(`[campaign-send] campaign ${campaignId} is cancelled; not sending`)
+      return { sent: 0, failed: 0 }
+    }
+
+    // Reclaim safety: if this campaign's claim is stale (>30 min, the
+    // send route's own staleness bound), a previous run may have died
+    // mid-blast leaving recipients claimed in 'sending'. Release those
+    // claims so they can be picked up below. Per-recipient claims are
+    // atomic, so even if the old run is somehow still alive, a row can
+    // only ever be sent by the one run that holds its claim.
+    const claimStale = Date.now() - new Date(campaign.updated_at ?? 0).getTime() > 30 * 60 * 1000
+    if (claimStale) {
+      await supabase.from('campaign_recipients')
+        .update({ sms_status: 'pending' })
+        .eq('campaign_id', campaignId)
+        .eq('sms_status', 'sending')
+      await supabase.from('campaign_recipients')
+        .update({ email_status: 'pending' })
+        .eq('campaign_id', campaignId)
+        .eq('email_status', 'sending')
+    }
+
     const { data: recipients } = await supabase
       .from('campaign_recipients')
       .select('*')
@@ -50,7 +76,21 @@ export const campaignSend = task({
       .or('sms_status.eq.pending,email_status.eq.pending')
 
     if (!recipients || recipients.length === 0) {
-      await supabase.from('campaigns').update({ status: 'sent', updated_at: new Date().toISOString() }).eq('id', campaignId)
+      // Still record the run: the scheduler's recurrence math is driven
+      // by campaign_runs, and skipping the row here left recurring
+      // campaigns due forever, re-triggering (and re-generating AI copy)
+      // every hour. Never overwrite a cancellation.
+      await supabase.from('campaign_runs').insert({
+        campaign_id: campaignId,
+        recipients_count: 0,
+        sent_count: 0,
+        failed_count: 0,
+        trigger_type: triggerType ?? 'manual',
+      })
+      await supabase.from('campaigns')
+        .update({ status: 'sent', updated_at: new Date().toISOString() })
+        .eq('id', campaignId)
+        .neq('status', 'cancelled')
       return { sent: 0, failed: 0 }
     }
 
@@ -58,19 +98,20 @@ export const campaignSend = task({
     // Unsubscribes are stored as campaign_recipients rows with
     // email_status='unsubscribed'; skip those addresses on every future send.
     // (The old inline API sender did this; the task must too.)
+    // Case-insensitive on both sides: an unsubscribe recorded as
+    // "User@X.com" must suppress "user@x.com" (an exact-match Set missed
+    // it, and the DB-side .in() filter was case-sensitive too, so fetch
+    // the shop's unsubscribed addresses and compare lowercased).
     const suppressedEmails = new Set<string>()
     if (campaign.channel === 'email' || campaign.channel === 'both') {
-      const emails = [...new Set(recipients.map((r: CampaignRecipient) => r.email).filter(Boolean))]
-      if (emails.length > 0) {
-        const { data: unsubs } = await supabase
-          .from('campaign_recipients')
-          .select('email, campaigns!inner(shop_id)')
-          .eq('campaigns.shop_id', campaign.shop_id)
-          .eq('email_status', 'unsubscribed')
-          .in('email', emails)
-        for (const r of (unsubs ?? []) as unknown as { email: string | null }[]) {
-          if (r.email) suppressedEmails.add(r.email)
-        }
+      const { data: unsubs } = await supabase
+        .from('campaign_recipients')
+        .select('email, campaigns!inner(shop_id)')
+        .eq('campaigns.shop_id', campaign.shop_id)
+        .eq('email_status', 'unsubscribed')
+        .limit(10000)
+      for (const r of (unsubs ?? []) as unknown as { email: string | null }[]) {
+        if (r.email) suppressedEmails.add(r.email.toLowerCase())
       }
     }
 
@@ -90,50 +131,79 @@ export const campaignSend = task({
     // senders move faster without hammering Twilio/Resend.)
     const CONCURRENCY = 8
 
+    const queue: CampaignRecipient[] = [...recipients]
+
+    // Mid-run cancellation: workers stop pulling new recipients once the
+    // owner cancels. The flag is refreshed from the campaign row every
+    // 25 processed recipients (cheap, and a blast is long enough that
+    // this bounds the overshoot to a few dozen messages at most).
+    let processedCount = 0
+    let cancelObserved = false
+    async function refreshCancelFlag() {
+      const { data: fresh } = await supabase.from('campaigns').select('status').eq('id', campaignId).maybeSingle()
+      if (fresh?.status === 'cancelled') cancelObserved = true
+    }
+
     async function sendToRecipient(recipient: CampaignRecipient): Promise<void> {
 
         // SMS send
         if (campaign.channel === 'sms' || campaign.channel === 'both') {
           if (recipient.sms_status === 'pending' && recipient.phone) {
             // Verify consent. All audiences (including manual list) now
-            // resolve to client rows in /api/campaigns/send, so a recipient
+            // resolve to client rows in the audience builder, so a recipient
             // with no client row is only a legacy/safety case — treat it as
             // OK rather than failing closed on old data.
+            let consentOk = true
             if (recipient.client_id) {
               const { data: client } = await supabase
                 .from('clients')
                 .select('sms_consent')
                 .eq('id', recipient.client_id)
                 .maybeSingle()
+              consentOk = !!client?.sms_consent
+            }
 
-              if (!client?.sms_consent) {
-                await supabase.from('campaign_recipients').update({ sms_status: 'skipped' }).eq('id', recipient.id)
-                return
+            if (!consentOk) {
+              await supabase.from('campaign_recipients').update({ sms_status: 'skipped' }).eq('id', recipient.id)
+              // No return here: a client who declined SMS but consented
+              // to email must still get the email below. This used to
+              // abort the whole recipient.
+            } else {
+              // Atomic per-recipient claim: flip pending -> sending and
+              // only proceed if THIS run won the row. A second concurrent
+              // run (stale-claim reclaim, scheduler racing a manual send)
+              // sees zero rows and skips — no duplicate texts.
+              const { data: claimedRows } = await supabase
+                .from('campaign_recipients')
+                .update({ sms_status: 'sending' })
+                .eq('id', recipient.id)
+                .eq('sms_status', 'pending')
+                .select('id')
+              if (claimedRows && claimedRows.length > 0) {
+                const smsBody = appendStop(campaign.sms_message ?? '')
+                let smsStatus = 'failed'
+                let errMsg: string | null = null
+
+                try {
+                  await twilioClient.messages.create({
+                    body: smsBody,
+                    from: process.env.TWILIO_PHONE_NUMBER!,
+                    to: recipient.phone,
+                  })
+                  smsStatus = 'sent'
+                  totalSent++
+                } catch (err: any) {
+                  errMsg = err.message
+                  totalFailed++
+                }
+
+                await supabase.from('campaign_recipients').update({
+                  sms_status: smsStatus,
+                  sent_at: smsStatus === 'sent' ? new Date().toISOString() : null,
+                  error: errMsg,
+                }).eq('id', recipient.id)
               }
             }
-
-            const smsBody = appendStop(campaign.sms_message ?? '')
-            let smsStatus = 'failed'
-            let errMsg: string | null = null
-
-            try {
-              await twilioClient.messages.create({
-                body: smsBody,
-                from: process.env.TWILIO_PHONE_NUMBER!,
-                to: recipient.phone,
-              })
-              smsStatus = 'sent'
-              totalSent++
-            } catch (err: any) {
-              errMsg = err.message
-              totalFailed++
-            }
-
-            await supabase.from('campaign_recipients').update({
-              sms_status: smsStatus,
-              sent_at: smsStatus === 'sent' ? new Date().toISOString() : null,
-              error: errMsg,
-            }).eq('id', recipient.id)
           }
         }
 
@@ -143,7 +213,7 @@ export const campaignSend = task({
             // CAN-SPAM: never send to an address that unsubscribed from an
             // earlier campaign for this shop. Mark skipped so a retry of
             // this task does not reconsider it.
-            if (suppressedEmails.has(recipient.email)) {
+            if (suppressedEmails.has(recipient.email.toLowerCase())) {
               await supabase.from('campaign_recipients').update({ email_status: 'skipped' }).eq('id', recipient.id)
               return
             }
@@ -160,6 +230,15 @@ export const campaignSend = task({
                 return
               }
             }
+
+            // Atomic claim, same as the SMS branch.
+            const { data: claimedRows } = await supabase
+              .from('campaign_recipients')
+              .update({ email_status: 'sending' })
+              .eq('id', recipient.id)
+              .eq('email_status', 'pending')
+              .select('id')
+            if (!claimedRows || claimedRows.length === 0) return
 
             // Manual-list recipients have no client row: key their
             // unsubscribe token to the campaign_recipients row id so the
@@ -200,9 +279,9 @@ export const campaignSend = task({
         }
     }
 
-    const queue: CampaignRecipient[] = [...recipients]
     const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
       while (true) {
+        if (cancelObserved) break
         const recipient = queue.shift()
         if (!recipient) break
         try {
@@ -213,17 +292,30 @@ export const campaignSend = task({
           console.error(`[campaign-send] recipient ${recipient.id} error:`, err instanceof Error ? err.message : String(err))
           totalFailed++
         }
+        processedCount++
+        if (processedCount % 25 === 0) await refreshCancelFlag()
       }
     })
     await Promise.all(workers)
 
-    // Update campaign totals
-    await supabase.from('campaigns').update({
-      sent_count: totalSent,
-      failed_count: totalFailed,
-      status: 'sent',
+    // Final write: totals ACCUMULATE across runs (a recurring campaign's
+    // counts used to be overwritten by each run, erasing prior totals),
+    // status 'sent' is never written over an owner's cancellation, and a
+    // failed write throws so the run is visibly failed instead of the
+    // campaign silently wedging in 'sending'.
+    const { data: freshCampaign } = await supabase
+      .from('campaigns')
+      .select('status, sent_count, failed_count')
+      .eq('id', campaignId)
+      .maybeSingle()
+    const wasCancelled = freshCampaign?.status === 'cancelled' || cancelObserved
+    const { error: finalErr } = await supabase.from('campaigns').update({
+      sent_count: (freshCampaign?.sent_count ?? 0) + totalSent,
+      failed_count: (freshCampaign?.failed_count ?? 0) + totalFailed,
+      ...(wasCancelled ? {} : { status: 'sent' }),
       updated_at: new Date().toISOString(),
     }).eq('id', campaignId)
+    if (finalErr) throw new Error(`campaign final update failed: ${finalErr.message}`)
 
     // Insert campaign_runs row (the scheduler no longer inserts its own;
     // one row per run, with the real counts, labeled by trigger source).

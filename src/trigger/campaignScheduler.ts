@@ -1,12 +1,70 @@
 import { schedules, tasks } from "@trigger.dev/sdk"
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import Anthropic from "@anthropic-ai/sdk"
+import { getBillingStatus } from "@/lib/billing"
+import { buildCampaignRecipients, type CampaignLike } from "@/lib/campaignAudience"
 
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+// The scheduler spends the platform's Twilio/Resend/Anthropic budget
+// exactly like the manual send route, so it gets the same billing gate:
+// campaigns for lapsed/cancelled accounts are skipped (left scheduled;
+// they fire if billing comes back).
+async function shopBillingActive(supabase: SupabaseClient, shopId: string): Promise<boolean> {
+  const { data: shop } = await supabase.from('shops').select('owner_id').eq('id', shopId).maybeSingle()
+  if (!shop?.owner_id) return false
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('subscription_status, subscription_end_date, stripe_customer_id, stripe_subscription_id, trial_end')
+    .eq('id', shop.owner_id)
+    .maybeSingle()
+  const status = getBillingStatus(profile)
+  return status === 'active' || status === 'trial' || status === 'grace'
+}
+
+// Build this run's recipients, then claim 'sending' BEFORE triggering
+// the send task (triggering first let a fast task's 'sent' write be
+// overwritten back to 'sending', wedging the campaign). Returns false
+// when the run should not fire (billing blocked or audience too large).
+async function prepareAndTrigger(
+  supabase: SupabaseClient,
+  campaign: CampaignLike,
+  triggerType: 'once' | 'recurring',
+  now: Date,
+): Promise<boolean> {
+  if (!(await shopBillingActive(supabase, campaign.shop_id))) {
+    console.log(`[campaign-scheduler] skipping campaign ${campaign.id}: shop billing not active`)
+    return false
+  }
+
+  // Clear last run's never-sent recipient rows so the audience rebuilds
+  // fresh. A row is only cleared when NOTHING on it was ever sent —
+  // the old pair of single-channel deletes could erase a row whose SMS
+  // had sent but email was still pending, destroying the send record
+  // that attribution and stats rely on.
+  await supabase.from('campaign_recipients')
+    .delete()
+    .eq('campaign_id', campaign.id)
+    .in('sms_status', ['pending', 'skipped'])
+    .in('email_status', ['pending', 'skipped'])
+    .is('sent_at', null)
+
+  const { audienceSize, tooLarge } = await buildCampaignRecipients(supabase, campaign)
+  if (tooLarge) {
+    console.log(`[campaign-scheduler] skipping campaign ${campaign.id}: audience ${audienceSize} too large`)
+    return false
+  }
+
+  await supabase.from('campaigns').update({ status: 'sending', updated_at: now.toISOString() }).eq('id', campaign.id)
+  // Trigger even when audienceSize is 0: the send task records the
+  // campaign_runs row, which is what advances the recurrence clock.
+  await tasks.trigger('campaign-send', { campaignId: campaign.id, triggerType })
+  return true
 }
 
 function nextRecurrenceDate(rule: string, from: Date): Date {
@@ -37,9 +95,11 @@ export const campaignScheduler = schedules.task({
       .lte('scheduled_at', now.toISOString())
 
     for (const campaign of onceDue ?? []) {
-      await supabase.from('campaigns').update({ status: 'sending', updated_at: now.toISOString() }).eq('id', campaign.id)
-      await tasks.trigger('campaign-send', { campaignId: campaign.id, triggerType: 'recurring' })
-      triggered++
+      // Scheduled campaigns never went through the send route, so no
+      // recipients existed — the task found an empty table and marked
+      // the campaign sent with zero messages delivered. The audience is
+      // built here, at due time, through the shared builder.
+      if (await prepareAndTrigger(supabase, campaign, 'once', now)) triggered++
     }
 
     // Recurring campaigns
@@ -93,15 +153,11 @@ export const campaignScheduler = schedules.task({
         }
       }
 
-      // First, insert campaign_recipients for this run (clear old pending ones)
-      await supabase.from('campaign_recipients').delete().eq('campaign_id', campaign.id).eq('sms_status', 'pending')
-      await supabase.from('campaign_recipients').delete().eq('campaign_id', campaign.id).eq('email_status', 'pending')
-
-      // The campaign-send task writes the single campaign_runs row for this
-      // run (with real counts, labeled 'recurring'); nothing is inserted here.
-      await tasks.trigger('campaign-send', { campaignId: campaign.id, triggerType: 'recurring' })
-      await supabase.from('campaigns').update({ status: 'sending', updated_at: now.toISOString() }).eq('id', campaign.id)
-      triggered++
+      // Build this run's audience fresh and fire (billing gate, stale
+      // pending cleanup, claim-before-trigger inside). The old branch
+      // deleted pending recipients and triggered the task without ever
+      // inserting new ones, so recurring campaigns sent to nobody.
+      if (await prepareAndTrigger(supabase, campaign, 'recurring', now)) triggered++
     }
 
     console.log(`[campaign-scheduler] triggered: ${triggered}`)
