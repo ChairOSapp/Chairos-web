@@ -99,7 +99,7 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad, openAp
   useEffect(() => {
     async function init() {
       const [{ data: b }, { data: s }] = await Promise.all([
-        supabase.from('shop_barbers').select('barber_id, barber_name, alias, joined_at').eq('shop_id', shopId).eq('active', true).order('joined_at', { ascending: true }),
+        supabase.from('shop_barbers').select('id, barber_id, barber_name, alias, joined_at').eq('shop_id', shopId).eq('active', true).order('joined_at', { ascending: true }),
         supabase.from('services').select('id, name, price, duration_minutes').eq('shop_id', shopId).eq('active', true).order('price', { ascending: true }),
       ])
       setBarbers(b || [])

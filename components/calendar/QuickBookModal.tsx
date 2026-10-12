@@ -4,7 +4,18 @@ import { createClient } from '@/lib/supabase'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { FadeBackdrop, ModalPanel } from '@/components/motion'
 
-interface Barber { barber_id: string; barber_name: string; alias?: string | null }
+interface Barber { id?: string | null; barber_id: string | null; barber_name: string; alias?: string | null }
+
+// Stable per-row key for the barber picker. A roster barber who has not
+// claimed their account yet has barber_id = NULL; using barber_id as the
+// <option> value there renders an option with NO value attribute, and
+// the browser then submits the option's TEXT (the barber's name) where
+// appointments.barber_id (a uuid) belongs — 'invalid input syntax for
+// type uuid: "Marcus"'. The shop_barbers row id is always present and
+// unique, so it keys the picker; submit translates back to barber_id.
+function barberKeyOf(b: Barber): string {
+  return b.id ?? (b.barber_id ? `u:${b.barber_id}` : `n:${b.barber_name}`)
+}
 interface Service { id: string; name: string; price: number | null; duration_minutes?: number | null }
 
 interface Props {
@@ -66,7 +77,11 @@ export default function QuickBookModal({
   const today = toDateStr(new Date())
   const [date, setDate] = useState(initialDate || today)
   const [time, setTime] = useState(initialTime || '09:00:00')
-  const [barberId, setBarberId] = useState(lockedBarberId || initialBarberId || barbers[0]?.barber_id || '')
+  const [barberKey, setBarberKey] = useState(() => {
+    const wanted = lockedBarberId || initialBarberId
+    const match = (wanted ? barbers.find(b => b.barber_id === wanted) : undefined) ?? barbers[0]
+    return match ? barberKeyOf(match) : ''
+  })
   const [serviceId, setServiceId] = useState('')
   const [price, setPrice] = useState('')
   const [durationMin, setDurationMin] = useState(30)
@@ -165,9 +180,14 @@ export default function QuickBookModal({
       return
     }
     const bookingPrice = Number.isNaN(enteredPrice) ? (svc?.price ?? null) : enteredPrice
+    // Translate the picker key back to the barber's account id. An
+    // unclaimed roster barber has none — the appointment is stored
+    // unassigned (barber_id NULL), the same convention as the
+    // appointments/new page and the public booking flow.
+    const chosenBarber = barbers.find(b => barberKeyOf(b) === barberKey)
     const { error: err } = await supabase.from('appointments').insert({
       shop_id: shopId,
-      barber_id: barberId || null,
+      barber_id: chosenBarber?.barber_id || null,
       service_id: serviceId || null,
       client_id: clientId,
       client_name: clientName,
@@ -299,9 +319,9 @@ export default function QuickBookModal({
             <div className="mt-3 min-w-0">
               {!lockedBarberId ? (
                 <div className="relative">
-                  <select value={barberId} onChange={e => setBarberId(e.target.value)} className={`${inputCls} appearance-none pr-11`}>
+                  <select value={barberKey} onChange={e => setBarberKey(e.target.value)} className={`${inputCls} appearance-none pr-11`}>
                     <option value="">Unassigned</option>
-                    {barbers.map(b => <option key={b.barber_id} value={b.barber_id}>{b.barber_name || b.alias}</option>)}
+                    {barbers.map(b => <option key={barberKeyOf(b)} value={barberKeyOf(b)}>{b.barber_name || b.alias}</option>)}
                   </select>
                   <ChevronIcon />
                 </div>
