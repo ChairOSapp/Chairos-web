@@ -154,6 +154,11 @@ export default function POSCheckout() {
   // Discount (dollar amount off service price)
   const [discount, setDiscount] = useState('')
 
+  // Deposit the client already paid at booking — credited against the
+  // total so it is never collected twice. Readable by the shop owner;
+  // for staff the server still applies the credit at checkout.
+  const [depositCredit, setDepositCredit] = useState(0)
+
   // Processing
   const [processing, setProcessing] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -173,6 +178,14 @@ export default function POSCheckout() {
       if (!apptData) { setError('Appointment not found'); setLoading(false); return }
       if (apptData.payment_status === 'paid') { setError('This appointment is already checked out'); setLoading(false); return }
       setAppt(apptData)
+
+      const { data: depData } = await supabase
+        .from('deposits')
+        .select('amount')
+        .eq('appointment_id', appointmentId)
+        .eq('status', 'paid')
+        .maybeSingle()
+      if (depData?.amount) setDepositCredit(Math.max(0, parseFloat(String(depData.amount)) || 0))
 
       let clientPref: PaymentMethod | undefined
       if (apptData.client_id) {
@@ -324,7 +337,7 @@ export default function POSCheckout() {
   const tipAmount = useCustomTip
     ? Math.max(0, parseFloat(customTip) || 0)
     : (tipPreset !== null ? Math.round(servicePrice * tipPreset * 100) / 100 : 0)
-  const chargeBase = Math.max(0, servicePrice - Math.min(discountAmount, servicePrice))
+  const chargeBase = Math.max(0, servicePrice - Math.min(discountAmount, servicePrice) - depositCredit)
   const total = chargeBase + tipAmount
 
   async function handleCheckout() {
@@ -359,10 +372,11 @@ export default function POSCheckout() {
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'Could not mark paid')
         setReceiptData({
-          total: json.total,
+          total: json.total + (json.depositCredit || 0),
           tip: tipAmount,
           service: servicePrice,
           discount: Math.min(discountAmount, servicePrice),
+          deposit: json.depositCredit || 0,
           paymentMethodLabel: paymentMethodLabel(paymentMethod),
         })
         setSuccess(true)
@@ -404,7 +418,7 @@ export default function POSCheckout() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Checkout failed')
 
-      setReceiptData({ total: json.total, tip: tipAmount, service: servicePrice, discount: Math.min(discountAmount, servicePrice), cardSaved: json.cardSaved })
+      setReceiptData({ total: json.total, tip: tipAmount, service: servicePrice, discount: Math.min(discountAmount, servicePrice), deposit: json.depositCredit || 0, cardSaved: json.cardSaved })
       setSuccess(true)
     } catch (err: any) {
       setError(err.message)
@@ -450,6 +464,12 @@ export default function POSCheckout() {
             <div className="flex justify-between text-sm">
               <span className="text-charcoal-400">Discount</span>
               <span className="text-red-400 font-mono">−${receiptData.discount.toFixed(2)}</span>
+            </div>
+          )}
+          {receiptData.deposit > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-charcoal-400">Deposit paid at booking</span>
+              <span className="text-charcoal-900 dark:text-white font-mono">${receiptData.deposit.toFixed(2)}</span>
             </div>
           )}
           <div className="flex justify-between text-sm">
@@ -639,6 +659,11 @@ export default function POSCheckout() {
           {discountAmount > 0 && (
             <div className="flex justify-between items-center mb-2 text-sm text-red-400">
               <span>Discount</span><span className="font-mono">−${Math.min(discountAmount, servicePrice).toFixed(2)}</span>
+            </div>
+          )}
+          {depositCredit > 0 && (
+            <div className="flex justify-between items-center mb-2 text-sm text-charcoal-400">
+              <span>Deposit paid at booking</span><span className="font-mono">−${depositCredit.toFixed(2)}</span>
             </div>
           )}
           <div className="flex justify-between items-center mb-3 text-sm text-charcoal-400">

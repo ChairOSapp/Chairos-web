@@ -74,12 +74,21 @@ export async function POST(req: NextRequest) {
   // Load appointment + client
   const { data: appt } = await admin
     .from('appointments')
-    .select('id, shop_id, price, tip_amount, payment_status, barber_id, client_id, client_name, services(name)')
+    .select('id, shop_id, price, tip_amount, payment_status, status, barber_id, client_id, client_name, services(name)')
     .eq('id', appointmentId)
     .maybeSingle()
 
   if (!appt) return NextResponse.json({ error: 'Appointment not found' }, { status: 404 })
   if (appt.payment_status === 'paid') return NextResponse.json({ error: 'Already paid' }, { status: 409 })
+  // A cancelled or no-show appointment must never be charged — a cancel
+  // may already have refilled the slot via the waitlist, so charging here
+  // would bill for a service the calendar now shows as someone else's.
+  if (appt.status === 'cancelled' || appt.status === 'noshow') {
+    return NextResponse.json(
+      { error: appt.status === 'cancelled' ? 'This appointment was cancelled — there is nothing to check out.' : 'This appointment was marked no-show — there is nothing to check out.' },
+      { status: 409 }
+    )
+  }
 
   const { data: shop } = await admin
     .from('shops')
@@ -135,11 +144,44 @@ export async function POST(req: NextRequest) {
   }
   const tipDollars = Math.max(0, parseFloat(String(tipAmount)) || 0)
   const discountDollars = Math.max(0, Math.min(servicePrice, parseFloat(String(discount)) || 0))
+
+  // A deposit paid at booking is a prepayment toward this service, not a
+  // separate fee — credit it against what's due. Checkout never read the
+  // deposits table before this, so clients were charged the deposit a
+  // second time unless staff typed a matching manual discount.
+  const { data: paidDeposit } = await admin
+    .from('deposits')
+    .select('id, amount')
+    .eq('appointment_id', appointmentId)
+    .eq('status', 'paid')
+    .maybeSingle()
+  const depositCreditDollars = Math.max(0, Math.min(servicePrice, parseFloat(String(paidDeposit?.amount)) || 0))
+
   // Integer-cents via dinero for the charge amount. No float addition.
   // chargeBaseDollars stays a dollar number for DB writes (amount_paid, total).
-  const chargeBaseDinero = subtract(fromDollars(servicePrice), fromDollars(discountDollars))
-  const chargeBase = toCents(chargeBaseDinero) / 100
-  const totalCents = BigInt(toCents(add(chargeBaseDinero, fromDollars(tipDollars))))
+  const chargeBaseDinero = subtract(subtract(fromDollars(servicePrice), fromDollars(discountDollars)), fromDollars(depositCreditDollars))
+  const chargeBase = Math.max(0, toCents(chargeBaseDinero) / 100)
+  const totalCents = BigInt(toCents(add(fromDollars(chargeBase), fromDollars(tipDollars))))
+
+  // Deposit (plus any discount) already covers the bill and no tip was
+  // added: nothing left to charge — finalize without Square, which would
+  // reject a $0 payment. The deposit was collected via Square at booking,
+  // so the payment method stays 'square'.
+  if (totalCents <= BigInt(0)) {
+    await admin.from('appointments').update({
+      status: 'done',
+      payment_status: 'paid',
+      payment_method: 'square',
+      amount_paid: depositCreditDollars,
+      tip_amount: 0,
+    }).eq('id', appointmentId)
+    return NextResponse.json({
+      status: 'COMPLETED',
+      total: depositCreditDollars,
+      depositCredit: depositCreditDollars,
+      coveredByDeposit: true,
+    })
+  }
 
   // paymentAttempt is read inside the try but declared here so the catch
   // block can rotate it after a clean decline.
@@ -181,7 +223,7 @@ export async function POST(req: NextRequest) {
       idempotencyKey,
       amountMoney: { amount: totalCents, currency: 'USD' },
       locationId,
-      note: `ChairOS POS — ${serviceName} ($${servicePrice.toFixed(2)})${discountDollars > 0 ? ` − discount ($${discountDollars.toFixed(2)})` : ''} + tip ($${tipDollars.toFixed(2)}) — ${appt.client_name}`,
+      note: `ChairOS POS — ${serviceName} ($${servicePrice.toFixed(2)})${discountDollars > 0 ? ` − discount ($${discountDollars.toFixed(2)})` : ''}${depositCreditDollars > 0 ? ` − deposit paid ($${depositCreditDollars.toFixed(2)})` : ''} + tip ($${tipDollars.toFixed(2)}) — ${appt.client_name}`,
       referenceId: appointmentId,
     }
 
@@ -270,7 +312,9 @@ export async function POST(req: NextRequest) {
       payment_status: paid ? 'paid' : 'failed',
       payment_method: paid ? 'square' : null,
       square_payment_id: payment?.id ?? null,
-      amount_paid: paid ? chargeBase + tipDollars : null,
+      // amount_paid is the client's full outlay for the appointment:
+      // the deposit collected at booking plus this checkout's charge.
+      amount_paid: paid ? chargeBase + depositCreditDollars + tipDollars : null,
       tip_amount: paid ? tipDollars : 0,
     }).eq('id', appointmentId)
 
@@ -305,7 +349,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       paymentId: payment?.id,
       status: payment?.status,
-      total: chargeBase + tipDollars,
+      total: chargeBase + depositCreditDollars + tipDollars,
+      depositCredit: depositCreditDollars,
       cardSaved: paid && saveCard && !!newCardId,
     })
   } catch (err: any) {

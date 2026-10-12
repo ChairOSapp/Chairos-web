@@ -42,12 +42,20 @@ export async function POST(req: NextRequest) {
 
   const { data: appt } = await admin
     .from('appointments')
-    .select('id, shop_id, price, payment_status, barber_id, client_id, client_name')
+    .select('id, shop_id, price, payment_status, status, barber_id, client_id, client_name')
     .eq('id', appointmentId)
     .maybeSingle()
 
   if (!appt) return NextResponse.json({ error: 'Appointment not found' }, { status: 404 })
   if (appt.payment_status === 'paid') return NextResponse.json({ error: 'Already paid' }, { status: 409 })
+  // Never collect on a cancelled or no-show appointment — a cancel may
+  // already have refilled the slot via the waitlist.
+  if (appt.status === 'cancelled' || appt.status === 'noshow') {
+    return NextResponse.json(
+      { error: appt.status === 'cancelled' ? 'This appointment was cancelled — there is nothing to check out.' : 'This appointment was marked no-show — there is nothing to check out.' },
+      { status: 409 }
+    )
+  }
 
   const { data: shop } = await admin
     .from('shops')
@@ -73,15 +81,27 @@ export async function POST(req: NextRequest) {
   const servicePrice = parseFloat(String(appt.price)) || 0
   const tipDollars = Math.max(0, parseFloat(String(tipAmount)) || 0)
   const discountDollars = Math.max(0, Math.min(servicePrice, parseFloat(String(discount)) || 0))
-  const chargeBaseDinero = subtract(fromDollars(servicePrice), fromDollars(discountDollars))
-  const chargeBase = toCents(chargeBaseDinero) / 100
-  const total = toCents(add(chargeBaseDinero, fromDollars(tipDollars))) / 100
+
+  // Same deposit credit as the Square checkout: a deposit paid at
+  // booking prepays part of this service — never collect it twice.
+  const { data: paidDeposit } = await admin
+    .from('deposits')
+    .select('id, amount')
+    .eq('appointment_id', appointmentId)
+    .eq('status', 'paid')
+    .maybeSingle()
+  const depositCreditDollars = Math.max(0, Math.min(servicePrice, parseFloat(String(paidDeposit?.amount)) || 0))
+
+  const chargeBaseDinero = subtract(subtract(fromDollars(servicePrice), fromDollars(discountDollars)), fromDollars(depositCreditDollars))
+  const chargeBase = Math.max(0, toCents(chargeBaseDinero) / 100)
+  const total = toCents(add(fromDollars(chargeBase), fromDollars(tipDollars))) / 100
 
   await admin.from('appointments').update({
     status: 'done',
     payment_status: 'paid',
     payment_method: paymentMethod,
-    amount_paid: total,
+    // Full client outlay: deposit at booking + what was collected here.
+    amount_paid: total + depositCreditDollars,
     tip_amount: tipDollars,
   }).eq('id', appointmentId)
 
@@ -96,5 +116,5 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  return NextResponse.json({ ok: true, total, paymentMethod })
+  return NextResponse.json({ ok: true, total, depositCredit: depositCreditDollars, paymentMethod })
 }
