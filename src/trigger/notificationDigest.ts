@@ -41,6 +41,19 @@ export const notificationDigest = schedules.task({
     let sent = 0
 
     for (const pref of prefs ?? []) {
+      // Dedupe: a retry of this job must not email the same digest
+      // twice in one evening. Successful sends are logged; anyone
+      // logged in the last 20 hours already got today's digest.
+      const { data: alreadySent } = await supabase
+        .from('automation_logs')
+        .select('id')
+        .eq('type', 'notification_digest_sent')
+        .eq('payload->>userId', pref.user_id)
+        .gte('created_at', new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString())
+        .limit(1)
+        .maybeSingle()
+      if (alreadySent) continue
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('email, full_name')
@@ -80,6 +93,11 @@ export const notificationDigest = schedules.task({
           html,
         })
         sent++
+        await supabase.from('automation_logs').insert({
+          type: 'notification_digest_sent',
+          payload: { userId: pref.user_id, count: unread.length },
+          result: 'sent',
+        })
         logger.info('notification_digest_sent', { userId: pref.user_id, count: unread.length })
       } catch (err: any) {
         logger.error('notification_digest_failed', { userId: pref.user_id, message: err.message })

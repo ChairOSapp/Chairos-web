@@ -250,6 +250,21 @@ export const ownerWeeklyBrief = schedules.task({
           continue
         }
 
+        // Dedupe: a retry inside the same week must not stack a second
+        // weekly brief. Legit runs are 7 days apart; anything from the
+        // last 6 days means this week's brief already exists.
+        const weekStart = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
+        const { data: existingBrief } = await supabase
+          .from('briefs')
+          .select('id')
+          .eq('shop_id', shopId)
+          .eq('recipient_id', ownerId)
+          .eq('brief_type', 'weekly')
+          .gte('created_at', weekStart.toISOString())
+          .limit(1)
+          .maybeSingle()
+        if (existingBrief) continue
+
         const { data: brief } = await supabase.from('briefs').insert({
           shop_id: shopId,
           recipient_id: ownerId,

@@ -262,6 +262,21 @@ export const barberDailyBrief = schedules.task({
           continue
         }
 
+        // Dedupe: same shop/barber/day as ownerDailyBrief — a retry
+        // must not stack a second brief and notification.
+        const dayStart = new Date()
+        dayStart.setUTCHours(0, 0, 0, 0)
+        const { data: existingBrief } = await supabase
+          .from('briefs')
+          .select('id')
+          .eq('shop_id', shop_id)
+          .eq('recipient_id', barber_id)
+          .eq('brief_type', 'daily')
+          .gte('created_at', dayStart.toISOString())
+          .limit(1)
+          .maybeSingle()
+        if (existingBrief) continue
+
         const { data: brief } = await supabase.from('briefs').insert({
           shop_id: shop_id,
           recipient_id: barber_id,
