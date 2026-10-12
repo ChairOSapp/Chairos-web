@@ -54,6 +54,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'self_referral' })
   }
 
+  // The code alone is not enough: the referrer must actually belong to
+  // this shop (a membership row, or any appointment there — a real
+  // referrer got their code after visiting). Without the scope check a
+  // code from one shop could mint reward rows at any other shop.
+  const [{ data: refMembership }, { data: refAppt }] = await Promise.all([
+    admin.from('client_shop_memberships').select('client_id').eq('client_id', referringClient.id).eq('shop_id', shopId).maybeSingle(),
+    admin.from('appointments').select('id').eq('client_id', referringClient.id).eq('shop_id', shopId).limit(1).maybeSingle(),
+  ])
+  if (!refMembership && !refAppt) {
+    return NextResponse.json({ ok: false, reason: 'invalid_code' })
+  }
+
   const { error: updateErr } = await admin
     .from('clients')
     .update({ referred_by_client_id: referringClient.id, source: 'referral' })

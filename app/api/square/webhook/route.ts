@@ -362,17 +362,35 @@ export async function POST(req: NextRequest) {
         : null
 
       if (paymentStatus) {
-        await supabase
+        const { data: current } = await supabase
           .from('appointments')
-          .update({
-            payment_status: paymentStatus,
-            square_payment_id: payment.id,
-            amount_paid: paymentStatus === 'paid'
-              ? (payment.amount_money?.amount ? Number(payment.amount_money.amount) / 100 : null)
-              : null,
-          })
+          .select('payment_status, square_payment_id')
           .eq('id', payment.reference_id)
-        logger.info('square_payment_updated', { appointmentId: payment.reference_id, paymentStatus })
+          .maybeSingle()
+
+        // Webhook events can arrive out of order. Once an appointment is
+        // paid it is final for this path: a stale FAILED from an earlier
+        // attempt must never downgrade it (or point its Square payment id
+        // at the failed payment), and a second COMPLETED must not
+        // overwrite the recorded payment. A FAILED for a different
+        // payment than the one recorded is likewise not this row's news.
+        if (current?.payment_status === 'paid') {
+          logger.info('square_payment_update_ignored_already_paid', { appointmentId: payment.reference_id, paymentStatus })
+        } else if (paymentStatus === 'failed' && current?.square_payment_id && current.square_payment_id !== payment.id) {
+          logger.info('square_payment_failed_ignored_mismatched_payment', { appointmentId: payment.reference_id })
+        } else {
+          await supabase
+            .from('appointments')
+            .update({
+              payment_status: paymentStatus,
+              square_payment_id: payment.id,
+              amount_paid: paymentStatus === 'paid'
+                ? (payment.amount_money?.amount ? Number(payment.amount_money.amount) / 100 : null)
+                : null,
+            })
+            .eq('id', payment.reference_id)
+          logger.info('square_payment_updated', { appointmentId: payment.reference_id, paymentStatus })
+        }
       }
     }
   } catch (err: any) {

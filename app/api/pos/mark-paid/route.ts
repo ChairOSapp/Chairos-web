@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   }
 
   const servicePrice = parseFloat(String(appt.price)) || 0
-  const tipDollars = Math.max(0, parseFloat(String(tipAmount)) || 0)
+  const tipDollars = Math.round(Math.max(0, parseFloat(String(tipAmount)) || 0) * 100) / 100
   const discountDollars = Math.max(0, Math.min(servicePrice, parseFloat(String(discount)) || 0))
 
   // Same deposit credit as the Square checkout: a deposit paid at

@@ -21,11 +21,13 @@ async function getUserId() {
   return user?.id ?? null
 }
 
-/** Owner or staff of the shop may import. */
+/** Owner or ACTIVE staff of the shop may import — a deactivated
+ *  barber's leftover shop_barbers row must not keep write access to
+ *  the client book. */
 async function canManageShop(admin: ReturnType<typeof getAdmin>, userId: string, shopId: string) {
   const [{ data: shop }, { data: staff }] = await Promise.all([
     admin.from('shops').select('id').eq('id', shopId).eq('owner_id', userId).maybeSingle(),
-    admin.from('shop_barbers').select('id').eq('shop_id', shopId).eq('barber_id', userId).maybeSingle(),
+    admin.from('shop_barbers').select('id').eq('shop_id', shopId).eq('barber_id', userId).eq('active', true).maybeSingle(),
   ])
   return !!(shop || staff)
 }

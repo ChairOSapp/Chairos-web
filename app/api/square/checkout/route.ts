@@ -142,7 +142,10 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     )
   }
-  const tipDollars = Math.max(0, parseFloat(String(tipAmount)) || 0)
+  // Round to cents at the source: the Square charge is cent-exact via
+  // dinero, so recording the raw float (e.g. 5.005) would drift the
+  // tip ledger and earnings sums a fraction of a cent from reality.
+  const tipDollars = Math.round(Math.max(0, parseFloat(String(tipAmount)) || 0) * 100) / 100
   const discountDollars = Math.max(0, Math.min(servicePrice, parseFloat(String(discount)) || 0))
 
   // A deposit paid at booking is a prepayment toward this service, not a
