@@ -4,8 +4,13 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import ClientNotes from '@/components/ClientNotes'
-import { ModalPanel, SlideUpSheet, FadeBackdrop } from '@/components/motion'
+import { ModalPanel } from '@/components/motion'
+import { Sheet } from 'react-modal-sheet'
+import { useReducedMotion } from 'motion/react'
 import { statusMeta, tint, fmtTime12, fmtDateLong, fmtPrice } from './calendarTheme'
+
+// iOS-like ease, matching components/motion.tsx and MoreMenuSheet.
+const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1]
 
 interface Appointment {
   id: string
@@ -65,6 +70,21 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
   const ref = useRef<HTMLDivElement>(null)
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
+  const reduceMotion = useReducedMotion()
+
+  // Mobile gets the react-modal-sheet treatment (drag/flick down to
+  // dismiss, same as the More menu); desktop keeps the anchored popover.
+  // JS state rather than CSS hiding because the Sheet renders in a portal
+  // where a CSS-hidden wrapper would not hide it.
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   const notDone = appointment.status !== 'done'
   const unpaid = appointment.payment_status !== 'paid'
@@ -111,13 +131,17 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    if (isMobile) return () => document.removeEventListener('keydown', onKey)
+    // Desktop only: the mobile Sheet lives in a portal outside `ref`, so a
+    // DOM-containment check would read every tap inside the sheet as an
+    // outside click. The Sheet handles its own backdrop/drag dismissal.
     function onClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
-    document.addEventListener('keydown', onKey)
     document.addEventListener('mousedown', onClick)
     return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClick) }
-  }, [onClose])
+  }, [onClose, isMobile])
 
   async function updateStatus(status: string, cancellationReason?: string) {
     setSaving(true)
@@ -368,26 +392,41 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
 
   return (
     <div ref={ref}>
-      {/* Mobile: bottom sheet — opens in the same place every time, never
-          jammed under the status bar or floating at a random tap position. */}
-      <div className="md:hidden fixed inset-0 z-[200]">
-        <FadeBackdrop className="absolute inset-0 bg-black/40" onClick={onClose}>
-          <SlideUpSheet
-            onClick={e => e.stopPropagation()}
-            className="absolute bottom-0 left-0 right-0 max-h-[85dvh] overflow-y-auto bg-warm-100 border-t border-warm-200 rounded-t-2xl shadow-2xl pb-8 pb-safe-sheet"
+      {/* Mobile: bottom sheet on react-modal-sheet — drag the handle (or
+          flick down) to dismiss, tap the backdrop to dismiss, same sheet
+          system as the More menu. Opens in the same place every time. */}
+      {isMobile && (
+        <Sheet
+          isOpen
+          onClose={onClose}
+          detent="content"
+          tweenConfig={{ ease: EASE_OUT, duration: 0.25 }}
+          prefersReducedMotion={!!reduceMotion}
+          style={{ zIndex: 200 }}
+        >
+          <Sheet.Container
+            unstyled
+            className="bg-warm-100 dark:bg-[#1E1E1B] border-t border-warm-200 dark:border-[#2A2A26] rounded-t-2xl shadow-2xl"
           >
-            <div className="w-10 h-1 bg-warm-300 rounded-full mx-auto mt-2.5 mb-1" />
-            {cardBody}
-          </SlideUpSheet>
-        </FadeBackdrop>
-      </div>
+            <Sheet.Header>
+              <div className="w-10 h-1 bg-warm-300 dark:bg-[#3A3A34] rounded-full mx-auto mt-3 mb-1 shrink-0" />
+            </Sheet.Header>
+            <Sheet.Content>
+              <div className="pb-8 pb-safe-sheet">{cardBody}</div>
+            </Sheet.Content>
+          </Sheet.Container>
+          <Sheet.Backdrop onTap={onClose} style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} />
+        </Sheet>
+      )}
 
       {/* Desktop: anchored popover near the tap */}
-      <div className="hidden md:block fixed z-[200]" style={{ left: pos.left, top: pos.top }}>
-        <ModalPanel className="w-80 max-w-[calc(100vw-16px)] max-h-[85dvh] overflow-y-auto bg-warm-100 border border-warm-200 rounded-2xl shadow-2xl">
-          {cardBody}
-        </ModalPanel>
-      </div>
+      {!isMobile && (
+        <div className="fixed z-[200]" style={{ left: pos.left, top: pos.top }}>
+          <ModalPanel className="w-80 max-w-[calc(100vw-16px)] max-h-[85dvh] overflow-y-auto bg-warm-100 border border-warm-200 rounded-2xl shadow-2xl">
+            {cardBody}
+          </ModalPanel>
+        </div>
+      )}
     </div>
   )
 }
