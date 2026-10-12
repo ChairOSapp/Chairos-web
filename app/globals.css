@@ -18,6 +18,7 @@
   --color-warning: #d97706;
   --color-danger: #dc2626;
   --color-border: #EAE8E0;
+  --color-surface-sunken: #F4F2EC;
 }
 
 .dark {
@@ -45,6 +46,7 @@
   --color-warning: #d97706;
   --color-danger: #ef4444;
   --color-surface-tint: rgba(122,140,58,0.05);
+  --color-surface-sunken: #1E1E1B;
 }
 
 @theme inline {
@@ -183,40 +185,42 @@ body {
 .btn-danger:hover { opacity: 0.9; }
 .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* FullCalendar ChairOS theme */
+/* FullCalendar ChairOS theme. Every color derives from the shared app
+   tokens above, so light/dark follow automatically and no per-mode FC
+   override block is needed (or can silently rot) again. */
 :root {
-  --fc-border-color: #EAE8E0;
-  --fc-page-bg-color: #FAFAF7;
-  --fc-neutral-bg-color: #F4F2EC;
-  --fc-neutral-text-color: #65655F;
-  --fc-today-bg-color: rgba(75,83,32,0.05);
+  --fc-border-color: var(--color-border);
+  --fc-page-bg-color: var(--color-background);
+  --fc-neutral-bg-color: var(--color-surface-sunken);
+  --fc-neutral-text-color: var(--color-text-secondary);
+  --fc-today-bg-color: color-mix(in srgb, var(--color-primary) 6%, transparent);
   --fc-non-business-color: rgba(234,232,224,0.3);
   --fc-event-text-color: #ffffff;
-  --fc-now-indicator-color: #4B5320;
+  --fc-now-indicator-color: var(--color-primary);
   --fc-small-font-size: 0.7rem;
-  --fc-list-event-hover-bg-color: #EAE8E0;
+  --fc-list-event-hover-bg-color: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }
 .fc { font-family: inherit; font-size: 0.8125rem; }
-.fc-theme-standard td, .fc-theme-standard th { border-color: #EAE8E0; }
-.fc .fc-col-header-cell-cushion { color: #65655F; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 8px 4px; }
-.fc .fc-resource-cell { color: #65655F; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; }
+.fc-theme-standard td, .fc-theme-standard th { border-color: var(--color-border); }
+.fc .fc-col-header-cell-cushion { color: var(--color-text-secondary); font-weight: 600; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 8px 4px; }
+.fc .fc-resource-cell { color: var(--color-text-secondary); font-weight: 700; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; }
 .fc .fc-timegrid-slot { height: 2rem; }
 .fc .fc-timegrid-slot-label-cushion { color: #858580; font-size: 0.625rem; padding-right: 6px; }
 .fc .fc-event { border-radius: 5px; border: none !important; cursor: pointer; }
 .fc .fc-event:hover { opacity: 0.9; }
 .fc .fc-daygrid-event { border-radius: 4px; margin: 1px 2px; }
-.fc .fc-daygrid-day-number { color: #1A1A18; font-size: 0.8125rem; padding: 4px 6px; }
+.fc .fc-daygrid-day-number { color: var(--color-text-primary); font-size: 0.8125rem; padding: 4px 6px; }
 .fc .fc-day-today .fc-daygrid-day-number { color: #4B5320; font-weight: 700; }
 .fc .fc-daygrid-day-top { justify-content: flex-end; }
 .fc .fc-button { display: none; }
 .fc .fc-toolbar { display: none; }
-.fc .fc-scrollgrid-sync-inner { background: #F4F2EC; }
-.fc .fc-col-header { background: #F4F2EC; }
-.fc .fc-now-indicator-line { border-top-width: 2px; border-color: #4B5320; }
-.fc .fc-now-indicator-arrow { border-left-color: #4B5320; border-right-color: #4B5320; }
+.fc .fc-scrollgrid-sync-inner { background: var(--color-surface-sunken); }
+.fc .fc-col-header { background: var(--color-surface-sunken); }
+.fc .fc-now-indicator-line { border-top-width: 2px; border-color: var(--color-primary); }
+.fc .fc-now-indicator-arrow { border-left-color: var(--color-primary); border-right-color: var(--color-primary); }
 .fc .fc-highlight { background: rgba(75,83,32,0.08); }
 .fc-direction-ltr .fc-timegrid-col-events { margin: 0 2px; }
-.fc .fc-resource-timeline-divider { border-color: #EAE8E0; }
+.fc .fc-resource-timeline-divider { border-color: var(--color-border); }
 
 /* =============================================================
    DARK MODE — global Tailwind utility overrides
@@ -343,22 +347,13 @@ body {
 }
 .dark tr:hover td { background-color: rgba(122,140,58,0.05); }
 
-/* --- FullCalendar dark overrides --- */
-.dark .fc-theme-standard td,
-.dark .fc-theme-standard th {
-  border-color: rgba(255,255,255,0.08);
-}
-.dark .fc .fc-scrollgrid-sync-inner { background: #1E1E1B; }
-.dark .fc .fc-col-header { background: #252521; }
-.dark .fc .fc-col-header-cell-cushion { color: #A8A89E; }
+/* --- FullCalendar dark overrides ---
+   Most dark calendar colors now flow from the shared tokens through the
+   base rules above. Only the pieces with no single-token light/dark pair
+   stay overridden here. */
+.dark .fc .fc-col-header { background: var(--color-card-elevated); }
 .dark .fc .fc-timegrid-slot-label-cushion { color: #8A8A82; }
-.dark .fc .fc-daygrid-day-number { color: #EDECEA; }
 .dark .fc .fc-day-today .fc-daygrid-day-number { color: #8FA043; }
-/* Was `.dark :root` — a descendant selector that can never match (the .dark
-   class sits ON <html> via next-themes), so these dark FC variables never
-   applied and var-driven surfaces like the day "more" popover kept the light
-   palette while event text switched to the dark theme's near-white. */
-:root.dark { --fc-page-bg-color: #141412; --fc-border-color: rgba(255,255,255,0.08); --fc-neutral-bg-color: #1E1E1B; --fc-neutral-text-color: #A8A89E; --fc-today-bg-color: rgba(122,140,58,0.07); --fc-list-event-hover-bg-color: #252521; }
 
 /* --- Calendar header buttons (custom, not FC) --- */
 .dark .bg-warm-200.rounded-lg { background-color: #252521; }
