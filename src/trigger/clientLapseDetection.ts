@@ -1,6 +1,7 @@
 import { schedules, tasks } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
 import { logger } from "@/lib/logger"
+import { sendNotification } from "@/lib/notify"
 
 function getSupabase() {
   return createClient(
@@ -140,7 +141,7 @@ export const clientLapseDetection = schedules.task({
     let smsTriggered = 0
 
     const newLapseAlerts: object[] = []
-    const newNotifications: object[] = []
+    const newNotifications: { user_id: string; shop_id: string; type: string; title: string; body: string }[] = []
     const smsPayloads: object[] = []
 
     for (const [, client] of clientMap) {
@@ -181,7 +182,6 @@ export const clientLapseDetection = schedules.task({
           type: 'lapse_alert',
           title: `${lapseType === 'loyalty' ? 'Loyalty client' : 'Client'} lapse: ${client.client_name}`,
           body: `${client.client_name} hasn't returned in ${daysSince} days — consider reaching out.`,
-          read: false,
         })
       }
 
@@ -227,10 +227,23 @@ export const clientLapseDetection = schedules.task({
       if (alertsErr) logger.error('lapse_alerts_insert_failed', { message: alertsErr.message, count: newLapseAlerts.length })
     }
 
-    // Batch insert notifications
-    if (newNotifications.length > 0) {
-      const { error: notifErr } = await supabase.from('notifications').insert(newNotifications)
-      if (notifErr) logger.error('lapse_notifications_insert_failed', { message: notifErr.message, count: newNotifications.length })
+    // Send notifications via the shared sender so each owner's channel
+    // preferences apply and alerts fan out to push — these used to be
+    // bulk-inserted directly, bypassing notification_preferences.
+    for (const n of newNotifications) {
+      try {
+        await sendNotification({
+          userId: n.user_id,
+          shopId: n.shop_id,
+          type: n.type,
+          title: n.title,
+          body: n.body,
+        })
+      } catch (err) {
+        logger.error('lapse_notification_send_failed', {
+          message: err instanceof Error ? err.message : String(err),
+        })
+      }
     }
 
     // Trigger SMS tasks

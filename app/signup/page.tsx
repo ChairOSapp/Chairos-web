@@ -15,6 +15,10 @@ const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function Signup() {
   const [step, setStep] = useState<Step>('credentials')
+  // True when signUp returned a live session (email confirmation off):
+  // the account is ready now, and the confirmed screen must not tell
+  // the user to go check an email that was never sent.
+  const [hasSession, setHasSession] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -112,6 +116,7 @@ export default function Signup() {
       }, { onConflict: 'id', ignoreDuplicates: false })
     }
 
+    setHasSession(!!signUpData.session)
     setStep('confirmed')
     setLoading(false)
   }
@@ -126,21 +131,40 @@ export default function Signup() {
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <h2 className="font-serif text-xl text-charcoal-900 mb-2">Check your email</h2>
-          <p className="text-charcoal-400 text-sm mb-2">
-            We sent a confirmation link to <span className="text-charcoal-900">{email}</span>.
-          </p>
-          <p className="text-charcoal-500 text-xs mb-6">
-            {role === 'owner'
-              ? "After confirming, sign in and we'll walk you through setting up your shop, then activate your subscription."
-              : "After confirming, sign in and you'll be taken straight to choose your plan."}
-          </p>
-          <a
-            href={loginHref}
-            className="block w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm text-center transition-colors"
-          >
-            Go to Sign In
-          </a>
+          <h2 className="font-serif text-xl text-charcoal-900 mb-2">{hasSession ? "You're signed up" : 'Check your email'}</h2>
+          {hasSession ? (
+            <>
+              <p className="text-charcoal-400 text-sm mb-6">
+                Your account is ready — no email step needed. Continue and
+                {role === 'owner'
+                  ? " we'll walk you through setting up your shop, then activate your subscription."
+                  : " you'll be taken straight to choose your plan."}
+              </p>
+              <a
+                href={loginHref}
+                className="block w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm text-center transition-colors"
+              >
+                Continue
+              </a>
+            </>
+          ) : (
+            <>
+              <p className="text-charcoal-400 text-sm mb-2">
+                We sent a confirmation link to <span className="text-charcoal-900">{email}</span>.
+              </p>
+              <p className="text-charcoal-500 text-xs mb-6">
+                {role === 'owner'
+                  ? "After confirming, sign in and we'll walk you through setting up your shop, then activate your subscription."
+                  : "After confirming, sign in and you'll be taken straight to choose your plan."}
+              </p>
+              <a
+                href={loginHref}
+                className="block w-full bg-od-green hover:bg-od-green-light text-white font-semibold py-3 rounded-lg text-sm text-center transition-colors"
+              >
+                Go to Sign In
+              </a>
+            </>
+          )}
         </div>
       </div>
     </div>

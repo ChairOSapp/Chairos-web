@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { sendNotification } from '@/lib/notify'
 import { timeStrToMinutes } from '@/lib/availability'
 
 function getSupabase() {
@@ -392,22 +393,24 @@ async function handleBookingReply(
     { onConflict: 'client_id,shop_id', ignoreDuplicates: true }
   )
 
-  await supabase.from('notifications').insert({
-    user_id: shop.owner_id,
-    shop_id: shop.id,
+  // Via sendNotification, not a raw insert: the recipient's channel
+  // preferences apply and the notification fans out to push. These used
+  // to insert rows directly, so owners who had turned booking alerts
+  // off in Settings still got them, and they never pushed.
+  await sendNotification({
+    userId: shop.owner_id,
+    shopId: shop.id,
     type: 'booking',
     title: 'New booking',
     body: `${session.client_name} booked ${service.name}${barberLabel ? ` with ${barberLabel}` : ''} on ${dateLabel} at ${timeDisplay} (recovered via text)`,
-    read: false,
   })
   if (session.barber_id) {
-    await supabase.from('notifications').insert({
-      user_id: session.barber_id,
-      shop_id: shop.id,
+    await sendNotification({
+      userId: session.barber_id,
+      shopId: shop.id,
       type: 'booking',
       title: 'New appointment',
       body: `${session.client_name} booked ${service.name} on ${dateLabel} at ${timeDisplay} (recovered via text)`,
-      read: false,
     })
   }
 
@@ -543,22 +546,20 @@ async function handleWaitlistReply(
     { onConflict: 'client_id,shop_id', ignoreDuplicates: true }
   )
 
-  await supabase.from('notifications').insert({
-    user_id: shop.owner_id,
-    shop_id: shop.id,
+  await sendNotification({
+    userId: shop.owner_id,
+    shopId: shop.id,
     type: 'booking',
     title: 'Waitlist spot claimed',
     body: `${entry.client_name} claimed the ${service.name} spot on ${dateLabel} at ${timeDisplay}${barberLabel ? ` with ${barberLabel}` : ''} from the waitlist`,
-    read: false,
   })
   if (entry.notify_barber_id) {
-    await supabase.from('notifications').insert({
-      user_id: entry.notify_barber_id,
-      shop_id: shop.id,
+    await sendNotification({
+      userId: entry.notify_barber_id,
+      shopId: shop.id,
       type: 'booking',
       title: 'New appointment',
       body: `${entry.client_name} claimed your open ${service.name} slot on ${dateLabel} at ${timeDisplay} from the waitlist`,
-      read: false,
     })
   }
 

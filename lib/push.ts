@@ -125,8 +125,15 @@ async function sendToToken(
       await logPushDebug(deviceToken, 'push_sent_200')
       return 'sent'
     }
-    // 410 Gone / 400 BadDeviceToken: the token is dead, prune it.
-    if (status === 410 || status === 400) {
+    // 410 Gone means the token is dead — prune it. A 400 only means
+    // that when APNs says the token itself is bad: 400 also covers
+    // payload and topic errors, and pruning on those silently stopped
+    // pushes to perfectly valid devices after a config slip.
+    let apnsReason = ''
+    try {
+      apnsReason = (JSON.parse(result.body) as { reason?: string }).reason ?? ''
+    } catch { /* non-JSON body — reason stays unknown */ }
+    if (status === 410 || (status === 400 && (apnsReason === 'BadDeviceToken' || apnsReason === 'Unregistered'))) {
       await logPushDebug(deviceToken, `push_dead_${status}:${result.body.slice(0, 100)}`)
       return 'dead_token'
     }
