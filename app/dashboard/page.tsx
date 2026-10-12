@@ -8,6 +8,7 @@ import MobileNav from '@/components/MobileNav'
 import TrialCountdownBanner from '@/components/TrialCountdownBanner'
 import PaywallBanner from '@/components/PaywallBanner'
 import BriefCard from '@/components/BriefCard'
+import FillAheadCard from '@/components/FillAheadCard'
 import ClientPortalCard from '@/components/ClientPortalCard'
 import RecommendationsPanel from '@/components/RecommendationsPanel'
 import WalkInQueue from '@/components/WalkInQueue'
@@ -416,6 +417,11 @@ export default function Dashboard() {
 
         {/* 3. AI DAILY BRIEF — the star of the dashboard */}
         <BriefCard recipientName={ownerName} />
+
+        {/* 3.5 FILL AHEAD — tomorrow's empty chairs, offered to due
+            regulars by text. Renders nothing when there is nothing to
+            fill, so it never clutters a fully-booked shop's dashboard. */}
+        <FillAheadCard />
 
         {/* 4. TODAY AT A GLANCE */}
         <div className="bg-warm-100 border border-warm-200 rounded-2xl p-5 mb-5">
