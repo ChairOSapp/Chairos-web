@@ -5,7 +5,19 @@ import { cookies } from 'next/headers'
 import { requireActiveBilling } from '@/lib/billing'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { buildCampaignRecipients, MAX_CAMPAIGN_RECIPIENTS } from '@/lib/campaignAudience'
-import { campaignSend } from '@/src/trigger/campaignSend'
+// NOTE: the Trigger.dev send task (src/trigger/campaignSend) is loaded
+// with a dynamic import inside the handler, not a static import here.
+// This route returned a bare platform 500 on every build while sibling
+// routes worked, and its static module graph was the one thing unique
+// to it; loading the task graph lazily keeps any failure inside the
+// handler's error handling (named JSON) instead of at module init
+// (opaque HTML 500).
+
+// Load probe: a GET on this route proves the function module loads and
+// runs. POST is the real handler below.
+export async function GET() {
+  return NextResponse.json({ ok: true, probe: 'campaign-send-route' })
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -106,6 +118,11 @@ async function handleSend(req: NextRequest) {
     admin.from('campaigns')
       .update({ status: priorStatus, updated_at: new Date().toISOString() })
       .eq('id', campaignId)
+
+  // Lazy-load the Trigger.dev task graph (see the note at the top of
+  // this file). A load failure lands in POST's catch and returns the
+  // real error as JSON instead of a bare platform 500.
+  const { campaignSend } = await import('@/src/trigger/campaignSend')
 
   try {
 
