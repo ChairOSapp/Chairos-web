@@ -603,7 +603,15 @@ export default function ShopSettings() {
                 <input ref={logoRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                 <p className="text-xs text-charcoal-600 mt-2">PNG or JPG. Square works best. Max 2MB.</p>
                 {logoUrl && (
-                  <button onClick={() => { setLogoUrl(''); supabase.from('shops').update({ logo_url: null }).eq('id', shop.id) }}
+                  <button onClick={async () => {
+                      // Await the update and only clear the preview on
+                      // success — this used to fire-and-forget, so a
+                      // failed save showed the logo removed until the
+                      // next load brought it back.
+                      const { error } = await supabase.from('shops').update({ logo_url: null }).eq('id', shop.id)
+                      if (error) { alert('Could not remove the logo. Please try again.'); return }
+                      setLogoUrl('')
+                    }}
                     className="text-xs text-red-400 hover:text-red-300 mt-1 transition-colors">
                     Remove logo
                   </button>
@@ -631,7 +639,11 @@ export default function ShopSettings() {
               </button>
               <input ref={heroRef} type="file" accept="image/*" onChange={handleHeroUpload} className="hidden" />
               {heroUrl && (
-                <button onClick={() => { setHeroUrl(''); supabase.from('shops').update({ hero_url: null }).eq('id', shop.id) }}
+                <button onClick={async () => {
+                    const { error } = await supabase.from('shops').update({ hero_url: null }).eq('id', shop.id)
+                    if (error) { alert('Could not remove the banner photo. Please try again.'); return }
+                    setHeroUrl('')
+                  }}
                   className="px-4 py-2 bg-warm-200 border border-red-900 rounded-lg text-xs font-semibold text-red-400 hover:border-red-500 transition-colors">
                   Remove
                 </button>

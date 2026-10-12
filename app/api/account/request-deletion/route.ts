@@ -34,8 +34,11 @@ export async function POST(req: NextRequest) {
   // cascading data (shop, staff, clients, appointments, billing history)
   // that needs a deliberate, reviewed teardown, not a blind cascade delete
   // triggered by anyone who clicks a button.
+  // The DB row above is the record — Slack only gets the heads-up, not
+  // the requester's email or free-text reason (PII does not belong in a
+  // chat tool outside the app's own retention policy).
   await notifySlack(
-    `🗑️ Account deletion requested\nEmail: ${user.email}\nRole: ${profile?.role ?? 'unknown'}\nReason: ${reason || '(none given)'}`,
+    `🗑️ Account deletion requested\nRole: ${profile?.role ?? 'unknown'}\nSee account_deletion_requests for details.`,
     'account/request-deletion'
   )
 
