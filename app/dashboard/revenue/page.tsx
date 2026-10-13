@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { addonsTotalOf } from '@/lib/checkoutExtras'
+import { paymentMethodLabel } from '@/lib/paymentMethods'
 
 type Period = 'today' | 'week' | 'month' | 'year'
 
@@ -17,6 +19,29 @@ interface Appointment {
   status: string
   barber_id: string
   services: { name: string } | null
+  addons?: { label: string; amount: number }[] | null
+}
+
+interface QuickSale {
+  id: string
+  amount: number
+  tip_amount: number
+  barber_id: string | null
+  payment_method: string
+  note: string | null
+  created_at: string
+}
+
+// What an appointment actually brought in: service price plus its
+// add-on items (products/extras recorded at checkout).
+function apptRevenue(a: Appointment): number {
+  return (parseFloat(String(a.price)) || 0) + addonsTotalOf(a.addons)
+}
+
+function dayKeyOf(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 interface Tip {
@@ -130,6 +155,7 @@ export default function RevenuePage() {
   const [profile, setProfile] = useState<any>(null)
   const [shop, setShop] = useState<any>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [quickSales, setQuickSales] = useState<QuickSale[]>([])
   const [noshowCount, setNoshowCount] = useState(0)
   const [tips, setTips] = useState<Tip[]>([])
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
@@ -174,10 +200,10 @@ export default function RevenuePage() {
     if (!shop) return
     const { start, end } = getPeriodRange(period)
 
-    const [{ data: appts }, { data: tipsData }, { count: noshow }] = await Promise.all([
+    const [{ data: appts }, { data: tipsData }, { count: noshow }, { data: qsData }] = await Promise.all([
       supabase
         .from('appointments')
-        .select('id, date, time, price, client_name, status, barber_id, services(name)')
+        .select('id, date, time, price, client_name, status, barber_id, addons, services(name)')
         .eq('shop_id', shop.id)
         .eq('status', 'done')
         .gte('date', start)
@@ -196,11 +222,21 @@ export default function RevenuePage() {
         .eq('status', 'noshow')
         .gte('date', start)
         .lte('date', end),
+      // Quick sales (no appointment). Tolerates the table not existing
+      // yet on an environment whose migration hasn't run.
+      supabase
+        .from('quick_sales')
+        .select('id, amount, tip_amount, barber_id, payment_method, note, created_at')
+        .eq('shop_id', shop.id)
+        .gte('created_at', start)
+        .lte('created_at', end + 'T23:59:59')
+        .order('created_at', { ascending: false }),
     ])
 
     setAppointments((appts || []) as unknown as Appointment[])
     setTips(tipsData || [])
     setNoshowCount(noshow || 0)
+    setQuickSales((qsData || []) as QuickSale[])
   }
 
   const { start, end } = useMemo(() => getPeriodRange(period), [period])
@@ -209,19 +245,27 @@ export default function RevenuePage() {
   const revenueByDay = useMemo(() => {
     const map: Record<string, number> = {}
     appointments.forEach(a => {
-      map[a.date] = (map[a.date] || 0) + (parseFloat(String(a.price)) || 0)
+      map[a.date] = (map[a.date] || 0) + apptRevenue(a)
+    })
+    quickSales.forEach(q => {
+      const d = dayKeyOf(q.created_at)
+      map[d] = (map[d] || 0) + (parseFloat(String(q.amount)) || 0)
     })
     return map
-  }, [appointments])
+  }, [appointments, quickSales])
 
-  const totalRevenue = appointments.reduce((s, a) => s + (parseFloat(String(a.price)) || 0), 0)
+  const totalRevenue = appointments.reduce((s, a) => s + apptRevenue(a), 0)
+    + quickSales.reduce((s, q) => s + (parseFloat(String(q.amount)) || 0), 0)
   const totalTips = tips.reduce((s, t) => s + (parseFloat(String(t.amount)) || 0), 0)
   const avgPerApt = appointments.length > 0 ? totalRevenue / appointments.length : 0
 
   const barberEarnings = useMemo(() => {
     return shopBarbers.map(b => {
       const bAppts = appointments.filter(a => a.barber_id === b.barber_id)
-      const serviceRev = bAppts.reduce((s, a) => s + (parseFloat(String(a.price)) || 0), 0)
+      const serviceRev = bAppts.reduce((s, a) => s + apptRevenue(a), 0)
+        + quickSales
+          .filter(q => q.barber_id === b.barber_id)
+          .reduce((s, q) => s + (parseFloat(String(q.amount)) || 0), 0)
       const rate = b.compensation_type === 'commission' ? (b.commission_rate || 0.7) : 1.0
       const cut = serviceRev * rate
       const bTips = tips
@@ -236,7 +280,7 @@ export default function RevenuePage() {
         apptCount: bAppts.length,
       }
     }).sort((a, b) => b.total - a.total)
-  }, [appointments, tips, shopBarbers])
+  }, [appointments, tips, shopBarbers, quickSales])
 
   const showLabels = period === 'today' || period === 'week'
   const ownerName = profile?.full_name || shop?.name || 'Owner'
@@ -385,14 +429,53 @@ export default function RevenuePage() {
                         {(a.services as any)?.name || 'Service'}
                         {barber && <span className="ml-1">&middot; {barber.barber_name || barber.alias}</span>}
                       </div>
+                      {(a.addons || []).map((ad, i) => (
+                        <div key={i} className="text-xs text-charcoal-500">+ {ad.label || 'Item'} &middot; ${Number(ad.amount).toFixed(2)}</div>
+                      ))}
                     </div>
-                    <div className="font-mono text-sm font-semibold text-charcoal-900">${parseFloat(String(a.price)).toFixed(2)}</div>
+                    <div className="font-mono text-sm font-semibold text-charcoal-900">${apptRevenue(a).toFixed(2)}</div>
                   </div>
                 )
               })}
             </div>
           )}
         </div>
+
+        {/* QUICK SALES LIST */}
+        {quickSales.length > 0 && (
+          <div className="bg-warm-100 border border-warm-200 rounded-xl overflow-hidden mt-6">
+            <div className="px-5 py-4 border-b border-warm-200">
+              <div className="font-serif text-charcoal-900">Quick sales</div>
+              <div className="text-xs text-charcoal-500 mt-0.5">{quickSales.length} sold without an appointment this period</div>
+            </div>
+            <div className="divide-y divide-warm-200 max-h-96 overflow-y-auto">
+              {quickSales.map(q => {
+                const barber = shopBarbers.find(b => b.barber_id === q.barber_id)
+                return (
+                  <div key={q.id} className="px-5 py-3 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs font-mono text-od-green">
+                          {new Date(q.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className="text-xs text-charcoal-500">
+                          {new Date(q.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="text-sm font-semibold text-charcoal-900">{q.note || 'Quick sale'}</div>
+                      <div className="text-xs text-charcoal-500">
+                        {paymentMethodLabel(q.payment_method)}
+                        {barber && <span className="ml-1">&middot; {barber.barber_name || barber.alias}</span>}
+                        {parseFloat(String(q.tip_amount)) > 0 && <span className="ml-1">&middot; tip ${parseFloat(String(q.tip_amount)).toFixed(2)}</span>}
+                      </div>
+                    </div>
+                    <div className="font-mono text-sm font-semibold text-charcoal-900">${parseFloat(String(q.amount)).toFixed(2)}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
       </div>
       <MobileNav />

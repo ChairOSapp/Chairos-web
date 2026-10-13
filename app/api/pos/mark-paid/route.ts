@@ -3,7 +3,8 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { fromDollars, subtract, add, toCents } from '@/lib/money'
-import { isPaymentMethod } from '@/lib/paymentMethods'
+import { isPaymentMethod, type PaymentMethod } from '@/lib/paymentMethods'
+import { parseAddons, validateSplitEntries, primarySplitMethod, type SplitEntry } from '@/lib/checkoutExtras'
 
 function getAdmin() {
   return createAdmin(
@@ -41,11 +42,37 @@ export async function POST(req: NextRequest) {
     tipAmount?: number
     discount?: number
     paymentMethod?: string
+    addons?: unknown
+    split?: unknown
   }
   const { appointmentId, tipAmount = 0, discount = 0, paymentMethod } = body
 
   if (!appointmentId) return NextResponse.json({ error: 'appointmentId required' }, { status: 400 })
-  if (!isPaymentMethod(paymentMethod) || paymentMethod === 'square') {
+
+  // Add-on line items (products, extras) ride on top of the service
+  // price. Validated here; the client never sets the service price.
+  const parsedAddons = parseAddons(body.addons)
+  if ('error' in parsedAddons) {
+    return NextResponse.json({ error: parsedAddons.error }, { status: 400 })
+  }
+  const { addons, total: addonsTotal } = parsedAddons
+
+  // A split pays the total across two off-Square methods; without one,
+  // a single non-Square method is required as before. Card portions of
+  // a split go through /api/square/checkout instead.
+  let split: SplitEntry[] | null = null
+  if (body.split != null) {
+    if (!Array.isArray(body.split)) {
+      return NextResponse.json({ error: 'Split payment must be a list of two parts.' }, { status: 400 })
+    }
+    split = (body.split as { method?: unknown; amount?: unknown }[]).map(e => ({
+      method: e.method as PaymentMethod,
+      amount: Math.round((parseFloat(String(e.amount)) || 0) * 100) / 100,
+    }))
+    if (split.some(e => e.method === 'square')) {
+      return NextResponse.json({ error: 'A split with a card part is charged through the card checkout.' }, { status: 400 })
+    }
+  } else if (!isPaymentMethod(paymentMethod) || paymentMethod === 'square') {
     return NextResponse.json({ error: 'A non-Square payment method is required' }, { status: 400 })
   }
 
@@ -103,16 +130,28 @@ export async function POST(req: NextRequest) {
 
   const chargeBaseDinero = subtract(subtract(fromDollars(servicePrice), fromDollars(discountDollars)), fromDollars(depositCreditDollars))
   const chargeBase = Math.max(0, toCents(chargeBaseDinero) / 100)
-  const total = toCents(add(fromDollars(chargeBase), fromDollars(tipDollars))) / 100
+  const total = toCents(add(add(fromDollars(chargeBase), fromDollars(addonsTotal)), fromDollars(tipDollars))) / 100
 
-  await admin.from('appointments').update({
+  let primaryMethod: PaymentMethod = paymentMethod as PaymentMethod
+  if (split) {
+    const splitError = validateSplitEntries(split, total)
+    if (splitError) return NextResponse.json({ error: splitError }, { status: 400 })
+    primaryMethod = primarySplitMethod(split)
+  }
+
+  const { error: updateError } = await admin.from('appointments').update({
     status: 'done',
     payment_status: 'paid',
-    payment_method: paymentMethod,
+    payment_method: primaryMethod,
     // Full client outlay: deposit at booking + what was collected here.
     amount_paid: total + depositCreditDollars,
     tip_amount: tipDollars,
+    addons,
+    payment_split: split,
   }).eq('id', appointmentId)
+  if (updateError) {
+    return NextResponse.json({ error: 'Could not record the payment — nothing was saved. Try again.' }, { status: 500 })
+  }
 
   // Tips count toward barber earnings regardless of how the service was paid.
   if (tipDollars > 0 && appt.barber_id) {
@@ -125,5 +164,13 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  return NextResponse.json({ ok: true, total, depositCredit: depositCreditDollars, paymentMethod })
+  return NextResponse.json({
+    ok: true,
+    total,
+    depositCredit: depositCreditDollars,
+    paymentMethod: primaryMethod,
+    addons,
+    addonsTotal,
+    split,
+  })
 }

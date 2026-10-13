@@ -18,6 +18,8 @@ import {
 } from '@/lib/square'
 import { logger } from '@/lib/logger'
 import { fromDollars, subtract, add, toCents } from '@/lib/money'
+import { isPaymentMethod, type PaymentMethod } from '@/lib/paymentMethods'
+import { parseAddons, validateSplitEntries, type SplitEntry } from '@/lib/checkoutExtras'
 
 function getAdmin() {
   return createAdmin(
@@ -68,9 +70,21 @@ export async function POST(req: NextRequest) {
     saveCard?: boolean      // store card on file
     useCardOnFile?: boolean // charge stored card_id
     consentText?: string    // required when saveCard: the card-on-file disclosure the client agreed to
+    addons?: unknown        // [{label, amount}] line items on top of the service price
+    cardPortion?: number    // split payment: dollars of the total due charged to this card
+    splitRemainder?: { method?: unknown; amount?: unknown } // split payment: the rest, collected off-Square
   }
 
   const { appointmentId, tipAmount = 0, discount = 0, sourceId, saveCard = false, useCardOnFile = false, consentText } = body
+
+  // Add-on line items (products, extras) — validated here and folded
+  // into the amount due; the service price itself always comes from
+  // the database, never the client.
+  const parsedAddons = parseAddons(body.addons)
+  if ('error' in parsedAddons) {
+    return NextResponse.json({ error: parsedAddons.error }, { status: 400 })
+  }
+  const { addons, total: addonsTotal } = parsedAddons
   // Card-network stored-credential rules: the POS "save card" toggle must
   // carry the client's explicit opt-in. Fail closed.
   if (saveCard && !consentText?.trim()) {
@@ -173,12 +187,35 @@ export async function POST(req: NextRequest) {
   // chargeBaseDollars stays a dollar number for DB writes (amount_paid, total).
   const chargeBaseDinero = subtract(subtract(fromDollars(servicePrice), fromDollars(discountDollars)), fromDollars(depositCreditDollars))
   const chargeBase = Math.max(0, toCents(chargeBaseDinero) / 100)
-  const totalCents = BigInt(toCents(add(fromDollars(chargeBase), fromDollars(tipDollars))))
+  const totalDue = toCents(add(add(fromDollars(chargeBase), fromDollars(addonsTotal)), fromDollars(tipDollars))) / 100
 
-  // Deposit (plus any discount) already covers the bill and no tip was
-  // added: nothing left to charge — finalize without Square, which would
-  // reject a $0 payment. The deposit was collected via Square at booking,
-  // so the payment method stays 'square'.
+  // Split payment: this card is charged only its portion; the remainder
+  // is collected off-Square (staff confirm it's in hand, the same trust
+  // as /api/pos/mark-paid). The two parts must add up to the total due.
+  let split: SplitEntry[] | null = null
+  let chargeCents = BigInt(Math.round(totalDue * 100))
+  if (body.cardPortion != null || body.splitRemainder != null) {
+    const cardPortion = Math.round((parseFloat(String(body.cardPortion)) || 0) * 100) / 100
+    const remainderMethod = body.splitRemainder?.method
+    const remainderAmount = Math.round((parseFloat(String(body.splitRemainder?.amount)) || 0) * 100) / 100
+    if (!isPaymentMethod(remainderMethod) || remainderMethod === 'square') {
+      return NextResponse.json({ error: 'The rest of a split payment must be a non-card method.' }, { status: 400 })
+    }
+    split = [
+      { method: 'square' as PaymentMethod, amount: cardPortion },
+      { method: remainderMethod, amount: remainderAmount },
+    ]
+    const splitError = validateSplitEntries(split, totalDue)
+    if (splitError) return NextResponse.json({ error: splitError }, { status: 400 })
+    chargeCents = BigInt(Math.round(cardPortion * 100))
+  }
+  const totalCents = chargeCents
+
+  // Deposit (plus any discount) already covers the bill and no tip or
+  // add-ons were added: nothing left to charge — finalize without
+  // Square, which would reject a $0 payment. The deposit was collected
+  // via Square at booking, so the payment method stays 'square'. A
+  // split can never land here (its card portion is always above $0).
   if (totalCents <= BigInt(0)) {
     await admin.from('appointments').update({
       status: 'done',
@@ -186,12 +223,17 @@ export async function POST(req: NextRequest) {
       payment_method: 'square',
       amount_paid: depositCreditDollars,
       tip_amount: 0,
+      addons,
+      payment_split: null,
     }).eq('id', appointmentId)
     return NextResponse.json({
       status: 'COMPLETED',
       total: depositCreditDollars,
       depositCredit: depositCreditDollars,
       coveredByDeposit: true,
+      addons,
+      addonsTotal,
+      split: null,
     })
   }
 
@@ -235,7 +277,7 @@ export async function POST(req: NextRequest) {
       idempotencyKey,
       amountMoney: { amount: totalCents, currency: 'USD' },
       locationId,
-      note: `ChairOS POS — ${serviceName} ($${servicePrice.toFixed(2)})${discountDollars > 0 ? ` − discount ($${discountDollars.toFixed(2)})` : ''}${depositCreditDollars > 0 ? ` − deposit paid ($${depositCreditDollars.toFixed(2)})` : ''} + tip ($${tipDollars.toFixed(2)}) — ${appt.client_name}`,
+      note: `ChairOS POS — ${serviceName} ($${servicePrice.toFixed(2)})${discountDollars > 0 ? ` − discount ($${discountDollars.toFixed(2)})` : ''}${depositCreditDollars > 0 ? ` − deposit paid ($${depositCreditDollars.toFixed(2)})` : ''}${addons.length > 0 ? ` + items: ${addons.map(a => `${a.label} ($${a.amount.toFixed(2)})`).join(', ')}` : ''} + tip ($${tipDollars.toFixed(2)})${split ? ` — card part of a split payment (total due $${totalDue.toFixed(2)})` : ''} — ${appt.client_name}`,
       referenceId: appointmentId,
     }
 
@@ -325,9 +367,13 @@ export async function POST(req: NextRequest) {
       payment_method: paid ? 'square' : null,
       square_payment_id: payment?.id ?? null,
       // amount_paid is the client's full outlay for the appointment:
-      // the deposit collected at booking plus this checkout's charge.
-      amount_paid: paid ? chargeBase + depositCreditDollars + tipDollars : null,
+      // the deposit collected at booking plus everything due here
+      // (service after discount/deposit, add-ons, tip) — for a split,
+      // the card portion plus the off-Square remainder staff collected.
+      amount_paid: paid ? totalDue + depositCreditDollars : null,
       tip_amount: paid ? tipDollars : 0,
+      addons: paid ? addons : [],
+      payment_split: paid ? split : null,
     }).eq('id', appointmentId)
 
     // Record tip separately for barber earnings tracking
@@ -361,9 +407,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       paymentId: payment?.id,
       status: payment?.status,
-      total: chargeBase + depositCreditDollars + tipDollars,
+      total: totalDue + depositCreditDollars,
       depositCredit: depositCreditDollars,
       cardSaved: paid && saveCard && !!newCardId,
+      addons,
+      addonsTotal,
+      split,
     })
   } catch (err: any) {
     // The shop's Square connection died and couldn't be refreshed.

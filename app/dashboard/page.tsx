@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 import { tabCacheGet, tabCacheSet } from '@/lib/tabCache'
+import { addonsTotalOf } from '@/lib/checkoutExtras'
 import { SkeletonPage } from '@/components/Skeleton'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
@@ -105,6 +106,7 @@ export default function Dashboard() {
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [retentionRevenue, setRetentionRevenue] = useState(0)
   const [savedClientsCount, setSavedClientsCount] = useState(0)
+  const [quickSalesToday, setQuickSalesToday] = useState(0)
   const [barberRiskMap, setBarberRiskMap] = useState<Record<string, boolean>>({})
   const [barberStats30, setBarberStats30] = useState<Record<string, { appts: number; clients: number; repeatClients: number }>>({})
   const [loading, setLoading] = useState(true)
@@ -132,15 +134,19 @@ export default function Dashboard() {
     const weekStart = toDateStr(days[0])
     const weekEnd = toDateStr(days[6])
 
-    const [{ data: todayAppts }, { data: weekAppts }, { data: tipsData }] = await Promise.all([
+    const [{ data: todayAppts }, { data: weekAppts }, { data: tipsData }, { data: qsData }] = await Promise.all([
       supabase.from('appointments').select('*, services(*)').eq('shop_id', sid).eq('date', today).order('time', { ascending: true }),
       supabase.from('appointments').select('*, services(*)').eq('shop_id', sid).gte('date', weekStart).lte('date', weekEnd).order('date').order('time', { ascending: true }),
       supabase.from('tips').select('*').eq('shop_id', sid).gte('created_at', todayUTC),
+      // Today's quick sales (no appointment) — tolerated as empty when
+      // the table doesn't exist yet on this environment.
+      supabase.from('quick_sales').select('amount').eq('shop_id', sid).gte('created_at', todayUTC),
     ])
 
     setTodayAppointments(todayAppts || [])
     setWeekAppointments(weekAppts || [])
     setTips(tipsData || [])
+    setQuickSalesToday((qsData || []).reduce((s: number, q: { amount: string | number | null }) => s + (parseFloat(String(q.amount)) || 0), 0))
   }, [])
 
   async function handleConfirmAppointment(appointmentId: string) {
@@ -184,6 +190,7 @@ export default function Dashboard() {
           setBarberRiskMap((snap.barberRiskMap as Record<string, boolean>) || {})
           setBarberStats30((snap.barberStats30 as Record<string, { appts: number; clients: number; repeatClients: number }>) || {})
           setSavedClientsCount((snap.savedClientsCount as number) || 0)
+          setQuickSalesToday((snap.quickSalesToday as number) || 0)
           setLoading(false)
         }
       }
@@ -312,9 +319,9 @@ export default function Dashboard() {
     tabCacheSet(`home:${shopId}`, {
       barbers, allBarbers, services, clientLocks, todayAppointments,
       weekAppointments, tips, retentionRevenue, barberRiskMap,
-      barberStats30, savedClientsCount,
+      barberStats30, savedClientsCount, quickSalesToday,
     })
-  }, [loading, shopId, barbers, allBarbers, services, clientLocks, todayAppointments, weekAppointments, tips, retentionRevenue, barberRiskMap, barberStats30, savedClientsCount])
+  }, [loading, shopId, barbers, allBarbers, services, clientLocks, todayAppointments, weekAppointments, tips, retentionRevenue, barberRiskMap, barberStats30, savedClientsCount, quickSalesToday])
 
   useEffect(() => {
     if (!shopId) return
@@ -370,7 +377,7 @@ export default function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const firstName = profile?.full_name?.split(' ')[0] || shop?.name?.split(' ')[0] || 'Boss'
 
-  const todayRevenue = todayAppointments.filter(a => a.status === 'done').reduce((s, a) => s + (parseFloat(a.price) || 0), 0)
+  const todayRevenue = todayAppointments.filter(a => a.status === 'done').reduce((s, a) => s + (parseFloat(a.price) || 0) + addonsTotalOf(a.addons), 0) + quickSalesToday
   // Today's revenue split by how clients paid. Legacy rows (no
   // payment_method) count as card — Square was the only way to get paid
   // before tracking existed.

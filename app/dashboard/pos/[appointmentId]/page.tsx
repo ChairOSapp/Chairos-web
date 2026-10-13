@@ -154,6 +154,19 @@ export default function POSCheckout() {
   // Discount (dollar amount off service price)
   const [discount, setDiscount] = useState('')
 
+  // Add-on items: products or extras the client bought on top of the
+  // service. Each line has a label (what it was) and a price, and is
+  // saved with the sale — never a mystery line in the books later.
+  const [addons, setAddons] = useState<{ label: string; amount: string }[]>([])
+
+  // Split payment: the total due paid across two methods ("$40 on the
+  // card, the rest cash"). Part A's amount is typed; Part B is always
+  // the remainder, so the two can never drift from the total.
+  const [splitOn, setSplitOn] = useState(false)
+  const [splitMethodA, setSplitMethodA] = useState<PaymentMethod>('cash')
+  const [splitMethodB, setSplitMethodB] = useState<PaymentMethod>('square')
+  const [splitAmountA, setSplitAmountA] = useState('')
+
   // Deposit the client already paid at booking — credited against the
   // total so it is never collected twice. Readable by the shop owner;
   // for staff the server still applies the credit at checkout.
@@ -251,10 +264,36 @@ export default function POSCheckout() {
     load()
   }, [appointmentId])
 
+  // Derived money values — declared before the card-form effect,
+  // which keys off cardInvolved.
+  const servicePrice = parseFloat(String(appt?.price || 0)) || 0
+  const discountAmount = Math.max(0, parseFloat(discount) || 0)
+  const discountInvalid = discountAmount > servicePrice
+  const tipAmount = useCustomTip
+    ? Math.max(0, parseFloat(customTip) || 0)
+    : (tipPreset !== null ? Math.round(servicePrice * tipPreset * 100) / 100 : 0)
+  const chargeBase = Math.max(0, servicePrice - Math.min(discountAmount, servicePrice) - depositCredit)
+  const addonsPayload = addons
+    .map(a => ({ label: a.label.trim(), amount: Math.round((parseFloat(a.amount) || 0) * 100) / 100 }))
+    .filter(a => a.amount > 0)
+  const addonsTotal = addonsPayload.reduce((s, a) => s + a.amount, 0)
+  const total = chargeBase + addonsTotal + tipAmount
+
+  // Split derivation: A is typed, B is the remainder.
+  const splitAmtA = Math.round((parseFloat(splitAmountA) || 0) * 100) / 100
+  const splitAmtB = Math.round((total - splitAmtA) * 100) / 100
+  const splitValid = !splitOn || (splitMethodA !== splitMethodB && splitAmtA > 0 && splitAmtB > 0)
+  const cardInvolved = splitOn
+    ? (splitMethodA === 'square' || splitMethodB === 'square')
+    : paymentMethod === 'square'
+  const cardPortion = splitOn
+    ? (splitMethodA === 'square' ? splitAmtA : splitMethodB === 'square' ? splitAmtB : 0)
+    : total
+
   // Initialize Square card form when paying by card with manual entry.
   // Cash and other off-Square methods skip the card form entirely.
   useEffect(() => {
-    if (paymentMethod !== 'square' || mode !== 'manual') {
+    if (!cardInvolved || mode !== 'manual') {
       if (squareCardRef.current) {
         squareCardRef.current.destroy?.().catch(() => {})
         squareCardRef.current = null
@@ -329,16 +368,7 @@ export default function POSCheckout() {
         setCardReady(false)
       }
     }
-  }, [mode, cardRetryKey, paymentMethod])
-
-  const servicePrice = parseFloat(String(appt?.price || 0)) || 0
-  const discountAmount = Math.max(0, parseFloat(discount) || 0)
-  const discountInvalid = discountAmount > servicePrice
-  const tipAmount = useCustomTip
-    ? Math.max(0, parseFloat(customTip) || 0)
-    : (tipPreset !== null ? Math.round(servicePrice * tipPreset * 100) / 100 : 0)
-  const chargeBase = Math.max(0, servicePrice - Math.min(discountAmount, servicePrice) - depositCredit)
-  const total = chargeBase + tipAmount
+  }, [mode, cardRetryKey, cardInvolved])
 
   async function handleCheckout() {
     setError('')
@@ -346,18 +376,25 @@ export default function POSCheckout() {
       setError(`Discount cannot exceed the service price ($${servicePrice.toFixed(2)})`)
       return
     }
+    if (splitOn && !splitValid) {
+      setError(splitMethodA === splitMethodB
+        ? 'Pick two different methods for a split payment.'
+        : 'Enter the first part of the split — the second part is the rest of the total.')
+      return
+    }
     // Saving the card requires the client's confirmed agreement — staff
     // must check the consent box, not just the save toggle. Square only;
     // cash and other off-Square payments never touch a card.
-    if (paymentMethod === 'square' && mode === 'manual' && saveCard && !saveCardConsent) {
+    if (cardInvolved && mode === 'manual' && saveCard && !saveCardConsent) {
       setError('Please confirm the client agreed to the card-on-file terms.')
       return
     }
     setProcessing(true)
 
-    // Cash and other off-Square payments: no card, no Square charge — just
-    // record how it was paid and mark the appointment done.
-    if (paymentMethod !== 'square') {
+    // No card in this payment (single off-Square method, or a split
+    // across two of them): no Square charge — just record how it was
+    // paid and mark the appointment done.
+    if (!cardInvolved) {
       try {
         const res = await fetch('/api/pos/mark-paid', {
           method: 'POST',
@@ -366,7 +403,12 @@ export default function POSCheckout() {
             appointmentId,
             tipAmount,
             discount: Math.min(discountAmount, servicePrice),
-            paymentMethod,
+            paymentMethod: splitOn ? undefined : paymentMethod,
+            addons: addonsPayload,
+            split: splitOn ? [
+              { method: splitMethodA, amount: splitAmtA },
+              { method: splitMethodB, amount: splitAmtB },
+            ] : undefined,
           }),
         })
         const json = await res.json()
@@ -377,7 +419,9 @@ export default function POSCheckout() {
           service: servicePrice,
           discount: Math.min(discountAmount, servicePrice),
           deposit: json.depositCredit || 0,
-          paymentMethodLabel: paymentMethodLabel(paymentMethod),
+          paymentMethodLabel: splitOn ? undefined : paymentMethodLabel(paymentMethod),
+          addons: json.addons || [],
+          split: json.split || null,
         })
         setSuccess(true)
       } catch (err: any) {
@@ -401,6 +445,14 @@ export default function POSCheckout() {
       sourceId = result.token
     }
 
+    // Split with a card part: the card is charged only its portion and
+    // the server records the remainder method staff collected.
+    const remainder = splitOn
+      ? (splitMethodA === 'square'
+          ? { method: splitMethodB, amount: splitAmtB }
+          : { method: splitMethodA, amount: splitAmtA })
+      : null
+
     try {
       const res = await fetch('/api/square/checkout', {
         method: 'POST',
@@ -413,12 +465,25 @@ export default function POSCheckout() {
           useCardOnFile: mode === 'card-on-file',
           saveCard: mode === 'manual' ? saveCard : false,
           consentText: mode === 'manual' && saveCard ? `${posConsentText} [Client agreement confirmed by staff at POS.]` : undefined,
+          addons: addonsPayload,
+          cardPortion: splitOn ? cardPortion : undefined,
+          splitRemainder: remainder || undefined,
         }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Checkout failed')
 
-      setReceiptData({ total: json.total, tip: tipAmount, service: servicePrice, discount: Math.min(discountAmount, servicePrice), deposit: json.depositCredit || 0, cardSaved: json.cardSaved })
+      setReceiptData({
+        total: json.total,
+        tip: tipAmount,
+        service: servicePrice,
+        discount: Math.min(discountAmount, servicePrice),
+        deposit: json.depositCredit || 0,
+        cardSaved: json.cardSaved,
+        paymentMethodLabel: splitOn ? undefined : 'Card',
+        addons: json.addons || [],
+        split: json.split || null,
+      })
       setSuccess(true)
     } catch (err: any) {
       setError(err.message)
@@ -472,6 +537,12 @@ export default function POSCheckout() {
               <span className="text-charcoal-900 dark:text-white font-mono">${receiptData.deposit.toFixed(2)}</span>
             </div>
           )}
+          {(receiptData.addons || []).map((a: { label?: string; amount: number }, i: number) => (
+            <div key={i} className="flex justify-between text-sm">
+              <span className="text-charcoal-400 truncate pr-3">{a.label || 'Item'}</span>
+              <span className="text-charcoal-900 dark:text-white font-mono">${Number(a.amount).toFixed(2)}</span>
+            </div>
+          ))}
           <div className="flex justify-between text-sm">
             <span className="text-charcoal-400">Tip</span>
             <span className="text-charcoal-900 dark:text-white font-mono">${receiptData.tip.toFixed(2)}</span>
@@ -484,6 +555,17 @@ export default function POSCheckout() {
             <div className="flex justify-between text-sm pt-1">
               <span className="text-charcoal-400">Paid with</span>
               <span className="text-charcoal-900 dark:text-white font-semibold">{receiptData.paymentMethodLabel}</span>
+            </div>
+          )}
+          {receiptData.split?.length === 2 && (
+            <div className="pt-1 space-y-1">
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500">Split payment</div>
+              {receiptData.split.map((s: { method: string; amount: number }, i: number) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className="text-charcoal-400">{paymentMethodLabel(s.method)}</span>
+                  <span className="text-charcoal-900 dark:text-white font-semibold">${Number(s.amount).toFixed(2)}</span>
+                </div>
+              ))}
             </div>
           )}
           {receiptData.cardSaved && (
@@ -651,11 +733,60 @@ export default function POSCheckout() {
           )}
         </div>
 
+        {/* Add-on items: products or extras bought on top of the service */}
+        <div className="mb-5">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Add an item</div>
+          {addons.map((a, i) => (
+            <div key={i} className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                value={a.label}
+                onChange={e => setAddons(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                placeholder="What did they buy? (e.g. Pomade)"
+                className="flex-1 min-w-0 bg-warm-200 dark:bg-charcoal-800 border border-charcoal-600 rounded-lg px-3 py-2.5 text-base text-charcoal-900 dark:text-white outline-none focus:border-[#7A8C3A] transition-colors"
+              />
+              <div className="relative w-24 flex-shrink-0">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-400 text-sm">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={a.amount}
+                  onChange={e => setAddons(prev => prev.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
+                  placeholder="0.00"
+                  className="w-full bg-warm-200 dark:bg-charcoal-800 border border-charcoal-600 rounded-lg pl-7 pr-2 py-2.5 text-base text-charcoal-900 dark:text-white outline-none focus:border-[#7A8C3A] transition-colors"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddons(prev => prev.filter((_, j) => j !== i))}
+                aria-label="Remove item"
+                className="w-10 h-11 flex items-center justify-center text-charcoal-500 hover:text-red-400 transition-colors flex-shrink-0"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setAddons(prev => [...prev, { label: '', amount: '' }])}
+            className="text-xs font-semibold px-3 py-2.5 min-h-[44px] rounded-lg text-[#7A8C3A] hover:bg-[#7A8C3A]/10 transition-colors"
+          >
+            + Add a product or extra charge
+          </button>
+          <p className="text-[11px] text-charcoal-500 mt-1">Name it so it shows what it was in your reports, not just a number.</p>
+        </div>
+
         {/* Total breakdown */}
         <div className="bg-warm-100 dark:bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 mb-5">
           <div className="flex justify-between items-center mb-2 text-sm text-charcoal-400">
             <span>Service</span><span className="font-mono">${servicePrice.toFixed(2)}</span>
           </div>
+          {addonsPayload.map((a, i) => (
+            <div key={i} className="flex justify-between items-center mb-2 text-sm text-charcoal-400">
+              <span className="truncate pr-3">{a.label || 'Item'}</span><span className="font-mono">${a.amount.toFixed(2)}</span>
+            </div>
+          ))}
           {discountAmount > 0 && (
             <div className="flex justify-between items-center mb-2 text-sm text-red-400">
               <span>Discount</span><span className="font-mono">−${Math.min(discountAmount, servicePrice).toFixed(2)}</span>
@@ -678,6 +809,65 @@ export default function POSCheckout() {
         {/* How they're paying */}
         <div className="mb-5">
           <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">How are they paying?</div>
+
+          {/* Split payment toggle */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-charcoal-300">Split between two methods</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={splitOn}
+              onClick={() => {
+                if (!splitOn && !splitAmountA) setSplitAmountA((total / 2).toFixed(2))
+                setSplitOn(v => !v)
+              }}
+              className={`w-11 h-6 rounded-full transition-colors flex-shrink-0 ${splitOn ? 'bg-[#7A8C3A]' : 'bg-charcoal-700'}`}
+            >
+              <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${splitOn ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+
+          {splitOn && (
+            <div className="space-y-3 mb-4">
+              <div className="flex items-center gap-2">
+                <select
+                  value={splitMethodA}
+                  onChange={e => setSplitMethodA(e.target.value as PaymentMethod)}
+                  className="flex-1 min-w-0 bg-warm-200 dark:bg-charcoal-800 border border-charcoal-600 rounded-lg px-3 py-2.5 text-base text-charcoal-900 dark:text-white outline-none focus:border-[#7A8C3A]"
+                >
+                  {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+                <div className="relative w-28 flex-shrink-0">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-400 text-sm">$</span>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={splitAmountA}
+                    onChange={e => setSplitAmountA(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full bg-warm-200 dark:bg-charcoal-800 border border-charcoal-600 rounded-lg pl-7 pr-2 py-2.5 text-base text-charcoal-900 dark:text-white outline-none focus:border-[#7A8C3A]"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={splitMethodB}
+                  onChange={e => setSplitMethodB(e.target.value as PaymentMethod)}
+                  className="flex-1 min-w-0 bg-warm-200 dark:bg-charcoal-800 border border-charcoal-600 rounded-lg px-3 py-2.5 text-base text-charcoal-900 dark:text-white outline-none focus:border-[#7A8C3A]"
+                >
+                  {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+                <div className="w-28 flex-shrink-0 text-right font-mono text-base text-charcoal-900 dark:text-white pr-2">
+                  ${Math.max(0, splitAmtB).toFixed(2)}
+                </div>
+              </div>
+              {splitMethodA === splitMethodB && (
+                <p className="text-red-400 text-xs">Pick two different methods.</p>
+              )}
+              <p className="text-[11px] text-charcoal-500">The second amount is whatever is left of the total. Take the non-card part first, then tap the button below — the card part is charged when you do.</p>
+            </div>
+          )}
+
+          {!splitOn && (<>
           <div className="grid grid-cols-3 gap-2 mb-3">
             {PAYMENT_METHODS.map(m => {
               const available = methodAvailable(m.value)
@@ -713,7 +903,8 @@ export default function POSCheckout() {
               collectOwn={!!shopPayouts?.barbers_collect_own_payments}
             />
           )}
-          {paymentMethod === 'square' && (
+          </>)}
+          {cardInvolved && (
             <>
               <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-500 mb-3">Card</div>
               <div className="space-y-2">
@@ -757,7 +948,7 @@ export default function POSCheckout() {
         </div>
 
         {/* Card form (manual card entry — Square only) */}
-        {paymentMethod === 'square' && mode === 'manual' && (
+        {cardInvolved && mode === 'manual' && (
           <div className="mb-5">
             <div className="bg-warm-100 dark:bg-charcoal-900 border border-charcoal-700 rounded-xl p-4">
               {cardLoading && (
@@ -839,7 +1030,7 @@ export default function POSCheckout() {
           </div>
           <button
             onClick={handleCheckout}
-            disabled={processing || discountInvalid || (paymentMethod === 'square' && mode === 'manual' && !cardReady)}
+            disabled={processing || discountInvalid || !splitValid || (cardInvolved && mode === 'manual' && !cardReady)}
             className="w-full bg-[#7A8C3A] text-black font-bold py-4 rounded-2xl text-base hover:bg-[#8FA043] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {processing ? (
@@ -847,13 +1038,17 @@ export default function POSCheckout() {
                 <span className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
                 Processing…
               </span>
+            ) : splitOn && cardInvolved ? (
+              `Charge $${cardPortion.toFixed(2)} on card · $${(total - cardPortion).toFixed(2)} ${paymentMethodLabel(splitMethodA === 'square' ? splitMethodB : splitMethodA)}`
+            ) : splitOn ? (
+              `Record $${total.toFixed(2)} split payment`
             ) : paymentMethod === 'square' ? (
               `Charge $${total.toFixed(2)}`
             ) : (
               `Mark $${total.toFixed(2)} paid \u00b7 ${paymentMethodLabel(paymentMethod)}`
             )}
           </button>
-          <p className="text-center text-[11px] text-charcoal-600 mt-2">{paymentMethod === 'square' ? 'Secured by Square · This action marks the appointment as complete' : 'This marks the appointment as complete and records the payment method'}</p>
+          <p className="text-center text-[11px] text-charcoal-600 mt-2">{cardInvolved ? 'Secured by Square · This action marks the appointment as complete' : 'This marks the appointment as complete and records the payment method'}</p>
         </div>
       </div>
     </div>
