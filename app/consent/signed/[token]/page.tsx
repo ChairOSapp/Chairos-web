@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, use as usePromise } from 'react'
+import Link from 'next/link'
 
 interface SignedInfo {
   signedUrl: string
@@ -12,6 +13,8 @@ export default function SignedConsentPage({ params }: { params: Promise<{ token:
   const { token } = usePromise(params)
   const [info, setInfo] = useState<SignedInfo | null>(null)
   const [error, setError] = useState('')
+  const [emailState, setEmailState] = useState<'idle' | 'sending' | 'sent'>('idle')
+  const [emailMsg, setEmailMsg] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -23,10 +26,32 @@ export default function SignedConsentPage({ params }: { params: Promise<{ token:
     load()
   }, [token])
 
+  async function emailCopy() {
+    setEmailState('sending')
+    setEmailMsg('')
+    try {
+      const res = await fetch(`/api/consent/signed/${token}/email`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        setEmailState('idle')
+        setEmailMsg(data.error || 'Could not send the email')
+        return
+      }
+      setEmailState('sent')
+      setEmailMsg(`Sent to ${data.maskedEmail}`)
+    } catch {
+      setEmailState('idle')
+      setEmailMsg('Could not send the email. Check your connection and try again.')
+    }
+  }
+
   if (error) {
     return (
       <div className="min-h-screen bg-warm-50 flex items-center justify-center p-6">
-        <p className="text-charcoal-500 text-sm">{error}</p>
+        <div className="text-center">
+          <p className="text-charcoal-500 text-sm max-w-sm mb-6">{error}</p>
+          <Link href="/my" className="btn-chairos inline-block">Back to home</Link>
+        </div>
       </div>
     )
   }
@@ -42,9 +67,6 @@ export default function SignedConsentPage({ params }: { params: Promise<{ token:
   return (
     <div className="min-h-screen bg-warm-50 py-8 px-4">
       <div className="max-w-3xl mx-auto">
-        <button onClick={() => window.history.back()} className="text-charcoal-500 text-sm mb-4">
-          ← Back
-        </button>
         <div className="text-center mb-6">
           <h1 className="font-serif text-2xl text-od-green mb-2">Your Signed Consent Form</h1>
           <p className="text-charcoal-500 text-sm mb-1">{info.shopName} · v{info.templateVersion}</p>
@@ -62,7 +84,32 @@ export default function SignedConsentPage({ params }: { params: Promise<{ token:
             </div>
           </object>
         </div>
-        <p className="text-charcoal-400 text-xs text-center">This link expires after 15 minutes. Save this page's URL to return later.</p>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+          <button
+            onClick={() => window.open(info.signedUrl, '_blank')}
+            className="btn-chairos"
+          >
+            Print or save a copy
+          </button>
+          <button
+            onClick={emailCopy}
+            disabled={emailState !== 'idle'}
+            className="btn-chairos-outline disabled:opacity-50"
+          >
+            {emailState === 'sending' ? 'Sending…' : emailState === 'sent' ? 'Emailed ✓' : 'Email it to me'}
+          </button>
+          <Link href="/my" className="btn-chairos-outline inline-block text-center">
+            Back to home
+          </Link>
+        </div>
+        {emailMsg && (
+          <p className={`text-sm text-center mb-4 ${emailState === 'sent' ? 'text-od-green' : 'text-red-500'}`}>
+            {emailMsg}
+          </p>
+        )}
+
+        <p className="text-charcoal-400 text-xs text-center">The PDF link above refreshes each time you open this page. Bookmark this page to come back to your form.</p>
       </div>
     </div>
   )
