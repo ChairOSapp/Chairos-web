@@ -52,7 +52,7 @@ export default function ConsentSigningPage({ params }: { params: Promise<{ appoi
       <div className="min-h-screen bg-warm-50 flex items-center justify-center p-6">
         <div className="text-center">
           <p className="text-charcoal-500 text-sm max-w-sm mb-6">{loadError}</p>
-          <button onClick={() => window.history.back()} className="btn-chairos">← Go back</button>
+          <Link href="/my" className="btn-chairos inline-block">Back to home</Link>
         </div>
       </div>
     )
@@ -87,7 +87,17 @@ function OtpGate({ gate, appointmentId, onVerified }: {
   const [sending, setSending] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState('')
-  const [sent, setSent] = useState(false)
+  const sentKey = `consentOtpSent:${appointmentId}`
+  // Codes live 5 minutes. If a code was already sent in this browser
+  // session within that window, it still works — start in the sent
+  // state so the mount effect below doesn't text a second one when
+  // the page remounts (back from the signed copy, a webview reload).
+  const [sent, setSent] = useState<boolean>(() => {
+    try {
+      const t = Number(sessionStorage.getItem(sentKey) || 0)
+      return t > 0 && Date.now() - t < 5 * 60 * 1000
+    } catch { return false }
+  })
 
   async function sendCode() {
     setSending(true)
@@ -101,9 +111,12 @@ function OtpGate({ gate, appointmentId, onVerified }: {
     setSending(false)
     if (!res.ok) { setError(data.error || 'Could not send a code'); return }
     setSent(true)
+    try { sessionStorage.setItem(sentKey, String(Date.now())) } catch { /* private mode */ }
   }
 
-  useEffect(() => { sendCode() }, [])
+  // Auto-send on first arrival only — the sent state above already
+  // covers the remount case, so a recent code is never re-texted.
+  useEffect(() => { if (!sent) sendCode() }, [])
 
   async function verify() {
     if (code.trim().length < 6) { setError('Enter the 6-digit code'); return }
@@ -243,7 +256,7 @@ function BuilderSigningForm({ info, appointmentId }: { info: TemplateInfo; appoi
               View your signed copy
             </Link>
           )}
-          <button onClick={() => window.history.back()} className="btn-chairos-outline">← Back</button>
+          <Link href="/my" className="btn-chairos inline-block">Back to home</Link>
         </div>
       </div>
     )
@@ -432,7 +445,7 @@ function LegacySigningForm({ info, appointmentId }: { info: TemplateInfo; appoin
               View your signed copy
             </Link>
           )}
-          <button onClick={() => window.history.back()} className="btn-chairos-outline">← Back</button>
+          <Link href="/my" className="btn-chairos inline-block">Back to home</Link>
         </div>
       </div>
     )
