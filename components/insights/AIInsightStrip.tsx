@@ -79,21 +79,21 @@ export default function AIInsightStrip({ userId }: Props) {
   const oneThing = c.one_thing
 
   return (
-    <div className="bg-charcoal-900 border-l-4 border-od-green rounded-xl p-4 mb-6">
+    <div className="bg-white border border-warm-200 dark:border-white/10 border-l-4 border-l-od-green rounded-xl p-4 mb-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           {headline && (
-            <div className="font-serif text-lg text-white leading-snug mb-1">{headline}</div>
+            <div className="font-serif text-lg text-charcoal-900 dark:text-[#EDECEA] leading-snug mb-1">{headline}</div>
           )}
           {oneThing && (
-            <div className="text-sm text-charcoal-400">
+            <div className="text-sm text-charcoal-500 dark:text-[#A8A89E]">
               Today&apos;s focus: {oneThing}
             </div>
           )}
         </div>
         <button
           onClick={dismiss}
-          className="text-charcoal-400 hover:text-white flex-shrink-0 p-0.5 transition-colors"
+          className="text-charcoal-400 hover:text-charcoal-900 dark:text-[#A8A89E] dark:hover:text-white flex-shrink-0 p-0.5 transition-colors"
           aria-label="Dismiss brief"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -110,25 +110,25 @@ export default function AIInsightStrip({ userId }: Props) {
       </button>
 
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-charcoal-700 pt-3">
+        <div className="mt-3 space-y-3 border-t border-warm-200 dark:border-white/10 pt-3">
           {c.yesterday_summary && (
             <div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Yesterday</div>
-              <p className="text-sm text-white/70 leading-relaxed">{c.yesterday_summary}</p>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 dark:text-[#A8A89E] mb-1">Yesterday</div>
+              <p className="text-sm text-charcoal-600 dark:text-[#A8A89E] leading-relaxed">{c.yesterday_summary}</p>
             </div>
           )}
           {c.week_summary && (
             <div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">This Week</div>
-              <p className="text-sm text-white/70 leading-relaxed">{c.week_summary}</p>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 dark:text-[#A8A89E] mb-1">This Week</div>
+              <p className="text-sm text-charcoal-600 dark:text-[#A8A89E] leading-relaxed">{c.week_summary}</p>
             </div>
           )}
           {c.suggestions && c.suggestions.length > 0 && (
             <div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Suggestions</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 dark:text-[#A8A89E] mb-1">Suggestions</div>
               <ol className="space-y-1.5">
                 {c.suggestions.map((s: any, i: number) => (
-                  <li key={i} className="flex gap-2 text-sm text-white/70">
+                  <li key={i} className="flex gap-2 text-sm text-charcoal-600 dark:text-[#A8A89E]">
                     <span className="text-od-green font-bold flex-shrink-0">{i + 1}.</span>
                     <span>{typeof s === 'string' ? s : s.action ?? s.text ?? JSON.stringify(s)}</span>
                   </li>
@@ -138,13 +138,13 @@ export default function AIInsightStrip({ userId }: Props) {
           )}
           {c.shop_totals && (
             <div>
-              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Shop Totals</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 dark:text-[#A8A89E] mb-1">Shop Totals</div>
               <dl className="space-y-1">
                 {Object.entries(c.shop_totals as Record<string, any>).map(([k, v]) =>
                   v != null ? (
                     <div key={k} className="flex justify-between text-sm">
-                      <dt className="text-charcoal-400">{k.replace(/_/g, ' ')}</dt>
-                      <dd className="font-medium text-white/90">{String(v)}</dd>
+                      <dt className="text-charcoal-500 dark:text-[#A8A89E]">{k.replace(/_/g, ' ')}</dt>
+                      <dd className="font-medium text-charcoal-900 dark:text-[#EDECEA]">{String(v)}</dd>
                     </div>
                   ) : null
                 )}
