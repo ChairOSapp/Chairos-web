@@ -202,7 +202,9 @@ export default function StaffCalendar({ shopId, barberId, barberName, color, sho
   }
 
   function handleDatesSet(info: DatesSetArg) {
-    setViewStart(info.start)
+    // Same fix as OwnerCalendar: label from the view's anchor date,
+    // not the grid's first visible cell (previous month's lead days).
+    setViewStart(info.view.currentStart)
     setViewRange({ start: info.start, end: info.end })
   }
 

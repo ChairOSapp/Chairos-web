@@ -253,7 +253,11 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad, openAp
   }
 
   function handleDatesSet(info: DatesSetArg) {
-    setViewStart(info.start)
+    // The label must name the period the view is anchored to, not the
+    // first visible cell: a month grid leads with the previous month's
+    // last days, so info.start read "September" for the October grid.
+    // viewRange keeps the visible span (chip counts depend on it).
+    setViewStart(info.view.currentStart)
     setViewRange({ start: info.start, end: info.end })
   }
 
