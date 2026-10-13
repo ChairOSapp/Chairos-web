@@ -1,6 +1,8 @@
 'use client'
 import React, { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+import { tabCacheGet, tabCacheSet } from '@/lib/tabCache'
+import { SkeletonPage } from '@/components/Skeleton'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import StaffNav from '@/components/StaffNav'
@@ -157,6 +159,25 @@ export default function ClientsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
+      // Warm tab switch: paint the cached snapshot before any network
+      // fetch; the fresh load below overwrites as it lands.
+      const boot = tabCacheGet<Record<string, unknown>>(`bootstrap:${user.id}`)
+      const bootShop = boot?.shop as { id: string } | undefined
+      if (bootShop?.id) {
+        const snap = tabCacheGet<Record<string, unknown>>(`clients:${bootShop.id}`)
+        if (snap) {
+          setProfile(boot?.profile)
+          setShop(bootShop)
+          setAllAppts((snap.allAppts as unknown[]) || [])
+          setLockMap((snap.lockMap as Record<string, { locked: boolean; barber_id: string | null }>) || {})
+          setBarberMap((snap.barberMap as Record<string, string>) || {})
+          setMyBarberRow((snap.myBarberRow as { barber_name: string | null; alias: string | null; color: string | null; photo_url: string | null } | undefined) || null)
+          setTagMap((snap.tagMap as Record<string, string[]>) || {})
+          setAllTags((snap.allTags as string[]) || [])
+          setLoading(false)
+        }
+      }
+
       const [{ data: prof }, { data: shopData }] = await Promise.all([
         supabase.from('profiles').select('id, full_name, role').eq('id', user.id).maybeSingle(),
         supabase.from('shops').select('id, name').eq('owner_id', user.id).maybeSingle(),
@@ -211,8 +232,10 @@ export default function ClientsPage() {
       }
       setBarberMap(bm)
 
+      let myRow: { barber_name: string | null; alias: string | null; color: string | null; photo_url: string | null } | null = null
       if (prof?.role === 'barber') {
-        setMyBarberRow((barbers || []).find(b => b.barber_id === user.id) || null)
+        myRow = (barbers || []).find(b => b.barber_id === user.id) || null
+        setMyBarberRow(myRow)
       }
 
       const tm: Record<string, string[]> = {}
@@ -222,7 +245,13 @@ export default function ClientsPage() {
         tm[t.client_id].push(t.tag)
       }
       setTagMap(tm)
-      setAllTags([...new Set((tags || []).map(t => t.tag))].sort())
+      const tagList = [...new Set((tags || []).map(t => t.tag))].sort()
+      setAllTags(tagList)
+
+      tabCacheSet(`clients:${shopData.id}`, {
+        allAppts: appts || [], lockMap: lm, barberMap: bm,
+        myBarberRow: myRow, tagMap: tm, allTags: tagList,
+      })
 
       setLoading(false)
     }
@@ -417,8 +446,8 @@ export default function ClientsPage() {
   const filteredCount = table.getFilteredRowModel().rows.length
 
   if (loading) return (
-    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
+    <div className="min-h-screen bg-warm-50">
+      <SkeletonPage variant="list" />
     </div>
   )
 

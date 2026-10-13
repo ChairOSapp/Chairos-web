@@ -6,16 +6,14 @@ import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 import { useRouter, useSearchParams } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { tabCacheGet, tabCacheSet } from '@/lib/tabCache'
+import { SkeletonPage } from '@/components/Skeleton'
 
 const OwnerCalendar = dynamic(
   () => import('@/components/calendar/OwnerCalendar'),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
-      </div>
-    ),
+    loading: () => <SkeletonPage variant="calendar" />,
   }
 )
 
@@ -43,6 +41,15 @@ function CalendarPageInner() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      // Warm tab switch: a cached bootstrap paints the calendar
+      // immediately while the fresh profile/shop load runs behind it.
+      const cacheKey = `bootstrap:${user.id}`
+      const cached = tabCacheGet<{ profile: unknown; shop: unknown }>(cacheKey)
+      if (cached) {
+        setProfile(cached.profile)
+        setShop(cached.shop)
+        setLoading(false)
+      }
       const [{ data: prof }, { data: shopData }] = await Promise.all([
         supabase.from('profiles').select('id, full_name, role, subscription_status, trial_end').eq('id', user.id).maybeSingle(),
         supabase.from('shops').select('id, name, shop_code, invite_code, slug').eq('owner_id', user.id).maybeSingle(),
@@ -51,12 +58,17 @@ function CalendarPageInner() {
       if (prof?.role === 'barber') { router.push('/dashboard/chair/calendar' + (openAppt ? `?appt=${encodeURIComponent(openAppt)}` : '')); return }
       if (!shopData) { router.push('/onboarding'); return }
       setShop(shopData)
+      tabCacheSet(cacheKey, { profile: prof, shop: shopData })
       setLoading(false)
     }
     load()
   }, [supabase, router])
 
-  if (loading) return <Spinner />
+  if (loading) return (
+    <div className="min-h-screen bg-warm-50 flex flex-col">
+      <SkeletonPage variant="calendar" />
+    </div>
+  )
 
   const ownerName = profile?.full_name || shop?.name || ''
   const initials = ownerName.split(' ').map((w: string) => w[0]).join('').substring(0,2).toUpperCase() || 'CH'
@@ -80,7 +92,11 @@ function CalendarPageInner() {
 
 export default function CalendarPage() {
   return (
-    <Suspense fallback={<Spinner />}>
+    <Suspense fallback={(
+      <div className="min-h-screen bg-warm-50 flex flex-col">
+        <SkeletonPage variant="calendar" />
+      </div>
+    )}>
       <CalendarPageInner />
     </Suspense>
   )
