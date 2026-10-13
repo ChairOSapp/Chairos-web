@@ -92,7 +92,11 @@ function CalendarPageInner() {
 
 export default function CalendarPage() {
   return (
-    <Suspense fallback={<Spinner />}>
+    <Suspense fallback={(
+      <div className="min-h-screen bg-warm-50 flex flex-col">
+        <SkeletonPage variant="calendar" />
+      </div>
+    )}>
       <CalendarPageInner />
     </Suspense>
   )

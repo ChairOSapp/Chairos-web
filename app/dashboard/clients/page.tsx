@@ -159,6 +159,25 @@ export default function ClientsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
+      // Warm tab switch: paint the cached snapshot before any network
+      // fetch; the fresh load below overwrites as it lands.
+      const boot = tabCacheGet<Record<string, unknown>>(`bootstrap:${user.id}`)
+      const bootShop = boot?.shop as { id: string } | undefined
+      if (bootShop?.id) {
+        const snap = tabCacheGet<Record<string, unknown>>(`clients:${bootShop.id}`)
+        if (snap) {
+          setProfile(boot?.profile)
+          setShop(bootShop)
+          setAllAppts((snap.allAppts as unknown[]) || [])
+          setLockMap((snap.lockMap as Record<string, { locked: boolean; barber_id: string | null }>) || {})
+          setBarberMap((snap.barberMap as Record<string, string>) || {})
+          setMyBarberRow((snap.myBarberRow as { barber_name: string | null; alias: string | null; color: string | null; photo_url: string | null } | undefined) || null)
+          setTagMap((snap.tagMap as Record<string, string[]>) || {})
+          setAllTags((snap.allTags as string[]) || [])
+          setLoading(false)
+        }
+      }
+
       const [{ data: prof }, { data: shopData }] = await Promise.all([
         supabase.from('profiles').select('id, full_name, role').eq('id', user.id).maybeSingle(),
         supabase.from('shops').select('id, name').eq('owner_id', user.id).maybeSingle(),
@@ -173,19 +192,6 @@ export default function ClientsPage() {
         return
       }
       setShop(shopData)
-
-      // Warm tab switch: paint the last snapshot now; the fresh load
-      // below overwrites it as it lands.
-      const snap = tabCacheGet<Record<string, unknown>>(`clients:${shopData.id}`)
-      if (snap) {
-        setAllAppts((snap.allAppts as unknown[]) || [])
-        setLockMap((snap.lockMap as Record<string, { locked: boolean; barber_id: string | null }>) || {})
-        setBarberMap((snap.barberMap as Record<string, string>) || {})
-        setMyBarberRow((snap.myBarberRow as { barber_name: string | null; alias: string | null; color: string | null; photo_url: string | null } | undefined) || null)
-        setTagMap((snap.tagMap as Record<string, string[]>) || {})
-        setAllTags((snap.allTags as string[]) || [])
-        setLoading(false)
-      }
 
       const [appts, locks, { data: barbers }, tags] = await Promise.all([
         fetchAllRows((from, to) => supabase.from('appointments')

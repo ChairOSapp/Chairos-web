@@ -161,6 +161,33 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
+      // Warm tab switch: paint the cached snapshot before any network
+      // fetch. The fresh load below still runs end to end (role and
+      // billing gates included) and overwrites as it lands.
+      const boot = tabCacheGet<Record<string, unknown>>(`bootstrap:${user.id}`)
+      const bootProfile = boot?.profile as { role?: string } | undefined
+      const bootShop = boot?.shop as { id: string } | undefined
+      if (bootProfile?.role === 'owner' && bootShop?.id) {
+        setProfile(bootProfile)
+        setShop(bootShop)
+        setShopId(bootShop.id)
+        const snap = tabCacheGet<Record<string, unknown>>(`home:${bootShop.id}`)
+        if (snap) {
+          setBarbers((snap.barbers as unknown[]) || [])
+          setAllBarbers((snap.allBarbers as unknown[]) || [])
+          setServices((snap.services as unknown[]) || [])
+          setClientLocks((snap.clientLocks as unknown[]) || [])
+          setTodayAppointments((snap.todayAppointments as unknown[]) || [])
+          setWeekAppointments((snap.weekAppointments as unknown[]) || [])
+          setTips((snap.tips as unknown[]) || [])
+          setRetentionRevenue((snap.retentionRevenue as number) || 0)
+          setBarberRiskMap((snap.barberRiskMap as Record<string, boolean>) || {})
+          setBarberStats30((snap.barberStats30 as Record<string, { appts: number; clients: number; repeatClients: number }>) || {})
+          setSavedClientsCount((snap.savedClientsCount as number) || 0)
+          setLoading(false)
+        }
+      }
+
       let { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
 
       // Re-fetch after a short delay when returning from Stripe checkout so the
@@ -184,24 +211,6 @@ export default function Dashboard() {
         setShop(shopData)
         setShopId(shopData.id)
         tabCacheSet(`bootstrap:${user.id}`, { profile: prof, shop: shopData })
-
-        // Warm tab switch: paint the last snapshot of this page now;
-        // the fresh load below overwrites it as it lands.
-        const snap = tabCacheGet<Record<string, unknown>>(`home:${shopData.id}`)
-        if (snap) {
-          setBarbers((snap.barbers as unknown[]) || [])
-          setAllBarbers((snap.allBarbers as unknown[]) || [])
-          setServices((snap.services as unknown[]) || [])
-          setClientLocks((snap.clientLocks as unknown[]) || [])
-          setTodayAppointments((snap.todayAppointments as unknown[]) || [])
-          setWeekAppointments((snap.weekAppointments as unknown[]) || [])
-          setTips((snap.tips as unknown[]) || [])
-          setRetentionRevenue((snap.retentionRevenue as number) || 0)
-          setBarberRiskMap((snap.barberRiskMap as Record<string, boolean>) || {})
-          setBarberStats30((snap.barberStats30 as Record<string, { appts: number; clients: number; repeatClients: number }>) || {})
-          setSavedClientsCount((snap.savedClientsCount as number) || 0)
-          setLoading(false)
-        }
 
         const [{ data: barbersData }, { data: allBarbersData }, { data: svcs }, { data: locks }] = await Promise.all([
           supabase.from('shop_barbers').select('*').eq('shop_id', shopData.id).eq('active', true),
