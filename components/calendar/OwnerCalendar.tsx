@@ -175,10 +175,18 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad, openAp
     return appointments.filter(a => a.date >= s && a.date < e)
   }, [appointments, viewRange])
 
+  // filterBarberId holds the chip key — the roster row id for a barber
+  // who has not claimed an account yet (their barber_id is NULL, which
+  // used to make their chip identical to "Everyone": both highlighted
+  // and the grid showed everything). Translate the key back to the
+  // value appointments actually carry; an unclaimed barber's
+  // appointments are stored with barber_id NULL.
   const visibleAppointments = useMemo(() => {
     if (!filterBarberId) return appointments
-    return appointments.filter(a => a.barber_id === filterBarberId)
-  }, [appointments, filterBarberId])
+    const b = barbers.find(x => (x.barber_id ?? x.id) === filterBarberId)
+    if (!b) return appointments
+    return appointments.filter(a => a.barber_id === b.barber_id)
+  }, [appointments, filterBarberId, barbers])
 
   const fcEvents = useMemo(() => {
     const apptEvents = visibleAppointments.map(a => {
@@ -545,11 +553,12 @@ export default function OwnerCalendar({ shopId, shopCode, openBookOnLoad, openAp
           {barbers.map(b => {
             const color = barberColorMap[b.barber_id]
             const count = rangeAppointments.filter(a => a.barber_id === b.barber_id).length
-            const active = filterBarberId === b.barber_id
+            const chipKey = b.barber_id ?? b.id
+            const active = filterBarberId === chipKey
             return (
               <button
-                key={b.barber_id}
-                onClick={() => setFilterBarberId(active ? null : b.barber_id)}
+                key={chipKey}
+                onClick={() => setFilterBarberId(active ? null : chipKey)}
                 className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold border transition-colors min-h-[44px] ${active ? 'bg-charcoal-900 text-warm-50 border-charcoal-900' : 'bg-warm-50 text-charcoal-600 border-warm-300 hover:border-charcoal-400'}`}
               >
                 <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />

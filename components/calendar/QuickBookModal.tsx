@@ -79,7 +79,7 @@ export default function QuickBookModal({
   const [time, setTime] = useState(initialTime || '09:00:00')
   const [barberKey, setBarberKey] = useState(() => {
     const wanted = lockedBarberId || initialBarberId
-    const match = (wanted ? barbers.find(b => b.barber_id === wanted) : undefined) ?? barbers[0]
+    const match = (wanted ? barbers.find(b => b.barber_id === wanted || b.id === wanted) : undefined) ?? barbers[0]
     return match ? barberKeyOf(match) : ''
   })
   const [serviceId, setServiceId] = useState('')
