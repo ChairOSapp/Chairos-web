@@ -1,6 +1,8 @@
 'use client'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { tabCacheGet, tabCacheSet } from '@/lib/tabCache'
+import { SkeletonPage } from '@/components/Skeleton'
 import { useRouter, usePathname } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import StaffNav from '@/components/StaffNav'
@@ -294,6 +296,13 @@ export default function InsightsPage() {
   const [ana_reviews, ana_setReviews] = useState<any[]>([])
   const [ana_loading, ana_setLoading] = useState(true)
 
+  // Which period the currently held revenue data belongs to, and
+  // whether analytics data is held at all. Background refreshes (tab
+  // switches with a warm cache) skip the loading state when data for
+  // the same view is already on screen; a period change still loads.
+  const revDataPeriodRef = useRef<string | null>(null)
+  const anaDataRef = useRef(false)
+
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 
@@ -304,6 +313,42 @@ export default function InsightsPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { router.push('/login'); return }
         setUserId(user.id)
+
+        // Warm tab switch: paint the cached auth + data snapshot now;
+        // the fresh loads below overwrite as they land.
+        let resolvedShop: { id: string; owner_id?: string } | null = null
+        let resolvedBarbers: ShopBarber[] = []
+        let resolvedBarberId = ''
+        const authSnap = tabCacheGet<Record<string, unknown>>(`insights-auth:${user.id}`)
+        const authShop = (authSnap?.shop ?? null) as { id: string } | null
+        if (authSnap && authShop) {
+          setProfile(authSnap.profile)
+          setRole(authSnap.role as 'owner' | 'barber')
+          setBarberId(typeof authSnap.barberId === 'string' ? authSnap.barberId : '')
+          setShopOwnerId(typeof authSnap.shopOwnerId === 'string' ? authSnap.shopOwnerId : '')
+          setShop(authShop)
+          setShopBarbers((authSnap.shopBarbers as ShopBarber[] | undefined) || [])
+          setAuthLoading(false)
+          const dataSnap = tabCacheGet<Record<string, unknown>>(`insights-data:${authShop.id}`)
+          if (dataSnap) {
+            const snapPeriod = (dataSnap.rev_period as RevPeriod | undefined) || 'month'
+            rev_setPeriod(snapPeriod)
+            rev_setAppointments((dataSnap.rev_appointments as RevAppointment[] | undefined) || [])
+            rev_setTips((dataSnap.rev_tips as Tip[] | undefined) || [])
+            rev_setNoshowCount((dataSnap.rev_noshowCount as number | undefined) || 0)
+            rev_setHistory((dataSnap.rev_history as { amount_cents: number; paid_at: string }[] | undefined) || [])
+            setTodayAppts((dataSnap.today_appts as TodayAppt[] | undefined) || [])
+            setTodayTips((dataSnap.today_tips as number | undefined) || 0)
+            ana_setAppointments((dataSnap.ana_appointments as AnaAppointment[] | undefined) || [])
+            ana_setClientLocks((dataSnap.ana_clientLocks as ClientLock[] | undefined) || [])
+            ana_setReviews((dataSnap.ana_reviews as unknown[] | undefined) || [])
+            setReferralRewards((dataSnap.referralRewards as unknown[] | undefined) || [])
+            revDataPeriodRef.current = snapPeriod
+            anaDataRef.current = true
+            rev_setLoading(false)
+            ana_setLoading(false)
+          }
+        }
 
         const { data: prof } = await supabase
           .from('profiles').select('*').eq('id', user.id).maybeSingle()
@@ -322,10 +367,12 @@ export default function InsightsPage() {
 
           if (!myEntry) { setAuthLoading(false); rev_setLoading(false); ana_setLoading(false); return }
           setBarberId(myEntry.barber_id)
+          resolvedBarberId = myEntry.barber_id
 
           const { data: shopData } = await supabase
             .from('shops').select('*').eq('id', myEntry.shop_id).maybeSingle()
           setShop(shopData)
+          resolvedShop = shopData
           if (shopData?.owner_id) setShopOwnerId(shopData.owner_id)
 
           const { data: allBarbers } = await supabase
@@ -334,11 +381,13 @@ export default function InsightsPage() {
             .eq('shop_id', myEntry.shop_id)
             .eq('active', true)
           setShopBarbers(allBarbers || [])
+          resolvedBarbers = allBarbers || []
         } else {
           const { data: shopData } = await supabase
             .from('shops').select('*').eq('owner_id', user.id).maybeSingle()
           if (!shopData) { setAuthLoading(false); rev_setLoading(false); ana_setLoading(false); return }
           setShop(shopData)
+          resolvedShop = shopData
           setShopOwnerId(user.id)
 
           const { data: barbers } = await supabase
@@ -347,7 +396,14 @@ export default function InsightsPage() {
             .eq('shop_id', shopData.id)
             .eq('active', true)
           setShopBarbers(barbers || [])
+          resolvedBarbers = barbers || []
         }
+
+        tabCacheSet(`insights-auth:${user.id}`, {
+          profile: prof, role: userRole, barberId: resolvedBarberId,
+          shopOwnerId: userRole === 'barber' ? (resolvedShop?.owner_id || '') : user.id,
+          shop: resolvedShop, shopBarbers: resolvedBarbers,
+        })
 
         setAuthLoading(false)
       } catch {
@@ -370,11 +426,21 @@ export default function InsightsPage() {
     fetchReferralRewards()
   }, [shop])
 
+  // Keep the tab-switch snapshot current once a full load lands.
+  useEffect(() => {
+    if (authLoading || rev_loading || ana_loading || !shop) return
+    tabCacheSet(`insights-data:${shop.id}`, {
+      rev_appointments, rev_tips, rev_noshowCount, rev_history,
+      today_appts, today_tips, ana_appointments, ana_clientLocks,
+      ana_reviews, referralRewards, rev_period,
+    })
+  }, [authLoading, rev_loading, ana_loading, shop, rev_appointments, rev_tips, rev_noshowCount, rev_history, today_appts, today_tips, ana_appointments, ana_clientLocks, ana_reviews, referralRewards, rev_period])
+
   async function fetchRevenueData() {
     if (!userId) return
     const shopId = shop.id
     const isBarber = role === 'barber' && barberId
-    rev_setLoading(true)
+    if (revDataPeriodRef.current !== rev_period) rev_setLoading(true)
     try {
       const { start, end } = getPeriodRange(rev_period)
       const todayStr = fmt(new Date())
@@ -425,12 +491,13 @@ export default function InsightsPage() {
       // swallow
     } finally {
       rev_setLoading(false)
+      revDataPeriodRef.current = rev_period
     }
   }
 
   async function fetchAnalyticsData() {
     if (!shop) return
-    ana_setLoading(true)
+    if (!anaDataRef.current) ana_setLoading(true)
     try {
       const now = new Date()
       const start90 = fmt(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000))
@@ -455,6 +522,7 @@ export default function InsightsPage() {
       // swallow
     } finally {
       ana_setLoading(false)
+      anaDataRef.current = true
     }
   }
 
@@ -670,8 +738,8 @@ export default function InsightsPage() {
   }
 
   if (authLoading) return (
-    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
+    <div className="min-h-screen bg-warm-50">
+      <SkeletonPage variant="insights" />
     </div>
   )
 

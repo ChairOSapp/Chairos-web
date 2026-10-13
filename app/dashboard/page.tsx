@@ -2,6 +2,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
+import { tabCacheGet, tabCacheSet } from '@/lib/tabCache'
+import { SkeletonPage } from '@/components/Skeleton'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
@@ -181,6 +183,25 @@ export default function Dashboard() {
         if (!shopData) { router.push('/onboarding'); return }
         setShop(shopData)
         setShopId(shopData.id)
+        tabCacheSet(`bootstrap:${user.id}`, { profile: prof, shop: shopData })
+
+        // Warm tab switch: paint the last snapshot of this page now;
+        // the fresh load below overwrites it as it lands.
+        const snap = tabCacheGet<Record<string, unknown>>(`home:${shopData.id}`)
+        if (snap) {
+          setBarbers((snap.barbers as unknown[]) || [])
+          setAllBarbers((snap.allBarbers as unknown[]) || [])
+          setServices((snap.services as unknown[]) || [])
+          setClientLocks((snap.clientLocks as unknown[]) || [])
+          setTodayAppointments((snap.todayAppointments as unknown[]) || [])
+          setWeekAppointments((snap.weekAppointments as unknown[]) || [])
+          setTips((snap.tips as unknown[]) || [])
+          setRetentionRevenue((snap.retentionRevenue as number) || 0)
+          setBarberRiskMap((snap.barberRiskMap as Record<string, boolean>) || {})
+          setBarberStats30((snap.barberStats30 as Record<string, { appts: number; clients: number; repeatClients: number }>) || {})
+          setSavedClientsCount((snap.savedClientsCount as number) || 0)
+          setLoading(false)
+        }
 
         const [{ data: barbersData }, { data: allBarbersData }, { data: svcs }, { data: locks }] = await Promise.all([
           supabase.from('shop_barbers').select('*').eq('shop_id', shopData.id).eq('active', true),
@@ -275,6 +296,17 @@ export default function Dashboard() {
     load()
   }, [])
 
+  // Keep the tab-switch snapshot current, including realtime-driven
+  // updates, so returning to Home paints the latest known state.
+  useEffect(() => {
+    if (loading || !shopId) return
+    tabCacheSet(`home:${shopId}`, {
+      barbers, allBarbers, services, clientLocks, todayAppointments,
+      weekAppointments, tips, retentionRevenue, barberRiskMap,
+      barberStats30, savedClientsCount,
+    })
+  }, [loading, shopId, barbers, allBarbers, services, clientLocks, todayAppointments, weekAppointments, tips, retentionRevenue, barberRiskMap, barberStats30, savedClientsCount])
+
   useEffect(() => {
     if (!shopId) return
     const channel = supabase
@@ -318,8 +350,8 @@ export default function Dashboard() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-      <div className="w-6 h-6 rounded-full border-2 border-od-green border-t-transparent animate-spin" />
+    <div className="min-h-screen bg-warm-50">
+      <SkeletonPage variant="home" />
     </div>
   )
 
