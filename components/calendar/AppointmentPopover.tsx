@@ -65,6 +65,8 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
   const [newTime, setNewTime] = useState(appointment.time.slice(0, 5))
   const [reasonPromptFor, setReasonPromptFor] = useState<'noshow' | 'cancel' | null>(null)
   const [payPrompt, setPayPrompt] = useState(false)
+  const [payMethod, setPayMethod] = useState<string | null>(null)
+  const [customTip, setCustomTip] = useState('')
   const [reasonText, setReasonText] = useState('')
   const [opError, setOpError] = useState('')
   const [consentSignature, setConsentSignature] = useState<{ signed_pdf_path: string; signed_at: string } | null | undefined>(undefined)
@@ -159,29 +161,84 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
     onClose()
   }
 
-  // Mark done asks how the client paid when the appointment is not
-  // already paid, so money collected outside the register (cash in
-  // hand, Venmo, and so on) is logged on the appointment instead of
-  // vanishing. Picking a method records the payment as collected in
-  // full at the appointment price; "Not paid" just completes the
-  // appointment and leaves the payment state alone.
-  async function markDone(paymentMethod: string | null) {
+  // Mark done on an unpaid appointment asks how the client paid, then
+  // whether they tipped, so money collected outside the register (cash
+  // in hand, Venmo, a tip on top) is logged instead of vanishing.
+  // Cash-like methods record through the POS mark-paid route — the
+  // register's own server path (service-role write, deposit credit,
+  // tip on the appointment and in the tips table) — rather than a
+  // direct browser write. "Card" is logged directly: it records a card
+  // payment the shop already ran on its own reader, never a charge.
+  // "Not paid yet" just completes the appointment, payment untouched.
+  function choosePayMethod(paymentMethod: string) {
+    setOpError('')
+    if (appointment.price == null) {
+      // No price to record a payment against: log the method and
+      // complete, as before.
+      void finishMarkDone({ status: 'done', payment_method: paymentMethod })
+      return
+    }
+    setPayMethod(paymentMethod)
+  }
+
+  async function finishMarkDone(update: Record<string, unknown>) {
     setSaving(true)
     setOpError('')
-    const update: Record<string, unknown> = { status: 'done' }
-    if (paymentMethod) {
-      update.payment_method = paymentMethod
-      if (appointment.price != null) {
-        update.payment_status = 'paid'
-        update.amount_paid = Number(appointment.price) || 0
-      }
-    }
     const { error } = await supabase.from('appointments').update(update).eq('id', appointment.id)
     setSaving(false)
     if (error) { setOpError(error.message); return }
     setPayPrompt(false)
+    setPayMethod(null)
     onUpdated()
     onClose()
+  }
+
+  async function submitPaid(tipAmount: number) {
+    if (!payMethod) return
+    const tip = Math.max(0, Math.round(tipAmount * 100) / 100)
+    if (payMethod === 'square') {
+      const update: Record<string, unknown> = { status: 'done', payment_method: 'square' }
+      if (appointment.price != null) {
+        update.payment_status = 'paid'
+        update.amount_paid = Number(appointment.price) + tip
+        update.tip_amount = tip
+      }
+      if (tip > 0 && appointment.barber_id && appointment.shop_id) {
+        // Mirrors the register's tip record. Best-effort: the
+        // appointment write in finishMarkDone is the record that counts.
+        await supabase.from('tips').insert({
+          shop_id: appointment.shop_id,
+          barber_id: appointment.barber_id,
+          client_id: appointment.client_id ?? null,
+          amount: tip,
+          appointment_id: appointment.id,
+        })
+      }
+      await finishMarkDone(update)
+      return
+    }
+    setSaving(true)
+    setOpError('')
+    try {
+      const res = await fetch('/api/pos/mark-paid', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: appointment.id, paymentMethod: payMethod, tipAmount: tip }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        setOpError(data?.error || 'Could not record the payment. Try again in a moment.')
+        return
+      }
+      setPayPrompt(false)
+      setPayMethod(null)
+      onUpdated()
+      onClose()
+    } catch {
+      setOpError('Could not record the payment. Try again in a moment.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function reschedule() {
@@ -366,8 +423,9 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
           </div>
         )}
 
-        {/* Payment method prompt when marking done on an unpaid appointment */}
-        {payPrompt && (
+        {/* Payment prompt when marking done on an unpaid appointment:
+            step 1 picks how they paid, step 2 asks about a tip. */}
+        {payPrompt && !payMethod && (
           <div className="px-4 py-3 border-t border-warm-200 space-y-2.5">
             <div className="text-[11px] font-bold tracking-widest uppercase text-charcoal-400">
               How did they pay?
@@ -382,18 +440,64 @@ export default function AppointmentPopover({ appointment, barberName, accentColo
                 { label: 'Card', value: 'square' },
                 { label: 'Other', value: 'other' },
               ].map(m => (
-                <button key={m.value} onClick={() => markDone(m.value)} disabled={saving}
+                <button key={m.value} onClick={() => choosePayMethod(m.value)} disabled={saving}
                   className="py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-od-green/10 text-od-green border border-od-green/30 hover:bg-od-green/20 disabled:opacity-50 transition-colors">
                   {m.label}
                 </button>
               ))}
             </div>
             <div className="flex items-center justify-between">
-              <button onClick={() => markDone(null)} disabled={saving}
+              <button onClick={() => updateStatus('done')} disabled={saving}
                 className="py-1.5 text-xs font-medium text-charcoal-400 hover:text-charcoal-600 disabled:opacity-50 transition-colors">
                 Not paid yet
               </button>
               <button onClick={() => { setPayPrompt(false); setOpError('') }}
+                className="py-1.5 text-xs font-medium text-charcoal-400 hover:text-charcoal-600 transition-colors">
+                Back
+              </button>
+            </div>
+          </div>
+        )}
+
+        {payPrompt && payMethod && (
+          <div className="px-4 py-3 border-t border-warm-200 space-y-2.5">
+            <div className="text-[11px] font-bold tracking-widest uppercase text-charcoal-400">
+              Add a tip?
+            </div>
+            {opError && <p className="text-xs text-red-500">{opError}</p>}
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { label: 'No tip', value: 0 },
+                { label: '$5', value: 5 },
+                { label: '$10', value: 10 },
+                { label: '$15', value: 15 },
+                { label: '$20', value: 20 },
+              ].map(t => (
+                <button key={t.label} onClick={() => submitPaid(t.value)} disabled={saving}
+                  className="py-2.5 min-h-[44px] rounded-xl text-xs font-bold bg-od-green/10 text-od-green border border-od-green/30 hover:bg-od-green/20 disabled:opacity-50 transition-colors">
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center flex-1 rounded-xl border border-warm-300 bg-white px-3">
+                <span className="text-xs text-charcoal-400 mr-1">$</span>
+                <input
+                  type="number" inputMode="decimal" min="0" step="0.01" placeholder="Other amount"
+                  value={customTip} onChange={e => setCustomTip(e.target.value)}
+                  className="w-full py-2.5 text-sm text-charcoal-900 bg-transparent outline-none"
+                />
+              </div>
+              <button onClick={() => submitPaid(parseFloat(customTip) || 0)} disabled={saving || !(parseFloat(customTip) > 0)}
+                className="py-2.5 px-4 min-h-[44px] rounded-xl text-xs font-bold bg-od-green text-white hover:opacity-90 disabled:opacity-50 transition-opacity">
+                Add tip
+              </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="py-1.5 text-xs text-charcoal-400">
+                {payMethod === 'square' ? 'Paid by card' : payMethod === 'cashapp' ? 'Paid by Cash App' : `Paid by ${payMethod.charAt(0).toUpperCase() + payMethod.slice(1)}`}
+              </span>
+              <button onClick={() => { setPayMethod(null); setCustomTip(''); setOpError('') }}
                 className="py-1.5 text-xs font-medium text-charcoal-400 hover:text-charcoal-600 transition-colors">
                 Back
               </button>
