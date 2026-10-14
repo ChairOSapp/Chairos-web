@@ -142,6 +142,7 @@ export default function ClientsPage() {
   }, [])
   const [loading, setLoading] = useState(true)
   useLoadWatchdog(loading)
+  const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<FilterTab>('all')
   const [sorting, setSorting] = useState<SortingState>([{ id: 'lastVisit', desc: true }])
@@ -163,6 +164,7 @@ export default function ClientsPage() {
 
       // Warm tab switch: paint the cached snapshot before any network
       // fetch; the fresh load below overwrites as it lands.
+      let painted = false
       const boot = tabCacheGet<Record<string, unknown>>(`bootstrap:${user.id}`)
       const bootShop = boot?.shop as { id: string } | undefined
       if (bootShop?.id) {
@@ -176,14 +178,23 @@ export default function ClientsPage() {
           setMyBarberRow((snap.myBarberRow as { barber_name: string | null; alias: string | null; color: string | null; photo_url: string | null } | undefined) || null)
           setTagMap((snap.tagMap as Record<string, string[]>) || {})
           setAllTags((snap.allTags as string[]) || [])
+          painted = true
           setLoading(false)
         }
       }
 
-      const [{ data: prof }, { data: shopData }] = await Promise.all([
+      const [{ data: prof, error: profErr }, { data: shopData, error: shopErr }] = await Promise.all([
         supabase.from('profiles').select('id, full_name, role').eq('id', user.id).maybeSingle(),
         supabase.from('shops').select('id, name').eq('owner_id', user.id).maybeSingle(),
       ])
+      // A failed load must not masquerade as an empty client list (or
+      // bounce a real owner to onboarding). If a cached snapshot is
+      // already on screen, keep it; otherwise show a real error state.
+      if ((profErr || shopErr) && !painted) {
+        setLoadError(true)
+        setLoading(false)
+        return
+      }
       setProfile(prof)
       // A Solo Chair (role='barber') owns their own one-person shop and
       // manages its client list the same way an owner would; a hired
@@ -450,6 +461,20 @@ export default function ClientsPage() {
   if (loading) return (
     <div className="min-h-screen bg-warm-50">
       <SkeletonPage variant="list" />
+    </div>
+  )
+
+  if (loadError) return (
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center p-6">
+      <div className="max-w-sm w-full text-center">
+        <h1 className="text-lg font-semibold text-charcoal-900 mb-2">Your clients could not load</h1>
+        <p className="text-charcoal-500 text-sm mb-6">
+          They are still saved. This is usually a connection hiccup, so try loading the page again.
+        </p>
+        <button onClick={() => window.location.reload()} className="btn-chairos w-full">
+          Try again
+        </button>
+      </div>
     </div>
   )
 

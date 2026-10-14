@@ -1585,6 +1585,19 @@ export default function ShopSettings() {
 
         {tab === 'advanced' && (<>
 
+        {/* HELP & LEGAL */}
+        <div className="bg-warm-100 border border-warm-200 rounded-xl p-6 mt-6">
+          <div className="text-xs font-semibold tracking-widest uppercase text-charcoal-400 mb-1">Help & Legal</div>
+          <p className="text-xs text-charcoal-500 mb-4">
+            Stuck on something, or a billing question? Email us and a person will get back to you.
+          </p>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold">
+            <a href="mailto:support@chairos.cc" className="text-od-green hover:underline">Contact Support</a>
+            <a href="/privacy" className="text-od-green hover:underline">Privacy Policy</a>
+            <a href="/terms" className="text-od-green hover:underline">Terms of Service</a>
+          </div>
+        </div>
+
         {/* DANGER ZONE */}
         <div className="bg-warm-100 border border-red-900/40 rounded-xl p-6 mt-6">
           <div className="text-xs font-semibold tracking-widest uppercase text-red-400 mb-1">Danger Zone</div>
