@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 
 const COOKIE_NAME = 'chairos_portal_session'
-const SESSION_DAYS = 90
+const SESSION_DAYS = 30
 
 export interface PortalSessionPayload {
   clientAccountId: string

@@ -59,6 +59,9 @@ export default function PrivacyPage() {
               <li><strong>Supabase</strong> — database and data storage</li>
               <li><strong>Twilio</strong> — SMS message delivery</li>
               <li><strong>Stripe</strong> and <strong>Square</strong> — payment processing (they receive payment details directly; we never see full card numbers)</li>
+              <li><strong>Resend</strong> — email delivery</li>
+              <li><strong>Sentry</strong> — error and crash monitoring</li>
+              <li><strong>Trigger.dev</strong> — background job processing (reminders, campaigns, and cleanups)</li>
               <li><strong>Apple Push Notification Service</strong> — mobile push notifications</li>
             </ul>
           </section>
@@ -72,7 +75,7 @@ export default function PrivacyPage() {
               <li><strong>Signed consent forms:</strong> we retain these for 7 years as legal records, even after account cancellation, unless you request earlier deletion and no legal hold applies.</li>
               <li><strong>SMS and audit logs:</strong> retained for 1 year.</li>
             </ul>
-            <p className="mt-3"><strong>Your rights:</strong> you may request a copy of your data (export) or deletion of your data at any time. Shop owners can export client lists and appointment history from Settings. For full account deletion, email us at the address below — we complete deletion requests within 30 days.</p>
+            <p className="mt-3"><strong>Your rights:</strong> you may request a copy of your data (export) or deletion of your data at any time. Shop owners can export client lists and appointment history from Settings. For full account deletion, shop owners can use the Delete My Account option in Settings, or email us at the address below — we complete deletion requests within 30 days.</p>
           </section>
 
           <section>

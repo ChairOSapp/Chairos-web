@@ -14,6 +14,9 @@ function getAdmin() {
 // phone number, list that number's appointments at this shop for today.
 // Returns only today's rows (no history), and the actual check-in still
 // requires the OTP code, so a phone number alone can't confirm anything.
+// The client name is masked (first name + last initial): enough for the
+// client standing at the tablet to recognize their own booking, without
+// disclosing a full name to anyone who types somebody else's number.
 export async function POST(req: NextRequest) {
   const admin = getAdmin()
   let body: { shopCode?: string; phone?: string; today?: string }
@@ -74,11 +77,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const maskName = (name: string | null) => {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return 'Guest'
+    if (parts.length === 1) return parts[0]
+    return `${parts[0]} ${parts[parts.length - 1][0]}.`
+  }
+
   return NextResponse.json({
     appointments: matches.map(a => ({
       id: a.id,
       time: minutesToDisplayTime(timeStrToMinutes(String(a.time).slice(0, 5))),
-      clientName: a.client_name,
+      clientName: maskName(a.client_name),
       serviceName: (a.services as any)?.name ?? null,
       staffName: (a.barber_id ? barberNames[a.barber_id as string] : null) ?? null,
       status: a.status,
