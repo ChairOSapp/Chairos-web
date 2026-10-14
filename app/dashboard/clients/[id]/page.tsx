@@ -10,6 +10,7 @@ import ClientTags from '@/components/ClientTags'
 import ClientTimeline from '@/components/ClientTimeline'
 import { PAYMENT_METHODS, paymentMethodLabel } from '@/lib/paymentMethods'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 function logAudit(shopId: string, action: string, entityId: string, metadata: Record<string, unknown>) {
   fetch('/api/audit/log', {
@@ -74,6 +75,7 @@ export default function ClientProfilePage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [smsSending, setSmsSending] = useState(false)
   const [smsResult, setSmsResult] = useState<'sent' | 'error' | null>(null)
   const [assigning, setAssigning] = useState(false)

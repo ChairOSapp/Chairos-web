@@ -6,6 +6,7 @@ import { presentPdf } from '@/lib/pdfShare'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import StaffNav from '@/components/StaffNav'
 import { paymentMethodBucket } from '@/lib/paymentMethods'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 type Appointment = {
   id: string
@@ -40,6 +41,7 @@ export default function BarberEarningsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [tips, setTips] = useState<Tip[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [year, setYear] = useState(new Date().getFullYear())
   const [drillMode, setDrillMode] = useState<DrillMode>(null)
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('month')

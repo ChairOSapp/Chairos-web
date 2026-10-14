@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const CATALOG = [
   { name: 'Precision Haircut', price: 55, duration_minutes: 30, description: 'Clean lines, sharp edges' },
@@ -23,6 +24,7 @@ export default function ManageServices() {
   const [shop, setShop] = useState<any>(null)
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [userId, setUserId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)

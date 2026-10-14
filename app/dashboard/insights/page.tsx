@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { tabCacheGet, tabCacheSet } from '@/lib/tabCache'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 import { SkeletonPage } from '@/components/Skeleton'
 import { useRouter, usePathname } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
@@ -295,6 +296,11 @@ export default function InsightsPage() {
   const [ana_clientLocks, ana_setClientLocks] = useState<ClientLock[]>([])
   const [ana_reviews, ana_setReviews] = useState<any[]>([])
   const [ana_loading, ana_setLoading] = useState(true)
+
+  // The page's full-screen gate waits on all three loads; if any one
+  // of them stalls (the stale-session webview hang), the watchdog is
+  // the exit, same as the single-flag pages.
+  useLoadWatchdog(authLoading || rev_loading || ana_loading)
 
   // Which period the currently held revenue data belongs to, and
   // whether analytics data is held at all. Background refreshes (tab

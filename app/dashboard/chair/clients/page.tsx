@@ -3,12 +3,14 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import StaffMobileNav from '@/components/StaffMobileNav'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 export default function BarberClientsPage() {
   const [profile, setProfile] = useState<any>(null)
   const [shopBarber, setShopBarber] = useState<any>(null)
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [activeTab, setActiveTab] = useState<'locked'|'atrisk'|'loyalty'>('locked')
   const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 interface UnmatchedPayment {
   id: string
@@ -36,6 +37,7 @@ export default function UnmatchedPaymentsPage() {
   const [shop, setShop] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [payments, setPayments] = useState<UnmatchedPayment[]>([])
   const [candidatesByPayment, setCandidatesByPayment] = useState<Record<string, CandidateAppt[]>>({})
   const [resolving, setResolving] = useState<string | null>(null)

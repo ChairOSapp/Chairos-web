@@ -7,6 +7,7 @@ import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { FadeBackdrop, ModalPanel } from '@/components/motion'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 type Review = {
   id: string
@@ -91,6 +92,7 @@ export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [barbers, setBarbers] = useState<Barber[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [profile, setProfile] = useState<any>(null)
   const [userId, setUserId] = useState<string | null>(null)
 

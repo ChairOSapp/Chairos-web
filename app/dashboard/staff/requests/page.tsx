@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels, withIndefiniteArticle } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
 
@@ -13,6 +14,7 @@ export default function BarberRequestsPage() {
   const [shop, setShop] = useState<any>(null)
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [userId, setUserId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')

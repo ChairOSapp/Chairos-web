@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import StaffNav from '@/components/StaffNav'
 import StaffMobileNav from '@/components/StaffMobileNav'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 export default function BarberReviewsPage() {
   const [reviews, setReviews] = useState<any[]>([])
@@ -11,6 +12,7 @@ export default function BarberReviewsPage() {
   const [shopBarber, setShopBarber] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 

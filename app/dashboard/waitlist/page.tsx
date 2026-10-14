@@ -6,6 +6,7 @@ import OwnerNav from '@/components/OwnerNav'
 import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 interface WaitlistEntry {
   id: string
@@ -68,6 +69,7 @@ export default function WaitlistPage() {
   const [entries, setEntries] = useState<WaitlistEntry[]>([])
   const [logs, setLogs] = useState<NotifyLog[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [statusFilter, setStatusFilter] = useState<'active' | 'all'>('active')
 
   useEffect(() => {

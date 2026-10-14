@@ -7,6 +7,7 @@ import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { FadeBackdrop, ModalPanel } from '@/components/motion'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const COLORS = ['#b8861f','#4a7fb5','#3aab6e','#e07850','#9b6db5','#c06060']
 const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
@@ -26,6 +27,7 @@ export default function ManageBarbers() {
   const [rentDue, setRentDue] = useState<any[]>([])
   const [chargingId, setChargingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [userId, setUserId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)

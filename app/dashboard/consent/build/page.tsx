@@ -8,6 +8,7 @@ import {
   STATES, VERTICAL_LABELS, stateSummary,
   type Vertical,
 } from '@/lib/consent/rules'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 type Step = 'state' | 'vertical' | 'options'
 
@@ -15,6 +16,7 @@ export default function ConsentBuilderPage() {
   const [shop, setShop] = useState<any>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [step, setStep] = useState<Step>('state')
   const [stateCode, setStateCode] = useState('')
   const [vertical, setVertical] = useState<Vertical | null>(null)

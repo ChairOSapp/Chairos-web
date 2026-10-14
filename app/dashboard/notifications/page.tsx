@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import MobileNav from '@/components/MobileNav'
 import OwnerNav from '@/components/OwnerNav'
 import NotificationsInbox from '@/components/NotificationsInbox'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [shop, setShop] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [user, setUser] = useState<any>(null)

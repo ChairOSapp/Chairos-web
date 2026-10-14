@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { PAYMENT_METHODS, paymentMethodLabel, type PaymentMethod } from '@/lib/paymentMethods'
 import type { SplitEntry } from '@/lib/checkoutExtras'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 interface ShopLite { id: string; name: string }
 interface ReceiptState {
@@ -31,6 +32,7 @@ export default function QuickSale() {
   const supabase = useMemo(() => createClient(), [])
 
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [shop, setShop] = useState<ShopLite | null>(null)
   const [isOwner, setIsOwner] = useState(false)
   const [barbers, setBarbers] = useState<{ barber_id: string; barber_name: string | null; alias: string | null }[]>([])

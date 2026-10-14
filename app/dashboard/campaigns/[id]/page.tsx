@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const SMS_STATUS_COLORS: Record<string, string> = {
   sent: 'text-green-400',
@@ -23,6 +24,7 @@ export default function CampaignDetail() {
   const [recipients, setRecipients] = useState<any[]>([])
   const [runs, setRuns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {

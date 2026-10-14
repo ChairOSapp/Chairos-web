@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const TIMES = [
   '8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM',
@@ -19,6 +20,7 @@ export default function NewAppointment() {
   const [barbers, setBarbers] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [userId, setUserId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')

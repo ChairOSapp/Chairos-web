@@ -8,6 +8,7 @@ import { squareCardInputStyle } from '@/lib/squareCard'
 import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
 import { PAYMENT_METHODS, paymentMethodLabel, payoutHandleColumn, walletPayLink, type PaymentMethod } from '@/lib/paymentMethods'
 import QRCode from 'react-qr-code'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const TIP_PRESETS = [
   { label: '15%', pct: 0.15 },
@@ -95,6 +96,7 @@ export default function POSCheckout() {
   const [appt, setAppt] = useState<any>(null)
   const [client, setClient] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [error, setError] = useState('')
 
   // Tip

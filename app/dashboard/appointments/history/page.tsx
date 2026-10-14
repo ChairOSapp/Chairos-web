@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 export default function AppointmentHistory() {
   const { staffLabelPlural } = useVerticalLabels()
@@ -11,6 +12,7 @@ export default function AppointmentHistory() {
   const [barbers, setBarbers] = useState<any[]>([])
   const [appointments, setAppointments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [filterBarber, setFilterBarber] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterMonth, setFilterMonth] = useState('')

@@ -28,6 +28,7 @@ import {
   type ColumnDef,
   type FilterFn,
 } from '@tanstack/react-table'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 type FilterTab = 'all' | 'locked' | 'unlocked' | 'fading' | 'cold'
 
@@ -140,6 +141,7 @@ export default function ClientsPage() {
     if (tag) setTagFilter(tag)
   }, [])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<FilterTab>('all')
   const [sorting, setSorting] = useState<SortingState>([{ id: 'lastVisit', desc: true }])

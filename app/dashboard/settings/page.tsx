@@ -12,6 +12,7 @@ import ConsentManager from '@/components/ConsentManager'
 import SquareHistorySync from '@/components/SquareHistorySync'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { NOTIFICATION_EVENT_TYPES, defaultChannels } from '@/lib/notificationEvents'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 const DEFAULT_HOURS = DAYS.map(day => ({
@@ -52,6 +53,7 @@ export default function ShopSettings() {
   const [profile, setProfile] = useState<any>(null)
   const [myBarberRow, setMyBarberRow] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [userId, setUserId] = useState<string | null>(null)
   const [deletionRequested, setDeletionRequested] = useState(false)
   const [saving, setSaving] = useState(false)

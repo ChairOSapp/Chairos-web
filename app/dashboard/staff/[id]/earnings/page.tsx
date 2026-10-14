@@ -7,6 +7,7 @@ import { presentPdf } from '@/lib/pdfShare'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { paymentMethodBucket } from '@/lib/paymentMethods'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 export default function BarberEarnings() {
   const { staffLabelPlural } = useVerticalLabels()
@@ -15,6 +16,7 @@ export default function BarberEarnings() {
   const [appointments, setAppointments] = useState<any[]>([])
   const [tips, setTips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [year, setYear] = useState(new Date().getFullYear())
   const [hasTaxInfo, setHasTaxInfo] = useState<boolean | null>(null)
   const [generating, setGenerating] = useState(false)

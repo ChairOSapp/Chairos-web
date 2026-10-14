@@ -6,6 +6,7 @@ import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels, withIndefiniteArticle } from '@/lib/VerticalContext'
 import { FadeBackdrop, ModalPanel } from '@/components/motion'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 function logAudit(shopId: string, action: string, entityId: string, metadata: Record<string, unknown>) {
   fetch('/api/audit/log', {
@@ -21,6 +22,7 @@ export default function ClientLocksPage() {
   const [barbers, setBarbers] = useState<any[]>([])
   const [clientLocks, setClientLocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [userId, setUserId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'locked'|'atrisk'|'floating'>('locked')
   const [reassigning, setReassigning] = useState<string | null>(null)

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels, withIndefiniteArticle } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 export default function InviteBarber() {
   const { staffLabel, staffLabelPlural } = useVerticalLabels()
@@ -13,6 +14,7 @@ export default function InviteBarber() {
   const [email, setEmail] = useState('')
   const [selectedBarber, setSelectedBarber] = useState('')
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [userId, setUserId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [success, setSuccess] = useState('')

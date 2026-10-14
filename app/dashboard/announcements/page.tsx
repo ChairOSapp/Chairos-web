@@ -7,6 +7,7 @@ import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import AnnouncementsBoard from '@/components/AnnouncementsBoard'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 // Shared shop board: owners see the board plus the compose box;
 // staff see the board read-only. Staff reach it from their nav;
@@ -17,6 +18,7 @@ function AnnouncementsPageInner() {
   const [shop, setShop] = useState<any>(null)
   const [barbers, setBarbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
 
   useEffect(() => {
     let cancelled = false

@@ -6,6 +6,7 @@ import OwnerNav from '@/components/OwnerNav'
 import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { KIOSK_DEFAULT_ACCENT, KIOSK_DEFAULT_PRIMARY, type KioskDisplayMode } from '@/lib/kioskConfig'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const MODES: { value: KioskDisplayMode; label: string; description: string }[] = [
   { value: 'off', label: 'Off', description: 'Just the check-in form, nothing else' },
@@ -20,6 +21,7 @@ export default function KioskSettings() {
   const [myBarberRow, setMyBarberRow] = useState<any>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [error, setError] = useState('')

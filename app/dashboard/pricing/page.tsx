@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import OwnerNav from '@/components/OwnerNav'
 import MobileNav from '@/components/MobileNav'
 import { DAY_NAMES, isPromoRule, promoStatus, ruleLabel, type PricingRule } from '@/lib/pricing'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -18,6 +19,7 @@ export default function ManagePricing() {
   const [services, setServices] = useState<any[]>([])
   const [rules, setRules] = useState<PricingRule[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [userId, setUserId] = useState<string | null>(null)
   const [tab, setTab] = useState<'recurring' | 'promo'>('recurring')
   const [showForm, setShowForm] = useState(false)

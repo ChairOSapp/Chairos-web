@@ -10,6 +10,7 @@ import StaffNav from '@/components/StaffNav'
 import MobileNav from '@/components/MobileNav'
 import { Suspense } from 'react'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-warm-200 text-charcoal-500',
@@ -67,6 +68,7 @@ function CampaignsInner() {
   const [barbers, setBarbers] = useState<any[]>([])
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [selected, setSelected] = useState<Campaign | null>(null)
   const [builderStep, setBuilderStep] = useState(1)
 

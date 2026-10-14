@@ -7,6 +7,7 @@ import StaffNav from '@/components/StaffNav'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import { Suspense } from 'react'
 import ServicesEditor from '@/components/ServicesEditor'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 function BarberSettingsInner() {
   const [profile, setProfile] = useState<any>(null)
@@ -14,6 +15,7 @@ function BarberSettingsInner() {
   const [shop, setShop] = useState<any>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [success, setSuccess] = useState('')

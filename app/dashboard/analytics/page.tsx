@@ -12,6 +12,7 @@ import ClientHealthDashboard from '@/components/insights/ClientHealthDashboard'
 import RevenueIntelligence from '@/components/insights/RevenueIntelligence'
 import OpportunitiesSection from '@/components/insights/OpportunitiesSection'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 type AnalyticsPeriod = '30' | '90' | 'year'
 
@@ -191,6 +192,7 @@ export default function AnalyticsPage() {
   const [myBarberId, setMyBarberId] = useState<string | null>(null)
   const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 

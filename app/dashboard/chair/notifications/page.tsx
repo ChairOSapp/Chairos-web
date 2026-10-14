@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import StaffNav from '@/components/StaffNav'
 import NotificationsInbox from '@/components/NotificationsInbox'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 export default function BarberNotificationsPage() {
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [shopBarber, setShopBarber] = useState<any>(null)
   const [user, setUser] = useState<any>(null)
   const router = useRouter()

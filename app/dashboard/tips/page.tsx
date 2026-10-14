@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import MobileNav from '@/components/MobileNav'
 import OwnerNav from '@/components/OwnerNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 export default function TipsPage() {
   const { staffLabel, staffLabelPlural } = useVerticalLabels()
@@ -12,6 +13,7 @@ export default function TipsPage() {
   const [barbers, setBarbers] = useState<any[]>([])
   const [tips, setTips] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const [filterBarber, setFilterBarber] = useState('')
   const [filterMonth, setFilterMonth] = useState('')
   const [profile, setProfile] = useState<any>(null)

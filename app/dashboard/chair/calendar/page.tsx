@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import StaffNav from '@/components/StaffNav'
 import StaffMobileNav from '@/components/StaffMobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 const StaffCalendar = dynamic(
   () => import('@/components/calendar/StaffCalendar'),
@@ -33,6 +34,7 @@ function StaffCalendarPageInner() {
   const [profile, setProfile] = useState<any>(null)
   const [shopBarber, setShopBarber] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const router = useRouter()
   const params = useSearchParams()
   const openBook = params.get('book') === '1'

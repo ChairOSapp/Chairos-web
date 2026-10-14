@@ -7,6 +7,7 @@ import MobileNav from '@/components/MobileNav'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { addonsTotalOf } from '@/lib/checkoutExtras'
 import { paymentMethodLabel } from '@/lib/paymentMethods'
+import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
 
 type Period = 'today' | 'week' | 'month' | 'year'
 
@@ -160,6 +161,7 @@ export default function RevenuePage() {
   const [tips, setTips] = useState<Tip[]>([])
   const [shopBarbers, setShopBarbers] = useState<ShopBarber[]>([])
   const [loading, setLoading] = useState(true)
+  useLoadWatchdog(loading)
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 
