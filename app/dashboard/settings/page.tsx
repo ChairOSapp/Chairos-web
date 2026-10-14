@@ -13,6 +13,7 @@ import SquareHistorySync from '@/components/SquareHistorySync'
 import { useVerticalLabels } from '@/lib/VerticalContext'
 import { NOTIFICATION_EVENT_TYPES, defaultChannels } from '@/lib/notificationEvents'
 import { useLoadWatchdog } from '@/lib/useLoadWatchdog'
+import { isNativeApp } from '@/lib/platform'
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 const DEFAULT_HOURS = DAYS.map(day => ({
@@ -51,6 +52,9 @@ export default function ShopSettings() {
   const { staffLabel, staffLabelPlural, vertical } = useVerticalLabels()
   const [shop, setShop] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
+  // iOS app: billing surfaces show status only — no prices, purchase
+  // buttons, or Stripe portal hops (App Store rules; see /subscribe gate).
+  const [isNative] = useState<boolean>(() => isNativeApp())
   const [myBarberRow, setMyBarberRow] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   useLoadWatchdog(loading)
@@ -1242,11 +1246,17 @@ export default function ShopSettings() {
           {!missedCallAddonActive && !twilioVoiceNumber && (
             <div className="p-5">
               <p className="text-sm text-charcoal-700 mb-2">Never lose a booking to a missed call. When you can&rsquo;t pick up, we text the caller a link to book online — automatically.</p>
-              <p className="text-xs text-charcoal-500 mb-4">We provide the phone number, so there&rsquo;s nothing technical to set up. You just forward your unanswered calls to it. <span className="font-semibold text-charcoal-700">$10/month</span>, added to your subscription — one recovered haircut pays for months of it. Cancel anytime.</p>
-              <button onClick={addMissedCallAddon} disabled={addonBusy}
-                className="bg-od-green hover:bg-od-green-light text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
-                {addonBusy ? 'Adding…' : 'Add it for $10/mo'}
-              </button>
+              {isNative ? (
+                <p className="text-xs text-charcoal-500">We provide the phone number, so there&rsquo;s nothing technical to set up. You just forward your unanswered calls to it. It&rsquo;s an add-on to your subscription — add it from your account at chairos.cc in your browser.</p>
+              ) : (
+                <>
+                  <p className="text-xs text-charcoal-500 mb-4">We provide the phone number, so there&rsquo;s nothing technical to set up. You just forward your unanswered calls to it. <span className="font-semibold text-charcoal-700">$10/month</span>, added to your subscription — one recovered haircut pays for months of it. Cancel anytime.</p>
+                  <button onClick={addMissedCallAddon} disabled={addonBusy}
+                    className="bg-od-green hover:bg-od-green-light text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+                    {addonBusy ? 'Adding…' : 'Add it for $10/mo'}
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -1290,10 +1300,14 @@ export default function ShopSettings() {
                 </div>
               )}
 
-              <button onClick={removeMissedCallAddon} disabled={addonBusy}
-                className="text-xs text-charcoal-500 underline underline-offset-2 hover:text-charcoal-700 mt-5 disabled:opacity-50">
-                Remove the add-on
-              </button>
+              {isNative ? (
+                <p className="text-xs text-charcoal-500 mt-5">To remove the add-on, manage billing at chairos.cc in your browser.</p>
+              ) : (
+                <button onClick={removeMissedCallAddon} disabled={addonBusy}
+                  className="text-xs text-charcoal-500 underline underline-offset-2 hover:text-charcoal-700 mt-5 disabled:opacity-50">
+                  Remove the add-on
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1473,7 +1487,7 @@ export default function ShopSettings() {
                 {(() => {
                   const planLabel = profile?.plan_type === 'solo' ? 'Solo Chair Plan' : 'Shop Plan'
                   const planPrice = profile?.plan_type === 'solo' ? '$25/mo' : '$79/mo'
-                  if (profile?.subscription_status === 'active') return `${planLabel} · ${planPrice}`
+                  if (profile?.subscription_status === 'active') return isNative ? planLabel : `${planLabel} · ${planPrice}`
                   if (profile?.subscription_status === 'trialing') return `${planLabel} · Free Trial`
                   if (profile?.subscription_status === 'past_due') return `${planLabel} · Payment Failed`
                   if (profile?.subscription_status === 'cancelled') return `${planLabel} · Cancelled`
@@ -1493,7 +1507,11 @@ export default function ShopSettings() {
                 )}
               </div>
             </div>
-            {profile?.stripe_customer_id ? (
+            {isNative ? (
+              <span className="text-xs text-charcoal-500 max-w-[190px] text-right">
+                Billing is managed at chairos.cc in your browser.
+              </span>
+            ) : profile?.stripe_customer_id ? (
               <button
                 onClick={() => router.push('/api/stripe/portal')}
                 className="px-4 py-2 bg-warm-200 border border-warm-300 rounded-lg text-xs font-semibold text-charcoal-400 hover:border-od-green hover:text-od-green transition-colors whitespace-nowrap"

@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>ChairOS uses the camera when you choose to take a photo for your shop profile, portfolio, or announcements.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ChairOS uses your photo library when you choose a photo for your shop profile, portfolio, or announcements.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

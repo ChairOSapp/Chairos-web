@@ -1,6 +1,8 @@
 'use client'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBillingStatus, daysUntil } from '@/lib/billing'
+import { isNativeApp } from '@/lib/platform'
 
 type Props = {
   subscriptionStatus: string | null | undefined
@@ -11,6 +13,11 @@ type Props = {
 
 export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate, trialEnd, stripeSubscriptionId }: Props) {
   const router = useRouter()
+  // In the iOS app these banners must not carry prices or purchase
+  // buttons (App Store rules for externally sold subscriptions): the
+  // status information stays, buying moves to plain words pointing at
+  // the website, matching the /subscribe gate.
+  const [native] = useState<boolean>(() => isNativeApp())
 
   const billingStatus = getBillingStatus({
     subscription_status: subscriptionStatus ?? null,
@@ -33,12 +40,18 @@ export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate,
             Update your payment method to avoid losing access. Stripe will retry automatically.
           </div>
         </div>
-        <button
-          onClick={() => router.push('/api/stripe/portal')}
-          className="flex-shrink-0 bg-red-700 hover:bg-red-600 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
-        >
-          Update Card
-        </button>
+        {native ? (
+          <div className="flex-shrink-0 text-xs text-red-300/90 max-w-[180px]">
+            Update your card at chairos.cc in your browser.
+          </div>
+        ) : (
+          <button
+            onClick={() => router.push('/api/stripe/portal')}
+            className="flex-shrink-0 bg-red-700 hover:bg-red-600 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
+          >
+            Update Card
+          </button>
+        )}
       </div>
     )
   }
@@ -54,12 +67,18 @@ export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate,
               : 'Your access has expired.'}
           </div>
         </div>
-        <button
-          onClick={() => router.push('/subscribe')}
-          className="flex-shrink-0 bg-od-green hover:opacity-80 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
-        >
-          Renew Now
-        </button>
+        {native ? (
+          <div className="flex-shrink-0 text-xs text-red-300/90 max-w-[180px]">
+            Renew at chairos.cc in your browser.
+          </div>
+        ) : (
+          <button
+            onClick={() => router.push('/subscribe')}
+            className="flex-shrink-0 bg-od-green hover:opacity-80 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
+          >
+            Renew Now
+          </button>
+        )}
       </div>
     )
   }
@@ -75,12 +94,18 @@ export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate,
               : 'Your access has expired. Subscribe to the Solo Chair plan to continue.'}
           </div>
         </div>
-        <button
-          onClick={() => router.push('/subscribe')}
-          className="flex-shrink-0 bg-[#8A9A3B] hover:bg-[#7A8A33] text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
-        >
-          Go Solo — $25/mo
-        </button>
+        {native ? (
+          <div className="flex-shrink-0 text-xs text-amber-300/90 max-w-[180px]">
+            Subscribe at chairos.cc in your browser.
+          </div>
+        ) : (
+          <button
+            onClick={() => router.push('/subscribe')}
+            className="flex-shrink-0 bg-[#8A9A3B] hover:bg-[#7A8A33] text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
+          >
+            Go Solo — $25/mo
+          </button>
+        )}
       </div>
     )
   }
@@ -92,12 +117,18 @@ export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate,
           <div className="text-sm font-semibold text-red-300 mb-0.5">Your free trial has ended</div>
           <div className="text-xs text-red-400/80">Subscribe to keep sending campaigns and messages, and to keep your dashboard.</div>
         </div>
-        <button
-          onClick={() => router.push('/subscribe')}
-          className="flex-shrink-0 bg-od-green hover:opacity-80 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
-        >
-          Subscribe Now
-        </button>
+        {native ? (
+          <div className="flex-shrink-0 text-xs text-red-300/90 max-w-[180px]">
+            Subscribe at chairos.cc in your browser.
+          </div>
+        ) : (
+          <button
+            onClick={() => router.push('/subscribe')}
+            className="flex-shrink-0 bg-od-green hover:opacity-80 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
+          >
+            Subscribe Now
+          </button>
+        )}
       </div>
     )
   }
@@ -109,12 +140,18 @@ export default function PaywallBanner({ subscriptionStatus, subscriptionEndDate,
           <div className="text-sm font-semibold text-red-300 mb-0.5">Access suspended</div>
           <div className="text-xs text-red-400/80">Your subscription has ended. Subscribe to restore access.</div>
         </div>
-        <button
-          onClick={() => router.push('/subscribe')}
-          className="flex-shrink-0 bg-od-green hover:opacity-80 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
-        >
-          Subscribe Now
-        </button>
+        {native ? (
+          <div className="flex-shrink-0 text-xs text-red-300/90 max-w-[180px]">
+            Subscribe at chairos.cc in your browser.
+          </div>
+        ) : (
+          <button
+            onClick={() => router.push('/subscribe')}
+            className="flex-shrink-0 bg-od-green hover:opacity-80 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
+          >
+            Subscribe Now
+          </button>
+        )}
       </div>
     )
   }
