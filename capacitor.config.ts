@@ -19,7 +19,13 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1500,
+      // Hold the native splash until the web app says it is ready
+      // (SplashShell hides it once the branded web shell has painted).
+      // Auto-hiding here is what used to drop the splash early and
+      // flash the raw site streaming in.
+      launchShowDuration: 0,
+      launchAutoHide: false,
+      launchFadeOutDuration: 300,
       backgroundColor: '#4b5320',
     },
     StatusBar: {
