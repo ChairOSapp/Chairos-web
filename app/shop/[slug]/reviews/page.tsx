@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
+import ReportReviewButton from '@/components/ReportReviewButton'
 
 type SortOption = 'newest' | 'highest' | 'lowest'
 
@@ -225,6 +226,9 @@ export default function ShopReviews() {
                   {r.body && (
                     <p className="text-sm text-charcoal-600 leading-relaxed">{r.body}</p>
                   )}
+                  <div className="mt-2">
+                    <ReportReviewButton reviewId={r.id} />
+                  </div>
                 </div>
               )
             })}

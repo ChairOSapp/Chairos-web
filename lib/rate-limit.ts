@@ -33,6 +33,7 @@ export type RateLimitBucket =
   | 'campaignSend'
   | 'fillAheadSend'
   | 'aiGenerate'
+  | 'reviewReport'
 
 // failClosed controls what happens when Redis is unreachable or not
 // configured at all: true means the request is blocked (safer default for
@@ -94,6 +95,10 @@ const BUCKET_CONFIG: Record<RateLimitBucket, { limit: number; window: Parameters
   // Authenticated AI copy generation (/api/campaigns/generate) -- burns
   // Anthropic tokens per call. Fail closed for the same spend reason.
   aiGenerate: { limit: 20, window: '1 h', failClosed: true },
+  // Public review reports (/api/reviews/report) -- anonymous flagging of
+  // objectionable reviews. Fail open: a Redis blip should not block an
+  // abuse report; the limit only blunts scripted flooding.
+  reviewReport: { limit: 5, window: '60 s', failClosed: false },
 }
 
 const limiters = new Map<RateLimitBucket, Ratelimit>()

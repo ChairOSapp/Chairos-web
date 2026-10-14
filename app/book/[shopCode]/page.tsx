@@ -11,6 +11,7 @@ import { DAY_NAMES, findApplicablePricing, promoActiveOn, isPromoRule, ruleLabel
 import { squareCardInputStyle } from '@/lib/squareCard'
 import { describeSquareInitError, type SquareInitStep } from '@/lib/squareInitDiag'
 import { StepPanel, Pressable } from '@/components/motion'
+import ReportReviewButton from '@/components/ReportReviewButton'
 
 const CAPTCHA_ENABLED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -1361,6 +1362,9 @@ function BookingPageInner() {
                       <span className="text-xs text-amber-500">{'★'.repeat(Math.max(0, Math.min(5, r.rating || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, r.rating || 0)))}</span>
                     </div>
                     {r.body && <p className="text-xs text-charcoal-600 line-clamp-2">{r.body}</p>}
+                    <div className="mt-1">
+                      <ReportReviewButton reviewId={r.id} />
+                    </div>
                   </div>
                 ))}
               </div>
