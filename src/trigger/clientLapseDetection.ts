@@ -2,6 +2,7 @@ import { schedules, tasks } from "@trigger.dev/sdk"
 import { createClient } from "@supabase/supabase-js"
 import { logger } from "@/lib/logger"
 import { sendNotification } from "@/lib/notify"
+import { runCampaignAttribution } from "./campaignAttribution"
 
 function getSupabase() {
   return createClient(
@@ -251,7 +252,23 @@ export const clientLapseDetection = schedules.task({
       await tasks.trigger('rebooking-sms', payload)
     }
 
+    // Campaign attribution used to be its own scheduled task (06:30 UTC,
+    // right after this one). The Trigger.dev project is at its 10/10
+    // schedule limit, so it runs here as a plain function instead — same
+    // pattern as referralNotifications inside depositHoldExpiration.
+    // Wrapped in try/catch so an attribution failure can't fail lapse
+    // detection (per-shop errors are logged inside runCampaignAttribution).
+    let attributed = 0
+    try {
+      const attrResult = await runCampaignAttribution()
+      attributed = attrResult.totalAttributed
+    } catch (err) {
+      logger.error('campaign_attribution_failed', {
+        message: err instanceof Error ? err.message : String(err),
+      })
+    }
+
     logger.info('client_lapse_detection_run_complete', { alertsCreated, smsTriggered, clientsEvaluated: clientMap.size })
-    return { alertsCreated, smsTriggered }
+    return { alertsCreated, smsTriggered, attributed }
   },
 })
